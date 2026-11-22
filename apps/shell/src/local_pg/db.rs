@@ -195,26 +195,56 @@ pub async fn query_as<C: Conn>(
     params: &[Value],
     user: Option<Option<&str>>,
 ) -> Result<TextRows, PgError> {
+    query_in(conn, BEGIN, sql, params, user).await
+}
+
+/// Like [`query_as`], but the transaction is `READ ONLY`, so Postgres refuses any write in it.
+///
+/// # Errors
+/// Fails with the statement's error (a write fails with SQLSTATE 25006), or the error from the retry.
+pub async fn query_read_only<C: Conn>(
+    conn: &mut C,
+    sql: &str,
+    params: &[Value],
+    user: Option<Option<&str>>,
+) -> Result<TextRows, PgError> {
+    query_in(conn, BEGIN_READ_ONLY, sql, params, user).await
+}
+
+/// Opening statement of a read-write transaction.
+const BEGIN: &str = "BEGIN";
+/// Opening statement of a read-only transaction.
+const BEGIN_READ_ONLY: &str = "BEGIN READ ONLY";
+
+/// Runs one statement in a transaction opened by `begin`, as the user, retrying once if the connection was stuck.
+async fn query_in<C: Conn>(
+    conn: &mut C,
+    begin: &str,
+    sql: &str,
+    params: &[Value],
+    user: Option<Option<&str>>,
+) -> Result<TextRows, PgError> {
     let claims = claims_for(user);
-    let err = match query_once(conn, sql, params, &claims).await {
+    let err = match query_once(conn, begin, sql, params, &claims).await {
         Ok(rows) => return Ok(rows),
         Err(err) => err,
     };
     if !clear_aborted(conn, &err).await {
         return Err(err);
     }
-    query_once(conn, sql, params, &claims).await
+    query_once(conn, begin, sql, params, &claims).await
 }
 
 /// One statement in its own transaction, with the claims set first.
 async fn query_once<C: Conn>(
     conn: &mut C,
+    begin: &str,
     sql: &str,
     params: &[Value],
     claims: &str,
 ) -> Result<TextRows, PgError> {
     // A failed BEGIN leaves nothing open to roll back.
-    conn.exec("BEGIN").await?;
+    conn.exec(begin).await?;
     match run_in_tx(conn, sql, params, claims).await {
         Ok(rows) => Ok(rows),
         Err(err) => {
@@ -479,6 +509,35 @@ mod tests {
                 "COMMIT".to_string(),
             ]
         );
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn query_read_only_opens_read_only_transaction() -> Result<(), Box<dyn std::error::Error>> {
+        let mut fake = Fake::default();
+        let _ = query_read_only(&mut fake, "select 1", &[], None).await?;
+        assert_eq!(fake.log[0], "BEGIN READ ONLY");
+        assert!(fake.log[1].starts_with(SET_CONFIG_SQL));
+        assert_eq!(fake.log[2], "select 1 | []");
+        assert_eq!(fake.log[3], "COMMIT");
+        assert_eq!(fake.log.len(), 4);
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn query_read_only_rolls_back_and_reports_refused_write() -> Result<(), Box<dyn std::error::Error>> {
+        let mut fake = Fake::default();
+        fake.fail.push((
+            "insert into".to_string(),
+            pg_error("25006", "cannot execute INSERT in a read-only transaction"),
+        ));
+        let err = query_read_only(&mut fake, "insert into papers (id) values ($1)", &[], None)
+            .await
+            .err()
+            .ok_or("write must fail")?;
+        assert_eq!(err.code, "25006");
+        assert_eq!(fake.log.last().map(String::as_str), Some("ROLLBACK"));
+        assert!(!fake.log.iter().any(|line| line == "COMMIT"));
         Ok(())
     }
 

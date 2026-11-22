@@ -547,8 +547,30 @@ impl<E: Engine> PgHost<E> {
         if sql.trim().is_empty() || !params.iter().all(plain) {
             return Err(BAD_QUERY.to_owned());
         }
+        self.run_logged(sql, params, false).await
+    }
+
+    /// Runs one page of the 0.9.7 export read as the device user, in a READ ONLY transaction, so a
+    /// write in the page's SQL is refused by Postgres.
+    ///
+    /// # Errors
+    /// A message for the page: a bad query, the open failure, or the statement's error.
+    pub async fn read_page(&self, page: &super::read::PageQuery) -> Result<Vec<Value>, String> {
+        if !page.params.iter().all(plain) {
+            return Err(BAD_QUERY.to_owned());
+        }
+        self.run_logged(&page.sql, &page.params, true).await
+    }
+
+    /// Runs one statement under the query lock and logs its SQL when it fails.
+    async fn run_logged(
+        &self,
+        sql: &str,
+        params: &[Value],
+        read_only: bool,
+    ) -> Result<Vec<Value>, String> {
         let mut inner = self.inner.lock().await;
-        self.run(&mut inner, sql, params).await.map_err(|err| {
+        self.run(&mut inner, sql, params, read_only).await.map_err(|err| {
             // SQL only, never params: they can hold a person's text.
             let code = if err.code.is_empty() {
                 String::new()
@@ -653,6 +675,7 @@ impl<E: Engine> PgHost<E> {
         inner: &mut Inner<E>,
         sql: &str,
         params: &[Value],
+        read_only: bool,
     ) -> Result<Vec<Value>, PgError> {
         if inner.closed {
             return Err(PgError::local(CLOSED));
@@ -667,7 +690,11 @@ impl<E: Engine> PgHost<E> {
         };
         let result = match result {
             Ok(user) => {
-                let result = db::query_as(&mut open.conn, sql, params, Some(Some(&user))).await;
+                let result = if read_only {
+                    db::query_read_only(&mut open.conn, sql, params, Some(Some(&user))).await
+                } else {
+                    db::query_as(&mut open.conn, sql, params, Some(Some(&user))).await
+                };
                 if !(result.is_ok() && db::resets_device_user(sql)) {
                     inner.user = Some(user);
                 }
@@ -1045,6 +1072,34 @@ mod tests {
         assert_eq!(host.state().failure, None);
         let _ = host.query("select 1", &[]).await;
         assert_eq!(engine.opens.load(Ordering::SeqCst), 1);
+    }
+
+    #[tokio::test]
+    async fn read_page_runs_read_only_and_marks_nothing_changed() -> Result<(), String> {
+        let (engine, host) = host();
+        let page = super::super::read::page_sql("papers", None, 10).map_err(|e| e.to_string())?;
+        let _ = host.read_page(&page).await?;
+        assert_eq!(count(&engine, "BEGIN READ ONLY"), 1);
+        let bare_begins = engine
+            .seen
+            .lock()
+            .map(|seen| seen.iter().filter(|s| s.as_str() == "BEGIN").count())
+            .unwrap_or(usize::MAX);
+        assert_eq!(bare_begins, 0, "a read page must not open a read-write transaction");
+        assert_eq!(count(&engine, "select * from \"papers\""), 1);
+        assert!(!host.changed.load(Ordering::Acquire));
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn read_page_refuses_non_plain_params_without_opening() {
+        let (engine, host) = host();
+        let page = super::super::read::PageQuery {
+            sql: "select 1".to_owned(),
+            params: vec![json!([1])],
+        };
+        assert_eq!(host.read_page(&page).await, Err(BAD_QUERY.to_owned()));
+        assert_eq!(engine.opens.load(Ordering::SeqCst), 0);
     }
 
     #[tokio::test]

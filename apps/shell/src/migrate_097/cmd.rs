@@ -1,5 +1,5 @@
-//! Tauri commands for the 0.9.7 migration: `migrate_097_status`, `migrate_097_counts` and
-//! `migrate_097_remove_old`. The rules live in `status`, `counts` and `remove`; these only
+//! Tauri commands for the 0.9.7 migration: `migrate_097_status`, `migrate_097_counts`,
+//! `migrate_097_read` and `migrate_097_remove_old`. The rules live in `status`, `counts` and `remove`; these only
 //! gather the paths, the clock and the database handle.
 
 use std::path::PathBuf;
@@ -54,6 +54,19 @@ pub async fn migrate_097_counts(db: tauri::State<'_, LocalDb>) -> Result<RowCoun
         .and_then(serde_json::Value::as_str)
         .ok_or_else(|| ShellError::from("row counts query returned no value".to_owned()))?;
     parse_counts(text).map_err(ShellError::from)
+}
+
+/// One page of exporter `kind`, read-only. `after` is the last key read (one value per key column);
+/// `limit` is clamped to 1000. Unknown kinds and `ink` are refused.
+#[tauri::command]
+#[specta::specta]
+pub async fn migrate_097_read(
+    db: tauri::State<'_, LocalDb>,
+    kind: String,
+    after: Option<Vec<serde_json::Value>>,
+    limit: u32,
+) -> Result<Vec<serde_json::Value>, ShellError> {
+    db.read_page(&kind, after.as_deref(), limit).await
 }
 
 /// Deletes the local cluster after a verified migration. See `remove_old_data` for the gates.
