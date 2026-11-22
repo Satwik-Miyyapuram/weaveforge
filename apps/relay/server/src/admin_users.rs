@@ -19,7 +19,7 @@ use crate::auth::bearer_token;
 use crate::gotrue::{self, Member};
 use crate::postgrest::UserDb;
 use crate::routes::AppState;
-use crate::safe_error::format_error_for_response;
+use crate::safe_error::{database_code, format_error_for_response, log_line};
 use crate::sdk::{error_response, json_response};
 
 /// `POST /api/admin/create-user`: create the account, its `profiles` row, and answer with the member.
@@ -137,7 +137,12 @@ async fn provision(
     });
     if let Err(err) = db.upsert("profiles", &row, &[]).await {
         let _ = gotrue::admin_delete_user(state, &id).await;
-        return Err(err.message);
+        let line = log_line(&err, "admin-create-user profile write");
+        // A unique violation on the profile means the email is taken: provision_failure answers 409.
+        if database_code(err.code.as_deref()).as_deref() == Some("23505") {
+            return Err(format!("{line}: already exists"));
+        }
+        return Err(line);
     }
     let member = Member {
         id,

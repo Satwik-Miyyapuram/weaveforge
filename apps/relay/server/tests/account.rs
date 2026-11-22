@@ -283,3 +283,46 @@ async fn failed_data_delete_keeps_the_auth_account() {
     assert!(value["error"].as_str().is_some_and(|m| !m.is_empty()));
     assert!(calls(&up, "DELETE", ADMIN_DELETE).is_empty());
 }
+
+/// A database reply that echoes a key and an email in its message and details.
+const LEAKY: &str = r#"{"code":"42501","message":"permission denied eq.secret-key","details":"Key (email)=(jane@example.com)"}"#;
+
+/// The response body never carries the database message, whichever step failed.
+fn assert_no_leak(value: &Value) {
+    let error = value["error"].as_str().expect("error message");
+    assert!(!error.is_empty());
+    assert!(
+        !error.contains("secret") && !error.contains("jane"),
+        "{error}"
+    );
+    assert!(!error.contains("HTTP 403"), "{error}");
+}
+
+#[tokio::test]
+async fn data_delete_error_never_echoes_the_database_message() {
+    let up = upstream(PROFILE_OK, vec![(RPC, vec![json_reply(403, LEAKY)])]).await;
+    let (status, _, value) = reply(&up, post(DELETE_USER, CONFIRMED, Some(SESSION))).await;
+    assert_eq!(status, StatusCode::INTERNAL_SERVER_ERROR);
+    assert_no_leak(&value);
+    assert!(calls(&up, "DELETE", ADMIN_DELETE).is_empty());
+}
+
+#[tokio::test]
+async fn blob_purge_error_never_echoes_the_database_message() {
+    let up = upstream(PROFILE_OK, vec![(BLOBS, vec![json_reply(403, LEAKY)])]).await;
+    let (status, _, value) = reply(&up, post(DELETE_USER, CONFIRMED, Some(SESSION))).await;
+    assert_eq!(status, StatusCode::INTERNAL_SERVER_ERROR);
+    assert_no_leak(&value);
+    assert!(calls(&up, "POST", RPC).is_empty());
+    assert!(calls(&up, "DELETE", ADMIN_DELETE).is_empty());
+}
+
+#[tokio::test]
+async fn profile_read_error_is_401_without_the_database_message() {
+    let up = upstream(PROFILE_OK, vec![(PROFILES, vec![json_reply(403, LEAKY)])]).await;
+    for path in [DELETE_USER, DELETE_OTP] {
+        let (status, _, value) = reply(&up, post(path, CONFIRMED, Some(SESSION))).await;
+        assert_eq!(status, StatusCode::UNAUTHORIZED, "{path}");
+        assert_no_leak(&value);
+    }
+}

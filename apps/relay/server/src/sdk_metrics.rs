@@ -19,6 +19,7 @@ use wf_core::sync::instant::format_instant;
 
 use crate::postgrest::{UserDb, eq, in_list};
 use crate::routes::AppState;
+use crate::safe_error::log_line;
 use crate::sdk::{
     caller, db_failure, error_response, json_response, parse_body, query_param, user_db,
 };
@@ -115,8 +116,11 @@ pub async fn ingest_metrics(db: &UserDb<'_>, body: Option<Value>, now_ms: i64) -
         ];
         if let Err(err) = db.delete("experiment_metrics", &query).await {
             eprintln!(
-                "[sdk-metrics] stale tip delete failed for step {}: {}",
-                tip.step, err.message
+                "{}",
+                log_line(
+                    &err,
+                    &format!("sdk-metrics stale tip delete, step {}", tip.step)
+                )
             );
         }
     }

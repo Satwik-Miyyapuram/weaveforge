@@ -23,6 +23,7 @@ use crate::gotrue::{
 };
 use crate::postgrest::UserDb;
 use crate::routes::AppState;
+use crate::safe_error::format_error_for_response;
 use crate::sdk::{error_response, json_response};
 
 /// `POST /api/account/delete-user/otp`: emails the caller a confirmation code.
@@ -84,12 +85,8 @@ async fn delete_caller(
         Ok(Some(member)) => member,
         Ok(None) => return Err(error_response(401, "Invalid session.")),
         Err(err) => {
-            let status = if err.message.starts_with("Forbidden") {
-                403
-            } else {
-                401
-            };
-            return Err(error_response(status, &err.message));
+            let message = format_error_for_response(&err, "account caller profile read");
+            return Err(error_response(401, &message));
         }
     };
     let email = member.email.as_deref().unwrap_or("").trim().to_owned();
@@ -139,7 +136,10 @@ async fn confirm_and_delete(
     let _purged = db
         .rpc("delete_user_account_data", &json!({"p_user_id": user_id}))
         .await
-        .map_err(|err| failure(&err.message))?;
+        .map_err(|err| {
+            let message = format_error_for_response(&err, "account delete data");
+            error_response(500, &message)
+        })?;
     admin_delete_user(state, user_id)
         .await
         .map_err(|message| failure(&message))

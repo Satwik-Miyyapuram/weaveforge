@@ -278,3 +278,25 @@ async fn profile_write_failure_removes_the_new_user() {
     assert_eq!(value, json!({"error": "Could not create the account."}));
     assert_eq!(calls(&up, "DELETE", NEW_USER).len(), 1);
 }
+
+#[tokio::test]
+async fn profile_write_conflict_is_409_and_removes_the_new_user() {
+    let up = upstream(
+        vec![
+            caller("professor"),
+            json_reply(
+                409,
+                r#"{"code":"23505","message":"duplicate key value","details":"Key (email)=(new@example.com) already exists."}"#,
+            ),
+        ],
+        vec![json_reply(200, r#"{"id":"new-1"}"#)],
+    )
+    .await;
+    let (status, _, value) = reply(&up, post(GOOD, Some(SESSION))).await;
+    assert_eq!(status, StatusCode::CONFLICT);
+    assert_eq!(
+        value,
+        json!({"error": "An account with that email address already exists."})
+    );
+    assert_eq!(calls(&up, "DELETE", NEW_USER).len(), 1);
+}

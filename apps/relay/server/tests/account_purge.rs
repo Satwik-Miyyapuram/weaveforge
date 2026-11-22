@@ -200,6 +200,28 @@ async fn registry_select_error_stops_before_storage() {
 }
 
 #[tokio::test]
+async fn registry_errors_carry_the_code_and_never_the_message() {
+    let secret = r#"{"code":"42501","message":"permission denied eq.secret-key","details":"Key (email)=(jane@example.com)"}"#;
+    let select = upstream(vec![(BLOBS, vec![json_reply(403, secret)])]).await;
+    let err = purge_user_blobs(&state(&select, StorageConfig::default()), "u1")
+        .await
+        .unwrap_err();
+    assert!(err.contains("42501"), "{err}");
+    assert!(!err.contains("secret") && !err.contains("jane"), "{err}");
+
+    let delete = upstream(vec![(
+        BLOBS,
+        vec![json_reply(200, "[]"), json_reply(403, secret)],
+    )])
+    .await;
+    let err = purge_user_blobs(&state(&delete, StorageConfig::default()), "u1")
+        .await
+        .unwrap_err();
+    assert!(err.contains("42501"), "{err}");
+    assert!(!err.contains("secret") && !err.contains("jane"), "{err}");
+}
+
+#[tokio::test]
 async fn failed_tiered_delete_keeps_rows_and_counts_failures() {
     // The registry row is returned once; the tier lookup that follows finds nothing and
     // defaults to hot. The S3 delete then fails with a 500 (a 404 would count as deleted).

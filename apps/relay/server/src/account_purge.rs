@@ -7,6 +7,7 @@ use serde_json::{Value, json};
 use crate::blob_store;
 use crate::postgrest::{UserDb, eq};
 use crate::routes::AppState;
+use crate::safe_error::format_error_for_response;
 
 /// The buckets that hold a user's files, each keyed by a `{user_id}/` prefix.
 pub const BLOB_STORAGE_BUCKETS: [&str; 5] = [
@@ -38,7 +39,7 @@ pub async fn purge_user_blobs(state: &AppState, user_id: &str) -> Result<(), Str
             ],
         )
         .await
-        .map_err(|err| err.message)?;
+        .map_err(|err| format_error_for_response(&err, "account purge blob rows read"))?;
     let total = rows.len();
     let mut failed = 0usize;
     if state.storage.tiered {
@@ -63,7 +64,7 @@ pub async fn purge_user_blobs(state: &AppState, user_id: &str) -> Result<(), Str
     }
     db.delete("blob_objects", &[("user_id", eq(user_id))])
         .await
-        .map_err(|err| err.message)
+        .map_err(|err| format_error_for_response(&err, "account purge blob rows delete"))
 }
 
 /// Deletes every file under `bucket/prefix`, walking folders, in one batch.
