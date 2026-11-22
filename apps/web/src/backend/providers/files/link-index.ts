@@ -76,7 +76,11 @@ export class Links {
   linkFor(target: LinkTarget): string | null {
     const hit = this.find(target);
     if (!hit) return null;
-    const shared = this.entries.some((e) => e !== hit && e.key === hit.key);
+    // An unreadable file with the same name makes the bare link ambiguous to resolve(): write the folder link.
+    const core = readyCore();
+    const shared =
+      this.entries.some((e) => e !== hit && e.key === hit.key) ||
+      this.unreadable.some((u) => core.listItemKey(`[[${u.path.slice(u.path.lastIndexOf("/") + 1).replace(/\.md$/, "")}]]`) === hit.key);
     return `[[${shared ? hit.path : hit.path.slice(hit.path.lastIndexOf("/") + 1)}]]`;
   }
 
@@ -139,7 +143,9 @@ export class LinkIndex {
         } else {
           id = core.frontmatterString(core.readFrontmatter(text).frontmatter, "weaveforge-id") ?? undefined;
         }
-      } catch {
+      } catch (error) {
+        // A file whose frontmatter cannot be parsed may still be a member or a link target: report it.
+        unreadable.push({ path: entry.path, reason: error instanceof Error ? error.message : String(error) });
         continue;
       }
       if (!id) continue;

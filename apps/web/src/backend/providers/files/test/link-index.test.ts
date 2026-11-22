@@ -110,3 +110,36 @@ test("(P3) a bare link that an unreadable file could also name resolves to nothi
     console.warn = realWarn;
   }
 });
+
+test("(P2) a file whose frontmatter cannot be parsed is reported unreadable, and its bare name stays ambiguous", async () => {
+  const { fs, papers, index } = await setup();
+  const broken = `${papers}/old/x.paper.md`;
+  // An unclosed frontmatter block: the core refuses to parse it.
+  await fs.writeFile(broken, "---\nweaveforge-id: p2\n");
+  const realWarn = console.warn;
+  console.warn = () => {};
+  try {
+    const links = await index.snapshot();
+    assert.deepEqual(links.unreadable.map((u) => u.path), [broken], "the broken file is reported, not dropped silently");
+    assert.match(links.unreadable[0]!.reason, /no frontmatter/, "the reason is the core's parse error");
+    assert.equal(links.resolve("[[x.paper]]"), null, "the broken file could be named by the bare link, so it resolves to nothing");
+    assert.deepEqual(links.resolve(`[[${papers}/x.paper]]`), { paperId: "p1" });
+  } finally {
+    console.warn = realWarn;
+  }
+});
+
+test("(P2) linkFor writes the folder link when an unreadable file shares the name, so the link it writes resolves", async () => {
+  const { fs, papers, index } = await setup();
+  await fs.writeFile(`${papers}/old/x.paper.md`, "---\nweaveforge-id: p2\n");
+  const realWarn = console.warn;
+  console.warn = () => {};
+  try {
+    const links = await index.snapshot();
+    const link = links.linkFor({ paperId: "p1" });
+    assert.equal(link, `[[${papers}/x.paper]]`);
+    assert.deepEqual(links.resolve(link as string), { paperId: "p1" }, "the written link round-trips");
+  } finally {
+    console.warn = realWarn;
+  }
+});
