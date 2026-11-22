@@ -7,6 +7,7 @@ import { Menu, type MenuItem } from "@/components/menu";
 import { Popover } from "@/components/popover";
 import { desktop } from "@/lib/desktop/desktop-bridge";
 import { overleafSyncAvailable } from "@/features/overleaf/application/parts";
+import { OVERLEAF_NEEDS_ACCOUNT } from "@/features/overleaf/infrastructure/local-overleaf-gateway";
 import type { WorkshopClientDeps } from "@/features/overleaf/infrastructure/workshop-session-client";
 import {
   filterOverleafProjects,
@@ -131,9 +132,8 @@ export function OverleafWorkspace({
     <>
       <p className="linked-overleaf-disclosure">
         {local()
-          ? "With a Git link, this app fetches the LaTeX source from Overleaf with the token kept in your computer's keychain. Nothing goes through a server of ours."
-          : "With a Git link, WeaveForge's server fetches the LaTeX source from Overleaf with your token."}
-        {" "}The source stays in Overleaf and is not stored as WeaveForge project data.
+          ? OVERLEAF_NEEDS_ACCOUNT
+          : "With a Git link, WeaveForge's server fetches the LaTeX source from Overleaf with your token. The source stays in Overleaf and is not stored as WeaveForge project data."}
       </p>
       <LinkOverleafForm
         projectId={projectId}
