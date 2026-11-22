@@ -70,15 +70,18 @@ function parseJson(raw: string): unknown {
   }
 }
 
-/** A scalar: JSON when it parses; a quoted one that does not is unreadable; anything else is its own text (`- [[L]]`, `- reading`). */
+/** A scalar: a double- or single-quoted one, with an optional trailing comment; a quoted one that does not parse is unreadable; anything else is its own text (`- [[L]]`, `- reading # note`) without the comment. */
 function scalarAt(raw: string): unknown {
-  const json = parseJson(raw);
-  if (json !== UNREADABLE) return json;
-  return raw.startsWith('"') ? UNREADABLE : raw;
+  const dq = /^("(?:[^"\\]|\\.)*")\s*(?:#.*)?$/.exec(raw);
+  if (dq) return parseJson(dq[1]!);
+  const sq = /^'((?:[^']|'')*)'\s*(?:#.*)?$/.exec(raw);
+  if (sq) return sq[1]!.replace(/''/g, "'");
+  if (raw.startsWith('"') || raw.startsWith("'")) return UNREADABLE;
+  return raw.replace(/\s+#.*$/, "").trim();
 }
 
 const ITEM = /^\s*-\s+(.*)$/;
-const PAIR = /^\s+("(?:[^"\\]|\\.)*"|[^\s"'-][^:]*?)\s*:\s+(.*)$/;
+const PAIR = /^\s+("(?:[^"\\]|\\.)*"|[^\s"'-].*?)\s*:\s+(.*)$/;
 
 interface BlockItem {
   line: string;

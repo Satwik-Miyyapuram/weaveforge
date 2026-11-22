@@ -89,3 +89,13 @@ test("remove drops that list and its note, keeps the others, and drops the lines
   assert.deepEqual(readMemberFields(without), { lists: [M], listNotes: {} });
   assert.equal(removeListMembership(without, M), NOTE);
 });
+
+test("a block mapping key may contain a colon when it is not followed by a space (YAML plain scalar)", () => {
+  const text = "---\nlist-notes:\n  rev:l1: key\n---\nBody\n";
+  assert.deepEqual(readMemberFields(text), { lists: [], listNotes: { "rev:l1": "key" } });
+});
+
+test("a block item may carry a trailing comment or a single-quoted value", () => {
+  const text = "---\nlists:\n  - '[[review--l1.list]]' # reading now\n  - [[other--l2.list]] # later\n---\nBody\n";
+  assert.deepEqual(readMemberFields(text).lists, ["[[review--l1.list]]", "[[other--l2.list]]"]);
+});
