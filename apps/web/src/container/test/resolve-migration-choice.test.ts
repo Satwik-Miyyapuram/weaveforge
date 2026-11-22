@@ -108,10 +108,12 @@ test("reresolveOnFocus re-asks on focus while read-only and reports the first us
   const seen: string[] = [];
   reresolveOnFocus("unavailable", b, target, (s) => seen.push(s));
   assert.equal(listeners.length, 1);
-  listeners[0]();
+  const fire = listeners[0];
+  assert.ok(fire);
+  fire();
   await new Promise((r) => setTimeout(r, 20));
   assert.deepEqual(seen, [], "a still-unavailable answer reports nothing");
-  listeners[0]();
+  fire();
   await new Promise((r) => setTimeout(r, 20));
   assert.deepEqual(seen, ["verified"]);
   assert.equal(removed.length, 1, "stops listening once a usable answer arrives");
