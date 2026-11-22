@@ -644,6 +644,7 @@ fn local_meta_is_an_allowlist() {
         ".weaveforge/mirror.json",
         ".weaveforge/ai",
         ".weaveforge/cache.sqlite",
+        ".weaveforge/migration-0.9.8/switched.json",
     ] {
         assert!(is_local_meta(local), "{local}");
     }
