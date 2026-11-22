@@ -171,6 +171,24 @@ mod tests {
         );
         assert_eq!(status.step.as_deref(), Some("delete the conflict copy report-dev-a (1).json"));
     }
+
+    #[test]
+    fn an_unreadable_legacy_report_makes_the_status_unavailable_with_a_restore_step() {
+        let base = std::env::temp_dir().join(format!("wf-m097-status-legacy-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&base);
+        let folder = base.join("vault");
+        let dir = folder.join(super::super::remove::MIGRATION_DIR);
+        fs::create_dir_all(&dir).unwrap();
+        fs::write(dir.join("report.json"), "{ not json").unwrap();
+        let status = migration_status(&folder, &base.join("local-pg"), "dev-a");
+        let _ = fs::remove_dir_all(&base);
+        assert_eq!(status.state, "unavailable");
+        assert_eq!(
+            status.reason.as_deref(),
+            Some("report.json is unreadable; restore it from your backup or run the export again")
+        );
+        assert_eq!(status.step, None);
+    }
 }
 
 fn exported_to(pg_root: &Path) -> Option<String> {
