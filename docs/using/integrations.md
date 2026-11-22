@@ -202,6 +202,13 @@ Add the WeaveForge MCP server to your AI client's configuration file (e.g. `clau
   - `get_workspace_outline`: Inspect your current report structure and plan milestones.
 - **Proposal tools**:
   - `suggest_append_paper_note`: Suggest a note to add to a paper.
+
+## Where your keys are stored on the web
+
+Keys you enter on the web (Zotero, Semantic Scholar and other integration tokens) are
+stored encrypted on our server, not as plain text. Older accounts that still had plain-text
+keys are converted to the encrypted form, and a key read from an old record is re-saved
+encrypted the first time it is read.
   - `suggest_create_vault_note`: Propose a new vault note.
   - `suggest_create_log_entry`: Propose a logbook entry.
   - `suggest_paper_update`: Propose a change to a paper's details.
