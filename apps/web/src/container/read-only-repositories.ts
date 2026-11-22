@@ -92,7 +92,11 @@ export function repositoryMethods(repo: object): string[] {
   return [...names];
 }
 
-/** Wraps one repository: the named reads pass through, every other method throws ReadOnlyError. */
+/**
+ * Wraps one repository: the named reads pass through, every other method returns a
+ * rejected promise with ReadOnlyError. Repository methods are async, so a refusal
+ * is a rejection, the same shape an awaiting caller already handles.
+ */
 export function readOnlyRepository<T extends object>(repo: T, allowed: readonly string[] = []): T {
   const reads = new Set(allowed);
   const wrapped: Record<string, unknown> = {};
@@ -100,9 +104,7 @@ export function readOnlyRepository<T extends object>(repo: T, allowed: readonly 
     const original = (repo as Record<string, unknown>)[name] as (...args: unknown[]) => unknown;
     wrapped[name] = reads.has(name)
       ? (...args: unknown[]) => original.apply(repo, args)
-      : () => {
-          throw new ReadOnlyError();
-        };
+      : () => Promise.reject(new ReadOnlyError());
   }
   return wrapped as T;
 }

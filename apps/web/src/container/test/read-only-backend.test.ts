@@ -8,7 +8,7 @@ import { READ_ONLY_KEYS, READ_ONLY_MESSAGE, READ_ONLY_METHODS, readOnlyBackend }
 
 before(loadTestCore);
 
-test("readOnlyBackend wraps every personal key, alias and the settings use case, by explicit list", () => {
+test("readOnlyBackend wraps every personal key, alias and the settings use case, by explicit list", async () => {
   const bag: Record<string, unknown> = { config: { x: 1 }, shareRepository: { save: () => "live" } };
   for (const key of READ_ONLY_KEYS) {
     if (key === "manageSettings") continue;
@@ -20,7 +20,7 @@ test("readOnlyBackend wraps every personal key, alias and the settings use case,
   for (const key of READ_ONLY_KEYS) {
     if (key === "manageSettings") continue;
     const repo = out[key] as { save: () => unknown } & Record<string, () => unknown>;
-    assert.throws(() => repo.save(), new RegExp(READ_ONLY_MESSAGE), key);
+    await assert.rejects(async () => repo.save(), new RegExp(READ_ONLY_MESSAGE), key);
     for (const read of READ_ONLY_METHODS[key] ?? []) assert.deepEqual((repo[read] as () => unknown)(), ["a"], `${key}.${read} reads pass`);
   }
   assert.equal((out.shareRepository as unknown as { save: () => unknown }).save(), "live", "org keys are not in the explicit list");
@@ -62,7 +62,7 @@ test("readOnlyBackend refuses settings, credential and Zotero writes through the
   assert.deepEqual(writes, [], "nothing reaches the settings repository");
 });
 
-test("readOnlyBackend refuses repository writes and leaves the database reads alone", () => {
+test("readOnlyBackend refuses repository writes and leaves the database reads alone", async () => {
   const repo = { list: () => ["a"], save: () => "written" };
   const bag = {
     paperRepository: repo,
@@ -70,6 +70,6 @@ test("readOnlyBackend refuses repository writes and leaves the database reads al
   };
   const out = readOnlyBackend(bag);
   assert.deepEqual(out.paperRepository.list(), ["a"]);
-  assert.throws(() => out.paperRepository.save(), new RegExp(READ_ONLY_MESSAGE));
+  await assert.rejects(async () => out.paperRepository.save(), new RegExp(READ_ONLY_MESSAGE));
   assert.equal(out.db.from("papers").select(), "rows", "db reads still pass");
 });
