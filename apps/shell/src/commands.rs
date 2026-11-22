@@ -141,8 +141,13 @@ impl LocalDb {
 
     /// Closes the native database.
     pub async fn shutdown(&self) {
+        self.shutdown_with(true).await;
+    }
+
+    /// Closes the native database; `backup` false skips the quit backup.
+    pub async fn shutdown_with(&self, backup: bool) {
         if let Ok(native) = &self.native {
-            native.close().await;
+            native.close_with(backup).await;
         }
     }
 

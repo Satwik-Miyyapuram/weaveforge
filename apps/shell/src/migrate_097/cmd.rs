@@ -80,7 +80,7 @@ pub async fn migrate_097_remove_old(
         let mut secrets = || {
             local_rows.ok_or_else(|| "refused: local_secrets count was not read".to_owned())
         };
-        let mut stop = || crate::stop_local_db(&stop_app);
+        let mut stop = || crate::stop_local_db(&stop_app, false);
         remove_old_data(&folder, &root, &now, &device, &mut secrets, &mut stop)
     })
     .await
