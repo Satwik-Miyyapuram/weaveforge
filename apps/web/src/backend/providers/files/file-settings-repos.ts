@@ -236,7 +236,11 @@ export class FileSettingsRepository implements ISettingsRepository, SettingsWrit
     return Promise.resolve(out);
   }
 
-  /** Full replace of the given fields; an unset disclaimer, appearance or AI access keeps the stored one. */
+  /**
+   * Merges the given integration fields into the stored ones: a field set to "" is removed (disconnect),
+   * a field left undefined keeps its stored value, and other providers are kept. Disclaimer, appearance,
+   * AI access and search are replaced when given; an unset disclaimer, appearance or AI access keeps the stored one.
+   */
   async save(settings: UserSettings): Promise<void> {
     const { secret, plain } = splitIntegrations(settings.integrations ?? {});
     const plainNext = applyFields(this.plainIntegrations(), plain);

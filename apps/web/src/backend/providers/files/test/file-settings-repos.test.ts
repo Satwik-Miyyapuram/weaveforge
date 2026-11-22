@@ -228,6 +228,15 @@ test("P1: an undefined field inside integrations keeps the stored value", async 
   assert.deepEqual(secrets.value.integrations, { zotero: { apiKey: "SECRET-A" } });
 });
 
+test("D: a save merges plain integration fields; an empty string removes only that field, other providers stay", async () => {
+  const settings = new MemorySettings();
+  const repo = new FileSettingsRepository(settings, new MemorySecrets());
+  await repo.save({ integrations: { github: { repo: "a/b", branch: "main" }, zotero: { library: "users/1" } } });
+  await repo.save({ integrations: { github: { branch: "" } } });
+  const after = (await repo.get()).integrations;
+  assert.deepEqual(after, { github: { repo: "a/b" }, zotero: { library: "users/1" } });
+});
+
 test("P2: an accessToken-named field is a secret for both split and refusal, so the save succeeds", async () => {
   const settings = new MemorySettings();
   const secrets = new MemorySecrets();
