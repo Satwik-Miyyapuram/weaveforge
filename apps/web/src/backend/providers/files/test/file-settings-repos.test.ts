@@ -112,6 +112,33 @@ test("T4: user settings round-trip; secrets go to the secrets store and never in
   assert.equal(got.appearance?.mode, "dark");
 });
 
+test("non-secret integrations survive save then reload, and stay out of the secrets store", async () => {
+  const settings = new MemorySettings();
+  const secrets = new MemorySecrets();
+  await new FileSettingsRepository(settings, secrets).save({
+    integrations: { github: { repo: "a/b", branch: "main" } },
+    zoteroLibrary: "users/1",
+  });
+  const reloaded = await new FileSettingsRepository(settings, secrets).get();
+  assert.deepEqual(reloaded.integrations, { github: { repo: "a/b", branch: "main" } });
+  assert.equal(secrets.value.integrations, undefined);
+});
+
+test("a secret inside integrations goes to the secrets store; its plain siblings go to the file", async () => {
+  const settings = new MemorySettings();
+  const secrets = new MemorySecrets();
+  await new FileSettingsRepository(settings, secrets).save({
+    integrations: { github: { repo: "a/b" }, zotero: { apiKey: "SECRET-bag", library: "users/1" } },
+  });
+  assert.deepEqual(secrets.value.integrations, { zotero: { apiKey: "SECRET-bag" } });
+  assert.doesNotMatch(JSON.stringify(settings.doc), /SECRET/);
+  const reloaded = await new FileSettingsRepository(settings, secrets).get();
+  assert.deepEqual(reloaded.integrations, {
+    github: { repo: "a/b" },
+    zotero: { apiKey: "SECRET-bag", library: "users/1" },
+  });
+});
+
 test("disclaimer, appearance merge and the dismissed notice; save keeps an unset disclaimer", async () => {
   const settings = new MemorySettings();
   const repo = new FileSettingsRepository(settings, new MemorySecrets());
