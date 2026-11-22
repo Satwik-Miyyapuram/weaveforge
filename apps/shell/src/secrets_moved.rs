@@ -189,9 +189,10 @@ fn listed_keys(secrets: &Secrets) -> Result<Vec<String>, SecretError> {
         .unwrap_or_default())
 }
 
-/// Removes write-only and routed names from an existing index, keeping its source. An index from
-/// before the routing fix can list them, and the page reads every listed key, so it would fail on
-/// them. A missing or unreadable index is left for `index_source` to report.
+/// Removes write-only names from an existing index, keeping its source. An index from before the
+/// routing fix can list them, and the page reads every listed key, so it would fail on them. The
+/// routed names are removed only because `WRITE_ONLY` lists them too (`is_write_only_key` checks
+/// that list, not `ROUTED`). A missing or unreadable index is left for `index_source` to report.
 fn strip_write_only_keys(secrets: &Secrets) -> Result<(), SecretError> {
     let source = match index_source(secrets) {
         Ok(IndexSource::Absent) | Err(SecretError::CorruptIndex) => return Ok(()),
