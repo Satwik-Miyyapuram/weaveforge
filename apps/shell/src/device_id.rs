@@ -60,7 +60,8 @@ fn create(
     }
     let linked = match link(&part, path) {
         // A filesystem without hard links (FAT, exFAT, some network shares) gets a plain create.
-        Err(e) if e.kind() == io::ErrorKind::Unsupported => create_new_with(path, &id),
+        // PermissionDenied and CrossesDevices are also how a link fails there, so they fall back too.
+        Err(e) if is_no_link_error(e.kind()) => create_new_with(path, &id),
         other => other,
     };
     let _ = fs::remove_file(&part);
@@ -75,6 +76,16 @@ fn create(
         }
         Err(e) => Err(e),
     }
+}
+
+/// Whether a failed hard link means this filesystem cannot link, so the id is written with
+/// `create_new` instead. Unsupported is the usual case; PermissionDenied and CrossesDevices also
+/// come back from FAT-style and network volumes.
+fn is_no_link_error(kind: io::ErrorKind) -> bool {
+    matches!(
+        kind,
+        io::ErrorKind::Unsupported | io::ErrorKind::PermissionDenied | io::ErrorKind::CrossesDevices
+    )
 }
 
 /// A temp name unique to this call: pid, nanos and a process-wide counter.
@@ -234,6 +245,38 @@ mod tests {
         let id = create(&dir, &path, unsupported).expect("falls back to create_new");
         assert_eq!(std::fs::read_to_string(&path).unwrap(), id);
         assert_eq!(std::fs::read_dir(&dir).unwrap().count(), 1, "no temp file is left");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn every_no_link_error_falls_back_to_create_new() {
+        use super::create;
+        use std::io::ErrorKind;
+        for kind in [ErrorKind::Unsupported, ErrorKind::PermissionDenied, ErrorKind::CrossesDevices] {
+            let dir = std::env::temp_dir().join(format!("wf-devid-kind-{}-{kind:?}", std::process::id()));
+            let _ = std::fs::remove_dir_all(&dir);
+            std::fs::create_dir_all(&dir).unwrap();
+            let path = dir.join("device-id");
+            let refuse_link = |_: &std::path::Path, _: &std::path::Path| Err(std::io::Error::from(kind));
+            let id = create(&dir, &path, refuse_link)
+                .unwrap_or_else(|e| panic!("{kind:?} should fall back to create_new: {e}"));
+            assert_eq!(std::fs::read_to_string(&path).unwrap(), id, "{kind:?}: the id is written");
+            assert_eq!(std::fs::read_dir(&dir).unwrap().count(), 1, "{kind:?}: no temp file is left");
+            let _ = std::fs::remove_dir_all(&dir);
+        }
+    }
+
+    #[test]
+    fn other_link_errors_are_not_masked_by_the_fallback() {
+        use super::create;
+        let dir = std::env::temp_dir().join(format!("wf-devid-other-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("device-id");
+        let refuse = |_: &std::path::Path, _: &std::path::Path| {
+            Err(std::io::Error::from(std::io::ErrorKind::StorageFull))
+        };
+        assert!(create(&dir, &path, refuse).is_err(), "a full disk is an error, not a fallback");
         let _ = std::fs::remove_dir_all(&dir);
     }
 
