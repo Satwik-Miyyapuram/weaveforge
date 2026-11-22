@@ -3,9 +3,12 @@ import type { FileCodec, FileSink, Row, ServerSource } from "../domain/ports";
 import { sha256Hex } from "../domain/hash";
 import { SERVER_ONLY_FIELDS } from "../domain/server-only-fields";
 
+/** Local-only sync bookkeeping: never part of the server row or the file, so never compared. */
+const LOCAL_ONLY_FIELDS = ["syncState"];
+
 /** The server row without its server-only columns, so only file-backed fields are compared. */
 function withoutServerOnly(kind: string, row: Row): Row {
-  const skip = new Set(SERVER_ONLY_FIELDS[kind] ?? []);
+  const skip = new Set([...(SERVER_ONLY_FIELDS[kind] ?? []), ...LOCAL_ONLY_FIELDS]);
   return Object.fromEntries(Object.entries(row).filter(([k]) => !skip.has(k)));
 }
 
@@ -50,6 +53,21 @@ function canon(value: unknown): string {
   return JSON.stringify(value);
 }
 
+/** Names the first row id and field that differ, so a failed verify says where to look. */
+function firstDifference(kind: string, expected: Row[], decoded: Row[]): string {
+  const want = new Map(expected.map((r) => [String(r.id), comparable(kind, r)] as const));
+  const got = new Map(decoded.map((r) => [String(r.id), comparable(kind, r)] as const));
+  for (const [id, w] of want) {
+    const g = got.get(id);
+    if (!g) return `id ${id} missing from files`;
+    const fields = [...new Set([...Object.keys(w), ...Object.keys(g)])].sort();
+    const field = fields.find((k) => canon(w[k]) !== canon(g[k]));
+    if (field !== undefined) return `id ${id} field ${field} differs`;
+  }
+  for (const id of got.keys()) if (!want.has(id)) return `id ${id} extra in files`;
+  return "row count differs";
+}
+
 /**
  * Strict gate. Reads the server rows again and decodes every file in the sink.
  * Verified only when, for every kind, the decoded files equal the server rows,
@@ -78,7 +96,8 @@ export async function verifyExport(input: VerifyInput): Promise<Verdict> {
       const want = expected.map((row) => canon(comparable(kind, row))).sort();
       const got = decoded.map((row) => canon(comparable(kind, row))).sort();
       if (want.length !== got.length || want.some((w, i) => w !== got[i])) {
-        errors.push(`${kind}: decoded files differ from server rows`);
+        const first = firstDifference(kind, expected, decoded);
+        errors.push(`${kind}: decoded files differ from server rows (first: ${first})`);
       }
     } catch (err) {
       errors.push(`${kind}: ${(err as Error).message}`);

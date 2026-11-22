@@ -857,3 +857,20 @@ test("keys: moveSecrets does not run when the run is incomplete", async () => {
   assert.equal(moved, false);
   assert.equal(calls.some((c) => c.startsWith("mark:")), false);
 });
+
+// P3: the missing detail names the first differing id and field; syncState is local-only.
+test("verify: the differing detail names the first differing id and field", async () => {
+  const sink = new MemorySink();
+  const { source } = fakeServer({ rows: { experiments: [{ id: "e1", name: "Exp", n: 3 }] } });
+  await sink.write("experiments/e1.json", JSON.stringify({ id: "e1", name: "Exp", n: 4 }));
+  const verdict = await verifyExport({ kinds: ["experiments"], codec: fakeCodec(SUPPORTED), source, sink });
+  const msg = verdict.errors.find((e) => e.startsWith("experiments: decoded files differ")) ?? "";
+  assert.match(msg, /id e1/);
+  assert.match(msg, /field n/);
+});
+
+test("verify: syncState is local-only and is not compared", () => {
+  const want = [{ id: "e1", name: "Exp", syncState: "synced" }];
+  const got = [{ id: "e1", name: "Exp" }];
+  assert.equal(sameRows("experiments", want, got), true);
+});
