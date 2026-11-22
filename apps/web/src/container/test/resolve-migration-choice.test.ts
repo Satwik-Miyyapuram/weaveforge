@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { resolveMigrationChoice, type MigrationChoiceBridge } from "../resolve-migration-choice";
+import { reresolveOnFocus, resolveMigrationChoice, type MigrationChoiceBridge } from "../resolve-migration-choice";
 
 const folder = { path: "C:\\Notes" };
 
@@ -54,4 +54,65 @@ test("createAppContainer awaits the migration choice before wireBackend", async 
   const awaited = src.indexOf("await resolveMigrationChoice(");
   const wired = src.indexOf("wireBackend(readBackendConfig()");
   assert.ok(awaited > 0 && wired > awaited, "the await must come before wireBackend");
+});
+
+test("a transient unavailable is retried and a later attempt can resolve", async () => {
+  let calls = 0;
+  const b = bridge(async () => {
+    calls++;
+    if (calls === 1) throw new Error("shell busy");
+    return { state: "verified" };
+  });
+  assert.equal(await resolveMigrationChoice(b, 1_000, 1), "verified");
+  assert.equal(calls, 2);
+});
+
+test("retries stop after three attempts and stay unavailable", async () => {
+  let calls = 0;
+  const b = bridge(async () => {
+    calls++;
+    throw new Error("gone");
+  });
+  assert.equal(await resolveMigrationChoice(b, 1_000, 1), "unavailable");
+  assert.equal(calls, 3);
+});
+
+test("no bridge never retries, so web and Android start without delay", async () => {
+  const started = Date.now();
+  assert.equal(await resolveMigrationChoice(null, 1_000, 500), "unavailable");
+  assert.ok(Date.now() - started < 200);
+});
+
+test("reresolveOnFocus does nothing when the first answer is usable", () => {
+  const listeners: Array<() => void> = [];
+  const target = {
+    addEventListener: (_t: string, f: () => void) => listeners.push(f),
+    removeEventListener: () => {},
+  };
+  reresolveOnFocus("verified", null, target, () => {});
+  assert.equal(listeners.length, 0);
+});
+
+test("reresolveOnFocus re-asks on focus while read-only and reports the first usable answer", async () => {
+  const listeners: Array<() => void> = [];
+  const removed: Array<() => void> = [];
+  const target = {
+    addEventListener: (_t: string, f: () => void) => listeners.push(f),
+    removeEventListener: (_t: string, f: () => void) => removed.push(f),
+  };
+  let answers = 0;
+  const b = bridge(async () => {
+    answers++;
+    return { state: answers === 1 ? "unavailable-ish" : "verified" };
+  });
+  const seen: string[] = [];
+  reresolveOnFocus("unavailable", b, target, (s) => seen.push(s));
+  assert.equal(listeners.length, 1);
+  listeners[0]();
+  await new Promise((r) => setTimeout(r, 20));
+  assert.deepEqual(seen, [], "a still-unavailable answer reports nothing");
+  listeners[0]();
+  await new Promise((r) => setTimeout(r, 20));
+  assert.deepEqual(seen, ["verified"]);
+  assert.equal(removed.length, 1, "stops listening once a usable answer arrives");
 });
