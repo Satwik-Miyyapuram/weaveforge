@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { before, test } from "node:test";
 import { loadTestCore } from "@/lib/test/load-test-core";
 import { typedCore } from "@/lib/rust-core";
+import { ConflictError } from "@weaveforge/core";
 import { FilePaperFieldRepository } from "@/backend/providers/files/file-paper-field-repo";
 import type { SettingsSection } from "@/backend/providers/files/file-tag-repo";
 import type { KindWriter } from "../domain/kind-writer";
@@ -334,7 +335,7 @@ test("secret kinds: a conflict in a secret kind never puts its value in the repo
   const secretWriter = {
     kinds: ["secrets"],
     write: async () => {
-      throw Object.assign(new Error("conflict: secret differs"), { conflictValue: "tok-secret-123" });
+      throw Object.assign(new ConflictError("conflict: secret differs"), { conflictValue: "tok-secret-123" });
     },
     readBack: async () => [],
   } as unknown as KindWriter;
@@ -351,7 +352,7 @@ test("allowlist: a conflict in a kind that is not a paper field carries no value
   const widgetWriter = {
     kinds: ["widgets"],
     write: async () => {
-      throw Object.assign(new Error("conflict: widget differs"), { conflictValue: "widget-value-xyz" });
+      throw Object.assign(new ConflictError("conflict: widget differs"), { conflictValue: "widget-value-xyz" });
     },
     readBack: async () => [],
   } as unknown as KindWriter;

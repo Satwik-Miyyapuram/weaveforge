@@ -20,9 +20,9 @@ import { createFileStore, guardedSink, type FileStore, type Outputs } from "./fi
 import { tempPathFor } from "@/lib/temp-path";
 import { ConflictError } from "@weaveforge/core";
 
-/** A typed ConflictError, or a plain Error whose message starts "conflict:" (a writer that throws the message only). */
+/** A conflict is a typed ConflictError. A plain Error, whatever its message says, is a write failure. */
 function isConflict(err: unknown): boolean {
-  return err instanceof ConflictError || (err instanceof Error && err.message.startsWith("conflict:"));
+  return err instanceof ConflictError;
 }
 
 export type ExportProgress = { kind: string; done: number; total: number };

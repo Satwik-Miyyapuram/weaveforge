@@ -66,7 +66,7 @@ test("re-run conflict: a writer conflict is listed on the kind and the run is in
   const writer: KindWriter = {
     kinds: ["logEntries"],
     write: async (_k, row) => {
-      if (row.id === "l2") throw new Error("conflict: logEntry l2 exists with different content");
+      if (row.id === "l2") throw new ConflictError("logEntry l2 exists with different content");
     },
     readBack: async () => (FIXTURE.logEntries ?? []).filter((r) => r.id !== "l2"),
   };
@@ -74,6 +74,21 @@ test("re-run conflict: a writer conflict is listed on the kind and the run is in
   assert.equal(result.state, "incomplete");
   assert.deepEqual(result.run.kinds.logEntries?.conflicts, ["l2"]);
   assert.equal(JSON.parse(await sink.readText(REPORT_PATH)).state, "incomplete");
+});
+
+test("re-run conflict: a plain Error that only says conflict: in its message is a write failure, not a conflict", async () => {
+  const { source } = fakeServer({ rows: FIXTURE });
+  const sink = new MemorySink();
+  const writer: KindWriter = {
+    kinds: ["logEntries"],
+    write: async (_k, row) => {
+      if (row.id === "l2") throw new Error("conflict: logEntry l2 exists with different content");
+    },
+    readBack: async () => (FIXTURE.logEntries ?? []).filter((r) => r.id !== "l2"),
+  };
+  const result = await runWebExport({ runDeviceId: "dev-test", kinds: KINDS, codec: fakeCodec(SUPPORTED), source, sink, now: NOW, writers: () => [writer] });
+  assert.deepEqual(result.run.kinds.logEntries?.conflicts ?? [], []);
+  assert.ok(result.run.missing.some((m) => m.kind === "logEntries" && m.id === "l2" && m.reason === "write-failed:logEntries"));
 });
 
 test("re-run conflict: a typed ConflictError is a conflict whatever its message says", async () => {

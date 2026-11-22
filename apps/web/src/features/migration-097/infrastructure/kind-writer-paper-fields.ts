@@ -26,8 +26,8 @@ function coded(message: string, code: string): Error & { code: string } {
 const KEPT_MESSAGE = "conflict: paper field value differs from the file; kept the file's value";
 
 /** The kept-value conflict. `conflictValue` is the DB value, so the report keeps it and nothing is lost. */
-function keptError(value: unknown): Error & { conflictValue: unknown } {
-  return Object.assign(new Error(KEPT_MESSAGE), { conflictValue: value });
+function keptError(value: unknown): ConflictError & { conflictValue: unknown } {
+  return Object.assign(new ConflictError(KEPT_MESSAGE), { conflictValue: value });
 }
 
 /**
