@@ -346,8 +346,6 @@ pub fn own_run_missing(
         .collect())
 }
 
-/// This device's newest run must have finished `verified`, list at least one kind, and have the
-/// same db and files count for every kind. An aborted run or an empty kinds map is not a verify.
 /// Whether a `conflicts` value may name conflict copies. Fails closed: only an absent or null
 /// value, an empty list or a zero count counts as clean; any other shape counts as conflicts.
 fn has_conflicts(value: &serde_json::Value) -> bool {
@@ -359,6 +357,8 @@ fn has_conflicts(value: &serde_json::Value) -> bool {
     }
 }
 
+/// This device's newest run must have finished `verified`, list at least one kind, and have no
+/// conflict copies. An aborted run or an empty kinds map is not a verify.
 fn check_own_run_verdict(report: &serde_json::Value, device_id: &str) -> Result<(), String> {
     let run = own_run(report, device_id)?;
     if run["state"].as_str() != Some("verified") {

@@ -6,7 +6,7 @@ use std::io;
 use std::path::{Path, PathBuf};
 
 use weaveforge_shell_lib::migrate_097::remove::{
-    old_db_removed, record_exported_to, remove_old_data,
+    backup_name, old_db_removed, record_exported_to, remove_old_data,
 };
 
 const DIR: &str = ".weaveforge/migration-0.9.7";
@@ -1216,4 +1216,53 @@ fn verified_at_comes_from_this_devices_own_run() {
     ));
     let value = serde_json::to_value(migration_status(&f.folder, &f.pg_root, DEVICE)).unwrap();
     assert_eq!(value["verifiedAt"], NOW);
+}
+
+// ---- item B: a run without deviceId is another device's; conflicts fail closed ----
+
+#[test]
+fn a_run_without_device_id_counts_as_another_device_for_the_backup() {
+    let _f = Fixture::new("no-device-run", Some("verified"), None);
+    // The only run has no deviceId, so it cannot be shown to be dev-a's and dev-b must not use its dump.
+    let run = RUN_CLEAN.replace(r#","deviceId":"dev-a""#, "");
+    let report = serde_json::json!({
+        "version": 1,
+        "state": "verified",
+        "backup": BACKUP_NAME,
+        "runs": [serde_json::from_str::<serde_json::Value>(&run).unwrap()],
+    });
+    let err = backup_name(&report, DEVICE).expect_err("a run without deviceId is another device's");
+    assert_eq!(err, "refused: backup belongs to another device");
+}
+
+#[test]
+fn a_non_array_or_non_zero_conflicts_value_fails_closed_on_the_run() {
+    let f = Fixture::new("conflict-shapes", Some("verified"), Some(good_dump().as_slice()));
+    for shape in [r#""none""#, "2", "{}", "true"] {
+        let run = RUN_CLEAN.replace(
+            r#""deviceId":"dev-a""#,
+            &format!(r#""deviceId":"dev-a","conflicts":{shape}"#),
+        );
+        f.set_report(&format!(
+            r#"{{"version":1,"state":"verified","backup":"{BACKUP_NAME}","verifiedAt":"{NOW}","runs":[{run}]}}"#
+        ));
+        let err = f.run(&mut never_stop()).expect_err("unknown conflicts shape must refuse");
+        assert!(err.contains("this device's export left conflict copies"), "{shape}: {err}");
+    }
+    f.assert_untouched();
+}
+
+#[test]
+fn a_kind_with_a_non_array_conflicts_value_fails_closed() {
+    let f = Fixture::new("conflict-kind-shape", Some("verified"), Some(good_dump().as_slice()));
+    let run = RUN_CLEAN.replace(
+        r#""kinds":{"notes":{"db":1,"files":1}}"#,
+        r#""kinds":{"notes":{"db":1,"files":1,"conflicts":"note (conflict).md"}}"#,
+    );
+    f.set_report(&format!(
+        r#"{{"version":1,"state":"verified","backup":"{BACKUP_NAME}","verifiedAt":"{NOW}","runs":[{run}]}}"#
+    ));
+    let err = f.run(&mut never_stop()).expect_err("kind conflicts string must refuse");
+    assert!(err.contains("this device's export left conflict copies"), "{err}");
+    f.assert_untouched();
 }
