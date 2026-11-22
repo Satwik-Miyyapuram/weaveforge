@@ -19,15 +19,26 @@ pub fn get_or_create(dir: &Path) -> io::Result<String> {
         Err(e) => return Err(e),
     };
     if text.trim().is_empty() {
-        // Absent, or an empty leftover from a crash: remove it so the new file can take the name.
-        match fs::remove_file(&path) {
-            Ok(()) => {}
-            Err(e) if e.kind() == io::ErrorKind::NotFound => {}
-            Err(e) => return Err(e),
-        }
+        // Absent, or an empty leftover from a crash: clear any empty leftover so the new file can
+        // take the name.
+        remove_if_still_empty(&path)?;
         return create(dir, &path);
     }
     parse_id(&path, text.trim())
+}
+
+/// Removes `path` only if it is still empty. Another call may have linked an id in since this
+/// call read the name, and that id must not be removed.
+fn remove_if_still_empty(path: &Path) -> io::Result<()> {
+    match fs::read_to_string(path) {
+        Ok(text) if text.trim().is_empty() => match fs::remove_file(path) {
+            Err(e) if e.kind() != io::ErrorKind::NotFound => Err(e),
+            _ => Ok(()),
+        },
+        Ok(_) => Ok(()),
+        Err(e) if e.kind() == io::ErrorKind::NotFound => Ok(()),
+        Err(e) => Err(e),
+    }
 }
 
 /// Writes the id to a temp file of its own, syncs it, then hard-links it to the final name. The
@@ -161,6 +172,23 @@ mod tests {
         assert_eq!(id.len(), 64);
         assert_eq!(std::fs::read_to_string(dir.join("device-id")).unwrap(), id);
         assert!(!dir.join("device-id.part").exists());
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn cleanup_removes_an_empty_leftover_but_never_a_real_id() {
+        use super::remove_if_still_empty;
+        let dir = std::env::temp_dir().join(format!("wf-devid-clean-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("device-id");
+        std::fs::write(&path, "").unwrap();
+        remove_if_still_empty(&path).unwrap();
+        assert!(!path.exists(), "an empty leftover is removed");
+        let real = "cd".repeat(32);
+        std::fs::write(&path, &real).unwrap();
+        remove_if_still_empty(&path).unwrap();
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), real, "a real id is kept");
         let _ = std::fs::remove_dir_all(&dir);
     }
 
