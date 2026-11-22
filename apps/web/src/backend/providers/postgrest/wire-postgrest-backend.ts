@@ -153,7 +153,8 @@ function rustSharedReader(db: SupabaseClient): ISharedReader {
 
 /**
  * Files mode: the named methods reject before any request. The org allowlist keeps `projects`
- * and `user_settings` live (shares, release-notice reads), so guardOrgDb cannot refuse these by table.
+ * and `user_settings` live for other reads, so guardOrgDb cannot refuse these by table. The
+ * release-notice `unseen` read joins the personal seen marker, so files mode shows no banner.
  */
 function refuseInFilesMode<T extends object>(repo: T, names: readonly (keyof T)[], filesMode: boolean): T {
   if (!filesMode) return repo;
