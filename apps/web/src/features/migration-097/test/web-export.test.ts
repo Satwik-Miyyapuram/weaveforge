@@ -336,3 +336,24 @@ test("allow-list: every entry is camelCase, as toCamelRow produces", () => {
     for (const column of columns) assert.doesNotMatch(column, /_/, `${kind}: ${column} is snake_case`);
   }
 });
+
+test("per-row failure: one bad row is listed missing, the other rows are exported, the report is incomplete, no marker", async () => {
+  const rows = { experiments: [{ id: "e1", name: "A" }, { id: "bad", name: "B" }, { id: "e2", name: "C" }] };
+  const { source, calls } = fakeServer({ rows });
+  const base = fakeCodec(["experiments"]);
+  const codec: FileCodec = {
+    ...base,
+    toFile: (kind, row) => {
+      if (row.id === "bad") throw new Error("cannot encode");
+      return base.toFile(kind, row);
+    },
+  };
+  const sink = new MemorySink();
+  const { state, run } = await runWebExport({ kinds: ["experiments"], codec, source, sink, now: NOW });
+  assert.equal(state, "incomplete");
+  assert.ok(run.missing.some((m) => m.kind === "experiments" && m.id === "bad" && m.reason.includes("cannot encode")));
+  assert.equal(run.kinds.experiments?.written, 2);
+  assert.ok(await sink.readText("experiments/e1.json").then(() => true, () => false));
+  assert.ok(await sink.readText("experiments/e2.json").then(() => true, () => false));
+  assert.equal(calls.some((c) => c.startsWith("mark:")), false);
+});

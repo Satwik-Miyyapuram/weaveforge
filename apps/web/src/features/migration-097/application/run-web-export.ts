@@ -64,22 +64,31 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
         continue;
       }
       for (const row of rows) {
-        const file = codec.toFile(kind, row);
-        await sink.write(file.path, file.text);
-        written[kind]++;
+        // One bad row is listed missing; the others are still exported.
+        try {
+          const file = codec.toFile(kind, row);
+          await sink.write(file.path, file.text);
+          written[kind]++;
+        } catch (err) {
+          missing.push({ kind, id: String(row.id), reason: (err as Error).message });
+        }
         onProgress?.({ kind, done: written[kind] ?? 0, total: rows.length });
       }
     }
     current = "blobs";
     for (const ref of await source.listBlobs()) {
-      const bytes = await source.fetchBlob(ref);
-      if ((await sha256Hex(bytes)) !== ref.sha256) {
-        missing.push({ kind: "blobs", id: ref.path, reason: "sha256 mismatch on fetch" });
-        continue;
+      try {
+        const bytes = await source.fetchBlob(ref);
+        if ((await sha256Hex(bytes)) !== ref.sha256) {
+          missing.push({ kind: "blobs", id: ref.path, reason: "sha256 mismatch on fetch" });
+          continue;
+        }
+        const path = `assets/${ref.bucket}/${ref.path}`;
+        await sink.write(path, bytes);
+        await sink.write(`${path}.sha256`, ref.sha256);
+      } catch (err) {
+        missing.push({ kind: "blobs", id: ref.path, reason: (err as Error).message });
       }
-      const path = `assets/${ref.bucket}/${ref.path}`;
-      await sink.write(path, bytes);
-      await sink.write(`${path}.sha256`, ref.sha256);
     }
   } catch (err) {
     missing.push({ kind: current, id: "*", reason: (err as Error).message });
