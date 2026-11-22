@@ -22,7 +22,7 @@ fn gitfiles_appends_missing_lines_only() {
     fs::write(dir.path().join(".gitignore"), existing).unwrap();
 
     let report = ensure_gitfiles(dir.path()).unwrap();
-    assert_eq!(report.gitignore_added, 6);
+    assert_eq!(report.gitignore_added, GITIGNORE_LINES.len() - 1);
     let text = fs::read_to_string(dir.path().join(".gitignore")).unwrap();
     assert!(text.starts_with(existing));
     for line in GITIGNORE_LINES {
@@ -34,6 +34,17 @@ fn gitfiles_appends_missing_lines_only() {
     assert_eq!(
         fs::read_to_string(dir.path().join(".gitignore")).unwrap(),
         text
+    );
+}
+
+#[test]
+fn gitfiles_excludes_the_0_9_8_migration_folder() {
+    let dir = TempDir::new();
+    ensure_gitfiles(dir.path()).unwrap();
+    let text = fs::read_to_string(dir.path().join(".gitignore")).unwrap();
+    assert!(
+        text.lines().any(|l| l == ".weaveforge/migration-0.9.8/"),
+        "{text}"
     );
 }
 
