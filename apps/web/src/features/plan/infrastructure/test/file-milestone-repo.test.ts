@@ -218,6 +218,13 @@ test("update: an empty title is refused and the stored milestone is unchanged", 
   assert.equal((await repo.getById("ms-1"))?.title, "Submit draft");
 });
 
+test("setStatus: an unknown status is refused and the stored milestone is unchanged", async () => {
+  const { repo } = setup();
+  await repo.save(milestone());
+  await assert.rejects(repo.setStatus("ms-1", "bogus" as never), /Unknown milestone status/);
+  assert.equal((await repo.getById("ms-1"))?.status, "planned");
+});
+
 test("remove: moves the milestone to the trash like delete", async () => {
   const { repo, fs } = setup();
   await repo.save(milestone());
