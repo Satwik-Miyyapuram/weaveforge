@@ -72,8 +72,14 @@ export function createTagsWriter(sink: FileSink): KindWriter {
       await (await repo()).save(tag as never);
       // Write-then-rename so a crash never leaves a half-written settings.json.
       const part = `${SETTINGS_PATH}.part`;
-      await sink.write(part, JSON.stringify(await load(), null, 2));
-      await sink.rename(part, SETTINGS_PATH);
+      try {
+        await sink.write(part, JSON.stringify(await load(), null, 2));
+        await sink.rename(part, SETTINGS_PATH);
+      } catch (err) {
+        // Only the .part is removed: settings.json itself was never touched.
+        await sink.remove(part).catch(() => undefined);
+        throw err;
+      }
     },
     async readBack(kind: string): Promise<Row[]> {
       if (kind !== KIND) throw new Error(`kind-writer-tags: unknown kind "${kind}"`);

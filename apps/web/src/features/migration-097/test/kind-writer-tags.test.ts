@@ -39,3 +39,13 @@ test("a corrupt settings.json is not treated as empty: write throws and the file
   await assert.rejects(() => writer.write("tags", { id: "ml", name: "ml", color: "#ff0000" }));
   assert.equal(await sink.readText(".weaveforge/settings.json"), "{not json");
 });
+
+test("a failed rename removes settings.json.part and leaves no stray file", async () => {
+  const sink = new MemorySink();
+  sink.rename = async () => {
+    throw new Error("rename denied");
+  };
+  const writer = createTagsWriter(sink);
+  await assert.rejects(writer.write("tags", { id: "ml", name: "ml", color: "#ff0000" }), /rename denied/);
+  assert.deepEqual((await sink.list()).filter((p) => p.endsWith(".part")), []);
+});
