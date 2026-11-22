@@ -17,6 +17,8 @@ const EXPORTED_TO: &str = "exported-to.json";
 const SECRETS_REL: &str = ".weaveforge/migration-0.9.7/secrets-moved.json";
 const DUMP_MAGIC: &[u8] = b"PGDMP";
 const VERIFY_WINDOW_MS: u64 = 600_000;
+/// Written in `pg_root` before the cluster stops; names the device that started the removal.
+const MARKER_REL: &str = "removing.json";
 
 /// Records in `pg_root/exported-to.json` that the export wrote `folder` (called by the KEYS lane
 /// after a successful export).
@@ -62,6 +64,7 @@ pub fn remove_old_data(
     folder: &Path,
     pg_root: &Path,
     now: &str,
+    device_id: &str,
     local_secrets_rows: &mut dyn FnMut() -> Result<u64, String>,
     stop_pg: &mut dyn FnMut() -> Result<(), String>,
 ) -> Result<(), String> {
@@ -103,9 +106,17 @@ pub fn remove_old_data(
     if state == "verified" {
         let local_rows = local_secrets_rows()?;
         check_secrets_count(moved, local_rows)?;
+        fs::create_dir_all(pg_root)
+            .map_err(|e| format!("cannot create {}: {e}", pg_root.display()))?;
+        write_json_atomic(
+            &pg_root.join(MARKER_REL),
+            &serde_json::json!({ "deviceId": device_id }),
+        )?;
         stop_pg()?;
         report["state"] = "removing".into();
         write_json_atomic(&report_path, &report)?;
+    } else {
+        check_marker(pg_root, device_id)?;
     }
     if pg_root.exists() {
         fs::remove_dir_all(pg_root)
@@ -151,6 +162,19 @@ fn check_verified_at(report: &serde_json::Value, now: &str) -> Result<(), String
             age / 1000,
             VERIFY_WINDOW_MS / 1000
         ));
+    }
+    Ok(())
+}
+
+/// A `removing` resume only runs on the device whose marker started it.
+fn check_marker(pg_root: &Path, device_id: &str) -> Result<(), String> {
+    let text = fs::read_to_string(pg_root.join(MARKER_REL)).map_err(|_| {
+        "refused: removal was not started on this device (removing.json missing)".to_owned()
+    })?;
+    let value: serde_json::Value = serde_json::from_str(&text)
+        .map_err(|_| "refused: removing.json is unparsable".to_owned())?;
+    if value["deviceId"].as_str() != Some(device_id) {
+        return Err("refused: removal was started by another device".to_owned());
     }
     Ok(())
 }

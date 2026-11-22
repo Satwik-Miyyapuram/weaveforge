@@ -57,6 +57,11 @@ pub async fn migrate_097_remove_old(
     let folder = PathBuf::from(folder);
     let root = pg_root(&app)?;
     let now = crate::vault::iso_utc(SystemTime::now());
+    let data = app
+        .path()
+        .app_data_dir()
+        .map_err(|e| ShellError::from(e.to_string()))?;
+    let device = crate::device_id::get_or_create(&data).map_err(|e| ShellError::from(e.to_string()))?;
     // The secrets gate needs `local_secrets` while Postgres is still up. Read it only for a
     // verified migration, because a `removing` resume runs with Postgres already down.
     let local_rows = if migration_status(&folder, &root).state == "verified" {
@@ -73,7 +78,7 @@ pub async fn migrate_097_remove_old(
             crate::stop_local_db(&stop_app);
             Ok(())
         };
-        remove_old_data(&folder, &root, &now, &mut secrets, &mut stop)
+        remove_old_data(&folder, &root, &now, &device, &mut secrets, &mut stop)
     })
     .await
     .map_err(|e| ShellError::from(e.to_string()))?

@@ -13,6 +13,8 @@ const BACKUP: &str = ".weaveforge/migration-0.9.7/pre-migration.dump";
 const REPORT: &str = ".weaveforge/migration-0.9.7/report.json";
 const SECRETS: &str = ".weaveforge/migration-0.9.7/secrets-moved.json";
 const NOW: &str = "2026-11-23T08:00:00Z";
+/// The device id this machine reports (`device_id::get_or_create` in the real command).
+const DEVICE: &str = "dev-a";
 
 /// One run exactly as the TS web writer emits it (`run-web-export.ts`), with `missing` inside it.
 const RUN_CLEAN: &str = r#"{"startedAt":"2026-11-23T07:00:00Z","finishedAt":"2026-11-23T07:30:00Z","sources":[],"kinds":{},"blobs":{"db":0,"verified":0},"missing":[]}"#;
@@ -88,7 +90,7 @@ impl Fixture {
         pre: &mut dyn FnMut() -> Result<u64, String>,
         stop: &mut dyn FnMut() -> Result<(), String>,
     ) -> Result<(), String> {
-        remove_old_data(&self.folder, &self.pg_root, NOW, pre, stop)
+        remove_old_data(&self.folder, &self.pg_root, NOW, DEVICE, pre, stop)
     }
 
     fn assert_untouched(&self) {
@@ -513,10 +515,34 @@ fn resumes_a_removing_report_after_a_partial_delete() {
         r#"{{"version":1,"state":"removing","backup":"{BACKUP}","runs":[{RUN_CLEAN}]}}"#
     ));
     fs::remove_file(f.pg_root.join("exported-to.json")).unwrap();
+    fs::write(f.pg_root.join("removing.json"), format!(r#"{{"deviceId":"{DEVICE}"}}"#)).unwrap();
     let mut stop = || panic!("resume must not stop again");
     f.run(&mut stop).expect("removing report resumes deletion");
     assert!(!f.pg_root.exists(), "rest of the cluster deleted");
     assert_eq!(f.report()["state"], "removed");
+}
+
+#[test]
+fn refuses_a_removing_report_started_by_another_device() {
+    let f = Fixture::new("other-device", Some("verified"), Some(b"PGDMP"));
+    f.set_report(&format!(
+        r#"{{"version":1,"state":"removing","backup":"{BACKUP}","verifiedAt":"{NOW}","runs":[{RUN_CLEAN}]}}"#
+    ));
+    fs::write(f.pg_root.join("removing.json"), r#"{"deviceId":"dev-b"}"#).unwrap();
+    let mut stop = || panic!("must not stop");
+    assert!(f.run(&mut stop).is_err(), "another device's removal must refuse");
+    f.assert_untouched();
+}
+
+#[test]
+fn refuses_a_removing_report_without_a_marker() {
+    let f = Fixture::new("no-marker", Some("verified"), Some(b"PGDMP"));
+    f.set_report(&format!(
+        r#"{{"version":1,"state":"removing","backup":"{BACKUP}","verifiedAt":"{NOW}","runs":[{RUN_CLEAN}]}}"#
+    ));
+    let mut stop = || panic!("must not stop");
+    assert!(f.run(&mut stop).is_err(), "resume without this device's marker must refuse");
+    f.assert_untouched();
 }
 
 #[test]
