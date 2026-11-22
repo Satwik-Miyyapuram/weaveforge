@@ -262,6 +262,19 @@ async fn expired_code_is_400_and_deletes_nothing() {
 }
 
 #[tokio::test]
+async fn verify_without_a_user_id_is_500_and_deletes_nothing() {
+    let up = upstream(PROFILE_OK, vec![(VERIFY, vec![json_reply(200, "{}")])]).await;
+    let (status, _, value) = reply(&up, post(DELETE_USER, CONFIRMED, Some(SESSION))).await;
+    assert_eq!(status, StatusCode::INTERNAL_SERVER_ERROR);
+    assert_eq!(
+        value,
+        json!({"error": "The sign-in server could not check the code. Try again later."})
+    );
+    assert!(calls(&up, "POST", RPC).is_empty());
+    assert!(calls(&up, "DELETE", ADMIN_DELETE).is_empty());
+}
+
+#[tokio::test]
 async fn auth_delete_refusal_is_500_without_the_auth_text() {
     let up = upstream(
         PROFILE_OK,

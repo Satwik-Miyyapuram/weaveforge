@@ -171,7 +171,11 @@ pub async fn verify_email_otp(
         }
         return Err("The sign-in server could not check the code. Try again later.".to_string());
     }
-    user_id_of(&answer.body).ok_or_else(|| "Invalid or expired confirmation code.".to_string())
+    // GoTrue took the code but named no user: the server's trouble, not a bad code (so 500).
+    user_id_of(&answer.body).ok_or_else(|| {
+        eprintln!("[gotrue] verify otp: no user id in the reply");
+        "The sign-in server could not check the code. Try again later.".to_string()
+    })
 }
 
 /// A reply from the auth server: whether it succeeded, its status, and its JSON body (`Null` when not JSON).
@@ -242,6 +246,7 @@ fn user_id_of(body: &Value) -> Option<String> {
         .and_then(|user| user.get("id"))
         .or_else(|| body.get("id"))
         .and_then(Value::as_str)
+        .filter(|id| !id.is_empty())
         .map(str::to_owned)
 }
 

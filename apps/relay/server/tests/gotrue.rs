@@ -369,6 +369,21 @@ async fn verify_server_failure_is_not_called_an_invalid_code() {
 }
 
 #[tokio::test]
+async fn verify_ok_without_a_user_id_is_a_server_failure_not_a_bad_code() {
+    // GoTrue accepted the code, so the user did nothing wrong: no "invalid code" (400).
+    for body in ["{}", r#"{"id":""}"#, r#"{"user":{}}"#, "not json"] {
+        let up = serve(vec![("/auth/v1/verify", vec![json_reply(200, body)])]).await;
+        let otp = OtpInput::Token("123456".to_string());
+        let verified = verify_email_otp(&state(up.port), "a@x.org", &otp).await;
+        assert_eq!(
+            verified,
+            Err("The sign-in server could not check the code. Try again later.".to_string()),
+            "{body}"
+        );
+    }
+}
+
+#[tokio::test]
 async fn unreachable_auth_server_is_reported_as_such() {
     let state = state(closed_port());
     assert_eq!(
