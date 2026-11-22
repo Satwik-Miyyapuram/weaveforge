@@ -8,6 +8,46 @@
  * and multi_select, so a relation field never reaches this mapping and needs no link lookup here.
  */
 import type { Row } from "./ports";
+import type { MissingRow } from "./report";
+
+/** Kinds the paper-fields writer owns (kind-writer-paper-fields.ts). Neither needs a wf-wasm codec. */
+export const PAPER_FIELD_KINDS = ["paperFields", "paperFieldValues"] as const;
+
+const DEF_FIELDS = ["id", "projectId", "name", "kind", "options", "sortOrder"] as const;
+
+function groupByProject(rows: Row[]): Map<string, Row[]> {
+  const out = new Map<string, Row[]>();
+  for (const r of rows) {
+    const projectId = String(r.projectId);
+    out.set(projectId, [...(out.get(projectId) ?? []), r]);
+  }
+  return out;
+}
+
+/** Stable text of one project's defs, over the fields the File format keeps. */
+function defsKey(rows: Row[]): string {
+  const picked = rows.map((r) => Object.fromEntries(DEF_FIELDS.map((k) => [k, r[k]])));
+  picked.sort((a, b) => (String(a.id) < String(b.id) ? -1 : String(a.id) > String(b.id) ? 1 : 0));
+  return JSON.stringify(picked);
+}
+
+/**
+ * Compares the defs per project. A project with defs in the source but none read back is "absent";
+ * any other difference (a changed def, or defs read back for a project the source lacks) is "differ".
+ * Each finding names the project id, so the report says which project did not survive.
+ */
+export function projectDefsMismatches(want: Row[], got: Row[]): MissingRow[] {
+  const wantBy = groupByProject(want);
+  const gotBy = groupByProject(got);
+  const out: MissingRow[] = [];
+  for (const projectId of new Set([...wantBy.keys(), ...gotBy.keys()])) {
+    const w = wantBy.get(projectId) ?? [];
+    const g = gotBy.get(projectId) ?? [];
+    if (w.length > 0 && g.length === 0) out.push({ kind: "paperFields", id: projectId, reason: "project defs absent" });
+    else if (defsKey(w) !== defsKey(g)) out.push({ kind: "paperFields", id: projectId, reason: "project defs differ" });
+  }
+  return out;
+}
 
 /** One def as the File repo stores it. projectId is the project folder ("" = workspace root). */
 export type FileFieldDef = { projectId: string; name: string; kind: string; options: string[]; sortOrder: number };

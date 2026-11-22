@@ -10,6 +10,7 @@ import {
 import type { FileCodec, FileSink, Row, ServerSource } from "../domain/ports";
 import type { KindWriter } from "../domain/kind-writer";
 import { sha256Hex } from "../domain/hash";
+import { PAPER_FIELD_KINDS, projectDefsMismatches } from "../domain/paper-fields-file";
 import { isUnsafeAssetPath } from "../domain/asset-path";
 import { sameRows, verifyExport, type Verdict } from "./verify-export";
 
@@ -236,15 +237,22 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
           }
           const back = await writer.readBack(kind);
           backCount[kind] = back.length;
-          if (!sameRows(kind, rows, back)) {
+          if (kind === "paperFields") {
+            // Defs are compared per project, so a project that did not survive is named by its id.
+            missing.push(...projectDefsMismatches(rows, back));
+          } else if (!sameRows(kind, rows, back)) {
             missing.push({ kind, id: "*", reason: `readBack differs: ${back.length} read, ${rows.length} exported` });
           }
           continue;
         }
         // TODO(097-lanes): still raw codec + sink until their FILES repo lands: group (a) papers,
-        // notes, relations, paperFields, paperFieldValues; and lists (readingLists). Keep this list in sync.
+        // notes, relations; and lists (readingLists). Keep this list in sync.
         if (!codec.supports(kind)) {
-          for (const row of rows) missing.push({ kind, id: String(row.id), reason: "no wf-wasm codec" });
+          // A paper-field kind with no writer is not a codec gap: name the real cause.
+          const reason = (PAPER_FIELD_KINDS as readonly string[]).includes(kind)
+            ? "paper fields writer not wired"
+            : "no wf-wasm codec";
+          for (const row of rows) missing.push({ kind, id: String(row.id), reason });
           continue;
         }
         for (const row of rows) {

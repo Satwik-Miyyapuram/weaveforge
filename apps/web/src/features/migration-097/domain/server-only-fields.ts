@@ -20,4 +20,7 @@ export const SERVER_ONLY_FIELDS: Readonly<Record<string, readonly string[]>> = {
   blobs: OWNER_COLUMNS,
   ink: OWNER_COLUMNS,
   tags: OWNER_COLUMNS,
+  paperFields: OWNER_COLUMNS,
+  // A value's file id is `<paper id>:<field id>`, not the server row id, so `id` is not compared either.
+  paperFieldValues: ["id", ...OWNER_COLUMNS],
 };
