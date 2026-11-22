@@ -18,7 +18,6 @@ import {
   keychainHelp,
   LegacySecretsReadError,
   PartialSaveError,
-  SecretsNotMovedError,
   type DeviceKeychain,
 } from "../providers/local/parts";
 
@@ -409,32 +408,38 @@ describe("no keychain on this machine (Linux without a Secret Service)", () => {
     await assert.rejects(() => desktopMoveSecrets(bridge)(), KeychainUnavailableError);
   });
 
-  it("names the write-only fields the move left behind, and the error carries only those names", async () => {
+  it("a move that left write-only fields behind warns with their names and resolves", async () => {
     const bridge = {
       migrate097MoveSecrets: async () => ["overleafToken.extra"],
     } as unknown as DesktopBridge;
-    const err: unknown = await desktopMoveSecrets(bridge)().then(
-      () => undefined,
-      (e: unknown) => e,
-    );
-    assert.ok(err instanceof SecretsNotMovedError, "the move must reject with SecretsNotMovedError");
-    assert.deepEqual(err.fields, ["overleafToken.extra"]);
-    assert.match(err.message, /overleafToken\.extra/);
+    const warnings: string[] = [];
+    const warn = console.warn;
+    console.warn = (...args: unknown[]) => {
+      warnings.push(args.map(String).join(" "));
+    };
+    try {
+      await desktopMoveSecrets(bridge)();
+    } finally {
+      console.warn = warn;
+    }
+    assert.equal(warnings.length, 1);
+    assert.match(warnings[0], /overleafToken\.extra/);
   });
 
-  it("a save whose move left fields behind rejects with those names and writes nothing", async () => {
+  it("a save after a move that left fields behind still saves, so the first save is not lost", async () => {
     const { keychain, writes } = fakeKeychain();
-    const moveSecrets = async () => {
-      throw new SecretsNotMovedError(["overleafToken.extra"]);
-    };
-    const store = new DeviceSecretsStore(fakeRun([]).run, keychain, moveSecrets);
-    const err: unknown = await store.save({ zoteroApiKey: "k" }).then(
-      () => undefined,
-      (e: unknown) => e,
-    );
-    assert.ok(err instanceof SecretsNotMovedError, "the save must surface SecretsNotMovedError, not SecretsMovePendingError");
-    assert.match(err.message, /overleafToken\.extra/);
-    assert.deepEqual(writes, []);
+    const bridge = {
+      migrate097MoveSecrets: async () => ["overleafToken.extra"],
+    } as unknown as DesktopBridge;
+    const warn = console.warn;
+    console.warn = () => {};
+    try {
+      const store = new DeviceSecretsStore(fakeRun([]).run, keychain, desktopMoveSecrets(bridge));
+      await store.save({ zoteroApiKey: "k" });
+    } finally {
+      console.warn = warn;
+    }
+    assert.ok(writes.length > 0, "the save must write its fields");
   });
 
   it("a move that moved every field still resolves", async () => {

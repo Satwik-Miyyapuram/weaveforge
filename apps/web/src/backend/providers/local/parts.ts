@@ -277,18 +277,11 @@ export class SecretsMovePendingError extends Error {
 }
 
 /**
- * Thrown when the one-time move leaves write-only fields behind. `fields` are field NAMES only,
- * never values; the message names them so the user can see what was not moved.
+ * The shell's one-time move (`migrate097MoveSecrets`); a no-op outside the desktop app. Write-only
+ * fields the move could not route are left behind: the save goes ahead (refusing it would lose the
+ * first save, because the shell has already written its marker), and only their NAMES are warned.
+ * The shell keeps the same names in the marker so a status view can list them.
  */
-export class SecretsNotMovedError extends Error {
-  readonly code = "secrets-not-moved";
-  constructor(readonly fields: string[]) {
-    super(`These saved credentials were not moved to the keychain: ${fields.join(", ")}. Nothing was saved.`);
-    this.name = "SecretsNotMovedError";
-  }
-}
-
-/** The shell's one-time move (`migrate097MoveSecrets`); a no-op outside the desktop app. */
 export function desktopMoveSecrets(bridge: DesktopBridge | null = desktop()): () => Promise<void> {
   return async () => {
     if (!bridge) return;
@@ -298,7 +291,9 @@ export function desktopMoveSecrets(bridge: DesktopBridge | null = desktop()): ()
     } catch (err) {
       throw asKeychainUnavailable(err);
     }
-    if (notMoved.length > 0) throw new SecretsNotMovedError(notMoved);
+    if (notMoved.length > 0) {
+      console.warn(`These saved credentials were not moved to the keychain: ${notMoved.join(", ")}.`);
+    }
   };
 }
 
@@ -393,7 +388,7 @@ export class DeviceSecretsStore implements SecretsStore {
       try {
         await this.moveSecrets();
       } catch (err) {
-        if (err instanceof KeychainUnavailableError || err instanceof SecretsNotMovedError) throw err;
+        if (err instanceof KeychainUnavailableError) throw err;
         const reason = err instanceof Error ? err.message : String(err);
         throw new SecretsMovePendingError(`The saved credentials are not in the keychain yet (${reason}). Nothing was saved.`);
       }
