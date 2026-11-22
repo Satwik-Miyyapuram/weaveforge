@@ -222,8 +222,9 @@ pointed at a newer release. Publish v0.9.7 first, then re-run the release.
 
 **The 0.9.7 gate.** The 0.9.7 `latest-v2.json` path depends on the install gate in
 `claim_install` (`apps/shell/src/app_update.rs`). A 0.9.7 install of a newer release is
-held until local data is exported and verified, or when there is none, so the data is never
-stranded. If that gate is removed, a 0.9.7 client can update past its local data.
+held unless local data is absent, or exported and verified. Unknown local-data state also
+holds (fail closed), so the data is never stranded. If that gate is removed, a 0.9.7
+client can update past its local data.
 The release workflow also rejects any tag that is not `vX.Y.Z` (for example `v0.9.7-rc1`)
 in its `validate` job, before anything is built.
 
