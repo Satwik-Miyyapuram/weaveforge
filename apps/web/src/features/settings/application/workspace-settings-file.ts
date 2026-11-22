@@ -9,6 +9,8 @@ import type { IWorkspaceFs } from "@weaveforge/core";
 export const SETTINGS_PATH = ".weaveforge/settings.json";
 export const SETTINGS_VERSION = 1;
 export const SETTINGS_WRITE_DELAY_MS = 500;
+/** Compare-and-swap attempts per flush; each re-reads and re-merges before retrying. */
+const SETTINGS_WRITE_ATTEMPTS = 3;
 /** The longest wait between retries of a refused save. */
 const SETTINGS_RETRY_MAX_MS = 60_000;
 export type SettingsKey = readonly string[];
@@ -213,7 +215,7 @@ export class WorkspaceSettingsFile {
     const fs = this.deps.fs();
     if (!fs || this.pending.size === 0 || this.stateValue === "locked") return;
     try {
-      for (let attempt = 0; attempt < 2; attempt++) {
+      for (let attempt = 0; attempt < SETTINGS_WRITE_ATTEMPTS; attempt++) {
         const gen = this.generation;
         const text = renderSettings(this.doc);
         if (this.lastText === null) await fs.mkdirp(".weaveforge");
