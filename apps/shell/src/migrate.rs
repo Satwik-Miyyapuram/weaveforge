@@ -230,7 +230,11 @@ fn report_runs(path: &Path) -> Result<Vec<serde_json::Value>, ShellError> {
     };
     let report: serde_json::Value = serde_json::from_str(&text)
         .map_err(|e| report_unreadable(&name, &format!("not valid JSON ({e})")))?;
-    let known_state = matches!(report["state"].as_str(), Some("verified" | "incomplete" | "none"));
+    // The top-level states the 0.9.7 writer sets (status.rs and remove.rs); `none` is never written here.
+    let known_state = matches!(
+        report["state"].as_str(),
+        Some("verified" | "incomplete" | "removing" | "removed")
+    );
     match report["runs"].as_array() {
         Some(runs) if known_state && runs.iter().all(serde_json::Value::is_object) => Ok(runs.clone()),
         _ => Err(report_unreadable(&name, "not a 0.9.7 migration report")),
@@ -392,6 +396,7 @@ fn migrated_here(prefs_dir: Option<&Path>, device_id: Option<&str>) -> bool {
     let Some(root) = configured_root(dir) else {
         return false;
     };
+    // Pre-existing: the secrets marker alone passes here. It is written only after this device's secrets move.
     secrets_marker_path(&root, id).is_file()
         || matches!(report_state_verified(&root, Some(id)), Ok(true))
 }
@@ -885,6 +890,24 @@ mod tests {
     fn a_report_with_an_unknown_state_refuses() {
         let folder = report("report-unknown-state", r#"{"state":"done","runs":[]}"#);
         assert!(report_state_verified(&folder, Some(DEVICE)).is_err());
+    }
+
+    #[test]
+    fn another_devices_removed_report_is_not_an_error() {
+        let folder = report(
+            "report-other-removed",
+            r#"{"state":"removed","runs":[{"deviceId":"device-b","state":"verified","startedAt":"2026-11-20T10:00:00Z","missing":[],"kinds":{"vault_page":{"db":2,"files":2}}}]}"#,
+        );
+        assert_eq!(report_state_verified(&folder, Some(DEVICE)), Ok(false));
+    }
+
+    #[test]
+    fn another_devices_removing_report_is_not_an_error() {
+        let folder = report(
+            "report-other-removing",
+            r#"{"state":"removing","removingDeviceId":"device-b","runs":[{"deviceId":"device-b","state":"verified","startedAt":"2026-11-20T10:00:00Z","missing":[],"kinds":{"vault_page":{"db":2,"files":2}}}]}"#,
+        );
+        assert_eq!(report_state_verified(&folder, Some(DEVICE)), Ok(false));
     }
 
     #[test]

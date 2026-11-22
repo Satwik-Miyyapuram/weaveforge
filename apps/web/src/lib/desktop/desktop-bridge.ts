@@ -361,13 +361,11 @@ export interface DesktopBridge {
 
   /**
    * 0.9.7 local-database gate (0.9.8). `legacyDbPresent`: old native-Postgres or
-   * PGlite data is on this device. `migrationReportVerified(folder)`: the workspace
-   * at `folder` has a verified 0.9.7 migration report (rejects when the report is unreadable).
+   * PGlite data is on this device.
    * `pickFolder` opens the folder dialog and resolves the path, or null on cancel; it never
    * changes the workspace. All read-only. Absent on the Electron shell and in the browser.
    */
   legacyDbPresent?(): Promise<boolean>;
-  migrationReportVerified?(folder: string): Promise<boolean>;
   /** Whether the "install 0.9.7 first" gate shows. Rejects when the device id is unreadable. */
   installGateRequired?(): Promise<boolean>;
   pickFolder?(): Promise<string | null>;
