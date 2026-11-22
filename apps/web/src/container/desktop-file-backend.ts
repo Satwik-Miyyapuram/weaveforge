@@ -3,7 +3,7 @@ import type { BackendConfig } from "@/backend/parts";
 import { wireFileBackend } from "@/backend/providers/files/wire-file-backend";
 import type { SettingsSection } from "@/backend/providers/files/file-tag-repo";
 import type { SecretsStore } from "@/features/settings/infrastructure/parts";
-import { DeviceSecretsStore } from "@/backend/providers/local/parts";
+import { DeviceSecretsStore } from "@/backend/device-secrets-store";
 import { wirePostgrestBackend, type WiredPostgrestBackend } from "@/backend/providers/postgrest/wire-postgrest-backend";
 import { DesktopWorkspaceFs, type VaultFileBridge } from "@/features/workspace/infrastructure/parts";
 import { systemClock } from "@/lib/parts";

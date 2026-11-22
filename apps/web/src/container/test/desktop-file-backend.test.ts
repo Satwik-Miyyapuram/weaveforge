@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import type { BackendConfig } from "../../backend/parts";
-import { DeviceSecretsStore } from "../../backend/providers/local/parts";
+import { DeviceSecretsStore } from "../../backend/device-secrets-store";
 import type { VaultFileBridge } from "../../features/workspace/infrastructure/parts";
 import { wireBackend } from "../parts";
 import { wireDesktopFileBackend } from "../desktop-file-backend";
@@ -20,21 +20,15 @@ const settings = { load: async () => ({}), save: async () => {} } as never;
 /** Credentials in an in-memory keychain: this machine has no OS keychain under test. */
 function keychainSecrets() {
   const entries = new Map<string, string>();
-  return new DeviceSecretsStore(
-    async () => {
-      throw new Error("no local database in files mode");
+  return new DeviceSecretsStore({
+    read: async (key) => entries.get(key) ?? null,
+    write: async (key, text) => {
+      entries.set(key, text);
     },
-    {
-      read: async (key) => entries.get(key) ?? null,
-      write: async (key, text) => {
-        entries.set(key, text);
-      },
-      clear: async (key) => {
-        entries.delete(key);
-      },
+    clear: async (key) => {
+      entries.delete(key);
     },
-    async () => {},
-  );
+  });
 }
 
 /** An in-memory vault: what the shell would write to disk, keyed by path. Text and bytes share one store. */

@@ -1,7 +1,7 @@
 import { ManageSettingsUseCase, type IWorkspaceFs, type WorkspaceStat } from "@weaveforge/core";
 import type { BackendConfig } from "@/backend/parts";
 import { wireFileBackend } from "@/backend/providers/files/wire-file-backend";
-import { DeviceSecretsStore } from "@/backend/providers/local/parts";
+import { DeviceSecretsStore } from "@/backend/device-secrets-store";
 import { wirePostgrestBackend, type WiredPostgrestBackend } from "@/backend/providers/postgrest/wire-postgrest-backend";
 import { activeWorkspaceFs } from "@/features/workspace/application/workspace-folder";
 import { workspaceSettings } from "@/features/settings/application/workspace-settings";

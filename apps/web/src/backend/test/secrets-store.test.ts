@@ -17,7 +17,7 @@ import { before, describe, it } from "node:test";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { RouteSecretsStore } from "@/features/settings/infrastructure/parts";
 import { loadTestCore } from "@/lib/test/load-test-core";
-import { DeviceSecretsStore } from "../providers/local/parts";
+import { DeviceSecretsStore } from "../device-secrets-store";
 import { secretsStoreFor } from "../providers/secrets-store";
 
 before(loadTestCore);

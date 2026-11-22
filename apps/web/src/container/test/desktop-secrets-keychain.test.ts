@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import type { BackendConfig } from "../../backend/parts";
-import { DeviceSecretsStore, type DeviceKeychain } from "../../backend/providers/local/parts";
+import { DeviceSecretsStore, type DeviceKeychain } from "../../backend/device-secrets-store";
 import type { VaultFileBridge } from "../../features/workspace/infrastructure/parts";
 import { wireBackend } from "../parts";
 import { wireDesktopFileBackend } from "../desktop-file-backend";
@@ -54,15 +54,9 @@ function memoryVault(): VaultFileBridge {
   };
 }
 
-/** A secrets store over the keychain only: no local database row and no legacy move. */
+/** A secrets store over the keychain only: there is no local database to read. */
 function keychainSecrets(keychain: DeviceKeychain) {
-  return new DeviceSecretsStore(
-    async () => {
-      throw new Error("no local database in files mode");
-    },
-    keychain,
-    async () => {},
-  );
+  return new DeviceSecretsStore(keychain);
 }
 
 test("a credential saved in files mode is still there after a restart", async () => {
