@@ -7,6 +7,11 @@
 -- profiles.exported_097_at is the server-side marker that a user's local data was
 -- exported in 0.9.7. Only a verified export sets it, and only through
 -- mark_exported_097(). Null means not exported yet.
+--
+-- Trust model: the marker is trust-based, not proof. A client calls
+-- mark_exported_097() only after a verified report of its export. The server
+-- cannot check the export itself. Migration 0165 therefore also requires
+-- profiles.updated_at > exported_097_at before it treats the marker as valid.
 
 alter table shared_docs drop constraint if exists shared_docs_kind_check;
 alter table shared_docs
@@ -25,10 +30,10 @@ revoke update (exported_097_at) on profiles from authenticated, anon;
 create or replace function profiles_guard_export_marker()
 returns trigger
 language plpgsql
-set search_path = public
+set search_path = public, pg_temp
 as $$
 begin
-  if new.exported_097_at is distinct from old.exported_097_at
+  if (tg_op = 'insert' or new.exported_097_at is distinct from old.exported_097_at)
      and coalesce(current_setting('weaveforge.export_marker', true), '') <> 'on' then
     raise exception 'exported_097_at is set only by mark_exported_097()';
   end if;
@@ -38,18 +43,21 @@ $$;
 
 drop trigger if exists profiles_guard_export_marker on profiles;
 create trigger profiles_guard_export_marker
-  before update on profiles
+  before insert or update on profiles
   for each row execute function profiles_guard_export_marker();
 
--- Stamps the caller's own profile. Returns the stamp. Idempotent per call.
+-- Stamps the caller's own profile and returns the stamp. Idempotent per call.
+-- Trust-based: call only after the export report has verified locally (see the
+-- header). Raises when the signed-in user has no profiles row.
 create or replace function mark_exported_097()
 returns timestamptz
 language plpgsql
 security definer
-set search_path = public
+set search_path = public, pg_temp
 as $$
 declare
   stamped timestamptz;
+  n integer;
 begin
   if auth.uid() is null then
     raise exception 'mark_exported_097 needs a signed-in user';
@@ -59,6 +67,10 @@ begin
      set exported_097_at = now()
    where user_id = auth.uid()
   returning exported_097_at into stamped;
+  get diagnostics n = row_count;
+  if n = 0 then
+    raise exception 'no profiles row for the signed-in user';
+  end if;
   return stamped;
 end;
 $$;

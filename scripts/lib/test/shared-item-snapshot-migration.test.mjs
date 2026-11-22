@@ -74,3 +74,30 @@ test("rollback keeps the profiles.exported_097_at column", () => {
 test("rollback header carries the exact pre-check query", () => {
   assert.match(rollback, /select item_id, owner from shared_docs where kind = 'item';/);
 });
+
+test("guard trigger fires on insert too, so a marker cannot be inserted directly", () => {
+  assert.match(forward, /before insert or update on profiles/i);
+  assert.match(forward, /tg_op = 'insert'/i);
+});
+
+test("mark_exported_097 raises when the caller has no profiles row", () => {
+  assert.match(forward, /get diagnostics/i);
+  assert.match(forward, /raise exception 'no profiles row for the signed-in user'/);
+});
+
+test("both security-relevant functions pin search_path to public, pg_temp", () => {
+  const pinned = forward.match(/set search_path = public, pg_temp/g) ?? [];
+  assert.equal(pinned.length, 2);
+  assert.doesNotMatch(forward, /set search_path = public\s*\n/);
+});
+
+test("forward header and RPC comment state the marker is trust-based", () => {
+  assert.match(forward, /trust/i);
+  assert.match(forward, /verified report/i);
+  assert.match(forward, /0165/);
+  assert.match(forward, /updated_at > exported_097_at/);
+});
+
+test("rollback documents that the column revoke is not undone", () => {
+  assert.match(rollback, /-- .*revoke.*exported_097_at/i);
+});

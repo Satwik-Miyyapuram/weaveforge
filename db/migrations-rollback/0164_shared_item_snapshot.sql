@@ -12,6 +12,9 @@ drop trigger if exists profiles_guard_export_marker on profiles;
 drop function if exists profiles_guard_export_marker();
 drop function if exists mark_exported_097();
 
+-- The column revoke from the forward migration (revoke update (exported_097_at)
+-- from authenticated, anon) is not undone here. The column is kept, and no
+-- grant is restored. Re-grant by hand only if you have a reason to.
 alter table shared_docs drop constraint if exists shared_docs_kind_check;
 alter table shared_docs
   add constraint shared_docs_kind_check
