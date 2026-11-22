@@ -333,17 +333,29 @@ pub fn install_gate_required(app: tauri::AppHandle) -> Result<bool, ShellError> 
             let source = crate::launch::app_source(resources);
             crate::launch::electron_data_dir(&source, &app.package_info().name, &config)
         });
-    let device = match dir.as_deref() {
-        Some(data) => device_id::read_existing(data).map_err(|e| {
+    install_gate_with(dir.as_deref(), electron.as_deref(), |data| {
+        device_id::read_existing(data).map_err(|e| {
             ShellError::coded("device_id_unreadable", &format!("cannot read this device's id: {e}"))
-        })?,
+        })
+    })
+}
+
+/// The gate decision behind `install_gate_required`. A clean "no old data" answer returns before the
+/// device id is read, so a fresh install never fails on a corrupt id file. Old data reads the id, and
+/// an unreadable id is an error so the page shows the gate.
+fn install_gate_with(
+    dir: Option<&Path>,
+    electron: Option<&Path>,
+    read_device: impl FnOnce(&Path) -> Result<Option<String>, ShellError>,
+) -> Result<bool, ShellError> {
+    if let Ok(false) = legacy_db_from(dir, electron) {
+        return Ok(false);
+    }
+    let device = match dir {
+        Some(data) => read_device(data)?,
         None => None,
     };
-    Ok(gate_required_from(
-        dir.as_deref(),
-        electron.as_deref(),
-        device.as_deref(),
-    ))
+    Ok(gate_required_from(dir, electron, device.as_deref()))
 }
 
 /// True when the workspace named by the prefs in `prefs_dir` holds this device's marker or its
@@ -740,6 +752,31 @@ mod tests {
     fn an_empty_app_data_dir_is_absent() {
         let (data, _) = temp("legacy-empty-app");
         assert_eq!(legacy_db_from(Some(&data), None), Ok(false));
+    }
+
+    fn device_id_unreadable() -> ShellError {
+        ShellError::coded("device_id_unreadable", "cannot read this device's id")
+    }
+
+    #[test]
+    fn a_fresh_install_with_a_corrupt_device_id_is_not_gated() {
+        let (data, _) = temp("gate-fresh-corrupt-id");
+        let gated = install_gate_with(Some(&data), None, |_| Err(device_id_unreadable()));
+        assert_eq!(gated, Ok(false));
+    }
+
+    #[test]
+    fn old_data_with_an_unreadable_device_id_is_still_an_error() {
+        let (data, _) = data_with("gate-old-corrupt-id", true, false);
+        let gated = install_gate_with(Some(&data), None, |_| Err(device_id_unreadable()));
+        assert_eq!(gated.unwrap_err().code.as_deref(), Some("device_id_unreadable"));
+    }
+
+    #[test]
+    fn old_data_with_a_readable_device_id_and_no_migration_is_gated() {
+        let (data, _) = data_with("gate-old-no-migration", true, false);
+        let gated = install_gate_with(Some(&data), None, |_| Ok(Some(DEVICE.to_string())));
+        assert_eq!(gated, Ok(true));
     }
 
     #[test]
