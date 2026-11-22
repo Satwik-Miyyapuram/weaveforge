@@ -3,11 +3,8 @@
 
 use std::collections::BTreeMap;
 
-use crate::commands::{Json, LocalDb, ShellError};
-use crate::plan_widget::{
-    PLAN_WIDGET_LIMIT, PLAN_WIDGET_SQL, clean_widget_palette, rows_to_milestones,
-    switch_plan_widget,
-};
+use crate::commands::{Json, ShellError};
+use crate::plan_widget::{clean_widget_palette, switch_plan_widget};
 use crate::prefs::{PrefValue, Prefs};
 
 /// The widget window's label.
@@ -127,23 +124,6 @@ fn saved_palette(prefs: &Prefs) -> Option<BTreeMap<String, String>> {
         return None;
     };
     clean_widget_palette(&serde_json::from_str(&text).ok()?)
-}
-
-/// The widget's deadlines from the local database, as the web feed's widget JSON.
-///
-/// # Errors
-/// Returns an error when the local database cannot be read.
-#[tauri::command]
-#[specta::specta]
-pub async fn plan_widget_data(db: tauri::State<'_, LocalDb>) -> Result<Json, ShellError> {
-    let rows = db.query(PLAN_WIDGET_SQL.to_owned(), Vec::new()).await?;
-    let items = rows_to_milestones(&rows);
-    let now_ms = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map_or(0, |d| i64::try_from(d.as_millis()).unwrap_or(i64::MAX));
-    let data =
-        wf_core::plan::feed::plan_widget_data(&items, false, Some(PLAN_WIDGET_LIMIT), now_ms);
-    serde_json::from_value(data).map_err(|_| ShellError::from("plan widget: bad data".to_owned()))
 }
 
 /// Brings the app forward on its plan page, opening the main window if it is closed.

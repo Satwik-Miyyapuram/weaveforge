@@ -1,36 +1,3 @@
-import type { DesktopBridge } from "@/lib/desktop/desktop-bridge";
-import type { commands } from "./bindings";
-
-/** The generated commands this part of the shim calls. */
-export type LocalDbCommands = Pick<
-  typeof commands,
-  | "dbQuery"
-  | "dbState"
-  | "dbReset"
->;
-
-/** The local database part of `window.weaveforge`. */
-export type LocalDbBridge = Pick<
-  DesktopBridge,
-  | "queryLocalDb"
-  | "localDbState"
-  | "resetLocalDb"
->;
-
-/** Wraps the generated commands as the local database part of `DesktopBridge`. */
-export function localDbBridge(cmds: LocalDbCommands): LocalDbBridge {
-  return {
-    queryLocalDb: async (sql, params = []) =>
-      decodeWire(
-        unwrap(await cmds.dbQuery(sql, params.map(encodeParam))),
-      ) as unknown[],
-    localDbState: async () => unwrap(await cmds.dbState()),
-    resetLocalDb: async () => {
-      unwrap(await cmds.dbReset());
-    },
-  };
-}
-
 /** Base64 of `bytes`, without Buffer. Encodes in chunks so large values do not overflow the call stack. */
 export function toBase64(bytes: Uint8Array): string {
   let binary = "";
