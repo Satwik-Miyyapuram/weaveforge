@@ -7,6 +7,7 @@ import { wirePostgrestBackend } from "../../backend/providers/postgrest/wire-pos
 import {
   PERSONAL_REPOSITORY_KEYS,
   SERVER_BACKEND_KEYS,
+  PERSONAL_ALIASES,
   overlayFileRepositories,
   unclassifiedKeys,
 } from "../with-file-repositories";
@@ -72,4 +73,23 @@ test("the overlay overrides every personal key of the wired backend", () => {
   } finally {
     wired.dispose();
   }
+});
+
+test("bibliography, quotation-type and integrations keys are personal, never on the server list", () => {
+  for (const key of ["projectBibliographyCollection", "annotationQuotationTypeRepository", "integrationsStore"]) {
+    assert.equal(SERVER_BACKEND_KEYS.has(key), false, `${key} must not be a server key`);
+    assert.equal(
+      key in PERSONAL_REPOSITORY_KEYS || key in PERSONAL_ALIASES,
+      true,
+      `${key} must be a personal key or alias`,
+    );
+  }
+});
+
+test("the aliases point the PostgREST key names at the file repositories", () => {
+  const files = wireFileBackend(parts);
+  const wired = { projectBibliographyCollection: "postgrest-collection", annotationQuotationTypeRepository: "postgrest-quotation" };
+  const out = overlayFileRepositories(wired, files);
+  assert.equal(out.projectBibliographyCollection, files.bibliographyCollectionStore);
+  assert.equal(out.annotationQuotationTypeRepository, files.quotationTypeRepository);
 });

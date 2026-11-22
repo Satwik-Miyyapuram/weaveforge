@@ -30,24 +30,37 @@ export const PERSONAL_REPOSITORY_KEYS: Record<keyof FileRepositories, true> = {
   quotationTypeRepository: true,
   bibliographyCollectionStore: true,
   screeningRepository: true,
+  integrationsStore: true,
+};
+
+/**
+ * Wired PostgREST key names whose personal counterpart is a file repository under
+ * another name: the overlay points the wired key at the file repository.
+ */
+export const PERSONAL_ALIASES: Record<string, keyof FileRepositories> = {
+  projectBibliographyCollection: "bibliographyCollectionStore",
+  annotationQuotationTypeRepository: "quotationTypeRepository",
 };
 
 /**
  * Overlays the file repositories on a PostgREST-wired backend: each personal key
- * is replaced by its file counterpart, and every other key (org, sharing, db,
- * use cases) is kept as wired. Platform-neutral: desktop and the browser wiring
- * both use it.
+ * is replaced by its file counterpart (aliases included), and every other key (org,
+ * sharing, db, use cases) is kept as wired. Platform-neutral: desktop and the browser
+ * wiring both use it.
  */
 export function overlayFileRepositories<W extends object>(
   postgrestBackend: W,
   fileRepos: FileRepositories,
 ): W & FileRepositories {
-  return { ...postgrestBackend, ...fileRepos };
+  const aliased = Object.fromEntries(
+    Object.entries(PERSONAL_ALIASES).map(([alias, target]) => [alias, fileRepos[target]]),
+  );
+  return { ...postgrestBackend, ...fileRepos, ...aliased } as W & FileRepositories;
 }
 
 /**
  * The keys of the wired PostgREST backend that stay on the server: org, sharing,
- * relay, auth and infrastructure. Any other key must be a personal key.
+ * relay, auth and infrastructure. Any other key must be a personal key or alias.
  */
 export const SERVER_BACKEND_KEYS: ReadonlySet<string> = new Set([
   "config",
@@ -58,22 +71,19 @@ export const SERVER_BACKEND_KEYS: ReadonlySet<string> = new Set([
   "projectContext",
   "releaseNoticesRepository",
   "manageSettings",
-  "integrationsStore",
   "shareRepository",
   "commentRepository",
   "sharedReader",
   "memberRepository",
   "supervisionRepository",
-  "projectBibliographyCollection",
   "rawBlobStore",
-  "annotationQuotationTypeRepository",
   "labSnapshotRepository",
   "dispose",
 ]);
 
-/** Keys of `wiredKeys` that are neither a personal key nor a listed server key. */
+/** Keys of `wiredKeys` that are neither a personal key, an alias nor a listed server key. */
 export function unclassifiedKeys(wiredKeys: readonly string[]): string[] {
   return wiredKeys.filter(
-    (key) => !(key in PERSONAL_REPOSITORY_KEYS) && !SERVER_BACKEND_KEYS.has(key),
+    (key) => !(key in PERSONAL_REPOSITORY_KEYS) && !(key in PERSONAL_ALIASES) && !SERVER_BACKEND_KEYS.has(key),
   );
 }

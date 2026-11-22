@@ -19,6 +19,7 @@ import { FilePaperRelationRepository } from "./file-relation-repo";
 import { FileReportSectionRepository } from "./file-report-section-repo";
 import {
   FileBibliographyCollectionStore,
+  FileIntegrationsStore,
   FileDashboardLayoutRepository,
   FileGraphSettingsRepository,
   FileQuotationTypeRepository,
@@ -57,6 +58,7 @@ export interface FileRepositories {
   readonly quotationTypeRepository: FileQuotationTypeRepository;
   readonly bibliographyCollectionStore: FileBibliographyCollectionStore;
   readonly screeningRepository: FileScreeningRepository;
+  readonly integrationsStore: FileIntegrationsStore;
 }
 
 export interface FileBackendParts {
@@ -102,5 +104,6 @@ export function wireFileBackend(parts: FileBackendParts): FileRepositories {
     quotationTypeRepository: new FileQuotationTypeRepository(settings),
     bibliographyCollectionStore: new FileBibliographyCollectionStore(settings),
     screeningRepository: new FileScreeningRepository(new WorkspaceListFilesPort(fs, "")),
+    integrationsStore: new FileIntegrationsStore(settings, secrets),
   };
 }
