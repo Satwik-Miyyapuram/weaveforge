@@ -21,7 +21,8 @@ export class FileAnnotationPinRepository implements IAnnotationPinRepository {
     private readonly fs: IWorkspaceFs,
     projectRoot: string,
   ) {
-    this.path = `${projectRoot}/.weaveforge/annotation-pins.json`;
+    const dir = projectRoot ? `${projectRoot}/.weaveforge` : ".weaveforge";
+    this.path = `${dir}/annotation-pins.json`;
   }
 
   async save(input: SaveAnnotationPinInput): Promise<AnnotationPin> {
