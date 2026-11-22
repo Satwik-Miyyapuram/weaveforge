@@ -12,11 +12,14 @@ import type { WiredBackend } from "./parts";
 import { guardOrgDb } from "./org-db-guard";
 import { overlayFileRepositories } from "./with-file-repositories";
 
+/** A backend whose personal data lives in files: `filesMode` is always true here. */
+export type BrowserFileBackend = WiredBackend & { filesMode: true };
+
 export type BrowserFileWiring = (
   config: BackendConfig,
   projectContext: { projectId: string | null },
   pid: () => string | null,
-) => WiredBackend;
+) => BrowserFileBackend;
 
 /**
  * The browser and Android personal-data backend: PostgREST with every personal repository
@@ -41,6 +44,7 @@ export async function wireBrowserFiles(fs: IWorkspaceFs): Promise<BrowserFileWir
       // Row scoping of shared images to the signed-in user is not checked here.
       rawBlobStore: new FileBlobStore(fs),
       db: guardOrgDb(postgrest.db),
+      filesMode: true,
     };
   };
 }
