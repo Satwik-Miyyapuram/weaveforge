@@ -677,6 +677,50 @@ fn record_exported_to_names_this_folder() {
 use weaveforge_shell_lib::migrate_097::status::migration_status;
 
 #[test]
+fn status_reports_removing_device_and_unverified_own_run() {
+    let f = Fixture::new("status-removing", Some("removing"), Some(good_dump().as_slice()));
+    let aborted = RUN_CLEAN.replace(r#""state":"verified""#, r#""state":"aborted""#);
+    f.set_report(&format!(
+        r#"{{"version":1,"state":"removing","removingDeviceId":"{DEVICE}","backup":"{BACKUP_NAME}","verifiedAt":"{NOW}","runs":[{aborted}]}}"#
+    ));
+    let value = serde_json::to_value(migration_status(&f.folder, &f.pg_root, DEVICE)).unwrap();
+    assert_eq!(value["removingDeviceId"], DEVICE);
+    assert_eq!(value["ownRunVerified"], false);
+}
+
+#[test]
+fn status_reports_not_exported_here_for_another_folder() {
+    let f = Fixture::new("status-moved", Some("verified"), Some(good_dump().as_slice()));
+    let other = f.base.join("elsewhere");
+    fs::create_dir_all(&other).unwrap();
+    fs::write(
+        f.pg_root.join("exported-to.json"),
+        serde_json::json!({ "folder": other.to_string_lossy() }).to_string(),
+    )
+    .unwrap();
+    let value = serde_json::to_value(migration_status(&f.folder, &f.pg_root, DEVICE)).unwrap();
+    assert_eq!(value["exportedHere"], false);
+}
+
+#[test]
+fn status_never_says_none_for_an_unreadable_report() {
+    let f = Fixture::new("status-bad", Some("verified"), None);
+    f.set_report("{ not json");
+    let value = serde_json::to_value(migration_status(&f.folder, &f.pg_root, DEVICE)).unwrap();
+    assert_eq!(value["state"], "unavailable");
+    assert!(value.get("removedAt").is_none());
+}
+
+#[test]
+fn status_unreadable_report_after_removal_says_removed() {
+    let f = Fixture::new("status-bad-removed", Some("verified"), None);
+    f.set_report("{ not json");
+    fs::write(f.base.join("old-db-removed"), "").unwrap();
+    let value = serde_json::to_value(migration_status(&f.folder, &f.pg_root, DEVICE)).unwrap();
+    assert_eq!(value["state"], "removed");
+}
+
+#[test]
 fn status_for_a_verified_migration_has_camel_case_keys() {
     let f = Fixture::new("status-verified", Some("verified"), Some(good_dump().as_slice()));
     let value = serde_json::to_value(migration_status(&f.folder, &f.pg_root, DEVICE)).unwrap();
@@ -684,6 +728,9 @@ fn status_for_a_verified_migration_has_camel_case_keys() {
         value,
         serde_json::json!({
             "state": "verified",
+            "deviceId": DEVICE,
+            "exportedHere": true,
+            "ownRunVerified": true,
             "verifiedAt": NOW,
             "exportedTo": canonical(&f.folder),
             "backupPath": f.folder.join(".weaveforge/migration-0.9.7").join("pre-migration.dump").to_string_lossy(),

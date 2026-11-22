@@ -202,7 +202,7 @@ fn mark_removed(pg_root: &Path) -> Result<(), String> {
 
 /// This device's newest run: the last entry of `runs` whose `deviceId` is `device_id`. A run from
 /// another device never counts; no run from this device refuses.
-fn own_run<'a>(report: &'a serde_json::Value, device_id: &str) -> Result<&'a serde_json::Value, String> {
+pub(super) fn own_run<'a>(report: &'a serde_json::Value, device_id: &str) -> Result<&'a serde_json::Value, String> {
     let runs = report["runs"]
         .as_array()
         .ok_or("refused: report has no runs; verify again")?;
