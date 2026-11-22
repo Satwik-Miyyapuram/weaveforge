@@ -37,7 +37,7 @@ function keptError(value: unknown): Error & { conflictValue: unknown } {
  */
 export function valueWriteError(err: unknown, value: unknown): Error {
   if (err instanceof NotFoundError) return new Error("paper field value: no paper or definition for it");
-  if (err instanceof ConflictError || (err instanceof Error && err.message === KEPT_MESSAGE)) return keptError(value);
+  if (err instanceof ConflictError || (err instanceof Error && (err.message === KEPT_MESSAGE || err.message.startsWith("conflict:")))) return keptError(value);
   return coded("paper field value: write failed", "paper-value-write-failed");
 }
 

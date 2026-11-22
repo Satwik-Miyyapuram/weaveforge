@@ -105,8 +105,9 @@ export function guardedSink(sink: FileSink, store: FileStore): FileSink {
       const known = baselines.get(path);
       const base = known ?? expected;
       if (!ours && (base === null || !addsKeysOnly(base, text))) {
+        // A refused merge is a conflict, not a plain miss: the DB text goes to a copy, the user's file is kept.
         await store.store(path, text, await sha256Hex(text));
-        return false;
+        throw new Error(`conflict: ${path} changed on disk, not add-keys-only; kept the file's version`);
       }
       const ok = await sink.writeIf(path, text, expected);
       if (ok && !ours && known === undefined && expected !== null) baselines.set(path, expected);

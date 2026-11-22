@@ -244,7 +244,7 @@ test("add-keys guard: a CAS on a user's file that edits the body is refused and 
   const store = await createFileStore(sink, {});
   const guarded = guardedSink(sink, store);
   const edited = USER_NOTE.replace("Body.", "Body changed by the export.");
-  assert.equal(await guarded.writeIf(PAPER, edited, USER_NOTE), false, "a body edit on a user file is refused");
+  await assert.rejects(guarded.writeIf(PAPER, edited, USER_NOTE), /^Error: conflict: .*changed on disk, not add-keys-only/, "a body edit on a user file is refused as a conflict");
   assert.equal(await sink.readText(PAPER), USER_NOTE, "the user's file is untouched");
   assert.equal(await sink.readText(conflictCopyPath(PAPER, 1)), edited, "the refused text is kept in a conflict copy");
   assert.deepEqual(store.conflicts, [conflictCopyPath(PAPER, 1)]);
@@ -255,7 +255,7 @@ test("add-keys guard: a CAS on a user's file that changes an existing key is ref
   await sink.write(PAPER, USER_NOTE);
   const store = await createFileStore(sink, {});
   const retitled = USER_NOTE.replace('title: "A"', 'title: "B"');
-  assert.equal(await guardedSink(sink, store).writeIf(PAPER, retitled, USER_NOTE), false, "an existing key is not rewritten");
+  await assert.rejects(guardedSink(sink, store).writeIf(PAPER, retitled, USER_NOTE), /^Error: conflict: /, "an existing key is not rewritten");
   assert.equal(await sink.readText(PAPER), USER_NOTE);
   assert.equal(await sink.readText(conflictCopyPath(PAPER, 1)), retitled);
 });

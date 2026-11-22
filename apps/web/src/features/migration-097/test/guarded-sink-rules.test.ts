@@ -30,3 +30,12 @@ test("rename never replaces an existing file", async () => {
   assert.equal(await sink.readText("b.md"), "user", "the existing file is kept");
   assert.equal(await sink.readText("a.part"), "new", "the source is left in place");
 });
+
+test("a refused add-keys merge is a conflict: the DB text lands in a copy, the user file is kept", async () => {
+  const sink = new MemorySink();
+  await sink.write("notes/a.md", "user body");
+  const guarded = guardedSink(sink, await createFileStore(sink, {}));
+  await assert.rejects(guarded.writeIf("notes/a.md", "other body", "user body"), (err: Error) => err.message.startsWith("conflict:") && err.message.includes("changed on disk, not add-keys-only"));
+  assert.equal(await sink.readText("notes/a.md"), "user body", "the user's file is not overwritten");
+  assert.equal(await sink.readText(conflictCopyPath("notes/a.md", 1)), "other body");
+});
