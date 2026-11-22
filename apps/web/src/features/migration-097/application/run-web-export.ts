@@ -140,6 +140,22 @@ async function exportTrash(kind: string, rows: Row[], sink: FileSink, codec: Fil
 }
 
 /**
+ * Project folders must be unique (ignoring case: the desktop filesystem does) and no folder may sit inside
+ * another. The root ("") may sit beside any folder, as the root's papers stay in the root.
+ */
+export function checkProjectFolders(folders: ReadonlyMap<string, string>): void {
+  const seen: string[] = [];
+  for (const raw of folders.values()) {
+    const folder = raw.toLowerCase();
+    for (const other of seen) {
+      const nested = folder !== "" && other !== "" && (folder.startsWith(`${other}/`) || other.startsWith(`${folder}/`));
+      if (folder === other || nested) throw new Error("project folders must be unique and not nested");
+    }
+    seen.push(folder);
+  }
+}
+
+/**
  * A verify error (verify-export.ts) as a fixed report code. The raw text names a blob path or a kind, and
  * report.json must not carry those, so only the failure kind is kept.
  */
@@ -154,6 +170,7 @@ export function verifyReasonCode(raw: string): string {
 
 export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
   const { kinds, codec, source, sink, now, onProgress, desktop, writers: givenWriters = [], projectFolders, moveSecrets, secretsPresent, runDeviceId, debugLog } = opts;
+  if (projectFolders) checkProjectFolders(projectFolders);
   const writers = projectFolders ? [...givenWriters, createPaperFieldsWriter(sink, projectFolders)] : givenWriters;
   const target: MigrationTarget = desktop ? "folder" : "opfs";
   const writerFor = (kind: string) => writers.find((w) => w.kinds.includes(kind));

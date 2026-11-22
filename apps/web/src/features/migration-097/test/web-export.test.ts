@@ -199,8 +199,8 @@ test("blob: an unsafe path (.. or a sidecar name) is listed missing as unsafe pa
 
   assert.equal(result.state, "incomplete");
   assert.deepEqual(result.run.missing.filter((m) => m.kind === "blobs"), [
-    { kind: "blobs", id: "../escape.png", reason: "unsafe path" },
-    { kind: "blobs", id: "fig/a.png.sha256", reason: "unsafe path" },
+    { kind: "blobs", id: "notes-assets/../escape.png", reason: "unsafe path" },
+    { kind: "blobs", id: "notes-assets/fig/a.png.sha256", reason: "unsafe path" },
   ]);
   assert.equal(calls.some((c) => c.startsWith("blob:")), false);
   assert.equal((await sink.list()).some((p) => p.startsWith("assets/")), false);
@@ -216,7 +216,7 @@ test("blob size mismatch goes to missing, nothing is written, no marker", async 
   assert.equal(result.state, "incomplete");
   assert.deepEqual(result.run.blobs, { db: 1, verified: 0 });
   assert.deepEqual(result.run.missing.filter((m) => m.kind === "blobs"), [
-    { kind: "blobs", id: "fig/a.png", reason: "size mismatch on fetch" },
+    { kind: "blobs", id: "notes-assets/fig/a.png", reason: "size mismatch on fetch" },
   ]);
   await assert.rejects(() => sink.readBytes("assets/notes-assets/fig/a.png"));
   assert.equal(calls.some((c) => c.startsWith("mark:")), false);
@@ -238,7 +238,7 @@ test("blob read-back mismatch goes to missing (same size, different bytes), no m
 
   assert.equal(result.state, "incomplete");
   assert.deepEqual(result.run.missing.filter((m) => m.kind === "blobs"), [
-    { kind: "blobs", id: "fig/a.png", reason: "read-back sha256 mismatch" },
+    { kind: "blobs", id: "notes-assets/fig/a.png", reason: "read-back sha256 mismatch" },
   ]);
   assert.equal(calls.some((c) => c.startsWith("mark:")), false);
 });
@@ -744,18 +744,18 @@ test("pendingOutbox throw: a missing entry and an incomplete report, no marker",
   );
 });
 
-test("verify throw: a missing entry and an incomplete report, no marker", async () => {
+test("codec throw: a missing entry and an incomplete report, no marker", async () => {
   const { source, calls } = fakeServer({ rows: FIXTURE });
   const codec: FileCodec = {
     ...fakeCodec(SUPPORTED),
-    toRow: () => {
+    toFile: () => {
       throw new Error("decode crashed");
     },
   };
   const sink = new MemorySink();
   const result = await runWebExport({ kinds: KINDS, codec, source, sink, now: NOW });
   assert.equal(result.state, "incomplete");
-  assert.ok(result.run.missing.some((m) => m.reason === "logEntries: read failed"));
+  assert.ok(result.run.missing.some((m) => m.kind === "logEntries" && m.reason === "codec-failed:logEntries"));
   assert.equal(JSON.stringify(result.run).includes("decode crashed"), false);
   const report = JSON.parse(await sink.readText(REPORT_PATH));
   assert.equal(report.state, "incomplete");
@@ -834,7 +834,7 @@ test("writer kinds: a readBack that loses a row makes the export incomplete", as
     writers: [writer],
   });
   assert.equal(result.state, "incomplete");
-  assert.ok(result.run.missing.some((m) => m.kind === "logEntries" && m.reason.includes("readBack")));
+  assert.ok(result.run.missing.some((m) => m.kind === "logEntries" && m.reason === "readback-differs"));
 });
 
 test("blobs: a server image/png and a stored octet-stream are different types, octet-stream and null are the same", () => {
