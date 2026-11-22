@@ -361,3 +361,19 @@ test("sameExceptStamp: two different Dates differ, equal Dates match (R2 P3)", (
   assert.equal(sameExceptStamp(stored, sameDate), true);
   assert.equal(sameExceptStamp(stored, otherDate), false);
 });
+
+test("sameExceptStamp: two different Maps differ, equal Maps match whatever their insertion order", () => {
+  const stored = { id: "s1", meta: new Map([["a", 1], ["b", 2]]) } as unknown as ReportSection;
+  const reordered = { id: "s1", meta: new Map([["b", 2], ["a", 1]]) } as unknown as ReportSection;
+  const differs = { id: "s1", meta: new Map([["a", 1], ["b", 3]]) } as unknown as ReportSection;
+  assert.equal(sameExceptStamp(stored, reordered), true);
+  assert.equal(sameExceptStamp(stored, differs), false);
+});
+
+test("sameExceptStamp: two different Sets differ, equal Sets match whatever their insertion order", () => {
+  const stored = { id: "s1", tags: new Set(["x", "y"]) } as unknown as ReportSection;
+  const reordered = { id: "s1", tags: new Set(["y", "x"]) } as unknown as ReportSection;
+  const differs = { id: "s1", tags: new Set(["x", "z"]) } as unknown as ReportSection;
+  assert.equal(sameExceptStamp(stored, reordered), true);
+  assert.equal(sameExceptStamp(stored, differs), false);
+});

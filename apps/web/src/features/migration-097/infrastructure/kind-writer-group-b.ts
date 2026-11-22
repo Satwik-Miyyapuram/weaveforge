@@ -41,6 +41,9 @@ function withoutServerOnly(kind: string, row: Row): Row {
 function canonical(value: unknown): string {
   if (value === undefined || value === null) return "null";
   if (Array.isArray(value)) return `[${value.map(canonical).join(",")}]`;
+  // A Map or Set has no own keys, so JSON.stringify would give "{}" for every one. Entries and members are sorted.
+  if (value instanceof Map) return `Map{${[...value].map(([k, v]) => `${canonical(k)}:${canonical(v)}`).sort().join(",")}}`;
+  if (value instanceof Set) return `Set{${[...value].map(canonical).sort().join(",")}}`;
   if (typeof value === "object") {
     const proto = Object.getPrototypeOf(value);
     if (proto !== Object.prototype && proto !== null) return JSON.stringify(value);
