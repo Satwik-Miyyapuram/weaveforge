@@ -195,10 +195,12 @@ export async function importFolderDrafts(
       await queue(draft);
     } catch (err) {
       firstError ??= err;
-      // A new draft written under the same name meanwhile wins; ours stays claimed.
-      if (!(await fs.stat(entry.path).catch(() => null))) {
-        await fs.rename(claimed, entry.path).catch(() => undefined);
-      }
+      // Put the draft back for the next pass. A new draft written under the same name
+      // meanwhile keeps that name, and ours takes the next free `.json` name: a `.claimed`
+      // file is not a draft path, so it would never be queued again.
+      const taken = await fs.stat(entry.path).catch(() => null);
+      const back = taken ? await freeDraftName(fs, entry.path) : entry.path;
+      await fs.rename(claimed, back).catch(() => undefined);
       continue;
     }
     imported += 1;
@@ -208,11 +210,20 @@ export async function importFolderDrafts(
   return imported;
 }
 
+/** `<stem>-2.json`, `-3.json`, ... : the first free draft name after `path`, which ends in `.json`. */
+async function freeDraftName(fs: IWorkspaceFs, path: string): Promise<string> {
+  const stem = path.slice(0, -".json".length);
+  for (let n = 2; ; n += 1) {
+    const name = `${stem}-${n}.json`;
+    if (!(await fs.stat(name).catch(() => null))) return name;
+  }
+}
+
 /** `<path>.claimed`, or `<path>.claimed-2`, `-3`, ... when that is taken. */
 async function freeClaimedName(fs: IWorkspaceFs, path: string): Promise<string> {
   for (let n = 1; ; n += 1) {
     const name = n === 1 ? `${path}.claimed` : `${path}.claimed-${n}`;
-    if (!(await fs.stat(name))) return name;
+    if (!(await fs.stat(name).catch(() => null))) return name;
   }
 }
 
