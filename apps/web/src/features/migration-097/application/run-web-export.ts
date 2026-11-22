@@ -117,6 +117,8 @@ async function readExistingBackup(sink: FileSink): Promise<string | null> {
  * and not with another device's dump. Each device's own dump is in its own runs entry.
  */
 async function writeReport(sink: FileSink, report: MigrationReport): Promise<void> {
+  // Read before any move: a moved-aside report can no longer be read for its backup.
+  const priorBackup = await readExistingBackup(sink);
   const existing = await readExistingRuns(sink);
   let runs = report.runs;
   if (existing === null) {
@@ -126,7 +128,7 @@ async function writeReport(sink: FileSink, report: MigrationReport): Promise<voi
     const device = report.runs[0]?.deviceId;
     runs = [...existing.filter((r) => r.deviceId !== device), ...report.runs];
   }
-  const backup = (await readExistingBackup(sink)) ?? report.backup;
+  const backup = priorBackup ?? report.backup;
   const merged: MigrationReport = { ...report, backup, runs };
   const part = tempPathFor(REPORT_PATH);
   try {
@@ -154,7 +156,7 @@ async function refused(
     blobs: { db: 0, verified: 0 },
     missing: [{ kind: "*", id: "*", reason }],
     deviceId: extra.deviceId,
-    backup: extra.backup,
+    backup: extra.backup ?? null,
   };
   await writeReport(sink, { version: 1, state: "incomplete", backup: extra.backup ?? null, deviceId: extra.deviceId, target, runs: [run] });
   return { state: "incomplete", run };

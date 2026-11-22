@@ -146,9 +146,8 @@ export function createGroupCWriter(sink: FileSink, projectRoot: string): KindWri
             const path = rel.slice(slash + 1);
             const bytes = await fs.readFile(entry.path);
             const [sha256, type] = (await fs.readText(`${entry.path}.sha256`)).split("\n");
-            if ((await sha256Hex(bytes)) !== sha256) {
-              throw new Error(`blobs: read-back sha256 mismatch for ${bucket}/${path}`);
-            }
+            // A blob that no longer matches its sidecar is left out: verify lists it missing, the others still read back.
+            if ((await sha256Hex(bytes)) !== sha256) continue;
             out.push({ bucket, path, sha256, contentType: type || "application/octet-stream" });
           }
           return out;

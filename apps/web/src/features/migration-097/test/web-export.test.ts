@@ -1473,3 +1473,19 @@ test("backup: device A's backup stays in A's runs entry and the report-level bac
   assert.equal(report.runs.find((r) => r.deviceId === "dev-b")?.backup, null);
   assert.equal(report.backup, "dump-a.zip");
 });
+
+test("refused run: its runs entry carries backup null, not an absent key, when no backup was made", async () => {
+  const sink = new MemorySink();
+  const calls: string[] = [];
+  await runWebExport({ kinds: [], codec: fakeCodec([]), source: fakeServer({ rows: {} }).source, sink, now: NOW, desktop: { folder: "C:/ws", bridge: fakeDesktop(calls, { backupFails: true }) } });
+  const report = JSON.parse(await sink.readText(REPORT_PATH)) as { runs: RunReport[] };
+  assert.equal(report.runs[0]?.backup, null);
+});
+
+test("report: the report-level backup survives a report with no runs list being moved aside", async () => {
+  const sink = new MemorySink();
+  await sink.write(REPORT_PATH, JSON.stringify({ version: 1, state: "incomplete", backup: "old.dump", runs: "not-a-list" }));
+  await runWebExport({ kinds: [], codec: fakeCodec([]), source: fakeServer({ rows: {} }).source, sink, now: NOW });
+  const report = JSON.parse(await sink.readText(REPORT_PATH)) as { backup: string | null };
+  assert.equal(report.backup, "old.dump");
+});

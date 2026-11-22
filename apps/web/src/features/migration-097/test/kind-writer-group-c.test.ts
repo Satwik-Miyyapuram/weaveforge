@@ -276,13 +276,13 @@ test("blobs: readBack scans assets/ on disk, so a blob from an earlier run is li
   );
 });
 
-test("blobs: readBack throws when an asset's bytes no longer match its sidecar", async () => {
+test("blobs: readBack leaves out an asset whose bytes no longer match its sidecar", async () => {
   const { sink, writer } = fresh();
   const bytes = new Uint8Array([1, 2, 3]);
   await writer.write("blobs", { bucket: "images", path: "t.webp", sha256: await sha256Hex(bytes), bytes });
   await sink.write("assets/images/t.webp", "tampered");
   const later = createGroupCWriter(sink, "proj");
-  await assert.rejects(later.readBack("blobs"), /sha256/);
+  assert.deepEqual(await later.readBack("blobs"), []);
 });
 
 test("blobs: readBack skips a stale .part file and lists nothing for it", async () => {
@@ -301,6 +301,17 @@ test("blobs: an asset with no sidecar is left out of read-back and does not fail
   await sink.write("assets/images/bare.webp", "no sidecar here");
   const back = await createGroupCWriter(sink, "proj").readBack("blobs");
   assert.deepEqual(back.map((r) => r.path), ["ok.webp"]);
+});
+
+test("blobs: a blob whose bytes no longer match its sidecar is left out; the other blobs still read back", async () => {
+  const { sink, writer } = fresh();
+  const good = new Uint8Array([1, 1, 1]);
+  const bad = new Uint8Array([2, 2, 2]);
+  await writer.write("blobs", { bucket: "images", path: "good.webp", sha256: await sha256Hex(good), bytes: good });
+  await writer.write("blobs", { bucket: "images", path: "bad.webp", sha256: await sha256Hex(bad), bytes: bad });
+  await sink.write("assets/images/bad.webp", new Uint8Array([9, 9, 9]));
+  const back = await createGroupCWriter(sink, "proj").readBack("blobs");
+  assert.deepEqual(back.map((r) => r.path), ["good.webp"]);
 });
 
 test("ink: readBack lists the chunks on disk, including one written by an earlier run", async () => {
