@@ -24,6 +24,8 @@ tracks at once.
 ### Web
 - **Changed:** The "Export from 0.9.7 first." gate applies only to an account with old server data and no 0.9.7 export. New accounts are never gated. See [Upgrading to 0.9.8](docs/using/upgrading-to-098.md).
 - **Changed:** Offline sync is removed; notes are files in the workspace folder. Keys stay sealed: server-held credentials stay encrypted.
+- **Changed:** On the desktop and without an account, the app's database client now refuses personal tables before a request is sent, as the web app already did. Organisation, sharing and live-share rows still reach the server.
+- **Changed:** Sync to folder no longer writes `.weaveforge/tables/`, and Apply no longer restores table rows. Table files that 0.9.7 wrote stay in the folder unread. See [The workspace folder](docs/using/workspace-folder.md).
 
 ### Python SDK
 - **Added:** The SDK reads the token file the desktop app's Connect panel writes under `~/.weaveforge`, so it reaches the local API without a pasted token.
