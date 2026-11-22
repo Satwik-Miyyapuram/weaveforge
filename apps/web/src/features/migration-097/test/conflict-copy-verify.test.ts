@@ -41,7 +41,8 @@ test("conflict copies: a copy left by an earlier run is listed but never decoded
 
   const result = await runWebExport({ kinds: ["logEntries"], codec, source: server(), sink, now: NOW, runDeviceId: "dev-a" });
 
-  assert.equal(result.state, "verified", JSON.stringify(result.run.missing));
+  assert.deepEqual(result.run.missing, [], "verify passes with the copy present");
+  assert.equal(result.state, "incomplete", "a run with a conflict copy is never verified");
   assert.equal(await sink.readText(OLD_COPY), JSON.stringify({ id: "x1", v: "old" }), "earlier copy untouched");
   assert.deepEqual(result.run.conflicts, [THIS_COPY]);
 });
@@ -52,7 +53,8 @@ test("conflict copies: this run's copy carries conflictOf instead of id, and ver
 
   const result = await runWebExport({ kinds: ["logEntries"], codec, source: server(), sink, now: NOW, runDeviceId: "dev-a" });
 
-  assert.equal(result.state, "verified", JSON.stringify(result.run.missing));
+  assert.deepEqual(result.run.missing, [], "verify passes with the copy present");
+  assert.equal(result.state, "incomplete", "a run with a conflict copy is never verified");
   const copy = JSON.parse(await sink.readText("logEntries/x1 (conflict).json")) as Record<string, unknown>;
   assert.equal(copy.conflictOf, "x1");
   assert.equal(copy.id, undefined, "no id in the copy, so files mode never sees two files with one id");

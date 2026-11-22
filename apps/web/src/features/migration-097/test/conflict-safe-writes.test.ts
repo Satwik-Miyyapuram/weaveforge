@@ -52,7 +52,7 @@ test("conflict: a differing existing file stays byte-identical, a conflict copy 
   assert.equal(await sink.readText("logEntries/l1.json"), userEdit);
   assert.equal(await sink.readText("logEntries/l1 (conflict).json"), JSON.stringify({ conflictOf: "l1", text: "from the database" }));
   assert.deepEqual(result.run.conflicts, ["logEntries/l1 (conflict).json"]);
-  assert.equal(result.state, "verified", "a run with conflicts still verifies");
+  assert.equal(result.state, "incomplete", "a run with a conflict copy is never verified");
   assert.deepEqual(result.run.missing, []);
 });
 

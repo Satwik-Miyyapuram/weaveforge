@@ -56,7 +56,7 @@ test("a user's sidecar that differs from the blob's sha256 is a conflict, not a 
   const reasons = result.run.missing.map((m) => m.reason);
   assert.ok(reasons.includes("conflict:blobs"), JSON.stringify(reasons));
   assert.ok(!reasons.includes("blob-failed"), "a conflict is not recorded as a failed blob");
-  assert.ok(result.run.conflicts.includes(copy), JSON.stringify(result.run.conflicts));
+  assert.ok((result.run.conflicts ?? []).includes(copy), JSON.stringify(result.run.conflicts));
   assert.equal(await sink.readText("assets/images/a.webp.sha256"), "user-sidecar\nimage/webp", "the user's sidecar is kept");
   assert.notEqual(result.state, "verified");
 });

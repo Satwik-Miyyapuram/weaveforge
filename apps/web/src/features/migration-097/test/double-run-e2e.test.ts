@@ -101,4 +101,5 @@ test("double run with one note edited by the user between runs: one conflict cop
   const copy = JSON.parse(await sink.readText("logEntries/l1 (conflict).json")) as Row;
   assert.equal(copy.text, "first", "the conflict copy holds the DB version");
   assert.equal(runIsClean(second.run), false);
+  assert.equal(second.state, "incomplete", "a run with a conflict copy is never verified, so it cannot be removed");
 });

@@ -497,7 +497,9 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
     };
   }
 
-  let state: MigrationState = missing.length === 0 && verdict.state === "verified" ? "verified" : "incomplete";
+  // A run with any conflict copy stays incomplete: a copy is the user's data to resolve, so the run is never removable.
+  const hasConflicts = store.conflicts.length > 0 || Object.values(conflicts).some((paths) => paths.length > 0);
+  let state: MigrationState = missing.length === 0 && verdict.state === "verified" && !hasConflicts ? "verified" : "incomplete";
   const finishedAt = new Date().toISOString();
   const persist = async (): Promise<RunReport> => {
     const run: RunReport = {
