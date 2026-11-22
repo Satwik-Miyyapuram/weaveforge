@@ -5,10 +5,10 @@ import {
   type MigrationState,
   type MissingRow,
   type RunReport,
-} from "../domain/report.ts";
-import type { FileCodec, FileSink, ServerSource } from "../domain/ports.ts";
-import { sha256Hex } from "../domain/hash.ts";
-import { verifyExport } from "./verify-export.ts";
+} from "../domain/report";
+import type { FileCodec, FileSink, ServerSource } from "../domain/ports";
+import { sha256Hex } from "../domain/hash";
+import { verifyExport } from "./verify-export";
 
 export type ExportOptions = {
   kinds: readonly string[];

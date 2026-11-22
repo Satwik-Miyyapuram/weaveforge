@@ -1,12 +1,12 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { test } from "node:test";
-import { REPORT_PATH } from "../domain/report.ts";
-import type { BlobRef, FileCodec, Row, ServerSource } from "../domain/ports.ts";
-import { runWebExport } from "../application/run-web-export.ts";
-import { verifyExport } from "../application/verify-export.ts";
-import { MemorySink } from "../infrastructure/memory-sink.ts";
-import { unzipFiles, zipFiles } from "../infrastructure/zip.ts";
+import { REPORT_PATH } from "../domain/report";
+import type { BlobRef, FileCodec, Row, ServerSource } from "../domain/ports";
+import { runWebExport } from "../application/run-web-export";
+import { verifyExport } from "../application/verify-export";
+import { MemorySink } from "../infrastructure/memory-sink";
+import { unzipFiles, zipFiles } from "../infrastructure/zip";
 
 const NOW = "2026-11-22T00:00:00.000Z";
 const sha = (bytes: Uint8Array | string) => createHash("sha256").update(bytes).digest("hex");
@@ -69,9 +69,9 @@ test("fixture export writes every row, verifies field-equal and sets the marker"
   });
 
   assert.equal(result.state, "verified");
-  assert.equal(result.run.kinds.logEntries.db, 2);
-  assert.equal(result.run.kinds.logEntries.files, 2);
-  assert.equal(result.run.kinds.experiments.written, 1);
+  assert.equal(result.run.kinds.logEntries?.db, 2);
+  assert.equal(result.run.kinds.logEntries?.files, 2);
+  assert.equal(result.run.kinds.experiments?.written, 1);
 
   // Field-equal: decode every exported file back and compare with the server rows.
   const codec = fakeCodec(SUPPORTED);
@@ -141,8 +141,8 @@ test("a kind without a wasm codec stays incomplete and is listed as missing", as
   });
 
   assert.equal(result.state, "incomplete");
-  assert.equal(result.run.kinds.tags.db, 1);
-  assert.equal(result.run.kinds.tags.files, 0);
+  assert.equal(result.run.kinds.tags?.db, 1);
+  assert.equal(result.run.kinds.tags?.files, 0);
   assert.deepEqual(result.run.missing, [
     { kind: "tags", id: "t1", reason: "no wf-wasm codec" },
   ]);
@@ -192,5 +192,5 @@ test("verify is strict: a file missing from the sink makes state incomplete", as
     sink: damaged,
   });
   assert.equal(verdict.state, "incomplete");
-  assert.equal(verdict.kinds.experiments.files, 0);
+  assert.equal(verdict.kinds.experiments?.files, 0);
 });

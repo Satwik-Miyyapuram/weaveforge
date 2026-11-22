@@ -1,6 +1,6 @@
-import type { KindCount, MigrationState } from "../domain/report.ts";
-import type { FileCodec, FileSink, Row, ServerSource } from "../domain/ports.ts";
-import { sha256Hex } from "../domain/hash.ts";
+import type { KindCount, MigrationState } from "../domain/report";
+import type { FileCodec, FileSink, Row, ServerSource } from "../domain/ports";
+import { sha256Hex } from "../domain/hash";
 
 export type VerifyInput = {
   kinds: readonly string[];
