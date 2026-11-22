@@ -1229,6 +1229,27 @@ test("trash: a trashed row is exported as raw JSON, read back equal, and counted
   assert.equal(result.run.missing.filter((m) => m.reason.startsWith("trash")).length, 0);
 });
 
+test("trash: an encrypted trashed row is written as the codec decode, equal to the live decode", async () => {
+  // Fake decrypt: content_enc is turned into plaintext by the same codec the live rows use.
+  const codec: FileCodec = {
+    supports: (kind) => kind === "logEntries",
+    toFile: (kind, row) => ({
+      path: `${kind}/${String(row.id)}.json`,
+      text: row.contentEnc === undefined ? JSON.stringify(row) : JSON.stringify({ id: row.id, body: `plain:${String(row.contentEnc)}` }),
+    }),
+    toRow: () => null,
+  };
+  const encrypted = { id: "t7", contentEnc: "cipher-7" };
+  const { source } = fakeServer({ rows: FIXTURE, trashed: { logEntries: [encrypted] } });
+  const sink = new MemorySink();
+  const result = await runWebExport({ kinds: KINDS, codec, source, sink, now: NOW });
+
+  const liveDecode = codec.toFile("logEntries", encrypted).text;
+  assert.equal(await sink.readText(".weaveforge/migration-0.9.7/trash/logEntries/t7.json"), liveDecode);
+  assert.equal(result.run.kinds.logEntries?.trash, 1);
+  assert.equal(result.run.missing.filter((m) => m.reason.startsWith("trash")).length, 0);
+});
+
 test("trash: a trash file that does not read back equal goes to missing, state incomplete, no marker", async () => {
   class TamperingSink extends MemorySink {
     override async readText(path: string): Promise<string> {

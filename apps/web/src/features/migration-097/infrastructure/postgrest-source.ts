@@ -108,16 +108,17 @@ export class PostgrestSource implements ServerSource {
     return rows.map(toCamelRow);
   }
 
-  /** Raw trashed rows (deleted_at not null). Tables without deleted_at have no trash. */
+  /** Trashed rows (deleted_at not null), camel-cased like live rows so the codec sees the same shape. Tables without deleted_at have no trash. */
   async listTrashed(kind: string): Promise<Row[]> {
     if (FILE_ONLY_KINDS.includes(kind)) return [];
     const table = tableFor(kind);
     if (!SOFT_DELETE_TABLES.has(table)) return [];
-    return listAllPages<Row>(async (offset, limit) => {
+    const rows = await listAllPages<Row>(async (offset, limit) => {
       const url = `${this.filter(table, true)}&order=id.asc&limit=${limit}&offset=${offset}`;
       const res = await this.request(url, { method: "GET" }, table);
       return (await res.json()) as Row[];
     }, PAGE_SIZE);
+    return rows.map(toCamelRow);
   }
 
   async countRows(kind: string): Promise<number> {

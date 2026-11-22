@@ -233,6 +233,14 @@ test("a table without a deleted_at column is listed with no deleted_at filter (P
   );
 });
 
+test("listTrashed camel-cases columns like listRows, so an encrypted trashed row reaches the codec as contentEnc", async () => {
+  const trashed = { id: "p8", content_enc: "cipher", deleted_at: "2026-11-01T00:00:00.000Z" };
+  const { fetch } = fakeFetch((call) => Response.json(new URL(call.url).searchParams.get("offset") === "0" ? [trashed] : []));
+  const [row] = await sourceWith(fetch).listTrashed("papers");
+  assert.equal(row?.contentEnc, "cipher");
+  assert.equal(row?.content_enc, undefined);
+});
+
 test("listTrashed reads deleted rows (deleted_at not null); listRows keeps live rows only", async () => {
   const trashed = { id: "p9", title: "old", deleted_at: "2026-11-01T00:00:00.000Z" };
   const { fetch, calls } = fakeFetch((call) => {
@@ -240,7 +248,7 @@ test("listTrashed reads deleted rows (deleted_at not null); listRows keeps live 
     return Response.json(offset === "0" ? [trashed] : []);
   });
   const source = sourceWith(fetch);
-  assert.deepEqual(await source.listTrashed("papers"), [trashed]);
+  assert.deepEqual(await source.listTrashed("papers"), [{ id: "p9", title: "old", deletedAt: trashed.deleted_at }]);
   const trashCall = calls[0];
   assert.ok(trashCall);
   assert.equal(new URL(trashCall.url).searchParams.get("deleted_at"), "not.is.null");

@@ -93,15 +93,23 @@ async function refused(
 const TRASH_DIR = ".weaveforge/migration-0.9.7/trash";
 
 /**
- * Trashed rows are never dropped. Each raw row is written as JSON and must read back to the
- * same JSON, or it is listed missing. Returns how many rows verified.
+ * Trashed rows are never dropped. An encrypted row is written as its codec decode (the live path);
+ * any other row is written as raw JSON. Each file must read back to the text written, or the row is
+ * listed missing. Returns how many rows verified.
  */
-async function exportTrash(kind: string, rows: Row[], sink: FileSink, missing: MissingRow[]): Promise<number> {
+async function exportTrash(kind: string, rows: Row[], sink: FileSink, codec: FileCodec, missing: MissingRow[]): Promise<number> {
   let verified = 0;
   for (const row of rows) {
     const id = String(row.id);
     const path = `${TRASH_DIR}/${kind}/${encodeURIComponent(id)}.json`;
-    const text = JSON.stringify(row);
+    let text: string;
+    try {
+      // Encrypted rows go through the same codec decode as live rows; plain rows stay raw JSON.
+      text = row.contentEnc !== undefined && codec.supports(kind) ? codec.toFile(kind, row).text : JSON.stringify(row);
+    } catch {
+      missing.push({ kind, id, reason: "trash decode failed" });
+      continue;
+    }
     try {
       await sink.write(path, text);
     } catch {
@@ -110,7 +118,7 @@ async function exportTrash(kind: string, rows: Row[], sink: FileSink, missing: M
     }
     let back: string;
     try {
-      back = JSON.stringify(JSON.parse(await sink.readText(path)));
+      back = await sink.readText(path);
     } catch {
       back = "";
     }
@@ -207,7 +215,7 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
         if (bad > 0) missing.push({ kind, id: "*", reason: `${bad} content_enc row(s) failed to decrypt` });
         written[kind] = 0;
         dbCount[kind] = rows.length;
-        trashCount[kind] = await exportTrash(kind, await source.listTrashed(kind), sink, missing);
+        trashCount[kind] = await exportTrash(kind, await source.listTrashed(kind), sink, codec, missing);
         const writer = writerFor(kind);
         if (writer) {
           for (const row of rows) {
