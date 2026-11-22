@@ -67,3 +67,24 @@ test("synced annotations count as exported: three synced rows verify, and a pend
   );
   assert.equal(await sink2.exists("annotations/p1.json"), true, "the pending row is still written");
 });
+
+test("an annotation with a sync state the export does not know is listed; local and absent states are not", async () => {
+  const rows = {
+    annotations: [
+      { id: "k1", paperFile: "papers/p.pdf", syncState: "local" },
+      { id: "k2", paperFile: "papers/p.pdf" },
+      { id: "k3", paperFile: "papers/p.pdf", syncState: "archived" },
+    ],
+  };
+  const result = await runWebExport({
+    kinds: ["annotations"],
+    codec,
+    source: server(rows),
+    sink: new MemorySink(),
+    now: NOW,
+    runDeviceId: "dev-a",
+  });
+
+  const reasons = result.run.missing.filter((m) => m.kind === "annotations").map((m) => [m.id, m.reason]);
+  assert.deepEqual(reasons, [["k3", "unknown sync state (exported)"]]);
+});

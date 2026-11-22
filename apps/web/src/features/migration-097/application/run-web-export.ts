@@ -389,10 +389,12 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
         written[kind] = 0;
         dbCount[kind] = rows.length;
         // verify ignores syncState, so a row not yet written back is listed here rather than passed silently.
-        // 'synced' is the normal state of a written-back annotation, so only 'pending' and 'conflict' are listed.
+        // Allow-list: 'local', 'synced' and an absent state pass. Any other state is listed, so a future state is never passed silently.
+        const passedSyncStates = new Set<unknown>(["local", "synced", undefined]);
         for (const row of rows) {
-          if (kind === "annotations" && (row.syncState === "pending" || row.syncState === "conflict")) {
-            missing.push({ kind, id: String(row.id), reason: "unsynced (exported)" });
+          if (kind === "annotations" && !passedSyncStates.has(row.syncState)) {
+            const reason = row.syncState === "pending" || row.syncState === "conflict" ? "unsynced (exported)" : "unknown sync state (exported)";
+            missing.push({ kind, id: String(row.id), reason });
           }
         }
         trashCount[kind] = await exportTrash(kind, await source.listTrashed(kind), sink, store, codec, missing);
