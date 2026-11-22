@@ -7,7 +7,6 @@ use std::path::Path;
 use serde::Serialize;
 
 const REPORT_REL: &str = ".weaveforge/migration-0.9.7/report.json";
-const BACKUP_REL: &str = ".weaveforge/migration-0.9.7/pre-migration.dump";
 
 /// Status of the 0.9.7 migration as the UI sees it.
 #[derive(Debug, Serialize, specta::Type, PartialEq, Eq)]
@@ -49,7 +48,9 @@ pub fn migration_status(folder: &Path, pg_root: &Path, device_id: &str) -> Migra
         };
     };
     let state = report["state"].as_str().unwrap_or("none").to_owned();
-    let backup = folder.join(BACKUP_REL);
+    let backup = super::remove::backup_name(&report)
+        .ok()
+        .map(|name| folder.join(super::remove::MIGRATION_DIR).join(name));
     let mut kinds = super::remove::own_run_missing(&report, device_id).unwrap_or_default();
     kinds.sort();
     kinds.dedup();
@@ -59,8 +60,8 @@ pub fn migration_status(folder: &Path, pg_root: &Path, device_id: &str) -> Migra
         verified_at: report["verifiedAt"].as_str().map(str::to_owned),
         exported_to: exported_to(pg_root),
         backup_path: backup
-            .is_file()
-            .then(|| backup.to_string_lossy().into_owned()),
+            .filter(|path| path.is_file())
+            .map(|path| path.to_string_lossy().into_owned()),
         missing: (!kinds.is_empty()).then_some(kinds),
     }
 }
