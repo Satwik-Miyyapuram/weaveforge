@@ -7,6 +7,7 @@ import {
   clearSwitchReloadGuard,
   isSwitchRetryNeeded,
   needsSwitchRetry,
+  recordReadOnlyStart,
   retrySwitch,
   setSwitchRetryNeeded,
   subscribeSwitchRetry,
@@ -104,13 +105,24 @@ test("(item3 P2) clearing the reload guard lets a switched run reload again", as
 
 test("(item3 P4) a read-only start keeps the banner when Retry finds no session; a server start does not", async () => {
   clearSwitchReloadGuard();
-  setSwitchRetryNeeded(true);
-  await retrySwitch(async () => ({ switch: false, reason: "no-session" }), () => {}, { readOnly: true });
+  recordReadOnlyStart(true);
+  await retrySwitch(async () => ({ switch: false, reason: "no-session" }), () => {});
   assert.equal(isSwitchRetryNeeded(), true, "read-only stays read-only: the banner stays while signed out");
 
+  recordReadOnlyStart(false);
   setSwitchRetryNeeded(true);
-  await retrySwitch(async () => ({ switch: false, reason: "no-session" }), () => {}, { readOnly: false });
+  await retrySwitch(async () => ({ switch: false, reason: "no-session" }), () => {});
   assert.equal(isSwitchRetryNeeded(), false, "a server start with no session has nothing to retry");
+  setSwitchRetryNeeded(false);
+});
+
+test("(item1 P2) Retry while signed out on a read-only start keeps the banner, through the banner's own call", async () => {
+  clearSwitchReloadGuard();
+  recordReadOnlyStart(true);
+  // The banner's Retry calls retrySwitch with no options; the read-only start is read from the module.
+  await retrySwitch(async () => ({ switch: false, reason: "no-session" }), () => {});
+  assert.equal(isSwitchRetryNeeded(), true);
+  recordReadOnlyStart(false);
   setSwitchRetryNeeded(false);
 });
 

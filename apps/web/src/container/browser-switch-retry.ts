@@ -75,17 +75,25 @@ export function clearSwitchReloadGuard(): void {
   }
 }
 
+/** Whether this page started read-only. Set once at startup, read by every retry. */
+let startedReadOnly = false;
+
+/** Startup records whether the page started read-only, and shows the banner for it. */
+export function recordReadOnlyStart(readOnly: boolean): void {
+  startedReadOnly = readOnly;
+  setSwitchRetryNeeded(readOnly);
+}
+
 /**
  * Runs the switch for startup or for Retry. A switched run reloads into files mode once per
  * session; a repeat switch keeps the banner instead of reloading. Any other outcome updates the
- * banner, except that a read-only start (`readOnly`) keeps it until a switch succeeds: the
- * browser is still read-only whatever the retry found, signed out included.
+ * banner, except that a read-only start keeps it until a switch succeeds: the browser is still
+ * read-only whatever the retry found, signed out included.
  * Resolves with the outcome and never rejects.
  */
 export async function retrySwitch(
   run: () => Promise<SwitchDecision>,
   onSwitched: () => void,
-  options: { readOnly?: boolean } = {},
 ): Promise<SwitchDecision | null> {
   const outcome = await runBrowserSwitchInBackground(run);
   if (outcome?.switch && takeReloadGuard()) {
@@ -94,7 +102,7 @@ export async function retrySwitch(
   } else if (outcome?.switch) {
     setSwitchRetryNeeded(true);
   } else {
-    setSwitchRetryNeeded((options.readOnly ?? false) || needsSwitchRetry(outcome));
+    setSwitchRetryNeeded(startedReadOnly || needsSwitchRetry(outcome));
   }
   return outcome;
 }

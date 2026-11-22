@@ -63,7 +63,7 @@ import { rustAiStores, rustShareLinkRepository } from "@/backend/providers/postg
 import { PrefetchProjectUseCase } from "@/application/prefetch-project.use-case";
 import { readBackendConfig } from "@/backend/parts";
 import { decideBrowserSwitchFromConfig, openMarkedBrowserFiles } from "./container/browser-switch-wiring";
-import { clearSwitchReloadGuard, retrySwitch, setSwitchRetryNeeded } from "./container/browser-switch-retry";
+import { clearSwitchReloadGuard, recordReadOnlyStart, retrySwitch } from "./container/browser-switch-retry";
 import { chooseBrowserStart, localSwitchPending } from "./container/browser-readonly-fallback-098";
 import {
   PapersFacade,
@@ -180,12 +180,10 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
   const probe = shell ? null : await openMarkedBrowserFiles();
   const start = probe ? chooseBrowserStart(probe, localSwitchPending().isPending()) : null;
   if (start && start.mode !== "files") {
-    const readOnly = start.mode === "read-only";
-    setSwitchRetryNeeded(readOnly);
+    recordReadOnlyStart(start.mode === "read-only");
     void retrySwitch(
       () => decideBrowserSwitchFromConfig(readBackendConfig(), shell),
       () => window.location.reload(),
-      { readOnly },
     );
   }
   if (start?.mode === "files") clearSwitchReloadGuard();
