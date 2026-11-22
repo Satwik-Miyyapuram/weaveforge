@@ -1,6 +1,7 @@
 import type { FileSink } from "../domain/ports";
 import { sha256Hex } from "../domain/hash";
 import { conflictCopyPath } from "../domain/conflict-path";
+import { addsKeysOnly } from "../domain/add-keys-only";
 
 /** Path to the sha256 of the content this run wrote there (or found there and kept). */
 export type Outputs = Record<string, string>;
@@ -77,6 +78,8 @@ export async function createFileStore(sink: FileSink, prior: Outputs): Promise<F
  * pass straight through.
  */
 export function guardedSink(sink: FileSink, store: FileStore): FileSink {
+  /** The text a non-ours file held before this run's first add-keys merge: later merges keep its body and keys. */
+  const baselines = new Map<string, string>();
   return {
     async write(path, data) {
       if (path.startsWith(".weaveforge/")) return sink.write(path, data);
@@ -90,12 +93,21 @@ export function guardedSink(sink: FileSink, store: FileStore): FileSink {
     // A compare-and-set replaces only the text the caller read, so it never loses a user edit. Its result is this
     // run's output only when the file is ours: created by this write, already written this run, or still holding
     // the text this device's prior run recorded. A user's file is never recorded. The hash is of the bytes now on disk.
+    // A file that is not ours takes only an add-keys merge (new keys added, body and existing keys unchanged); any
+    // other change is refused and the text lands in a conflict copy.
     async writeIf(path, text, expected) {
-      const ok = await sink.writeIf(path, text, expected);
-      if (!ok || path.startsWith(".weaveforge/")) return ok;
+      if (path.startsWith(".weaveforge/")) return sink.writeIf(path, text, expected);
       const ours =
         expected === null || path in store.outputs || store.prior[path] === (await sha256Hex(expected));
-      if (ours) store.outputs[path] = await sha256Hex(await sink.readBytes(path));
+      const known = baselines.get(path);
+      const base = known ?? expected;
+      if (!ours && (base === null || !addsKeysOnly(base, text))) {
+        await store.store(path, text, await sha256Hex(text));
+        return false;
+      }
+      const ok = await sink.writeIf(path, text, expected);
+      if (ok && !ours && known === undefined && expected !== null) baselines.set(path, expected);
+      if (ok && ours) store.outputs[path] = await sha256Hex(await sink.readBytes(path));
       return ok;
     },
   };

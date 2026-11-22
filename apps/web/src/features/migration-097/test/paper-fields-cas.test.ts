@@ -6,9 +6,12 @@ import type { Row } from "../domain/ports";
 import { createFileStore, guardedSink } from "../application/file-store";
 import { createPaperFieldsWriter } from "../infrastructure/kind-writer-paper-fields";
 import { sha256Hex } from "../domain/hash";
+import { conflictCopyPath } from "../domain/conflict-path";
 import { MemorySink } from "../infrastructure/memory-sink";
 
 before(loadTestCore);
+
+const USER_NOTE = '---\nweaveforge-id: "p1"\nwf: 3\ntitle: "A"\n---\nBody.\n';
 
 const FOLDERS = new Map([
   ["proj-a", "Thesis"],
@@ -41,7 +44,8 @@ class RacySink extends MemorySink {
 test("CAS: writeIf replaces the file only while it still holds the expected text", async () => {
   const sink = new MemorySink();
   await sink.write("a.md", "v1");
-  const guarded = guardedSink(sink, await createFileStore(sink, {}));
+  // This device wrote a.md last run and it is unchanged, so the file is ours and the plain CAS applies.
+  const guarded = guardedSink(sink, await createFileStore(sink, { "a.md": await sha256Hex("v1") }));
   assert.equal(await guarded.writeIf("a.md", "v2", "v1"), true);
   assert.equal(await sink.readText("a.md"), "v2");
   assert.equal(await guarded.writeIf("a.md", "v3", "stale"), false);
@@ -165,10 +169,11 @@ test("CAS miss: the conflict check runs again on the re-read text, so a user val
 
 test("P1: a CAS on a user's file never records it as this run's output", async () => {
   const sink = new MemorySink();
-  await sink.write("notes.md", "user text");
+  const userNote = '---\nwf: 3\n---\nuser text\n';
+  await sink.write("notes.md", userNote);
   const store = await createFileStore(sink, {});
   const guarded = guardedSink(sink, store);
-  assert.equal(await guarded.writeIf("notes.md", "db text", "user text"), true);
+  assert.equal(await guarded.writeIf("notes.md", '---\nwf: 3\nfields: {}\n---\nuser text\n', userNote), true);
   assert.equal(
     Object.prototype.hasOwnProperty.call(store.outputs, "notes.md"),
     false,
@@ -197,4 +202,50 @@ test("same-set re-run: an identical value is a no-op that still reads back as ex
   await createPaperFieldsWriter(sink, FOLDERS).write("paperFieldValues", value);
   const back = await createPaperFieldsWriter(sink, FOLDERS).readBack("paperFieldValues");
   assert.deepEqual(back.map((r) => r.value), ["NeurIPS"], "the identical row is read back once, as exported");
+});
+
+test("add-keys guard: a CAS on a user's file that edits the body is refused and lands in a conflict copy", async () => {
+  const sink = new MemorySink();
+  await sink.write(PAPER, USER_NOTE);
+  const store = await createFileStore(sink, {});
+  const guarded = guardedSink(sink, store);
+  const edited = USER_NOTE.replace("Body.", "Body changed by the export.");
+  assert.equal(await guarded.writeIf(PAPER, edited, USER_NOTE), false, "a body edit on a user file is refused");
+  assert.equal(await sink.readText(PAPER), USER_NOTE, "the user's file is untouched");
+  assert.equal(await sink.readText(conflictCopyPath(PAPER, 1)), edited, "the refused text is kept in a conflict copy");
+  assert.deepEqual(store.conflicts, [conflictCopyPath(PAPER, 1)]);
+});
+
+test("add-keys guard: a CAS on a user's file that changes an existing key is refused", async () => {
+  const sink = new MemorySink();
+  await sink.write(PAPER, USER_NOTE);
+  const store = await createFileStore(sink, {});
+  const retitled = USER_NOTE.replace('title: "A"', 'title: "B"');
+  assert.equal(await guardedSink(sink, store).writeIf(PAPER, retitled, USER_NOTE), false, "an existing key is not rewritten");
+  assert.equal(await sink.readText(PAPER), USER_NOTE);
+  assert.equal(await sink.readText(conflictCopyPath(PAPER, 1)), retitled);
+});
+
+test("add-keys guard: a CAS on a user's file that only adds a frontmatter key is allowed", async () => {
+  const sink = new MemorySink();
+  await sink.write(PAPER, USER_NOTE);
+  const store = await createFileStore(sink, {});
+  const withField = USER_NOTE.replace("---\nBody.", 'fields:\n  Venue: "NeurIPS"\n---\nBody.');
+  assert.equal(await guardedSink(sink, store).writeIf(PAPER, withField, USER_NOTE), true, "an added key is allowed");
+  assert.equal(await sink.readText(PAPER), withField);
+  assert.deepEqual(store.conflicts, [], "no conflict copy for an add-keys merge");
+});
+
+test("add-keys guard: a second add-keys merge in the same run is allowed, the body and the user's keys stay", async () => {
+  const sink = new MemorySink();
+  await sink.write(PAPER, USER_NOTE);
+  const guarded = guardedSink(sink, await createFileStore(sink, {}));
+  const first = USER_NOTE.replace("---\nBody.", 'fields:\n  Venue: "NeurIPS"\n---\nBody.');
+  assert.equal(await guarded.writeIf(PAPER, first, USER_NOTE), true);
+  const second = first.replace('  Venue: "NeurIPS"', '  Venue: "NeurIPS"\n  Score: 4.5');
+  assert.equal(await guarded.writeIf(PAPER, second, first), true, "a field added to the same note in this run is kept");
+  const text = await sink.readText(PAPER);
+  assert.ok(text.endsWith("---\nBody.\n"), "the body is unchanged");
+  assert.ok(text.includes('title: "A"'), "the user's keys are unchanged");
+  assert.ok(text.includes("Score: 4.5"));
 });
