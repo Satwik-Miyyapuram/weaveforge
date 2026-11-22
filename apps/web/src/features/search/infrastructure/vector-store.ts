@@ -1,8 +1,3 @@
-import { isLocalMode } from "@/backend/providers/local/local-identity";
-import { LocalRunner } from "@/backend/providers/local/parts";
-import { localFiles, type LocalFiles } from "@/backend/providers/local/parts-1";
-import { desktop } from "@/lib/desktop/desktop-bridge";
-
 import { activeWorkspaceFs } from "@/features/workspace/application/workspace-folder";
 import { idbClearVectors, idbGetVectors, idbSetVectors, type StoredVectors } from "./parts-3";
 import { warnOnce } from "@/lib/error-report/parts";
@@ -11,10 +6,9 @@ import { readyCore } from "@/lib/rust-core";
 /**
  * Where a corpus's vectors are kept between sessions.
  *
- * Two answers, because the two copies of the app have different ideas of what
- * durable means. In a browser it is IndexedDB, which is the only thing there;
- * on a desktop copy with no account it is the local database, which lives in
- * the workspace folder and survives the cache clear that IndexedDB does not.
+ * In a browser it is IndexedDB. When a workspace folder is connected, a copy of
+ * the vectors also goes there, because the folder survives the cache clear that
+ * IndexedDB does not.
  *
  * The vectors are worth this: a corpus is minutes of arithmetic, and losing
  * them costs the reader that time again for no visible reason.
@@ -25,109 +19,11 @@ export interface VectorStore {
   clear(): Promise<void>;
 }
 
-const BUCKET = "vectors";
-const key = (projectId: string | null) => readyCore().vectorStoreKey(projectId ?? undefined);
-
 const idbStore: VectorStore = {
   get: idbGetVectors,
   set: idbSetVectors,
   clear: idbClearVectors,
 };
-
-/**
- * The local database, through the same table attachments use.
- *
- * `local_blobs` already carries bytes as base64 for exactly this reason — the
- * bridge to the shell is text — so a second table for the same problem would
- * be a second thing to migrate. The ids and the model live in the row's JSON
- * head, the vectors in its buffer, packed together so one read restores both.
- *
- * With the shell's offline files (the Rust shell), the vectors go to a file in
- * the binary format and the row is only the index `clear` walks. Rows written
- * inline before are still read.
- */
-function localStore(): VectorStore {
-  const runner = new LocalRunner();
-  return localVectorStore((sql, params) => runner.query(sql, params as never[]), localFiles(desktop()));
-}
-
-/** The local-database store over any query function; exported for tests. */
-export function localVectorStore(run: (sql: string, params: unknown[]) => Promise<unknown[]>, files?: LocalFiles): VectorStore {
-  return {
-    async get(projectId) {
-      try {
-        const rows = (await run("select bytes, on_disk from local_blobs where bucket = $1 and path = $2", [
-          BUCKET,
-          key(projectId),
-        ])) as { bytes?: string | null; on_disk?: boolean }[];
-        const row = rows[0];
-        if (row?.on_disk) {
-          const bytes = files ? await files.read(BUCKET, key(projectId)) : null;
-          return bytes ? readyCore().unpackVectors(bytes) : null;
-        }
-        return row?.bytes ? unpack(row.bytes) : null;
-      } catch {
-        // A copy whose local database is not there yet has no stored vectors,
-        // which is the same answer as a copy that never built any.
-        return null;
-      }
-    },
-    async set(projectId, value) {
-      try {
-        if (files) await files.write(BUCKET, key(projectId), packBinary(value));
-        await run(
-          `insert into local_blobs (bucket, path, content_type, bytes, on_disk, updated_at)
-           values ($1, $2, $3, $4, $5, now())
-           on conflict (bucket, path) do update
-             set bytes = excluded.bytes, on_disk = excluded.on_disk, updated_at = now()`,
-          [BUCKET, key(projectId), "application/octet-stream", files ? null : pack(value), Boolean(files)],
-        );
-      } catch (err) {
-        warnOnce("search", "Search vectors were not saved to the local database.", err);
-        /* best-effort: losing this costs a re-embed, never a result */
-      }
-    },
-    async clear() {
-      try {
-        const gone = (await run("delete from local_blobs where bucket = $1 returning path, on_disk", [BUCKET])) as {
-          path: string;
-          on_disk: boolean;
-        }[];
-        if (files) await Promise.all(gone.filter((r) => r.on_disk).map((r) => files.remove(BUCKET, r.path)));
-      } catch (err) {
-        warnOnce("search", "Search vectors were not cleared from the local database.", err);
-        /* ignore */
-      }
-    },
-  };
-}
-
-/**
- * One JSON head and one buffer, base64 in a single string.
- *
- * Kept together because they are only ever read together: the index blob carries
- * its own ids and widths, so the head holds only what describes the blob.
- */
-/** The fields both formats store ahead of the blob, as JSON. */
-function headJson(value: StoredVectors): string {
-  return JSON.stringify({ model: value.model, dimensions: value.dimensions, revision: value.revision, hashes: value.hashes });
-}
-
-function pack(value: StoredVectors): string {
-  return readyCore().packLocalVectorRow(headJson(value), value.bytes);
-}
-
-function unpack(packed: string): StoredVectors | null {
-  try {
-    const row = readyCore().unpackLocalVectorRow(packed);
-    if (!row) return null;
-    const head = JSON.parse(row.head) as Omit<StoredVectors, "bytes">;
-    return { ...head, bytes: row.bytes };
-  } catch {
-    return null;
-  }
-}
-
 
 /** Where the vectors sit inside a connected workspace folder. */
 export function folderCacheDir(): string {
@@ -206,7 +102,7 @@ let chosen: VectorStore | null = null;
  */
 export function vectorStore(): VectorStore {
   if (!chosen) {
-    const own = isLocalMode() ? localStore() : idbStore;
+    const own = idbStore;
     chosen = {
       async get(projectId) {
         return (await folderStore.get(projectId)) ?? (await own.get(projectId));

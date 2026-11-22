@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { formatError } from "@/lib/format-error";
-import { type LinkedReport, local, api } from "./linked-overleaf-api";
+import { type LinkedReport, api } from "./linked-overleaf-api";
 
 /** Where linked reports (git-token links) are kept: the local database and shell, or the app's API. */
 export interface LinkedReportsGateway {
@@ -10,16 +10,11 @@ export interface LinkedReportsGateway {
 
 export const linkedReportsGateway: LinkedReportsGateway = {
   async list(projectId) {
-    const gateway = local();
-    const rows = gateway
-      ? await gateway.listReports(projectId)
-      : ((await api(`/api/overleaf/reports?projectId=${encodeURIComponent(projectId)}`)).reports ?? []);
-    return (rows as LinkedReport[]).filter((report) => report.project_id === projectId);
+    const rows = (await api(`/api/overleaf/reports?projectId=${encodeURIComponent(projectId)}`)).reports ?? [];
+    return rows.filter((report) => report.project_id === projectId);
   },
   async unlink(id) {
-    const gateway = local();
-    if (gateway) await gateway.deleteReport(id);
-    else await api(`/api/overleaf/reports?id=${encodeURIComponent(id)}`, { method: "DELETE" });
+    await api(`/api/overleaf/reports?id=${encodeURIComponent(id)}`, { method: "DELETE" });
   },
 };
 

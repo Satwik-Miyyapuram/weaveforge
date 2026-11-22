@@ -9,7 +9,6 @@ import { yCollab } from "y-codemirror.next";
 import * as Y from "yjs";
 import { Awareness } from "y-protocols/awareness";
 import type { CollabSession } from "../application/parts.js";
-import { isLocalMode } from "@/backend/providers/local/local-identity";
 import { RealtimeYjsProvider } from "../infrastructure/realtime-yjs-provider.js";
 import {
   applyStoredBody,
@@ -189,10 +188,7 @@ export function CollaborativeMarkdownEditor({
       projectId: session.projectId(),
       authorId,
       awareness,
-      // A copy with no account has nobody to sync with, so it does not try:
-      // no socket, no failing broadcast per keystroke, and no notice about a
-      // live connection that was never part of the offer.
-      live: !isLocalMode(),
+      live: true,
       getSnapshotUpto: session.getSnapshotUpto,
       // Compaction waits on this. The body is the other durable copy of what it
       // is about to delete log rows for, and the debounce above means the newest

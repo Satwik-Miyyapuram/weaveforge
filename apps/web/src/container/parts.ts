@@ -42,7 +42,6 @@ import type { OpenAlexWork, ResourceType } from "@weaveforge/wasm";
 import { type BackendConfig, readBackendConfig } from "../backend/parts";
 import { localFirstParts } from "../backend/providers/local/local-first";
 import { localFirstActive } from "../backend/providers/local/local-first-marker";
-import { isLocalMode } from "../backend/providers/local/local-identity";
 import { localBackendParts } from "../backend/providers/local/parts";
 import {
   type WiredPostgrestBackend,
@@ -354,9 +353,6 @@ export function wireBackend(
   projectContext = { projectId: null as string | null },
   pid: () => string | null = () => projectContext.projectId,
 ): WiredBackend {
-  // Working on this computer is not a different set of repositories, only a
-  // different database, identity and blob store handed to the same ones.
-  if (isLocalMode()) return wirePostgrestBackend(config, projectContext, pid, localBackendParts());
   // A signed-in desktop that has its account's data on disk works on that copy.
   const account = localFirstActive();
   if (account) return wirePostgrestBackend(config, projectContext, pid, localFirstParts(config, account));

@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { FormError } from "@/components/form-error";
 import { desktop, type DesktopPlanWidget } from "@/lib/desktop/desktop-bridge";
-import { isLocalMode } from "@/backend/providers/local/local-identity";
 import { localFirstActive } from "@/backend/providers/local/local-first-marker";
 import { formatError } from "@/lib/format-error";
 
@@ -35,7 +34,7 @@ export function PlanWidgetToggle() {
 
   if (!bridge?.setPlanWidget || !state?.supported) return null;
   const setPlanWidget = bridge.setPlanWidget;
-  const hasLocalCopy = isLocalMode() || localFirstActive() !== null;
+  const hasLocalCopy = localFirstActive() !== null;
 
   async function toggle(on: boolean) {
     setBusy(true);

@@ -1,6 +1,4 @@
 import { readBackendConfig } from "@/backend/parts";
-import { isLocalMode } from "@/backend/providers/local/local-identity";
-import { localBackendParts } from "@/backend/providers/local/parts";
 import { createDataClient } from "@/backend/providers/postgrest/parts-1";
 import type { CitationFormat } from "@/features/overleaf/application/parts";
 import { hasScreenCacheData, screenCacheKey } from "@/lib/cache/parts-2";
@@ -230,11 +228,6 @@ export async function createNoteFromQuery<P>(
  * Browser data client singleton for legacy call sites.
  */
 export function getDataClient() {
-  // The legacy call sites reach for the client directly rather than through
-  // the container, so this is where a copy working on this computer has to be
-  // answered too — otherwise those few screens alone would go to the network.
-  if (isLocalMode()) return localBackendParts().db;
-
   const config = readBackendConfig();
   const url = config.supabaseUrl;
   const key = config.supabaseAnonKey;

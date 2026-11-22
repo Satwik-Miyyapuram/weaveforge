@@ -17,7 +17,6 @@ import { useRailTip } from "./rail-tip";
 import { loadOpenGroups, saveOpenGroups } from "./nav-open-groups";
 import { readyCore } from "@/lib/rust-core";
 import { useInbox } from "./use-inbox";
-import { LocalModeBadge } from "@/features/auth/ui/local-mode-badge";
 import { OverlayScrollbar } from "@/components/overlay-scrollbar";
 import { FoldButton, NavButton, NavLink } from "@/components/controls";
 import { revealActiveNav } from "./reveal-active-nav";
@@ -267,7 +266,6 @@ export function TabBar({
           </div>
           <PdfIndexChip />
           <GitSyncDot />
-          <LocalModeBadge />
         </div>
       )}
     </nav>

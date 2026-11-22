@@ -2,8 +2,8 @@ import { describe, it, beforeEach, afterEach } from "node:test";
 import assert from "node:assert/strict";
 
 /**
- * The capability answers come from `localStorage`, which is also where local
- * mode is remembered, so the test provides the one thing `isLocalMode` reads.
+ * The capability answers come from the build (`isOfflineBuild`) and, for the
+ * route check, the window; the fake window keeps the server-vs-client split testable.
  */
 const store = new Map<string, string>();
 const fakeWindow = {
@@ -38,13 +38,11 @@ describe("capabilities", () => {
     }
   });
 
-  it("refuses the account-only capabilities in local mode", async () => {
+  it("ignores a stored local-mode key: there is no local mode any more", async () => {
     store.set("weaveforge.local-mode", "1");
     const { can, hasAccount } = await load();
-    assert.equal(hasAccount(), false);
-    for (const capability of ["account", "org", "sharing", "sync", "apiTokens", "operatorDisclosure"] as const) {
-      assert.equal(can(capability), false, capability);
-    }
+    assert.equal(hasAccount(), true);
+    assert.equal(can("account"), true);
   });
 
   it("answers yes on the server, where there is no window to ask", async () => {

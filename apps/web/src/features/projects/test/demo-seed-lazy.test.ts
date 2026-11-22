@@ -11,8 +11,8 @@ import path from "node:path";
 
 const uiDir = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "ui");
 
-test("projects screen loads the demo seeder on demand, not statically", () => {
+test("projects screen has no demo loader and no static showcase import", () => {
   const source = readFileSync(path.join(uiDir, "projects-screen.tsx"), "utf8");
   assert.doesNotMatch(source, /^import[^;]*features\/showcase/m);
-  assert.match(source, /import\("@\/features\/showcase\/application\/load-local-demo"\)/);
+  assert.doesNotMatch(source, /load-local-demo|loadLocalDemoWorkspace|isLocalMode|Load demo workspace/);
 });

@@ -1,4 +1,3 @@
-import { isLocalMode } from "@/backend/providers/local/local-identity";
 import { getContainer } from "@/bootstrap";
 import { activeProjectRoot } from "@/features/workspace/application/parts";
 import { activeWorkspaceFs } from "@/features/workspace/application/workspace-folder";
@@ -259,10 +258,8 @@ export async function resolvePaperPdfSourceForReader(
     };
   }
 
-  // Best-effort: seed cache from a successful remote resolve. Not from the
-  // no-account copy, which asks first and then fetches on purpose — see
-  // `downloadPaperPdfToCache`.
-  if (cache && paper.id && readyCore().isRemotePdfUrl(resolution.hit.url) && !isLocalMode()) {
+  // Best-effort: seed cache from a successful remote resolve.
+  if (cache && paper.id && readyCore().isRemotePdfUrl(resolution.hit.url)) {
     void seedCacheFromUrl(cache, paper.id, resolution.hit.url);
   }
 

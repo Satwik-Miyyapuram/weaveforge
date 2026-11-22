@@ -3,14 +3,12 @@
 /**
  * What this copy of the app can actually do.
  *
- * There are two ways to run WeaveForge without a server on the other end: the
- * desktop build, which is compiled without the online-only modules
- * (`isOfflineBuild`), and local mode, which any build can enter at the sign-in
- * screen and which swaps the data layer for the database on this disk
- * (`isLocalMode`). Both leave the same holes, and the holes were being patched
- * one screen at a time — a check here, a hidden button there — which is how the
- * first-run gate ended up asking a copy with no account to pick a lab, with a
- * Continue button whose only implementation is a server call.
+ * The desktop build is compiled without the online-only modules
+ * (`isOfflineBuild`), so it leaves holes that the server-only features would
+ * fall into. Those holes were being patched one screen at a time — a check here,
+ * a hidden button there — which is how the first-run gate ended up asking a copy
+ * with no account to pick a lab, with a Continue button whose only
+ * implementation is a server call.
  *
  * So the question is asked once, by name, and every screen reads the answer.
  * A new account-only feature declares which capability it needs and is absent
@@ -23,7 +21,6 @@
 
 import { useEffect, useState } from "react";
 
-import { isLocalMode } from "@/backend/providers/local/local-identity";
 import { isOfflineBuild } from "./build-target";
 
 export type Capability =
@@ -64,14 +61,13 @@ const ACCOUNT_CAPABILITIES: readonly Capability[] = [
 /**
  * Whether this copy has an account behind it.
  *
- * Only the runtime choice decides *this* question, because the desktop build can
- * sign in and doing so switches it back to the server wiring. But "has an
- * account" is not the same as "has the routes that account's features are
+ * Every copy now has an account behind it: local mode is gone (0.9.8), so the
+ * answer is fixed. "Has an account" is not the same as "has the routes that account's features are
  * served by", and asking this one for both is what put a Tokens tab and an Org
  * tab on a build that cannot answer either. See `hasServerRoutes`.
  */
 export function hasAccount(): boolean {
-  return !isLocalMode();
+  return true;
 }
 
 /**
@@ -84,7 +80,7 @@ export function hasAccount(): boolean {
  * data over the network quite happily, and still has no route of its own.
  *
  * This is a build fact, not a session one, which is why it is `isOfflineBuild`
- * and not `isLocalMode`. `registry.ts` already uses the same flag to remove the
+ * and not a per-session check. `registry.ts` already uses the same flag to remove the
  * whole modules a serverless build cannot serve; this covers what lives *inside*
  * the modules that stay.
  */
@@ -115,9 +111,9 @@ export function can(capability: Capability): boolean {
 /**
  * The same answer, read after mount.
  *
- * `isLocalMode` reads `localStorage`, which the server render does not have, so
- * a component that branches on it during render would hydrate against markup
- * built from the other answer. Every hook here starts on the server's answer
+ * A component that branches on a capability during render would hydrate
+ * against markup built from the other answer if the answer depended on the
+ * browser. Every hook here starts on the server's answer
  * and corrects itself in an effect, the way the desktop-only settings tab does.
  */
 export function useCapability(capability: Capability): boolean {

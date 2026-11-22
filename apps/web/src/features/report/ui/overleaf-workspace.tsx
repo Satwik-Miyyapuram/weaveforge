@@ -14,7 +14,6 @@ import {
   pickedOverleafProjects,
   type OverleafProjectRow,
 } from "../lib/parts";
-import { local } from "./linked-overleaf-api";
 import { OverleafConnect } from "./overleaf-connect";
 import { OverleafProjectCard } from "./overleaf-project-card";
 import { OverleafProjectDetail } from "./overleaf-project-detail";
@@ -130,9 +129,7 @@ export function OverleafWorkspace({
   const linkForm = linkOpen && projectId && (
     <>
       <p className="linked-overleaf-disclosure">
-        {local()
-          ? "With a Git link, this app fetches the LaTeX source from Overleaf with the token kept in your computer's keychain. Nothing goes through a server of ours."
-          : "With a Git link, WeaveForge's server fetches the LaTeX source from Overleaf with your token."}
+        {"With a Git link, WeaveForge's server fetches the LaTeX source from Overleaf with your token."}
         {" "}The source stays in Overleaf and is not stored as WeaveForge project data.
       </p>
       <LinkOverleafForm

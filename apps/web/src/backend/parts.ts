@@ -13,7 +13,7 @@ import {
   ManageSettingsUseCase as ManageSettingsUseCaseClass,
 } from "@weaveforge/core";
 import type { BackendConfigField } from "@weaveforge/wasm";
-import { isLocalMode, LocalAuthService } from "./providers/local/local-identity";
+import { LocalAuthService } from "./providers/local/local-identity";
 import { localBackendParts } from "./providers/local/parts";
 import { createDataClient } from "./providers/postgrest/parts-1";
 import { rustRepository } from "./providers/postgrest/rust-repository";
@@ -174,9 +174,6 @@ export interface LightBackend {
 }
 
 export function wireLightBackend(config: BackendConfig = readBackendConfig()): LightBackend {
-  // The same choice the full container makes, made earlier: this runs first,
-  // and a window working on this computer must not be asked to sign in.
-  if (isLocalMode()) return wireLocalLightBackend();
 
   if (config.provider !== "postgrest") {
     throw new Error(

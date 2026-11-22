@@ -1,8 +1,6 @@
-import { isLocalMode } from "@/backend/providers/local/local-identity";
 import { desktop } from "@/lib/desktop/desktop-bridge";
 import { type AppLogInput, logToApp } from "@/lib/error-report/app-log";
 import { describeRejection } from "@/lib/format-error";
-import { readStored, removeStored, writeStored } from "@/lib/safe-storage";
 
 // --- batch-annotation-ops ---
 export interface BatchImageRegion {
@@ -86,42 +84,15 @@ export async function pdfObjectUrlBytes(url: string): Promise<Uint8Array | null>
   return blob ? new Uint8Array(await blob.arrayBuffer()) : null;
 }
 
-// --- pdf-download-consent ---
-/**
- * Whether the no-account copy may fetch a paper's PDF from its publisher.
- *
- * Online, with an account, a paper's PDF is fetched the moment it is opened
- * and nobody is asked: the proxy is the app's own server. The no-account copy
- * keeps everything on this computer, so the first reach out to arXiv or
- * OpenReview is something the person should choose — once, if they say so.
- * The answer is kept per browser, next to the other view preferences.
- */
-const KEY = "thesis.reader.pdfDownload";
-
-/** True when the reader should ask before fetching a PDF for this paper. */
-export function pdfDownloadNeedsConsent(): boolean {
-  if (!isLocalMode()) return false;
-  return !pdfDownloadRemembered();
-}
-
+// --- pdf-proxy ---
 /**
  * True when the copy can fetch a publisher's PDF without an account: the
  * desktop shell serves the proxy itself, and a sign-in is neither needed nor
- * possible. A browser in local mode has no such route — its proxy is the web
- * server's, and that one asks for a token.
+ * possible. A browser has no such route — its proxy is the web server's, and
+ * that one asks for a token.
  */
 export function pdfProxyNeedsToken(): boolean {
   return desktop() === null;
-}
-
-export function pdfDownloadRemembered(): boolean {
-  return readStored(KEY) === "always";
-}
-
-/** A private window forgets; the prompt returns next time. */
-export function rememberPdfDownload(always: boolean): void {
-  if (always) writeStored(KEY, "always");
-  else removeStored(KEY);
 }
 
 // --- reader-annotation-helpers ---

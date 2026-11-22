@@ -9,7 +9,6 @@ import { emptyArray } from "@/lib/parts";
 import type { ReportScreenData } from "@/features/report/application/parts";
 import { ExportOverleafPackagePanel } from "./export-overleaf-package-panel";
 import { OverleafWorkspace } from "./overleaf-workspace";
-import { canShowWorkshop } from "./use-workshop-session";
 import { useProject } from "@/features/projects";
 import { ScreenHead } from "@/components/screen-head";
 import { FormError } from "@/components/form-error";
@@ -21,8 +20,7 @@ import { isTauriShell } from "@/features/experiments/infrastructure/parts";
  * Overleaf tab — one list of Overleaf projects (Write, PDF, Outline) + ZIP export.
  * Outline sections of this app's report live on `/report` (Sections).
  *
- * Sign-in needs the app's API routes, so a browser copy with no account only
- * gets Git links; the Tauri shell serves them itself (see `canShowWorkshop`).
+ * Sign-in needs the app's API routes, which every copy has.
  */
 export function ReportOverleafScreen() {
   /*
@@ -55,7 +53,7 @@ export function ReportOverleafScreen() {
   useEffect(() => {
     setMounted(true);
     const shell = isTauriShell();
-    if (canShowWorkshop({ localMode: getContainer().auth.isLocalMode(), shell })) setWorkshop({ shell });
+    setWorkshop({ shell });
   }, []);
 
   const tree = data?.tree ?? emptyArray<ReportSectionTreeNode>();

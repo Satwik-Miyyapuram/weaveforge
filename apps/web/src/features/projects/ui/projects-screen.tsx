@@ -10,7 +10,6 @@ import { ScreenHead } from "@/components/screen-head";
 import { FormError } from "@/components/form-error";
 import { EmptyState } from "@/components/empty-state";
 import { WeaveForgeLogo } from "@/components/weave-forge-logo";
-import { isLocalMode } from "@/backend/providers/local/local-identity";
 import dynamic from "next/dynamic";
 import { Button } from "@/components/button";
 import { RowButton } from "@/components/controls";
@@ -41,7 +40,6 @@ export function ProjectsScreen() {
   useEffect(() => {
     openCreateOnMount = false;
   }, []);
-  const local = isLocalMode();
 
   const { busy, error, submit: create } = useSubmit(async () => {
     const p = await getContainer().projects.manageProject.create({ name });
@@ -78,29 +76,12 @@ export function ProjectsScreen() {
     await refresh();
   });
 
-  // The no-account copy starts empty. A filled workspace shows what every
-  // screen looks like without the visitor first entering thirty papers.
-  const { busy: demoBusy, error: demoError, submit: loadDemo } = useSubmit(async () => {
-    // Lazy: the seeder carries the whole showcase data set.
-    const { loadLocalDemoWorkspace } = await import("@/features/showcase/application/load-local-demo");
-    const { projectId } = await loadLocalDemoWorkspace();
-    await refresh();
-    setProject(projectId);
-  });
-  const demoButton = local ? (
-    <Button disabled={demoBusy} onClick={() => void loadDemo()}>
-      {demoBusy ? "Loading demo…" : "Load demo workspace"}
-    </Button>
-  ) : null;
-
   return (
     <section className="screen">
       <ScreenHead>
-        {demoButton}
         <Button variant="primary" data-help-id="projects-new" onClick={() => setAddOpen(true)}>New project</Button>
       </ScreenHead>
 
-      {demoError && <FormError>{demoError}</FormError>}
       {removeError && <FormError>{removeError}</FormError>}
       {removing && (
         <ConfirmDialog
@@ -166,7 +147,6 @@ export function ProjectsScreen() {
               <Button variant="primary" onClick={() => setAddOpen(true)}>
                 + New project
               </Button>
-              {demoButton}
             </>
           }
         />

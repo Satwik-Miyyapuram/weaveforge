@@ -86,7 +86,7 @@ export function HeaderActions({
   const { current, setProject } = useProject();
   const router = useRouter();
   const pathname = usePathname();
-  const { links: inboxRows, local } = useInbox();
+  const { links: inboxRows } = useInbox();
   const attention = readyCore().accountAttention({ conflicts: 0, inbox: inboxRows, inboxInMenu: inbox });
   const labs = memberships ? memberships.filter(typedCore().isExplicitLabMembership) : [];
 
@@ -133,25 +133,9 @@ export function HeaderActions({
             {row.badge !== undefined && <b className="nav-badge">{row.badge}</b>}
           </MenuItemLink>
         ))}
-      {readyCore().accountLinks({ hasProject: !!current, local }).map((link) => {
+      {readyCore().accountLinks({ hasProject: !!current, local: false }).map((link) => {
         const Icon = ICONS[link.id];
 
-        // Leaving offline mode is not signing out — there is no session to end.
-        // It puts the sign-in screen back, and the local data stays where it is.
-        if (link.id === "signin") {
-          return (
-            <MenuItemButton
-              key={link.id}
-              onClick={() => {
-                getContainer().auth.setLocalMode(false);
-                window.location.reload();
-              }}
-              title="Sign in to sync this work with an account. What is on this computer stays here."
-            >
-              <Icon /><span>{link.label}</span>
-            </MenuItemButton>
-          );
-        }
         if (link.id === "signout") {
           return (
             <MenuItemButton key={link.id} onClick={() => void signOut()} title={user.email}>
