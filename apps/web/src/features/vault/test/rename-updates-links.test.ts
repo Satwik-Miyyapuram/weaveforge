@@ -172,9 +172,10 @@ test("F97-P2-4: a note that links to its own old title has that link rewritten",
   assert.equal(rows.get("two")!.body, "Self: [[Renamed]] and [[Other]]");
 });
 
-test("F97-P2-4: the renamed note open in its editor is reported like other open notes and keeps its own self-link", async () => {
-  // The editor holds its own copy of the body, so its own [[Two]] is not rewritten
-  // (its next autosave would restore it). It is reported, as any open note is.
+test("F97-P2-4: the renamed note open in its editor gets its self-link rewritten in the saved result", async () => {
+  // The editor holds its own copy of the body, and its next autosave would restore
+  // [[Two]]. So the repo does not write the renamed note; the rewritten body is handed
+  // back in the saved result for the editor to apply. Nothing is reported as failed.
   // Other notes are still rewritten.
   const { rows, repo } = memoryPages([
     page("two", "Two", "Self: [[Two]]"),
@@ -182,14 +183,15 @@ test("F97-P2-4: the renamed note open in its editor is reported like other open 
   ]);
   const release = holdOpenNotes(["two"]);
   try {
-    const saved = (await repo.update("two", { title: "Renamed" })) as { linkRewriteFailed?: string[] };
-    // Named by its new title: the list is read after the save.
-    assert.deepEqual(saved.linkRewriteFailed, ["Renamed"]);
+    const saved = (await repo.update("two", { title: "Renamed" })) as {
+      linkRewrittenBody?: string;
+      linkRewriteFailed?: string[];
+    };
+    assert.equal(saved.linkRewrittenBody, "Self: [[Renamed]]");
+    assert.equal(saved.linkRewriteFailed, undefined);
   } finally {
     release();
   }
-  assert.equal(rows.get("two")!.body, "Self: [[Two]]");
-  assert.equal(rows.get("three")!.body, "[[Renamed]]");
   assert.equal(rows.get("two")!.body, "Self: [[Two]]");
   assert.equal(rows.get("three")!.body, "[[Renamed]]");
 });

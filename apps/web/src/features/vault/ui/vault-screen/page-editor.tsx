@@ -10,6 +10,7 @@ import { deletedMessage, removeLater } from "@/lib/toast/index";
 import { readyCore } from "@/lib/rust-core";
 import { noteKey } from "./note-key";
 import { toastLinkRewriteFailed } from "../../application/rename-link-toast";
+import type { RenamedVaultPage } from "../../application/rename-updates-links";
 import type { EditorHandle } from "@/components/editor-handle";
 import { CommentsIcon, DeleteIcon, OpenIcon } from "@/components/view-icons";
 import { RecordEmpty, RecordFacts, RecordSection, recordDate, wordCount } from "@/components/record";
@@ -232,7 +233,14 @@ export function PageEditor({
     setBusy(true);
     setSaveError(null);
     try {
-      toastLinkRewriteFailed(await getContainer().vault.manageVaultPage.update(page.id, { title: next }));
+      const renamed: RenamedVaultPage = await getContainer().vault.manageVaultPage.update(page.id, { title: next });
+      toastLinkRewriteFailed(renamed);
+      // The open editor holds its own copy of the body, so the note's rewritten
+      // self-link goes through the editor, and its autosave stores it.
+      if (renamed.linkRewrittenBody !== undefined) {
+        if (editorHandle.current) editorHandle.current.replaceAll(renamed.linkRewrittenBody);
+        else await storeBody(renamed.linkRewrittenBody);
+      }
       await onChanged();
     } catch (err) {
       setSaveError(formatError(err));
