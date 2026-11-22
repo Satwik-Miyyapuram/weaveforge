@@ -14,10 +14,7 @@ import { FormError } from "@/components/form-error";
 import { formatError } from "@/lib/format-error";
 import { readyCore } from "@/lib/rust-core";
 import { useCapability } from "@/deployment/capabilities";
-import {
-  desktop,
-  type DesktopLocalDbState,
-} from "@/lib/desktop/desktop-bridge";
+import { desktop } from "@/lib/desktop/desktop-bridge";
 import {
   isLocalMode,
   setLocalMode,
@@ -169,7 +166,6 @@ export function PrivacyDisclaimerGate({
 
 /** A dead end the user can act on: what went wrong, and a way to try again. */
 function StartupFailure({ message }: { message: string }) {
-  const broken = useLocalDbFailure();
   return (
     <main
       className="app-shell"
@@ -178,13 +174,9 @@ function StartupFailure({ message }: { message: string }) {
       <h1 style={{ fontSize: "1.25rem", marginBottom: 8 }}>
         Couldn’t start the app
       </h1>
-      {broken ? (
-        <LocalDbRecovery state={broken} />
-      ) : (
-        <FormError>{message}</FormError>
-      )}
+      <FormError>{message}</FormError>
       <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 16 }}>
-        <Button variant={broken ? "secondary" : "primary"} onClick={() => window.location.reload()}>
+        <Button variant="primary" onClick={() => window.location.reload()}>
           Reload
         </Button>
         {desktop() && !isLocalMode() ? (
@@ -199,96 +191,5 @@ function StartupFailure({ message }: { message: string }) {
         ) : null}
       </div>
     </main>
-  );
-}
-
-/**
- * Whether the failure on screen is the local database refusing to open.
- *
- * Asked of the shell rather than inferred from the message: the message is an
- * Emscripten abort or a Postgres error, neither of which names the database as
- * the thing that failed. Only meaningful on the desktop, working on this
- * computer — anywhere else there is no local database to have failed.
- */
-function useLocalDbFailure(): DesktopLocalDbState | null {
-  const [state, setState] = useState<DesktopLocalDbState | null>(null);
-  useEffect(() => {
-    const shell = desktop();
-    if (!shell || !isLocalMode()) return;
-    let cancelled = false;
-    shell
-      .localDbState()
-      .then((s) => {
-        if (!cancelled && s.failure) setState(s);
-      })
-      .catch(() => undefined);
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-  return state;
-}
-
-/**
- * The way out of a database that cannot be opened.
- *
- * The old directory is moved beside itself, never deleted, and the page says
- * so with the path — because the one thing a person needs to know before
- * pressing this is that nothing is being thrown away. The shell may relaunch
- * to finish the move (Windows will not rename a directory the failed engine
- * still holds), which is why the button does not promise to return.
- */
-function LocalDbRecovery({ state }: { state: DesktopLocalDbState }) {
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const reset = useCallback(async () => {
-    setBusy(true);
-    setError(null);
-    try {
-      await desktop()?.resetLocalDb();
-      window.location.reload();
-    } catch (err) {
-      setError(formatError(err));
-      setBusy(false);
-    }
-  }, []);
-  return (
-    <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr)", gap: 12 }}>
-      <p>
-        The app’s own database on this computer could not be opened. This
-        happens when a previous run was interrupted while writing to it.
-      </p>
-      <p className="muted">
-        The app keeps copies of the database (under{" "}
-        <code>local-db-backups</code> beside it, and in the workspace folder’s{" "}
-        <code>.weaveforge/db-backups</code>) and restores the newest one by
-        itself; you see this only when there was none to restore from.
-      </p>
-      <p className="muted" style={{ wordBreak: "break-all" }}>
-        {state.dataDir}
-      </p>
-      <details>
-        <summary className="muted">Technical detail</summary>
-        <p
-          className="muted"
-          style={{ fontFamily: "var(--font-mono)", fontSize: "0.85em", overflowWrap: "anywhere" }}
-        >
-          {state.failure}
-        </p>
-      </details>
-      <p>
-        Starting fresh moves the old database aside as{" "}
-        <code>local-db.broken-…</code> in the same folder — nothing is deleted —
-        and opens a new, empty one.
-      </p>
-      {error && <FormError>{error}</FormError>}
-      <Button
-        variant="primary"
-        disabled={busy}
-        onClick={() => void reset()}
-      >
-        {busy ? "Moving aside…" : "Start with a fresh database"}
-      </Button>
-    </div>
   );
 }
