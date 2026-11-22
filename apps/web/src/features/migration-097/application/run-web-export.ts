@@ -379,6 +379,12 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
         if (bad > 0) missing.push({ kind, id: "*", reason: `${bad} content_enc row(s) failed to decrypt` });
         written[kind] = 0;
         dbCount[kind] = rows.length;
+        // verify ignores syncState, so a row not yet synced (not 'local') is listed here rather than passed silently.
+        for (const row of rows) {
+          if (kind === "annotations" && row.syncState !== undefined && row.syncState !== "local") {
+            missing.push({ kind, id: String(row.id), reason: `syncState ${String(row.syncState)}` });
+          }
+        }
         trashCount[kind] = await exportTrash(kind, await source.listTrashed(kind), sink, store, codec, missing);
         const writer = writerFor(kind);
         if (writer) {
