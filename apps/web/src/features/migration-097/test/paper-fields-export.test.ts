@@ -327,3 +327,20 @@ test("paper fields: a value the file already holds is reported as a conflict tha
   assert.equal(row?.value, "NeurIPS", "the report keeps the DB value so nothing is lost");
   assert.ok((await sink.readText("Thesis/papers/a.paper.md")).includes("user"), "the file's value is kept");
 });
+
+test("secret kinds: a conflict in a secret kind never puts its value in the report", async () => {
+  const sink = new MemorySink();
+  const secretWriter = {
+    kinds: ["secrets"],
+    write: async () => {
+      throw Object.assign(new Error("conflict: secret differs"), { conflictValue: "tok-secret-123" });
+    },
+    readBack: async () => [],
+  } as unknown as KindWriter;
+  const result = await runWebExport({ runDeviceId: "dev-test", kinds: ["secrets"], codec: NO_CODEC, now: NOW,
+    source: fakeSource({ secrets: [{ id: "i1", projectId: "proj-a" }] }), sink, writers: () => [secretWriter] });
+  const row = result.run.missing.find((m) => m.kind === "secrets" && m.id === "i1") as { value?: unknown } | undefined;
+  assert.ok(row, "the conflict is still listed");
+  assert.equal("value" in (row ?? {}), false, "no value for a secret kind");
+  assert.ok(!JSON.stringify(result.run).includes("tok-secret-123"), "the secret never reaches the run report");
+});

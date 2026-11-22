@@ -5,6 +5,7 @@ import { typedCore } from "@/lib/rust-core";
 import type { Row } from "../domain/ports";
 import { createFileStore, guardedSink } from "../application/file-store";
 import { createPaperFieldsWriter } from "../infrastructure/kind-writer-paper-fields";
+import { sha256Hex } from "../domain/hash";
 import { MemorySink } from "../infrastructure/memory-sink";
 
 before(loadTestCore);
@@ -160,4 +161,26 @@ test("CAS miss: the conflict check runs again on the re-read text, so a user val
     (err: Error) => err.message.startsWith("conflict:"),
   );
   assert.ok((await sink.readText(PAPER)).includes("user"), "the user's value is not overwritten by the retry");
+});
+
+test("P1: a CAS on a user's file never records it as this run's output", async () => {
+  const sink = new MemorySink();
+  await sink.write("notes.md", "user text");
+  const store = await createFileStore(sink, {});
+  const guarded = guardedSink(sink, store);
+  assert.equal(await guarded.writeIf("notes.md", "db text", "user text"), true);
+  assert.equal(
+    Object.prototype.hasOwnProperty.call(store.outputs, "notes.md"),
+    false,
+    "a file the prior run did not write is not this run's output",
+  );
+});
+
+test("P1/P2: a CAS on a file this device wrote records the hash of the bytes now on disk", async () => {
+  const sink = new MemorySink();
+  await sink.write("a.md", "v1");
+  const prior = { "a.md": await sha256Hex("v1") };
+  const store = await createFileStore(sink, prior);
+  assert.equal(await guardedSink(sink, store).writeIf("a.md", "v2", "v1"), true);
+  assert.equal(store.outputs["a.md"], await sha256Hex(await sink.readBytes("a.md")));
 });

@@ -17,6 +17,8 @@ export type FileStore = {
   readonly outputs: Outputs;
   /** Conflict copies this run wrote or reused. */
   readonly conflicts: string[];
+  /** This device's previous run outputs, as given to createFileStore. */
+  readonly prior: Outputs;
 };
 
 /**
@@ -65,6 +67,7 @@ export async function createFileStore(sink: FileSink, prior: Outputs): Promise<F
     },
     outputs,
     conflicts,
+    prior,
   };
 }
 
@@ -84,11 +87,15 @@ export function guardedSink(sink: FileSink, store: FileStore): FileSink {
     readBytes: (path) => sink.readBytes(path),
     rename: (from, to) => sink.rename(from, to),
     remove: (path) => sink.remove(path),
-    // A compare-and-set replaces only the text the caller read, so it never loses a user edit. A successful one
-    // is this run's output, so its hash is recorded: the next run must see it as ours, not as a user edit.
+    // A compare-and-set replaces only the text the caller read, so it never loses a user edit. Its result is this
+    // run's output only when the file is ours: created by this write, already written this run, or still holding
+    // the text this device's prior run recorded. A user's file is never recorded. The hash is of the bytes now on disk.
     async writeIf(path, text, expected) {
       const ok = await sink.writeIf(path, text, expected);
-      if (ok && !path.startsWith(".weaveforge/")) store.outputs[path] = await sha256Hex(text);
+      if (!ok || path.startsWith(".weaveforge/")) return ok;
+      const ours =
+        expected === null || path in store.outputs || store.prior[path] === (await sha256Hex(expected));
+      if (ours) store.outputs[path] = await sha256Hex(await sink.readBytes(path));
       return ok;
     },
   };
