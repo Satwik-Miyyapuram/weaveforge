@@ -1,3 +1,6 @@
+import { RPC_WRITES } from "@/backend/providers/postgrest/watch-writes";
+import { ORG_SERVER_RPCS, ORG_SERVER_TABLES } from "./org-server-allowlist";
+
 /**
  * The desktop fallback for 0.9.7: when this device's old local database has
  * not been exported, its repositories answer reads and refuse every write, so
@@ -55,14 +58,64 @@ export function readOnlyRepositories<T extends object>(repos: T): T {
 /** Backend bag fields that hold repositories or stores. */
 const REPOSITORY_FIELD = /(Repository|Store)$/;
 
+const ORG_TABLES: ReadonlySet<string> = new Set(ORG_SERVER_TABLES);
+const ORG_RPCS: ReadonlySet<string> = new Set(ORG_SERVER_RPCS);
+const DB_WRITE_METHODS: ReadonlySet<string> = new Set(["insert", "update", "upsert", "delete"]);
+
+/** An rpc may run when it is an org-server function or a known read (RPC_WRITES maps reads to null). */
+function rpcAllowed(name: string): boolean {
+  return ORG_RPCS.has(name) || RPC_WRITES[name] === null;
+}
+
+/** A query builder for `table`: write methods throw unless the table is org-server. */
+function guardBuilder<B extends object>(builder: B, table: string): B {
+  if (ORG_TABLES.has(table)) return builder;
+  return new Proxy(builder, {
+    get(target, prop) {
+      if (typeof prop === "string" && DB_WRITE_METHODS.has(prop)) {
+        return () => {
+          throw new Error(READ_ONLY_MESSAGE);
+        };
+      }
+      const value: unknown = Reflect.get(target, prop, target);
+      return typeof value === "function" ? value.bind(target) : value;
+    },
+  });
+}
+
 /**
- * Wraps only the repository and store fields of a wired backend. Use cases, the
- * database client and config are left as they are.
+ * Guards the database client of a read-only backend. `from` hands out builders
+ * whose writes are refused except on org-server tables, and `rpc` runs only
+ * org-server functions or reads, so a personal write cannot reach the database.
+ */
+export function readOnlyDb<T extends object>(db: T): T {
+  return new Proxy(db, {
+    get(target, prop, receiver) {
+      const value: unknown = Reflect.get(target, prop, receiver);
+      if (typeof value !== "function") return value;
+      if (prop === "from") {
+        return (table: string) => guardBuilder(value.call(target, table), table);
+      }
+      if (prop === "rpc") {
+        return (name: string, ...args: unknown[]) => {
+          if (!rpcAllowed(name)) throw new Error(READ_ONLY_MESSAGE);
+          return value.call(target, name, ...args);
+        };
+      }
+      return value.bind(target);
+    },
+  });
+}
+
+/**
+ * Wraps the repository and store fields of a wired backend, and guards its
+ * database client. Use cases and config are left as they are.
  */
 export function readOnlyBackend<T extends object>(backend: T): T {
   const out: Record<string, unknown> = { ...(backend as Record<string, unknown>) };
   for (const [key, value] of Object.entries(backend)) {
     if (REPOSITORY_FIELD.test(key) && value && typeof value === "object") out[key] = readOnlyRepository(value);
+    if (key === "db" && value && typeof value === "object") out[key] = readOnlyDb(value);
   }
   return out as T;
 }

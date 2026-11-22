@@ -13,11 +13,11 @@ test("readOnlyBackend wraps every *Repository and *Store field, not only paperRe
 test("readOnlyBackend refuses writes on repository fields and leaves the rest alone", () => {
   const repo = { getAll: () => ["a"], saveOne: () => "written" };
   const useCase = { saveOne: () => "still-live" };
-  const bag = { paperRepository: repo, manageSettings: useCase, db: { from: () => "db" }, config: { x: 1 } };
+  const bag = { paperRepository: repo, manageSettings: useCase, db: { from: (_table: string) => ({ select: (..._args: unknown[]) => "rows" }) }, config: { x: 1 } };
   const out = readOnlyBackend(bag);
   assert.deepEqual(out.paperRepository.getAll(), ["a"]);
   assert.throws(() => out.paperRepository.saveOne(), new RegExp(READ_ONLY_MESSAGE));
   assert.equal(out.manageSettings.saveOne(), "still-live");
-  assert.equal(out.db, bag.db);
+  assert.equal(out.db.from("papers").select(), "rows", "db reads still pass");
   assert.equal(out.config, bag.config);
 });
