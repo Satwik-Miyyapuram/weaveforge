@@ -55,3 +55,40 @@ test("a session that appears later is picked up", async () => {
   assert.equal(await token(), null);
   assert.equal(await token(), "signed-in");
 });
+
+/** A session whose owner can change between calls, the way a sign-out and sign-in do. */
+function accountClient(initial: { token: string; userId: string } | null) {
+  let current = initial;
+  return {
+    set(next: { token: string; userId: string } | null) {
+      current = next;
+    },
+    auth: {
+      getSession: async () => ({
+        data: {
+          session: current === null ? null : { access_token: current.token, user: { id: current.userId } },
+        },
+      }),
+    },
+  };
+}
+
+test("a cycle for one account never gets another account's token", async () => {
+  // A cycle started for A that is still running when B signs in must not push as B.
+  let running = true;
+  const client = accountClient({ token: "a-token", userId: "A" });
+  const token = liveAccessToken(client, (userId) => running && userId === "A");
+
+  assert.equal(await token(), "a-token");
+  client.set({ token: "b-token", userId: "B" });
+  assert.equal(await token(), null, "after the switch the stale cycle gets no token, and never B's");
+  running = false;
+});
+
+test("a halted loop gets no token, even for the account it was started for", async () => {
+  let running = false;
+  const client = accountClient({ token: "a-token", userId: "A" });
+  const token = liveAccessToken(client, (userId) => running && userId === "A");
+
+  assert.equal(await token(), null);
+});

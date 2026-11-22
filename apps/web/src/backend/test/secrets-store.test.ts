@@ -13,11 +13,14 @@
  * account and no routes still has to keep them somewhere.
  */
 import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { before, describe, it } from "node:test";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { RouteSecretsStore } from "@/features/settings/infrastructure/parts";
+import { loadTestCore } from "@/lib/test/load-test-core";
 import { DeviceSecretsStore } from "../providers/local/parts";
 import { secretsStoreFor } from "../providers/secrets-store";
+
+before(loadTestCore);
 
 /** A client that can answer the only thing the route store asks it. */
 function clientWithToken(token: string | null = "token"): SupabaseClient {

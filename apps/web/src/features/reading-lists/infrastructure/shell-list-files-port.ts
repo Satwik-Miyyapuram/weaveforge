@@ -19,7 +19,8 @@ export class WorkspaceListFilesPort implements ListFilesPort {
 
   async listFiles(): Promise<readonly ListFile[]> {
     const files: ListFile[] = [];
-    for (const path of await this.listPaths(`${this.projectRoot}/reading-lists`)) {
+    const dir = this.projectRoot ? `${this.projectRoot}/reading-lists` : "reading-lists";
+    for (const path of await this.listPaths(dir)) {
       const text = await this.fs.readText(path);
       files.push({ path, text, hash: await sha256Hex(text) });
     }

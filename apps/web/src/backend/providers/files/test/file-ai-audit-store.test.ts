@@ -34,3 +34,14 @@ test("two saves in one month append two parseable lines to one .jsonl", async ()
   assert.equal(lines.length, 2);
   assert.deepEqual(lines.map((l) => JSON.parse(l)), [a, b]);
 });
+
+test("a torn or corrupt audit line is skipped, so the accepted count still works", async () => {
+  const fs = new MemoryWorkspaceFs();
+  const store = new FileAiAuditStore(fs);
+  // A crash mid-append leaves a truncated last line; the valid lines around it must still count.
+  await fs.writeFile(
+    ".weaveforge/ai/audit/2026-06/torn.jsonl",
+    `${JSON.stringify(record())}\n{"id":"half-writ\n${JSON.stringify(record())}\n`,
+  );
+  assert.equal(await store.countAccepted(), 2);
+});

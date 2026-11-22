@@ -67,15 +67,17 @@ export class FilePaperFieldRepository implements IPaperFieldRepository {
   }
 
   /** Re-tags this project's definitions when its folder moves from `from` to `to`; other projects' are left alone. */
-  moveProjectFolder(from: string, to: string): Promise<void> {
+  async moveProjectFolder(from: string, to: string): Promise<void> {
     const raw = this.settings.get([DEFS]);
-    if (!raw || typeof raw !== "object" || Array.isArray(raw)) return Promise.resolve();
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) return;
+    let moved = false;
     for (const [id, d] of Object.entries(raw as Record<string, Record<string, unknown>>)) {
       if (d && typeof d === "object" && (typeof d.projectId === "string" ? d.projectId : "") === from) {
         this.settings.set([DEFS, id, "projectId"], to);
+        moved = true;
       }
     }
-    return Promise.resolve();
+    if (moved) await this.settings.flush?.();
   }
 
   async listValuesForPaper(paperId: string): Promise<PaperFieldValue[]> {

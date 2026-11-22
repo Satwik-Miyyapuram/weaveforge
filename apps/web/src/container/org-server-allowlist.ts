@@ -19,5 +19,12 @@ export const ORG_SERVER_RPCS = [
   "set_comment_resolved",
 ] as const;
 
+/**
+ * Storage buckets whose bytes may be written to the org server while the desktop is
+ * read-only: shared blobs only. A personal image bucket (paper, log, report, vault)
+ * stays off this list, so its bytes never leave the folder.
+ */
+export const ORG_SERVER_BUCKETS: readonly string[] = [];
+
 export type OrgServerTable = (typeof ORG_SERVER_TABLES)[number];
 export type OrgServerRpc = (typeof ORG_SERVER_RPCS)[number];

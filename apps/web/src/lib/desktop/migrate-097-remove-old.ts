@@ -8,8 +8,11 @@
 export interface RemoveOldStatus {
   state: "none" | "verified" | "incomplete";
   removedAt?: string;
-  /** The folder the migrated data was exported to; absent on an old shell. */
-  exportedTo?: string;
+  /**
+   * True when the migrated data was exported to the open folder. The shell decides
+   * this; the page never compares paths (Rust stores \\?\ verbatim paths). Missing means false.
+   */
+  exportedHere?: boolean;
   /** The backup the confirm names; absent means the button stays hidden. */
   backupPath?: string;
 }
@@ -36,14 +39,14 @@ export type RemoveOutcome = "removed" | "refused" | "keychain-missing";
 
 /**
  * Offered only for a verified migration whose old data is still on disk,
- * whose export went to this folder, and which names its backup. Any missing
- * field hides the button (fail closed).
+ * whose export the shell reports as made to this folder, and which names its
+ * backup. Any missing field hides the button (fail closed).
  */
-export function canRemoveOld(status: RemoveOldStatus, folder: string): boolean {
+export function canRemoveOld(status: RemoveOldStatus): boolean {
   return (
     status.state === "verified" &&
     !status.removedAt &&
-    status.exportedTo === folder &&
+    status.exportedHere === true &&
     typeof status.backupPath === "string" &&
     status.backupPath.length > 0
   );

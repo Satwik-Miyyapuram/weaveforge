@@ -480,15 +480,16 @@ export interface DesktopBridge {
   migrate097Status?(folder: string): Promise<{
     state: Migrate097StateName;
     removedAt?: string;
-    exportedTo?: string;
+    /** True when the export went to the open folder (EXPORT lands it; missing means false). */
+    exportedHere?: boolean;
     backupPath?: string;
     missing?: string[];
+    removingDeviceId?: string;
+    deviceId?: string;
   }>;
   migrate097Run?(folder: string): Promise<{ state: Migrate097StateName }>;
   /** Deletes the old local data after a verified migration; the user confirms first. */
   migrate097RemoveOld?(folder: string): Promise<void>;
-  /** Moves the migrated secrets into the OS keychain; rejects "no keychain available" when there is none. */
-  migrate097MoveSecrets?(folder: string): Promise<void>;
   /** Tint the system's window buttons to the page: two `#rrggbb` colours. */
   setTitleBarColors?(colors: { background: string; ink: string }): void;
   /** Whether the OS taskbar is in light mode. Optional: an installed shell may predate it. */
@@ -797,7 +798,7 @@ export interface DesktopWorkspaceSetup {
 export type DesktopPreferenceValue = string | boolean | null;
 
 /** A folder's 0.9.7 migration state, as the shell's report records it. */
-export type Migrate097StateName = "none" | "verified" | "incomplete";
+export type Migrate097StateName = "none" | "verified" | "incomplete" | "removing" | "removed";
 
 /** One step of a running migration; `done` of `total` items are through. */
 export interface Migrate097Progress {

@@ -7,6 +7,7 @@ import test from "node:test";
 import type { IWorkspaceFs } from "@weaveforge/core";
 import {
   SETTINGS_PATH,
+  SETTINGS_WRITE_DELAY_MS,
   WorkspaceSettingsFile,
   parseSettings,
   renderSettings,
@@ -203,6 +204,32 @@ test("conflict that keeps changing: one warning, file unchanged, pending kept", 
   assert.equal(readDoc(files).ink.toolColours, "later");
 });
 
+test("a conflict is retried three times, then the flush fails and the edit stays pending", async () => {
+  const files = new Map<string, string>([[P, '{"version":1}']]);
+  const warnings: string[] = [];
+  const { fs } = store(files, warnings);
+  let attempts = 0;
+  const losing = {
+    ...fs,
+    writeTextIf: async () => {
+      attempts += 1;
+      return false;
+    },
+  };
+  const s = new WorkspaceSettingsFile({
+    fs: () => losing as unknown as IWorkspaceFs,
+    warn: (m: string) => warnings.push(m),
+    schedule: () => 0,
+    cancel: () => {},
+  });
+  await s.load();
+  s.set(["ink", "toolColours"], "kept");
+  await s.flush();
+  assert.equal(attempts, 3);
+  assert.equal(files.get(P), '{"version":1}');
+  assert.equal(warnings.filter((w) => /kept changing/.test(w)).length, 1);
+});
+
 test("debounce: second set cancels the first timer and one flush writes once", async () => {
   const files = new Map<string, string>();
   const scheduled: unknown[] = [];
@@ -279,13 +306,13 @@ test("a refused save retries on a growing backoff timer until it lands", async (
   assert.equal(live.size, 0, "no retry once saved");
 });
 
-test("no folder: set works in memory, flush is quiet, no schedule", async () => {
+test("no folder: set works in memory, flush is quiet, no write scheduled", async () => {
   const scheduleCalls: number[] = [];
   const s = new WorkspaceSettingsFile({
     fs: () => null,
     warn: () => {},
-    schedule: () => {
-      scheduleCalls.push(1);
+    schedule: (_fn: () => void, ms: number) => {
+      scheduleCalls.push(ms);
       return 0;
     },
     cancel: () => {},
@@ -293,7 +320,8 @@ test("no folder: set works in memory, flush is quiet, no schedule", async () => 
   s.set(["ink", "toolColours"], "mem");
   assert.equal(s.get(["ink", "toolColours"]), "mem");
   await s.flush();
-  assert.equal(scheduleCalls.length, 0);
+  // Only the repeating no-folder reminder may be armed; no write debounce.
+  assert.equal(scheduleCalls.filter((ms) => ms === SETTINGS_WRITE_DELAY_MS).length, 0);
 });
 
 test("no writeTextIf: checked fallback writes, and an external change is merged", async () => {

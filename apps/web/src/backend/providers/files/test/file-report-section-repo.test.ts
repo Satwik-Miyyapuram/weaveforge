@@ -122,6 +122,13 @@ test("setParent moves, refuses a loop, and moves back to the top", async () => {
   assert.equal((await repo.setParent(b.id, null)).parentId, undefined);
 });
 
+test("setStatus refuses a status outside the known set and saves nothing", async () => {
+  const { repo } = setup();
+  const s = await repo.add({ title: "Bad status" });
+  await assert.rejects(repo.setStatus(s.id, "bogus" as never), ReportSectionValidationError);
+  assert.equal((await repo.getById(s.id))?.status, "not_started");
+});
+
 test("setStatus, setProgress, setNotes keep word count in sync", async () => {
   const { repo } = setup();
   const s = await repo.add({ title: "S" });

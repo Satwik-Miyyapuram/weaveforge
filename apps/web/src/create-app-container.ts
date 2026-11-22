@@ -59,7 +59,12 @@ import { PlanFeedLinks } from "@/features/plan/infrastructure/plan-feed-links";
 import { LoadReadingListsScreenUseCase } from "@/features/reading-lists/application/parts";
 import { DuplicateSharedVaultPageUseCase } from "@/features/library/application/duplicate-shared-vault.use-case";
 import { LoadSharedWithMeScreenUseCase } from "@/features/sharing/application/parts";
-import { rustAiStores, rustShareLinkRepository } from "@/backend/providers/postgrest/rust-repository";
+import { rustShareLinkRepository } from "@/backend/providers/postgrest/rust-repository";
+import {
+  FILES_MODE_CRDT_TYPES,
+  limitCrdtSnapshotStore,
+  limitCrdtUpdateStore,
+} from "@/features/collab/infrastructure/files-mode-crdt-limit";
 import { PrefetchProjectUseCase } from "@/application/prefetch-project.use-case";
 import { readBackendConfig } from "@/backend/parts";
 import {
@@ -118,7 +123,7 @@ import { ExperimentArtifactStore } from "@/features/experiments/infrastructure/p
 import { createCredentialReader } from "@/integrations/parts";
 import { WorkspaceSearch } from "@/features/search/application/workspace-search";
 import { clearActiveProvider } from "@/features/ai-assistant/application/parts";
-import { resolveMigrationChoice } from "@/container/resolve-migration-choice";
+import { reresolveOnFocus, resolveMigrationChoice } from "@/container/resolve-migration-choice";
 import { wireDesktopFileBackend } from "@/container/desktop-file-backend";
 import { workspaceSettings } from "@/features/settings/application/workspace-settings";
 
@@ -173,6 +178,8 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
   // Restore the chooser call here (chooseBrowserBackend plus browserReportOk and openBrowserFileWiring
   // from browser-file-backend) once legacy detection exists.
   const browserFiles = undefined;
+  // Desktop only: a folder still settling re-asks on focus, and the first usable answer reloads.
+  if (shell) reresolveOnFocus(migration, shell, window, () => window.location.reload());
   const backend = wireBackend(readBackendConfig(), projectContext, pid, {
     migration,
     onDesktop: Boolean(shell),
@@ -183,8 +190,14 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
     projectLww.watch(backend.db, pid());
   }
 
-  const crdtUpdateStore = rustCrdtUpdateStore(backend.db);
-  const crdtSnapshotStore = rustCrdtSnapshotStore(backend.db);
+  // Files mode: the server CRDT log keeps only the non-personal types (files-mode-crdt-limit).
+  const filesMode = backend.filesMode;
+  const crdtUpdateStore = filesMode
+    ? limitCrdtUpdateStore(rustCrdtUpdateStore(backend.db), FILES_MODE_CRDT_TYPES)
+    : rustCrdtUpdateStore(backend.db);
+  const crdtSnapshotStore = filesMode
+    ? limitCrdtSnapshotStore(rustCrdtSnapshotStore(backend.db), FILES_MODE_CRDT_TYPES)
+    : rustCrdtSnapshotStore(backend.db);
 
   const vaultPageRepository = backend.rawVaultPageRepository;
   const paperRepository = backend.paperRepository;
@@ -197,7 +210,9 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
   const commentRepository = backend.commentRepository;
   const encryptedBlobStore = new FetchingBlobStore(backend.rawBlobStore);
 
-  const { proposals: aiProposalStore, audit: aiAuditStore } = rustAiStores(backend.db, projectContext, backend.session);
+  // Personal AI data: folder files in files mode, PostgREST otherwise (wired in wirePostgrestBackend).
+  const aiProposalStore = backend.aiProposalStore;
+  const aiAuditStore = backend.aiAuditStore;
 
   const paperImageStore = new PaperImageStore(encryptedBlobStore, backend.session);
   const vaultAssetStore = new VaultAssetStore(encryptedBlobStore, backend.session);
@@ -366,8 +381,9 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
     onError: reportCitationAlertError,
   });
 
+  const fieldRepo = backend.paperFieldRepository;
   const managePaperFields = new ManagePaperFieldsUseCase({
-    fields: backend.paperFieldRepository,
+    fields: fieldRepo,
     ids: uuidIds,
   });
 
@@ -611,7 +627,11 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
       readerAnnotations: backend.readerAnnotationRepository,
       reportSections: reportSectionRepository,
     }),
-    paperFields: new PaperFieldsFacade({ paperFields: managePaperFields }),
+    paperFields: new PaperFieldsFacade({
+      paperFields: managePaperFields,
+      // Present only in files mode (the overlay supplies it); PostgREST leaves it undefined.
+      moveProjectFolder: fieldRepo.moveProjectFolder?.bind(fieldRepo),
+    }),
     libraryTidy: createLibraryTidy({ papers: paperRepository, updatePaper, resolver, backend, bibliography, newId: uuidIds.newId }),
     zotero: new ZoteroFacade({
       bibliography,

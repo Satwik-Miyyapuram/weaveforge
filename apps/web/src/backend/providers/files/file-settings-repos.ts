@@ -32,6 +32,8 @@ import {
   type UserAppearance,
   type UserSettings,
 } from "@weaveforge/core";
+import type { IIntegrationsStore, Integration, SyncProvider } from "@/features/sync/domain/parts";
+import { DEFAULT_GIT_BRANCH } from "@/features/sync/domain/parts";
 import type { SecretsStore, SettingsWrites } from "@/features/settings/infrastructure/parts";
 import { typedCore } from "@/lib/rust-core";
 import type { SettingsSection } from "./file-tag-repo";
@@ -278,5 +280,59 @@ export class FileSettingsRepository implements ISettingsRepository, SettingsWrit
   private appearance(): UserAppearance | undefined {
     const raw = this.settings.get(["appearance"]);
     return isObject(raw) ? ((typedCore().normalizeAppearance(raw) ?? undefined) as UserAppearance | undefined) : undefined;
+  }
+}
+
+/** The secrets key of one project's sync integration (kept apart from plugin credentials). */
+function integrationSecretKey(projectId: string, provider: SyncProvider): string {
+  return `sync:${projectId}:${provider}`;
+}
+
+/**
+ * Sync integrations per project (0.9.7): the non-secret fields live in the settings
+ * file under `integrations.sync.<project>.<provider>`; the token goes through the
+ * `SecretsStore`, never into the file or the database.
+ */
+export class FileIntegrationsStore implements IIntegrationsStore {
+  constructor(
+    private readonly settings: SettingsSection,
+    private readonly secrets: SecretsStore,
+  ) {}
+
+  // Saves run one at a time: each reads the secrets map, so overlapping saves
+  // would each write back a copy that drops the other's token.
+  private queue: Promise<void> = Promise.resolve();
+
+  async get(projectId: string, provider: SyncProvider): Promise<Integration> {
+    const meta = this.settings.get(["integrations", "sync", projectId, provider]);
+    const stored: Partial<Integration> = isObject(meta) ? meta : {};
+    const token = (await this.secrets.load()).integrations?.[integrationSecretKey(projectId, provider)]?.token;
+    return {
+      enabled: false,
+      branch: DEFAULT_GIT_BRANCH,
+      ...stored,
+      provider,
+      ...(token === undefined ? {} : { token }),
+    };
+  }
+
+  save(projectId: string, integration: Integration): Promise<void> {
+    const run = this.queue.then(() => this.write(projectId, integration));
+    this.queue = run.catch(() => undefined);
+    return run;
+  }
+
+  // Secrets first: if the secrets write fails, the meta is not changed either.
+  private async write(projectId: string, integration: Integration): Promise<void> {
+    const { token, ...meta } = integration;
+    const current = await this.secrets.load();
+    const key = integrationSecretKey(projectId, integration.provider);
+    const integrations = { ...current.integrations };
+    if (token) integrations[key] = { token };
+    else delete integrations[key];
+    await this.secrets.save({ ...current, integrations });
+    this.settings.set(["integrations", "sync", projectId, integration.provider], meta);
+    // The meta is only in memory until the settings file is flushed; save resolves once it is on disk.
+    await this.settings.flush?.();
   }
 }

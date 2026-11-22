@@ -73,6 +73,7 @@ export function ProjectsScreen() {
     await renameProject(renaming, newName, {
       save: (p) => projects.saveProject(p),
       fs: activeWorkspaceFs(),
+      onFolderMoved: (from, to) => getContainer().paperFields.moveProjectFolder(from, to),
     });
     setRenaming(null);
     await refresh();

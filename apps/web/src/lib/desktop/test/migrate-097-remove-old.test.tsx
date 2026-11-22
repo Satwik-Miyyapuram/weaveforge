@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -28,19 +29,29 @@ function recorder(): { calls: string[]; bridge: { migrate097RemoveOld(f: string)
   };
 }
 
-test("only a verified, unremoved migration exported to this folder with a backup can offer removal", () => {
-  const ok = { state: "verified", exportedTo: FOLDER, backupPath: BACKUP } as const;
-  assert.equal(canRemoveOld(ok, FOLDER), true);
-  assert.equal(canRemoveOld({ ...ok, state: "none" }, FOLDER), false);
-  assert.equal(canRemoveOld({ ...ok, state: "incomplete" }, FOLDER), false);
-  assert.equal(canRemoveOld({ ...ok, removedAt: "2026-11-22T10:00:00Z" }, FOLDER), false);
-  assert.equal(canRemoveOld({ ...ok, exportedTo: undefined }, FOLDER), false);
-  assert.equal(canRemoveOld({ ...ok, exportedTo: "D:\\Other" }, FOLDER), false);
+test("only a verified, unremoved migration exported here with a backup can offer removal", () => {
+  const ok = { state: "verified", exportedHere: true, backupPath: BACKUP } as const;
+  assert.equal(canRemoveOld(ok), true);
+  assert.equal(canRemoveOld({ ...ok, state: "none" }), false);
+  assert.equal(canRemoveOld({ ...ok, state: "incomplete" }), false);
+  assert.equal(canRemoveOld({ ...ok, removedAt: "2026-11-22T10:00:00Z" }), false);
+  assert.equal(canRemoveOld({ ...ok, exportedHere: false }), false);
+});
+
+test("the shell's exportedHere flag decides, never a path compare: a verbatim Windows path must not hide the button", () => {
+  // Rust stores the export folder as \\?\C:\... so a string compare with the vault path never matches.
+  const verbatim = { state: "verified", exportedTo: "\\\\?\\C:\\Users\\me\\Documents\\WeaveForge", backupPath: BACKUP } as const;
+  assert.equal(canRemoveOld(verbatim), false, "without exportedHere the button stays hidden (fail closed)");
+  assert.equal(canRemoveOld({ ...verbatim, exportedHere: true }), true);
+});
+
+test("a missing exportedHere (an old shell, or EXPORT not landed) fails closed", () => {
+  assert.equal(canRemoveOld({ state: "verified", backupPath: BACKUP }), false);
 });
 
 test("fails closed when backupPath is absent or empty", () => {
-  assert.equal(canRemoveOld({ state: "verified", exportedTo: FOLDER }, FOLDER), false);
-  assert.equal(canRemoveOld({ state: "verified", exportedTo: FOLDER, backupPath: "" }, FOLDER), false);
+  assert.equal(canRemoveOld({ state: "verified", exportedHere: true }), false);
+  assert.equal(canRemoveOld({ state: "verified", exportedHere: true, backupPath: "" }), false);
 });
 
 test("removeOldData runs verify, then the secrets move, then the remove, in that order", async () => {
@@ -137,7 +148,7 @@ test("the button renders for a verified migration", () => {
     <RemoveOldDataButton
       folder={FOLDER}
       state="verified"
-      exportedTo={FOLDER}
+      exportedHere
       backupPath={BACKUP}
       deps={okDeps}
       onRemoved={() => {}}
@@ -148,27 +159,27 @@ test("the button renders for a verified migration", () => {
 });
 
 test("the button is absent for none, incomplete, already-removed, unexported or unbacked states", () => {
-  const cases: [string, string | undefined, string | undefined, string | undefined][] = [
-    ["none", undefined, FOLDER, BACKUP],
-    ["incomplete", undefined, FOLDER, BACKUP],
-    ["verified", "2026-11-22T10:00:00Z", FOLDER, BACKUP],
+  const cases: [string, string | undefined, boolean | undefined, string | undefined][] = [
+    ["none", undefined, true, BACKUP],
+    ["incomplete", undefined, true, BACKUP],
+    ["verified", "2026-11-22T10:00:00Z", true, BACKUP],
     ["verified", undefined, undefined, BACKUP],
-    ["verified", undefined, "D:\\Other", BACKUP],
-    ["verified", undefined, FOLDER, undefined],
+    ["verified", undefined, false, BACKUP],
+    ["verified", undefined, true, undefined],
   ];
-  for (const [state, removedAt, exportedTo, backupPath] of cases) {
+  for (const [state, removedAt, exportedHere, backupPath] of cases) {
     const html = renderToStaticMarkup(
       <RemoveOldDataButton
         folder={FOLDER}
         state={state as "none" | "verified" | "incomplete"}
         removedAt={removedAt}
-        exportedTo={exportedTo}
+        exportedHere={exportedHere}
         backupPath={backupPath}
         deps={okDeps}
         onRemoved={() => {}}
       />,
     );
-    assert.equal(html, "", `${state} ${removedAt ?? ""} ${exportedTo ?? ""} ${backupPath ?? ""}`);
+    assert.equal(html, "", `${state} ${removedAt ?? ""} ${String(exportedHere)} ${backupPath ?? ""}`);
   }
 });
 
@@ -177,7 +188,7 @@ test("the confirm dialog and keychain dialog are not open on first render", () =
     <RemoveOldDataButton
       folder={FOLDER}
       state="verified"
-      exportedTo={FOLDER}
+      exportedHere
       backupPath={BACKUP}
       deps={okDeps}
       onRemoved={() => {}}
@@ -194,4 +205,11 @@ test("the settings section stays hidden when verify or move is not injected (fai
     renderToStaticMarkup(<RemoveOldDataSection deps={{ verify: okDeps.verify, moveSecrets: null }} />),
     "",
   );
+});
+
+test("the settings section reloads the container after a remove, not just clears the view", () => {
+  const source = readFileSync(new URL("../migrate-097-remove-old-button.tsx", import.meta.url), "utf8");
+  const section = source.slice(source.indexOf("export function RemoveOldDataSection"));
+  assert.equal(section.includes("onRemoved={() => window.location.reload()}"), true, "onRemoved must reload the container");
+  assert.equal(section.includes("onRemoved={() => setView(null)}"), false, "clearing the view alone leaves stale UI");
 });

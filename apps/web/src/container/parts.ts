@@ -42,7 +42,7 @@ import type { OpenAlexWork, ResourceType } from "@weaveforge/wasm";
 import { type BackendConfig, readBackendConfig } from "../backend/parts";
 import type { Migrate097Resolved } from "@/lib/desktop/migrate-097";
 import { chooseFileBackend } from "./file-backend-choice";
-import { readOnlyBackend } from "./read-only-repositories";
+import { readOnlyBackend, readOnlyDb } from "./read-only-repositories";
 import {
   type WiredPostgrestBackend,
   wirePostgrestBackend,
@@ -346,7 +346,8 @@ export class WebCryptoShareLinkTokenHasher implements IShareLinkTokenHasher {
 }
 
 // --- wire-backend ---
-export type WiredBackend = WiredPostgrestBackend;
+/** The wiring result. `filesMode` is true only when personal data is served from the folder's files. */
+export type WiredBackend = WiredPostgrestBackend & { filesMode: boolean };
 
 /** Personal-data file wiring for the 0.9.7 kill switch. Absent means PostgREST as before. */
 export interface PersonalFileWiring {
@@ -359,13 +360,13 @@ export interface PersonalFileWiring {
     config: BackendConfig,
     projectContext: { projectId: string | null },
     pid: () => string | null,
-  ) => WiredBackend;
+  ) => WiredPostgrestBackend;
   /** Supplied by the desktop shell: its folder's files, over the vault bridge. */
   wireDesktopFileBackend?: (
     config: BackendConfig,
     projectContext: { projectId: string | null },
     pid: () => string | null,
-  ) => WiredBackend;
+  ) => WiredPostgrestBackend;
 }
 
 export function wireBackend(
@@ -381,12 +382,15 @@ export function wireBackend(
     case "postgrest": {
       // The desktop shell wires its own files; without that wiring it stays read-only.
       const wire = files?.onDesktop ? files.wireDesktopFileBackend : files?.wireBrowserFileBackend;
-      return chooseFileBackend(
+      return chooseFileBackend<WiredBackend>(
         files?.migration,
         {
-          files: wire ? () => wire(config, projectContext, pid) : undefined,
-          old: () => wirePostgrestBackend(config, projectContext, pid),
-          readOnly: () => readOnlyBackend(wirePostgrestBackend(config, projectContext, pid)),
+          files: wire ? () => ({ ...wire(config, projectContext, pid), filesMode: true }) : undefined,
+          old: () => ({ ...wirePostgrestBackend(config, projectContext, pid), filesMode: false }),
+          readOnly: () => ({
+            ...readOnlyBackend(wirePostgrestBackend(config, projectContext, pid, undefined, undefined, readOnlyDb)),
+            filesMode: false,
+          }),
         },
         files?.onDesktop === true,
       );

@@ -4,6 +4,16 @@
  */
 import type { AiAuditRecord, IAiAuditStore, IWorkspaceFs } from "@weaveforge/core";
 
+/** One audit line, or null for a blank or corrupt (for example torn mid-append) line. */
+function parseAuditLine(line: string): AiAuditRecord | null {
+  if (!line.trim()) return null;
+  try {
+    return JSON.parse(line) as AiAuditRecord;
+  } catch {
+    return null;
+  }
+}
+
 export class FileAiAuditStore implements IAiAuditStore {
   /** One batch per store instance, so a process appends to one file per month. */
   private readonly batchId = crypto.randomUUID();
@@ -14,5 +24,17 @@ export class FileAiAuditStore implements IAiAuditStore {
     const path = `.weaveforge/ai/audit/${record.createdAt.slice(0, 7)}/${this.batchId}.jsonl`;
     const existing = (await this.fs.stat(path)) ? await this.fs.readText(path) : "";
     await this.fs.writeFile(path, `${existing}${JSON.stringify(record)}\n`);
+  }
+
+  /** Accepted actions across every audit file in the folder (rejected and conflicted ones do not count). */
+  async countAccepted(): Promise<number> {
+    let count = 0;
+    for await (const entry of this.fs.walk(".weaveforge/ai/audit")) {
+      if (entry.kind !== "file" || !entry.path.endsWith(".jsonl")) continue;
+      for (const line of (await this.fs.readText(entry.path)).split("\n")) {
+        if (parseAuditLine(line)?.action === "accepted") count++;
+      }
+    }
+    return count;
   }
 }

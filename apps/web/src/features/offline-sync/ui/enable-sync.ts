@@ -1,6 +1,7 @@
 import { createDataClient } from "@/backend/providers/postgrest/parts-1";
 import { readBackendConfig } from "@/backend/parts";
 import { readyCore } from "@/lib/rust-core";
+import { syncAllowedHere } from "./sync-gate";
 import { syncEngine } from "./use-sync";
 import type { AdoptionResult } from "../domain/parts-1";
 
@@ -16,13 +17,25 @@ import type { AdoptionResult } from "../domain/parts-1";
  *
  * It takes the client rather than reaching for it so that what it does can be
  * tested without a network: the property that matters is *when* it reads.
+ *
+ * `mayUse` decides, per request, whether the signed-in account may use the token.
+ * A loop that outlives a switch of account, or a halted loop, gets null.
  */
-export function liveAccessToken(client: {
-  auth: { getSession: () => Promise<{ data: { session: { access_token: string } | null } }> };
-}): () => Promise<string | null> {
+export function liveAccessToken(
+  client: {
+    auth: {
+      getSession: () => Promise<{
+        data: { session: { access_token: string; user?: { id: string } } | null };
+      }>;
+    };
+  },
+  mayUse: (userId: string | null) => boolean = () => true,
+): () => Promise<string | null> {
   return async () => {
     const { data } = await client.auth.getSession();
-    return data.session?.access_token ?? null;
+    const session = data.session;
+    if (!mayUse(session?.user?.id ?? null)) return null;
+    return session?.access_token ?? null;
   };
 }
 
@@ -49,6 +62,7 @@ export async function remoteProjectNames(client: {
  * client, which a window that never signs in should not pay for.
  */
 export async function enableSync(): Promise<AdoptionResult> {
+  if (!(await syncAllowedHere())) throw new Error("Sync is off until this folder's move to files is finished.");
   const config = readBackendConfig();
   const client = createDataClient(config.supabaseUrl ?? "", config.supabaseAnonKey ?? "");
   const { data } = await client.auth.getSession();

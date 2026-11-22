@@ -6,6 +6,8 @@
 
 export type Migrate097ReportState = "verified" | "incomplete";
 
+export type Migrate097RemovalState = "removing" | "removed";
+
 export interface MigrationKindSummary {
   kind: string;
   db: number;
@@ -22,6 +24,8 @@ export interface MigrationMissingRow {
 
 export interface MigrationSummary {
   state: Migrate097ReportState;
+  /** This device's removal state from `report.removals`, when one is recorded. */
+  removal: Migrate097RemovalState | null;
   backup: string | null;
   kinds: MigrationKindSummary[];
   /** Every conflict copy across the kinds, in report order. */
@@ -53,23 +57,55 @@ function missingRows(missing: unknown): MigrationMissingRow[] {
   }));
 }
 
-/**
- * Summary of a parsed report, or null when the value is not a report with a
- * known state. Only the latest run is summarised; earlier runs are history.
- */
-export function summarizeMigrationReport(raw: unknown): MigrationSummary | null {
-  if (!isObj(raw)) return null;
-  if (raw.state !== "verified" && raw.state !== "incomplete") return null;
-  const runs = Array.isArray(raw.runs) ? raw.runs.filter(isObj) : [];
-  const last: Record<string, unknown> = runs.at(-1) ?? {};
-  const kinds = kindRows(last.kinds);
-  const blobs = isObj(last.blobs) ? last.blobs : {};
+const KNOWN_TOP_STATES: readonly unknown[] = ["verified", "incomplete", "removing", "removed"];
+
+function emptySummary(removal: Migrate097RemovalState | null): MigrationSummary {
   return {
-    state: raw.state,
-    backup: typeof raw.backup === "string" ? raw.backup : null,
+    state: "incomplete",
+    removal,
+    backup: null,
+    kinds: [],
+    conflicts: [],
+    missing: [],
+    blobs: { db: 0, verified: 0 },
+  };
+}
+
+function removalOf(raw: Obj, ownDeviceId: string): Migrate097RemovalState | null {
+  const removals = isObj(raw.removals) ? raw.removals : {};
+  const own = removals[ownDeviceId];
+  const state = isObj(own) ? own.state : undefined;
+  return state === "removing" || state === "removed" ? state : null;
+}
+
+/**
+ * Summary of a parsed report for this device, or null when the value is not a
+ * report with a known top-level state. Only the latest run from `ownDeviceId`
+ * is judged: it is "verified" only when nothing is missing, every kind has
+ * db == files and blobs db == verified. A device with no run of its own, or an
+ * empty `ownDeviceId`, is "incomplete" with no kinds, rows or backup, whatever
+ * the top-level state says. The device's removal state, when recorded, is
+ * added either way.
+ */
+export function summarizeMigrationReport(raw: unknown, ownDeviceId: string): MigrationSummary | null {
+  if (!isObj(raw) || !KNOWN_TOP_STATES.includes(raw.state)) return null;
+  if (!ownDeviceId) return emptySummary(null);
+  const removal = removalOf(raw, ownDeviceId);
+  const runs = Array.isArray(raw.runs) ? raw.runs.filter(isObj) : [];
+  const last = runs.filter((r) => r.deviceId === ownDeviceId).at(-1);
+  if (!last) return emptySummary(removal);
+  const kinds = kindRows(last.kinds);
+  const blobsRaw = isObj(last.blobs) ? last.blobs : {};
+  const blobs = { db: num(blobsRaw.db), verified: num(blobsRaw.verified) };
+  const missing = missingRows(last.missing);
+  const verified = missing.length === 0 && kinds.every((k) => k.db === k.files) && blobs.db === blobs.verified;
+  return {
+    state: verified ? "verified" : "incomplete",
+    removal,
+    backup: typeof last.backup === "string" ? last.backup : null,
     kinds,
     conflicts: kinds.flatMap((k) => k.conflicts),
-    missing: missingRows(last.missing),
-    blobs: { db: num(blobs.db), verified: num(blobs.verified) },
+    missing,
+    blobs,
   };
 }

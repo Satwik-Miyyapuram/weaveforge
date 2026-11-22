@@ -7,6 +7,7 @@ import {
   FileBibliographyCollectionStore,
   FileDashboardLayoutRepository,
   FileGraphSettingsRepository,
+  FileIntegrationsStore,
   FileQuotationTypeRepository,
   FileSettingsRepository,
 } from "../file-settings-repos";
@@ -162,4 +163,75 @@ test("disclaimer, appearance merge and the dismissed notice; save keeps an unset
 test("a failed secrets read fails get, so a save cannot wipe stored keys", async () => {
   const failing: SecretsStore = { load: () => Promise.reject(new Error("keychain locked")), save: () => Promise.resolve() };
   await assert.rejects(new FileSettingsRepository(new MemorySettings(), failing).get(), /keychain locked/);
+});
+
+test("a sync integration round-trips per project; its token goes to the secrets store, never into the file", async () => {
+  const settings = new MemorySettings();
+  const secrets = new MemorySecrets();
+  const store = new FileIntegrationsStore(settings, secrets);
+  assert.deepEqual(await store.get("p1", "github"), {
+    provider: "github",
+    enabled: false,
+    branch: "main",
+  });
+  await store.save("p1", { provider: "github", enabled: true, token: "SECRET-gh", repo: "me/lab", branch: "dev" });
+  assert.deepEqual(await store.get("p1", "github"), {
+    provider: "github",
+    enabled: true,
+    token: "SECRET-gh",
+    repo: "me/lab",
+    branch: "dev",
+  });
+  assert.deepEqual(await store.get("p2", "github"), { provider: "github", enabled: false, branch: "main" });
+  assert.equal(JSON.stringify(settings).includes("SECRET-gh"), false);
+  assert.equal((await secrets.load()).integrations?.["sync:p1:github"]?.token, "SECRET-gh");
+});
+
+test("a failed secrets write leaves the integration unchanged, not half-written", async () => {
+  const settings = new MemorySettings();
+  const failing: SecretsStore = { load: () => Promise.resolve({}), save: () => Promise.reject(new Error("keychain locked")) };
+  const store = new FileIntegrationsStore(settings, failing);
+  await assert.rejects(store.save("p1", { provider: "github", enabled: true, token: "SECRET-gh", branch: "dev" }), /keychain locked/);
+  assert.equal(settings.get(["integrations", "sync", "p1", "github"]), undefined);
+});
+
+test("concurrent saves for different providers both keep their tokens", async () => {
+  const settings = new MemorySettings();
+  const secrets = new MemorySecrets();
+  const store = new FileIntegrationsStore(settings, secrets);
+  await Promise.all([
+    store.save("p1", { provider: "github", enabled: true, token: "SECRET-gh", branch: "main" }),
+    store.save("p1", { provider: "gitlab", enabled: true, token: "SECRET-gl", branch: "main" }),
+  ]);
+  const stored = (await secrets.load()).integrations ?? {};
+  assert.equal(stored["sync:p1:github"]?.token, "SECRET-gh");
+  assert.equal(stored["sync:p1:gitlab"]?.token, "SECRET-gl");
+});
+
+test("clearing a token removes it from the secrets store", async () => {
+  const settings = new MemorySettings();
+  const secrets = new MemorySecrets();
+  const store = new FileIntegrationsStore(settings, secrets);
+  await store.save("p1", { provider: "gitlab", enabled: true, token: "SECRET-gl", branch: "main" });
+  await store.save("p1", { provider: "gitlab", enabled: true, branch: "main" });
+  assert.equal((await secrets.load()).integrations?.["sync:p1:gitlab"], undefined);
+  assert.equal((await store.get("p1", "gitlab")).token, undefined);
+});
+
+test("an integration's meta is on disk when save resolves, not only in memory", async () => {
+  // A settings section that stages set() and commits only on flush(), like the real file.
+  const staged = new Map<string, unknown>();
+  const committed = new Map<string, unknown>();
+  const settings = {
+    get: () => undefined,
+    set: (key: readonly string[], value: unknown) => {
+      staged.set(key.join("/"), value);
+    },
+    flush: async () => {
+      for (const [key, value] of staged) committed.set(key, value);
+    },
+  };
+  const store = new FileIntegrationsStore(settings, new MemorySecrets());
+  await store.save("p1", { provider: "github", enabled: true, branch: "dev" });
+  assert.deepEqual(committed.get("integrations/sync/p1/github"), { provider: "github", enabled: true, branch: "dev" });
 });
