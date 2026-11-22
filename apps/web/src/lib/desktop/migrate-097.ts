@@ -62,7 +62,9 @@ async function read(bridge: Migrate097Bridge, folder: string): Promise<Migrate09
     if (state === "removing") {
       // A removal runs on one device only; any other device (or an unknown one) stays fail-closed.
       const own = typeof report?.deviceId === "string" && report.removingDeviceId === report.deviceId;
-      return own ? "removing" : "removing-other";
+      if (!own) return "removing-other";
+      // This device's own removal wires files only after it verified its own export.
+      return report?.ownRunVerified === true ? "removing" : "unexported";
     }
     if (state === "removed") {
       // A removal is folder-wide. Only this device's own verified export, or its own removal, may wire files.

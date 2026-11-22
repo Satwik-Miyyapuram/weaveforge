@@ -113,15 +113,27 @@ test("an unreadable report never wires the database-free backend, whatever the r
   }
 });
 
-test("a removing migration on this device wires files; a removing migration on another device stays fail-closed", async () => {
-  const own = { migrate097Status: async () => ({ state: "removing", removingDeviceId: "dev-a", deviceId: "dev-a" }) };
+test("a removing migration on this device wires files only when this device verified its own run", async () => {
+  const own = {
+    migrate097Status: async () => ({ state: "removing", removingDeviceId: "dev-a", deviceId: "dev-a", ownRunVerified: true }),
+  };
   assert.equal(await migrate097Status(own, FOLDER), "removing");
   assert.equal(usesFileBackend("removing"), true);
 
-  const other = { migrate097Status: async () => ({ state: "removing", removingDeviceId: "dev-b", deviceId: "dev-a" }) };
-  const resolved = await migrate097Status(other, FOLDER);
-  assert.equal(resolved, "removing-other");
-  assert.equal(usesFileBackend(resolved), false);
+  const ownUnverified = { migrate097Status: async () => ({ state: "removing", removingDeviceId: "dev-a", deviceId: "dev-a" }) };
+  const resolved = await migrate097Status(ownUnverified, FOLDER);
+  assert.equal(usesFileBackend(resolved), false, "this device's removal without its own verified export never wires files");
+});
+
+test("a removing migration started by another device never wires files, verified or not", async () => {
+  for (const ownRunVerified of [true, false, undefined]) {
+    const other = {
+      migrate097Status: async () => ({ state: "removing", removingDeviceId: "dev-b", deviceId: "dev-a", ownRunVerified }),
+    };
+    const resolved = await migrate097Status(other, FOLDER);
+    assert.equal(resolved, "removing-other", `ownRunVerified ${String(ownRunVerified)}`);
+    assert.equal(usesFileBackend(resolved), false);
+  }
 });
 
 test("a removing report that cannot name this device is treated as another device's", async () => {
