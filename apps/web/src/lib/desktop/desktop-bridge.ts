@@ -489,7 +489,8 @@ export type DesktopAppUpdatePhase =
   | "available"
   | "downloading"
   | "installing"
-  | "failed";
+  | "failed"
+  | "held";
 
 export interface DesktopAppUpdate {
   phase: DesktopAppUpdatePhase;

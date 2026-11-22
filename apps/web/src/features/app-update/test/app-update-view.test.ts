@@ -81,3 +81,14 @@ test("an unsupported build cannot check or install and shows no notice", () => {
 test("a check in progress blocks a second check", () => {
   assert.equal(appUpdateView(at({ phase: "checking" })).canCheck, false);
 });
+
+test("a held release shows the reason, offers no install, and can be checked again", () => {
+  const view = appUpdateView(
+    at({ phase: "held", version: "0.9.8", error: "This update is held: export and verify, then remove the old data in 0.9.7." }),
+  );
+  assert.equal(view.canInstall, false);
+  assert.equal(view.canCheck, true);
+  assert.equal(view.notice, null);
+  assert.equal(view.error, "This update is held: export and verify, then remove the old data in 0.9.7.");
+  assert.equal(view.summary, view.error);
+});
