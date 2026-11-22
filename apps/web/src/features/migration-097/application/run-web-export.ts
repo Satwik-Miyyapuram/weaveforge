@@ -394,7 +394,8 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
         } else {
           // A differing file at the path keeps its bytes: the DB blob lands at a conflict copy instead.
           path = await store.store(path, bytes, sha256);
-          await store.writeIfMissing(`${path}.sha256`, sha256);
+          // The sidecar follows the blob's ownership: a re-run that replaces the blob replaces its sidecar too.
+          await store.store(`${path}.sha256`, sha256, await sha256Hex(sha256));
         }
         // Read back what was written; a blob that does not read back to the local sha256 is missing.
         const back = await sha256Hex(await sink.readBytes(path));
