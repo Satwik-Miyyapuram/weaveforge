@@ -46,6 +46,11 @@ test("legacy false: open, report never asked", async () => {
   assert.equal(verify.calls.length, 0);
 });
 
+test("legacy false and report method absent (fresh install): open, not unknown", async () => {
+  assert.deepEqual(await install097Check({ legacyDbPresent: async () => false }, null), { kind: "open" });
+  assert.deepEqual(await install097Check({ legacyDbPresent: async () => false }, "/ws"), { kind: "open" });
+});
+
 test("legacy true and no folder known: unverified (picker), report never asked", async () => {
   const verify = spyOf(async () => true);
   const bridge = { legacyDbPresent: legacyTrue, migrationReportVerified: verify.fn };
