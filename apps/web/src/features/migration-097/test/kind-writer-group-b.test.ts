@@ -291,3 +291,19 @@ test("syncState is local sync bookkeeping: a row carrying it is written without 
   const [back] = await writer.readBack("milestones");
   assert.equal("syncState" in back!, false);
 });
+
+test("aiProposals are workspace-wide: with two project folders, each proposal is read back once", async () => {
+  const writer = createGroupBWriter(new MemorySink(), new Map([["proj-1", ""], ["proj-2", "Other"]]));
+  await writer.write("aiProposals", {
+    projectId: "proj-1",
+    id: "0123456789abcd06",
+    kind: "create_log_entry",
+    resourceId: "0123456789abcd01",
+    content: "Draft log entry",
+    createdAt: "2026-11-05T09:00:00.000Z",
+    status: "pending",
+    sourceLinks: [],
+  });
+  const back = await writer.readBack("aiProposals");
+  assert.deepEqual(back.map((p) => p.id), ["0123456789abcd06"]);
+});

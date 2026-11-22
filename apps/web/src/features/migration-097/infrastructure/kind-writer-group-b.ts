@@ -33,7 +33,19 @@ function withoutServerOnly(kind: string, row: Row): Row {
   return Object.fromEntries(Object.entries(row).filter(([key]) => !skip.has(key)));
 }
 
+/** True when two sections hold the same content and differ at most in the repo's own updatedAt stamp. */
+function sameExceptStamp(a: ReportSection, b: ReportSection): boolean {
+  const strip = (s: ReportSection): string => {
+    const { updatedAt: _stamp, ...rest } = s;
+    return JSON.stringify(Object.entries(defined(rest as unknown as Row)).sort(([x], [y]) => x.localeCompare(y)));
+  };
+  return strip(a) === strip(b);
+}
+
 const KIND_NAMES = ["logEntries", "milestones", "experiments", "metrics", "reportSections", "aiProposals"] as const;
+
+/** Kinds stored once for the whole workspace, not per project folder. */
+const WORKSPACE_KINDS: ReadonlySet<string> = new Set(["aiProposals"]);
 
 /** The FILES repos of one project folder ("" = workspace root). */
 function buildRepos(fs: ReturnType<typeof sinkAsWorkspaceFs>, projectRoot: string): Record<string, KindRepo> {
@@ -88,7 +100,13 @@ function buildRepos(fs: ReturnType<typeof sinkAsWorkspaceFs>, projectRoot: strin
       },
     },
     reportSections: {
-      write: (row) => sections.save(withoutServerOnly("reportSections", row) as unknown as ReportSection),
+      write: async (row) => {
+        const want = withoutServerOnly("reportSections", row) as unknown as ReportSection;
+        // The repo stamps a new updatedAt on every save, so an unchanged section is not saved again: a re-run keeps its bytes.
+        const have = (await sections.list()).find((s) => s.id === want.id);
+        if (have && sameExceptStamp(have, want)) return;
+        await sections.save(want);
+      },
       readBack: async () =>
         (await sections.list()).map((s) => defined({ ...s })),
     },
@@ -138,7 +156,9 @@ export function createGroupBWriter(sink: FileSink, roots: ReadonlyMap<string, st
     readBack: async (kind) => {
       checkKind(kind);
       const out: Row[] = [];
-      for (const folder of new Set(roots.values())) {
+      // Workspace-wide kinds have one store, not one per folder: read it once, so no row is listed twice.
+      const folders = WORKSPACE_KINDS.has(kind) ? [""] : [...new Set(roots.values())];
+      for (const folder of folders) {
         out.push(...(await reposFor(folder)[kind]!.readBack()));
       }
       return out;

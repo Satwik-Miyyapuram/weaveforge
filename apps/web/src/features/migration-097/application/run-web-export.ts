@@ -351,6 +351,9 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
   let current = "*";
   try {
     for (const kind of kinds) {
+      // A writer that claims blobs (group c) is fed by the blob loop below, which reads each blob back by sha256.
+      // Its sink listing must not be compared with the blob_objects rows, so such a kind is skipped here.
+      if (kind === "blobs" && writerFor(kind)) continue;
       current = kind;
       // One failing kind is listed missing; the later kinds still export.
       try {
