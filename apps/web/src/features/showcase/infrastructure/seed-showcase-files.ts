@@ -4,9 +4,11 @@
  * this; nothing here opens a database.
  *
  * Covered: project, papers, relations, report sections, annotation pins, reading
- * lists, experiments, milestones, logbook, vault notes and wiki charts. Not yet
- * covered: screening decisions, metric curves, paper fields, quotation types and
- * supervisor comments (the demo tour does not open them).
+ * lists, experiments with metric curves, paper fields, quotation types,
+ * milestones, logbook, vault notes and wiki charts.
+ * Not covered: screening decisions (a decision can only be recorded into a list
+ * file that already holds the item, and no file repository creates that entry)
+ * and supervisor comments (no file repository yet).
  */
 import type { IWorkspaceFs } from "@weaveforge/core";
 import { wireFileBackend, type FileRepositories } from "@/backend/providers/files/wire-file-backend";
@@ -50,6 +52,23 @@ export interface SeedShowcaseFilesResult {
 
 function isoDate(now: Date, daysAgo: number): string {
   return new Date(now.getTime() - daysAgo * 86_400_000).toISOString().slice(0, 10);
+}
+
+/** Quotation types given to the annotation pins in turn. */
+const QUOTATION_TYPES = ["direct", "paraphrase", "summary"] as const;
+
+/** A decaying curve per metric, ending near the experiment's final value. */
+function metricCurve(
+  experimentId: string,
+  finals: Record<string, number>,
+): { experimentId: string; metric: string; step: number; value: number }[] {
+  const points: { experimentId: string; metric: string; step: number; value: number }[] = [];
+  for (const [metric, final] of Object.entries(finals)) {
+    for (let step = 0; step < 10; step++) {
+      points.push({ experimentId, metric, step, value: Number((final * (1 + 2 / (step + 1))).toFixed(4)) });
+    }
+  }
+  return points;
 }
 
 /** Writes the whole showcase thesis into `parts.fs` (rooted at the workspace). */
@@ -125,11 +144,24 @@ export async function seedShowcaseFiles(parts: SeedShowcaseFilesParts): Promise<
     sectionIdByTitle.set(s.title, section.id);
   }
 
-  for (const [title, annotationKey, sectionNo] of SHOWCASE_ANNOTATION_PINS) {
+  for (const [i, [title, annotationKey, sectionNo]] of SHOWCASE_ANNOTATION_PINS.entries()) {
     const paperId = paperIds.get(title);
     const reportSectionId = sectionIds.get(sectionNo);
     if (!paperId || !reportSectionId) continue;
     await repos.annotationPinRepository.save({ paperId, annotationKey, reportSectionId, createdAt: stamp });
+    await repos.quotationTypeRepository.save({
+      paperId,
+      annotationKey,
+      quotationType: QUOTATION_TYPES[i % QUOTATION_TYPES.length]!,
+    });
+  }
+
+  // Paper field: "Reproduced" on the first pinned paper.
+  const fieldPaperId = paperIds.get(SHOWCASE_ANNOTATION_PINS[0]?.[0] ?? "");
+  if (fieldPaperId) {
+    const reproduced = { id: "showcase-field-reproduced", name: "Reproduced", kind: "select" as const, options: ["yes", "partly", "no"], sortOrder: 0 };
+    await repos.paperFieldRepository.saveDef(reproduced);
+    await repos.paperFieldRepository.setValue({ paperId: fieldPaperId, fieldId: reproduced.id, value: "partly" });
   }
 
   const listIds = new Map<string, string>();
@@ -159,7 +191,7 @@ export async function seedShowcaseFiles(parts: SeedShowcaseFilesParts): Promise<
   }
 
   for (const e of SHOWCASE_EXPERIMENTS) {
-    await repos.experimentRepository.add({
+    const experiment = await repos.experimentRepository.add({
       name: e.name,
       hypothesis: e.hypothesis,
       status: e.status,
@@ -173,17 +205,31 @@ export async function seedShowcaseFiles(parts: SeedShowcaseFilesParts): Promise<
       relatedPaper: e.related_paper ? paperIds.get(e.related_paper) : undefined,
       artifacts: e.artifacts?.map(([, file]) => file),
     });
+    await repos.metricRepository.append(metricCurve(experiment.id, e.metrics));
   }
 
+  // Dependencies name other milestones by id, so every milestone is added first
+  // and the links are set once the ids exist.
+  const milestoneIds = new Map<string, string>();
   for (const m of SHOWCASE_MILESTONES) {
-    await repos.milestoneRepository.add({
+    const milestone = await repos.milestoneRepository.add({
       title: m.title,
       description: m.description,
       status: m.status,
       targetDate: m.target_date,
-      dependencies: m.dependencies,
       compute: m.compute,
     });
+    milestoneIds.set(m.title, milestone.id);
+  }
+  for (const m of SHOWCASE_MILESTONES) {
+    if (!m.dependencies?.length) continue;
+    const dependencies = m.dependencies.map((d) => {
+      if (d.kind === "external") return d;
+      const refId = milestoneIds.get(d.label ?? "");
+      if (!refId) throw new Error(`Showcase milestone "${m.title}" depends on unknown milestone "${d.label}".`);
+      return { ...d, refId };
+    });
+    await repos.milestoneRepository.update(milestoneIds.get(m.title)!, { dependencies });
   }
 
   for (const entry of SHOWCASE_LOG) {
