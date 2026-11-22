@@ -97,6 +97,17 @@ export const DEVICE_SECRETS_NAME = "device-secrets" satisfies DesktopSecretName;
  */
 const INDEX_KEY = "_index";
 
+/**
+ * Names the shell keeps write-only: the page never reads them back, so a listed entry with one of
+ * these names is skipped on load and never read on save. Matched on the first dot segment.
+ */
+const WRITE_ONLY_NAMES = ["overleaf-token", "git-sync-token", "overleafToken", "gitSyncToken"];
+
+function isWriteOnlyKey(key: string): boolean {
+  const dot = key.indexOf(".");
+  return WRITE_ONLY_NAMES.includes(dot < 0 ? key : key.slice(0, dot));
+}
+
 /** What the store asks of the OS keychain: named text entries, held by the shell. */
 export interface DeviceKeychain {
   read(key: string): Promise<string | null>;
@@ -374,8 +385,10 @@ export class DeviceSecretsStore implements SecretsStore {
       }
       previous = (await this.readIndex()) ?? [];
     }
+    // Write-only entries are the shell's to keep: this save neither reads nor clears them.
+    const listed = previous.filter((key) => !isWriteOnlyKey(key));
     // Snapshot every entry this save may touch, so a failure part way can put them back.
-    const touched = [...new Set([...fields.keys(), ...previous])];
+    const touched = [...new Set([...fields.keys(), ...listed])];
     const before = new Map<string, string | null>();
     for (const key of touched) before.set(key, await this.keychain.read(key));
     const changed: string[] = [];
@@ -386,7 +399,7 @@ export class DeviceSecretsStore implements SecretsStore {
         await this.keychain.write(key, text);
         changed.push(key);
       }
-      for (const key of previous) {
+      for (const key of listed) {
         if (fields.has(key)) continue;
         current = key;
         await this.keychain.clear(key);
@@ -441,6 +454,7 @@ export class DeviceSecretsStore implements SecretsStore {
   private async fromKeychain(keys: string[]): Promise<Secrets> {
     const out: Record<string, unknown> = {};
     for (const key of keys) {
+      if (isWriteOnlyKey(key)) continue;
       const text = await this.keychain.read(key);
       if (text === null) throw new KeychainFieldMissingError(key);
       const dot = key.indexOf(".");

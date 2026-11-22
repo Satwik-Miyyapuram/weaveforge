@@ -446,6 +446,30 @@ describe("a field the index lists but the keychain lacks", () => {
   });
 });
 
+describe("write-only names in the index", () => {
+  it("load and save skip a write-only name the index lists, and never read its entry", async () => {
+    const { entries, keychain } = fakeKeychain({
+      "_index": indexOf(["zoteroApiKey", "overleafToken", "gitSyncToken"]),
+      zoteroApiKey: "k",
+    });
+    const reads: string[] = [];
+    const watched: DeviceKeychain = {
+      read: async (key) => {
+        reads.push(key);
+        return keychain.read(key);
+      },
+      write: keychain.write,
+      clear: keychain.clear,
+    };
+    const store = new DeviceSecretsStore(fakeRun([]).run, watched);
+    assert.deepEqual(await store.load(), { zoteroApiKey: "k" });
+    await store.save({ zoteroApiKey: "k" });
+    assert.equal(reads.includes("overleafToken"), false);
+    assert.equal(reads.includes("gitSyncToken"), false);
+    assert.deepEqual(JSON.parse(entries.get("_index") ?? "{}").keys, ["zoteroApiKey"]);
+  });
+});
+
 const noMove = async () => undefined;
 const noLegacy = async () => false;
 
