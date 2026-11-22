@@ -46,8 +46,10 @@ import { useScreenActive } from "@/lib/hooks/use-screen-active";
 import { useScreenShown } from "@/lib/screen-shown";
 import { FocusGlyph } from "@/components/focus-glyph";
 import { holdOpenNotes } from "@/features/workspace/application/parts-3";
+import type { RenamedVaultPage } from "@/features/vault/application/rename-updates-links";
 import { toastLinkRewriteFailed } from "@/features/vault/application/rename-link-toast";
 import { useInkSaveStatus } from "./use-ink-save-status";
+import { handBackRenamedBody } from "./rename-hand-back";
 import { PaneView, openTabs } from "./pane-view";
 import { QuickOpenDialog } from "./quick-open-dialog";
 import { StatusBar, saveState, type SegmentKey } from "./status-bar";
@@ -467,11 +469,14 @@ export function WorkspaceScreen() {
       if (kindOwner(node.kind) === "report") {
         await getContainer().report.manageReportSection.setTitle(node.id, title);
       } else {
-        toastLinkRewriteFailed(await getContainer().vault.manageVaultPage.update(node.id, { title }));
+        const tab = { kind: node.kind, id: node.id };
+        const renamed: RenamedVaultPage = await getContainer().vault.manageVaultPage.update(node.id, { title });
+        toastLinkRewriteFailed(renamed);
+        await handBackRenamedBody(renamed, handleFor(tab).current, (body) => save(tab, body));
       }
       await reload();
     },
-    [reload],
+    [handleFor, reload, save],
   );
 
   const moveNode = useCallback(
