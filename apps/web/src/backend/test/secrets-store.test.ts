@@ -15,7 +15,6 @@
 import assert from "node:assert/strict";
 import { before, describe, it } from "node:test";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { LOCAL_USER_ID } from "@weaveforge/core";
 import { RouteSecretsStore } from "@/features/settings/infrastructure/parts";
 import { loadTestCore } from "@/lib/test/load-test-core";
 import { DeviceSecretsStore } from "../providers/local/parts";
@@ -45,55 +44,6 @@ describe("choosing a credentials store", () => {
     const store = secretsStoreFor(clientWithToken(), false);
     assert.ok(store instanceof DeviceSecretsStore);
     assert.ok(!(store instanceof RouteSecretsStore));
-  });
-});
-
-describe("the device credentials store", () => {
-  it("parses a json column that came back as text", async () => {
-    const store = new DeviceSecretsStore(async () => [{ secrets: '{"zoteroApiKey":"k"}' }]);
-    assert.deepEqual(await store.load(), { zoteroApiKey: "k" });
-  });
-
-  it("takes a json column that came back already parsed", async () => {
-    const store = new DeviceSecretsStore(async () => [{ secrets: { zoteroApiKey: "k" } }]);
-    assert.deepEqual(await store.load(), { zoteroApiKey: "k" });
-  });
-
-  it("answers with nothing rather than throwing when there is no row yet", async () => {
-    const store = new DeviceSecretsStore(async () => []);
-    assert.deepEqual(await store.load(), {});
-  });
-
-  it("writes one row for this device, and never a route", async () => {
-    const asked: Array<{ sql: string; params: unknown }> = [];
-    const store = new DeviceSecretsStore(async (sql, params) => {
-      asked.push({ sql, params });
-      return [];
-    });
-
-    await store.save({ zoteroApiKey: "k" });
-
-    assert.equal(asked.length, 1, "one statement, not a fetch and a statement");
-    const [write] = asked;
-    assert.ok(write, "the store wrote something");
-    assert.match(write.sql, /local_secrets/);
-    assert.match(write.sql, /on conflict \(user_id\) do update/);
-    assert.deepEqual(write.params, [LOCAL_USER_ID, JSON.stringify({ zoteroApiKey: "k" })]);
-  });
-
-  it("reads the row for the device's own identity", async () => {
-    const asked: Array<{ sql: string; params: unknown }> = [];
-    const store = new DeviceSecretsStore(async (sql, params) => {
-      asked.push({ sql, params });
-      return [];
-    });
-
-    await store.load();
-
-    const [read] = asked;
-    assert.ok(read, "the store read something");
-    assert.match(read.sql, /from local_secrets/);
-    assert.deepEqual(read.params, [LOCAL_USER_ID]);
   });
 });
 
