@@ -39,7 +39,7 @@ test("secrets: a source that cannot say which providers hold secrets refuses, an
   const source = server(async () => {
     throw new Error("count failed");
   }, marks);
-  const result = await runWebExport({ runDeviceId: "dev-test", kinds: KINDS, codec, source, sink, now: NOW, secretsPresent: true });
+  const result = await runWebExport({ runDeviceId: "dev-test", kinds: KINDS, codec, source, sink, now: NOW });
 
   assert.equal(result.state, "incomplete");
   assert.ok(result.run.missing.some((m) => m.reason === "keys: unreadable"));
@@ -53,7 +53,6 @@ test("secrets: no providers with secrets runs without a mover and verifies, reco
   const result = await runWebExport({
     runDeviceId: "dev-test",
     kinds: KINDS,
-    secretsPresent: true,
     codec,
     source: server(async () => [], marks),
     sink: new MemorySink(),
@@ -64,7 +63,7 @@ test("secrets: no providers with secrets runs without a mover and verifies, reco
   assert.deepEqual(marks, ["mark"]);
 });
 
-test("secrets: with secretsPresent unset the run still names every provider that holds a secret for reconnect", async () => {
+test("secrets: the run still names every provider that holds a secret for reconnect", async () => {
   const marks: string[] = [];
   const sink = new MemorySink();
   const result = await runWebExport({
@@ -81,7 +80,7 @@ test("secrets: with secretsPresent unset the run still names every provider that
   assert.deepEqual(marks, ["mark"]);
 });
 
-test("secrets: with secretsPresent unset a failing secret check refuses the run and writes no server marker (fail closed)", async () => {
+test("secrets: a failing secret check refuses the run and writes no server marker (fail closed)", async () => {
   const marks: string[] = [];
   const sink = new MemorySink();
   const result = await runWebExport({
@@ -105,7 +104,6 @@ test("secrets: a provider with a secret does not block the export; it is named f
   const result = await runWebExport({
     runDeviceId: "dev-test",
     kinds: KINDS,
-    secretsPresent: true,
     codec,
     source: server(async () => ["zotero", "overleaf"], marks),
     sink,
@@ -123,7 +121,6 @@ test("secrets: a web run with a mover runs it once after verify and still names 
   const result = await runWebExport({
     runDeviceId: "dev-test",
     kinds: KINDS,
-    secretsPresent: true,
     codec,
     source: server(async () => ["zotero"], marks),
     sink: new MemorySink(),
@@ -159,7 +156,6 @@ test("keys: with secrets and no mover, the result and report carry provider name
   const result = await runWebExport({
     runDeviceId: "dev-test",
     kinds: KINDS,
-    secretsPresent: true,
     codec,
     source: server(async () => ["zotero"], marks),
     sink,

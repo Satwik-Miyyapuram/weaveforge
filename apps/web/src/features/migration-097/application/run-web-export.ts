@@ -50,8 +50,6 @@ export type ExportOptions = {
   desktop?: { folder: string; bridge: DesktopMigration };
   /** KEYS hook: runs only after a verified run, before the markers. A throw leaves the run incomplete. */
   moveSecrets?: () => Promise<void>;
-  /** Ignored: every run reads the providers that hold secrets (see runWebExport). Kept so existing callers still compile. */
-  secretsPresent?: boolean;
   /** Web only: the stable per-browser id (OPFS settings). Desktop takes its id from the backup. */
   runDeviceId?: string;
   /** Receives the raw error text of each failure. It never reaches report.json, which carries fixed codes only. */
@@ -277,7 +275,7 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
   } catch {
     return refused(sink, now, "keys: unreadable", target, { deviceId });
   }
-  const reconnectProviders: string[] = moveSecrets ? [] : providersWithSecrets;
+  const reconnectProviders: string[] = desktop && moveSecrets ? [] : providersWithSecrets;
 
   // The pre-migration dump comes first: nothing is read or written without it.
   // Web always has a device id: the caller's stable one (refused above when absent).

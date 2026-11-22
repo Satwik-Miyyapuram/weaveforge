@@ -67,7 +67,7 @@ test("zip round-trip keeps every exported file byte-equal", async () => {
 
 test("keys: a Zotero-only user's export verifies, with reconnectProviders = [\"zotero\"], and sets the marker", async () => {
   const { source, calls } = fakeServer({ rows: FIXTURE, secretProviders: secretProvidersFor({ user_settings: 1 }) });
-  const result = await runWebExport({ runDeviceId: "dev-test", kinds: ["logEntries"], codec: fakeCodec(SUPPORTED), source, sink: new MemorySink(), now: NOW, secretsPresent: true });
+  const result = await runWebExport({ runDeviceId: "dev-test", kinds: ["logEntries"], codec: fakeCodec(SUPPORTED), source, sink: new MemorySink(), now: NOW });
   assert.equal(result.state, "verified");
   assert.deepEqual(result.reconnectProviders, ["zotero"]);
   assert.equal(calls.includes("mark:097"), true);
@@ -75,7 +75,7 @@ test("keys: a Zotero-only user's export verifies, with reconnectProviders = [\"z
 
 test("keys: an Overleaf-linked user's export verifies, with reconnectProviders = [\"overleaf\"], and sets the marker", async () => {
   const { source, calls } = fakeServer({ rows: FIXTURE, secretProviders: secretProvidersFor({ overleaf_connections: 1 }) });
-  const result = await runWebExport({ runDeviceId: "dev-test", kinds: ["logEntries"], codec: fakeCodec(SUPPORTED), source, sink: new MemorySink(), now: NOW, secretsPresent: true });
+  const result = await runWebExport({ runDeviceId: "dev-test", kinds: ["logEntries"], codec: fakeCodec(SUPPORTED), source, sink: new MemorySink(), now: NOW });
   assert.equal(result.state, "verified");
   assert.deepEqual(result.reconnectProviders, ["overleaf"]);
   assert.equal(calls.includes("mark:097"), true);
