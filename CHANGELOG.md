@@ -20,6 +20,17 @@ tracks at once.
 
 ### iOS
 
+## [0.9.8] - TBD
+
+Desktop (`v0.9.8`). Python SDK stays on 0.7.1; Android stays on 0.8.2; iOS stays on 0.8.0.
+This release removes the built-in database. Your data is already in your workspace folder from 0.9.7. Update to 0.9.7 first: 0.9.8 does not move old database data itself.
+
+### Desktop
+- **Removed:** The app no longer includes or starts a local database, and the 0.9.7 upgrade tools are gone.
+- **Changed:** The installer is smaller: TBD MB, down from TBD MB.
+- **Changed:** Updates go through 0.9.7 first. An older version is offered 0.9.7 before 0.9.8.
+- **Changed:** If old database data is found and 0.9.7 never moved it, the app shows an "Install 0.9.7 first" screen and leaves that data untouched.
+
 ## [0.9.7] - 2026-11-23
 
 Desktop (`v0.9.7`). Python SDK stays on 0.7.1; Android stays on 0.8.2; iOS stays on 0.8.0.
