@@ -48,11 +48,18 @@ export class Links {
 
   /** The paper or note `link` points at, or null when none or several do. */
   resolve(link: string): LinkTarget | null {
-    const key = readyCore().listItemKey(link);
+    const core = readyCore();
+    const key = core.listItemKey(link);
     if (key === undefined) return null;
-    const hits = this.entries.filter(
-      (e) => e.pathKey === key || e.pathKey.endsWith(`/${key}`) || key.endsWith(`/${e.pathKey}`),
-    );
+    const matches = (pathKey: string) =>
+      pathKey === key || pathKey.endsWith(`/${key}`) || key.endsWith(`/${pathKey}`);
+    // An unreadable file that could match means the link may name it: no guess among the readable ones.
+    const hidden = this.unreadable.some((u) => {
+      const pathKey = core.listItemKey(`[[${u.path.replace(/\.md$/, "")}]]`);
+      return pathKey !== undefined && matches(pathKey);
+    });
+    if (hidden) return null;
+    const hits = this.entries.filter((e) => matches(e.pathKey));
     return hits.length === 1 ? hits[0]!.target : null;
   }
 

@@ -91,3 +91,22 @@ test("(5c) an unreadable file is skipped by lookups, logged with its path, and t
     console.warn = realWarn;
   }
 });
+
+test("(P3) a bare link that an unreadable file could also name resolves to nothing, not to the readable match", async () => {
+  const { fs, notes, index } = await setup();
+  const unreadable = `${notes}/b/Untitled.note.md`;
+  const realRead = fs.readText.bind(fs);
+  fs.readText = async (path: string) => {
+    if (path === unreadable) throw new Error("EIO: read failed");
+    return realRead(path);
+  };
+  const realWarn = console.warn;
+  console.warn = () => {};
+  try {
+    const links = await index.snapshot();
+    assert.equal(links.resolve("[[Untitled.note]]"), null, "b is unreadable, so the bare name is ambiguous");
+    assert.deepEqual(links.resolve("[[a/Untitled.note]]"), { vaultPageId: "n1" }, "the folder link names a alone");
+  } finally {
+    console.warn = realWarn;
+  }
+});
