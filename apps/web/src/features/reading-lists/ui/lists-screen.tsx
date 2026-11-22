@@ -28,6 +28,7 @@ import { useScreenData } from "@/lib/hooks/use-screen-data";
 import { emptyArray, emptyMap } from "@/lib/parts";
 import { usePinnedSharing } from "@/lib/hooks/use-pinned-sharing";
 import type { ReadingListsScreenData } from "@/features/reading-lists/application/parts";
+import { leftoverNoticeText } from "@/features/reading-lists/application/leftover-notice";
 import { ScreenHead } from "@/components/screen-head";
 import { useScreenSearch } from "@/lib/hooks/use-screen-search";
 import { FormError } from "@/components/form-error";
@@ -242,12 +243,7 @@ export function ListsScreen() {
       )}
       {leftovers.length > 0 && (
         <p role="status" className="lists-screen__notice">
-          {leftovers.length === 1 ? "One member" : `${leftovers.length} members`} from an older list file{" "}
-          {leftovers.length === 1 ? "is" : "are"} not shown as {leftovers.length === 1 ? "an item" : "items"} yet:{" "}
-          {leftovers
-            .map((l) => `${l.legacyLink ?? l.paperId ?? l.vaultPageId ?? "?"} (list ${allFlat.find((x) => x.id === l.listId)?.name ?? l.listId})`)
-            .join(", ")}
-          . Open the list and save it to update it.
+          {leftoverNoticeText(leftovers, (id) => allFlat.find((x) => x.id === id)?.name ?? id)}
         </p>
       )}
       {!loadError && tree.length === 0 && pinnedLists.length === 0 && (
