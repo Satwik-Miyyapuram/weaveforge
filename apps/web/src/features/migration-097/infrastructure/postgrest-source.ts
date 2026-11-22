@@ -105,6 +105,7 @@ export class PostgrestSource implements ServerSource {
     return this.opts.undecryptable(kind);
   }
 
+  // TODO(097-blob-sha): blob_objects has no sha256 column; stays fail-closed until the server records one.
   async listBlobs(): Promise<BlobRef[]> {
     throw new Error(BLOB_NOT_IMPLEMENTED);
   }

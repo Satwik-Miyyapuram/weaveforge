@@ -6,7 +6,7 @@ import { SERVER_ONLY_FIELDS } from "../domain/server-only-fields";
 import type { BlobRef, FileCodec, Row, ServerSource } from "../domain/ports";
 import type { KindWriter } from "../domain/kind-writer";
 import { runWebExport } from "../application/run-web-export";
-import { verifyExport } from "../application/verify-export";
+import { sameRows, verifyExport } from "../application/verify-export";
 import { MemorySink } from "../infrastructure/memory-sink";
 import { unzipFiles, zipFiles } from "../infrastructure/zip";
 import { listAllPages } from "../infrastructure/paging";
@@ -693,6 +693,27 @@ test("writer kinds: a readBack that loses a row makes the export incomplete", as
   });
   assert.equal(result.state, "incomplete");
   assert.ok(result.run.missing.some((m) => m.kind === "logEntries" && m.reason.includes("readBack")));
+});
+
+test("blobs: a server image/png and a stored octet-stream are different types, octet-stream and null are the same", () => {
+  const row = (contentType: string | null) => ({ id: "b1", bucket: "ink", path: "a.png", contentType });
+  assert.equal(sameRows("blobs", [row("image/png")], [row("application/octet-stream")]), false);
+  assert.equal(sameRows("blobs", [row("image/png")], [row("image/png")]), true);
+  assert.equal(sameRows("blobs", [row(null)], [row("application/octet-stream")]), true);
+});
+
+test("blobs fail closed: listBlobs throws, so the run is incomplete, the report is not verified, no marker", async () => {
+  // TODO(097-blob-sha): blob_objects has no sha256 column, so listing stays fail-closed until the server adds one.
+  const { source, calls } = fakeServer({ rows: FIXTURE });
+  source.listBlobs = async () => {
+    throw new Error("blob listing not implemented: export incomplete");
+  };
+  const sink = new MemorySink();
+  const result = await runWebExport({ kinds: KINDS, codec: fakeCodec(SUPPORTED), source, sink, now: NOW });
+  assert.equal(result.state, "incomplete");
+  const report = JSON.parse(await sink.readText(REPORT_PATH));
+  assert.notEqual(report.state, "verified");
+  assert.deepEqual(calls.filter((c) => c.startsWith("mark:")), []);
 });
 
 test("verify: a blob sidecar with a content-type line still verifies on its sha256 line", async () => {
