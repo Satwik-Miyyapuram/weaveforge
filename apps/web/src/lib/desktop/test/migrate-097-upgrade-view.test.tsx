@@ -10,7 +10,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { WEBVIEW_UPDATE_MESSAGE } from "@/container/browser-install-id";
 import { Migrate097UpgradeBody, upgradeReportFolder } from "../migrate-097-upgrade";
 
-// The component file uses JSX without importing React; under node --test the transform is classic, so expose React first.
+// The component file uses JSX without importing React, and the node --test transform needs React in scope, as the sibling tests do.
 Object.assign(globalThis, { React });
 
 const FOLDER = "C:\\Users\\me\\Documents\\WeaveForge";
