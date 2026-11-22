@@ -160,6 +160,27 @@ test("a sync integration round-trips per project; its token goes to the secrets 
   assert.equal((await secrets.load()).integrations?.["sync:p1:github"]?.token, "SECRET-gh");
 });
 
+test("a failed secrets write leaves the integration unchanged, not half-written", async () => {
+  const settings = new MemorySettings();
+  const failing: SecretsStore = { load: () => Promise.resolve({}), save: () => Promise.reject(new Error("keychain locked")) };
+  const store = new FileIntegrationsStore(settings, failing);
+  await assert.rejects(store.save("p1", { provider: "github", enabled: true, token: "SECRET-gh", branch: "dev" }), /keychain locked/);
+  assert.equal(settings.get(["integrations", "sync", "p1", "github"]), undefined);
+});
+
+test("concurrent saves for different providers both keep their tokens", async () => {
+  const settings = new MemorySettings();
+  const secrets = new MemorySecrets();
+  const store = new FileIntegrationsStore(settings, secrets);
+  await Promise.all([
+    store.save("p1", { provider: "github", enabled: true, token: "SECRET-gh", branch: "main" }),
+    store.save("p1", { provider: "gitlab", enabled: true, token: "SECRET-gl", branch: "main" }),
+  ]);
+  const stored = (await secrets.load()).integrations ?? {};
+  assert.equal(stored["sync:p1:github"]?.token, "SECRET-gh");
+  assert.equal(stored["sync:p1:gitlab"]?.token, "SECRET-gl");
+});
+
 test("clearing a token removes it from the secrets store", async () => {
   const settings = new MemorySettings();
   const secrets = new MemorySecrets();

@@ -251,6 +251,10 @@ export class FileIntegrationsStore implements IIntegrationsStore {
     private readonly secrets: SecretsStore,
   ) {}
 
+  // Saves run one at a time: each reads the secrets map, so overlapping saves
+  // would each write back a copy that drops the other's token.
+  private queue: Promise<void> = Promise.resolve();
+
   async get(projectId: string, provider: SyncProvider): Promise<Integration> {
     const meta = this.settings.get(["integrations", "sync", projectId, provider]);
     const stored: Partial<Integration> = isObject(meta) ? meta : {};
@@ -264,14 +268,21 @@ export class FileIntegrationsStore implements IIntegrationsStore {
     };
   }
 
-  async save(projectId: string, integration: Integration): Promise<void> {
+  save(projectId: string, integration: Integration): Promise<void> {
+    const run = this.queue.then(() => this.write(projectId, integration));
+    this.queue = run.catch(() => undefined);
+    return run;
+  }
+
+  // Secrets first: if the secrets write fails, the meta is not changed either.
+  private async write(projectId: string, integration: Integration): Promise<void> {
     const { token, ...meta } = integration;
-    this.settings.set(["integrations", "sync", projectId, integration.provider], meta);
     const current = await this.secrets.load();
     const key = integrationSecretKey(projectId, integration.provider);
     const integrations = { ...current.integrations };
     if (token) integrations[key] = { token };
     else delete integrations[key];
     await this.secrets.save({ ...current, integrations });
+    this.settings.set(["integrations", "sync", projectId, integration.provider], meta);
   }
 }
