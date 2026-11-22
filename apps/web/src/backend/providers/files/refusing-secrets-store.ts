@@ -10,14 +10,22 @@ export class ApiKeysNotInBrowserError extends Error {
 
 /**
  * The browser has no OS keychain, so keys are never stored or sent anywhere: `load` reports no keys
- * and `save` refuses with a typed error. Nothing here touches the network or a file.
+ * and `save` refuses with a typed error. Nothing here touches the network or a file. A save with no
+ * non-empty key has nothing to store, so it resolves instead of refusing.
  */
 export class RefusingSecretsStore implements SecretsStore {
   async load(): Promise<Secrets> {
     return {};
   }
 
-  async save(_secrets: Secrets): Promise<void> {
-    throw new ApiKeysNotInBrowserError();
+  async save(secrets: Secrets): Promise<void> {
+    if (holdsValue(secrets)) throw new ApiKeysNotInBrowserError();
   }
+}
+
+/** True when some leaf under `value` is a non-empty string or a number, boolean or other non-object. */
+function holdsValue(value: unknown): boolean {
+  if (value === undefined || value === null || value === "") return false;
+  if (typeof value === "object") return Object.values(value).some(holdsValue);
+  return true;
 }
