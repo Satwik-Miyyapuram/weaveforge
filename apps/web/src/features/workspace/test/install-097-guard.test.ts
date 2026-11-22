@@ -115,3 +115,44 @@ test("legacy true and report answers a non-boolean: unknown, fail closed", async
   };
   assert.deepEqual(await install097Check(bridge, "/ws"), { kind: "unknown", code: "REPORT_CHECK_FAILED" });
 });
+
+/** A fake old-user port: the web reader answers these two questions. */
+function oldUserPort(legacyRows: () => Promise<boolean>, ownRun: () => Promise<boolean>) {
+  const calls = { ownRun: 0 };
+  return {
+    port: {
+      hasLegacyRows: legacyRows,
+      ownRunVerified: async () => {
+        calls.ownRun += 1;
+        return ownRun();
+      },
+    },
+    calls,
+  };
+}
+
+test("web new account (no legacy rows): open, export never checked", async () => {
+  const { port, calls } = oldUserPort(async () => false, async () => false);
+  assert.deepEqual(await install097Check(null, null, port), { kind: "open" });
+  assert.equal(calls.ownRun, 0);
+});
+
+test("web old user with legacy rows and no verified export: unverified with the web export action", async () => {
+  const { port } = oldUserPort(async () => true, async () => false);
+  assert.deepEqual(await install097Check(null, null, port), { kind: "unverified", action: "web-export" });
+});
+
+test("web old user with legacy rows and a verified export: open", async () => {
+  const { port } = oldUserPort(async () => true, async () => true);
+  assert.deepEqual(await install097Check(null, null, port), { kind: "open" });
+});
+
+test("web old-user port throws: unknown, fail closed (guard shows)", async () => {
+  const { port } = oldUserPort(
+    async () => {
+      throw new Error("reader down");
+    },
+    async () => true,
+  );
+  assert.deepEqual(await install097Check(null, null, port), { kind: "unknown", code: "OLD_USER_CHECK_FAILED" });
+});
