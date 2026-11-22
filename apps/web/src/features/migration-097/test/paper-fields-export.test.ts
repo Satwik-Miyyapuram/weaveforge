@@ -6,7 +6,7 @@ import { FilePaperFieldRepository } from "@/backend/providers/files/file-paper-f
 import type { SettingsSection } from "@/backend/providers/files/file-tag-repo";
 import type { KindWriter } from "../domain/kind-writer";
 import { defsToSettings, projectDefsMismatches, type FileFieldValue } from "../domain/paper-fields-file";
-import type { FileCodec, Row, ServerSource } from "../domain/ports";
+import type { FileCodec, FileSink, Row, ServerSource } from "../domain/ports";
 import { runWebExport } from "../application/run-web-export";
 import { createPaperFieldsWriter } from "../infrastructure/kind-writer-paper-fields";
 import { createTagsWriter } from "../infrastructure/kind-writer-tags";
@@ -343,4 +343,25 @@ test("secret kinds: a conflict in a secret kind never puts its value in the repo
   assert.ok(row, "the conflict is still listed");
   assert.equal("value" in (row ?? {}), false, "no value for a secret kind");
   assert.ok(!JSON.stringify(result.run).includes("tok-secret-123"), "the secret never reaches the run report");
+});
+
+test("e2e: a user's paper file survives two exports, body and keys unchanged", async () => {
+  const core = typedCore();
+  const userText = core.writePaperRow(null, { id: "p1", title: "A" }) + "My own notes.\n";
+  const sink = new MemorySink();
+  await sink.write("Thesis/papers/a.paper.md", userText);
+  const opts = {
+    runDeviceId: "dev-test",
+    kinds: ["paperFields", "paperFieldValues"],
+    codec: NO_CODEC,
+    now: NOW,
+    source: fakeSource({ paperFields: DEFS, paperFieldValues: VALUES }),
+    sink,
+    writers: (s: FileSink) => [createPaperFieldsWriter(s, FOLDERS)],
+  };
+  await runWebExport(opts);
+  await runWebExport(opts);
+  const text = await sink.readText("Thesis/papers/a.paper.md");
+  assert.ok(text.endsWith("My own notes.\n"), "the user's body survives both exports");
+  assert.ok(text.includes('weaveforge-id: "p1"') && text.includes('title: "A"'), "the user's keys survive both exports");
 });
