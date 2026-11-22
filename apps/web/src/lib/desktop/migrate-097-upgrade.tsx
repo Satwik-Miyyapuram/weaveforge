@@ -154,7 +154,8 @@ export function Migrate097UpgradeBody({
   }
   return (
     <div>
-      {failureMessage ? <p>{failureMessage}</p> : <p>The upgrade did not finish. Your old data is untouched.</p>}
+      {failureMessage ? <p>{failureMessage}</p> : null}
+      <p>The upgrade did not finish. Your old data is untouched.</p>
       {missing.length > 0 ? <p>{`Not moved yet: ${missing.join(", ")}.`}</p> : null}
       {pendingSync ? <p>Sync pending changes first, then try again.</p> : null}
       {reconnectProviders.length > 0 ? <p>{`Reconnect ${reconnectProviders.join(", ")} to finish the upgrade.`}</p> : null}
@@ -162,7 +163,7 @@ export function Migrate097UpgradeBody({
         <p>{`${undecryptable} items cannot be read here. Open the desktop app to export these ${undecryptable} items.`}</p>
       ) : null}
       <p>
-        Report folder: <code style={{ userSelect: "text", WebkitUserSelect: "text" }}>{reportFolder}</code>{" "}{"(report-<device>.json)"}
+        Report folder: <code style={{ userSelect: "text", WebkitUserSelect: "text" }}>{reportFolder}</code>{" "}{"(the report-<device>.json file for this device)"}
       </p>
       <Button variant="secondary" onClick={onCopy}>
         {copied ? "Copied" : "Copy report folder"}
