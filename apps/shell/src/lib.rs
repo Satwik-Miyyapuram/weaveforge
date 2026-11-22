@@ -21,6 +21,7 @@ pub mod cmd_tools;
 pub mod cmd_vault;
 pub mod commands;
 pub mod db_lock;
+pub mod device_id;
 pub mod device_settings;
 #[cfg(desktop)]
 pub mod embed;
@@ -44,6 +45,7 @@ pub mod mcp_bridge;
 pub mod menu;
 pub mod migrate;
 pub mod migrate_093;
+pub mod migrate_097;
 pub mod model_cache;
 pub mod outside_gate;
 pub mod overleaf_links;
