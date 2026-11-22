@@ -83,8 +83,27 @@ test("an old list file is rewritten: members move to their frontmatter, the list
   const listText = await fs.readText(LIST);
   assert.doesNotMatch(listText, /paper-one/);
   assert.doesNotMatch(listText, /^member-notes:/m);
+  const repo = new FileReadingListItemRepository(fs, () => ROOT);
+  assert.deepEqual((await repo.listItems("l1")).map((i) => i.id), ["l1:p1"]);
+  assert.deepEqual((await repo.legacyLeftovers("l1")).map((l) => l.legacyLink), ["[[Ghost.paper]]"]);
+});
+
+test("listItems never returns an item without a paper or note; a legacy leftover is only in legacyLeftovers", async () => {
+  const fs = await setup();
+  await migrateLegacyLists(fs, () => ROOT, () => {});
   const items = await new FileReadingListItemRepository(fs, () => ROOT).listItems("l1");
-  assert.deepEqual(items.map((i) => i.id), ["l1:p1", "l1:legacy:[[Ghost.paper]]"]);
+  assert.ok(items.length > 0);
+  assert.ok(items.every((i) => i.paperId !== undefined || i.vaultPageId !== undefined));
+});
+
+test("a resolved member the migration could not move is a pending leftover, not dropped", async () => {
+  const fs = await setup();
+  // P2 is first in the list and its lists value is broken: the rewrite stops before P1 moves.
+  await fs.writeFile(LIST, oldListFile().replace('members: ["[[paper-one.paper]]", "[[Ghost.paper]]"]', 'members: ["[[paper-two.paper]]", "[[paper-one.paper]]"]'));
+  await fs.writeFile(P2, (await fs.readText(P2)).replace("---\n", "---\nlists: [oops\n"));
+  await migrateLegacyLists(fs, () => ROOT, () => {});
+  const leftovers = await new FileReadingListItemRepository(fs, () => ROOT).legacyLeftovers("l1");
+  assert.ok(leftovers.some((l) => l.state === "pending" && l.paperId === "p1" && l.note === "key"));
 });
 
 test("an unresolved member stays in the list file, with its note", async () => {
@@ -110,13 +129,13 @@ test("a crash between the member writes and the list rewrite leaves both sides r
   assert.deepEqual(readMemberFields(await fs.readText(P1)).lists, [LINK]);
   assert.match(await fs.readText(LIST), /^members:/m);
   const beforeRerun = await new FileReadingListItemRepository(fs, () => ROOT).listItems("l1");
-  assert.deepEqual(beforeRerun.map((i) => i.id), ["l1:p1", "l1:legacy:[[Ghost.paper]]"]);
+  assert.deepEqual(beforeRerun.map((i) => i.id), ["l1:p1"]);
   await migrateLegacyLists(fs, () => ROOT);
   assert.deepEqual(readMemberFields(await fs.readText(P1)), { lists: [LINK], listNotes: { [LINK]: "key" } });
   assert.doesNotMatch(await fs.readText(LIST), /^members: \["\[\[paper-one/m);
   assert.deepEqual(
     (await new FileReadingListItemRepository(fs, () => ROOT).listItems("l1")).map((i) => i.id),
-    ["l1:p1", "l1:legacy:[[Ghost.paper]]"],
+    ["l1:p1"],
   );
 });
 
@@ -137,12 +156,16 @@ test("a conflicting leftover is listed as conflict with the paper's note; an unr
   const p1 = await fs.readText(P1);
   await fs.writeFile(P1, p1.replace("---\n", `---\nlists: ["${LINK}"]\nlist-notes: {"${LINK}": "mine"}\n`));
   await migrateLegacyLists(fs, () => ROOT);
-  const items = await new FileReadingListItemRepository(fs, () => ROOT).listItems("l1");
-  const conflict = items.find((i) => i.id === "l1:p1");
-  assert.equal(conflict?.legacyState, "conflict");
-  assert.equal(conflict?.note, "mine");
-  const unresolved = items.find((i) => i.legacyState === "unresolved");
+  const repo = new FileReadingListItemRepository(fs, () => ROOT);
+  const item = (await repo.listItems("l1")).find((i) => i.id === "l1:p1");
+  assert.equal(item?.note, "mine");
+  const leftovers = await repo.legacyLeftovers("l1");
+  const conflict = leftovers.find((l) => l.state === "conflict");
+  assert.equal(conflict?.paperId, "p1");
+  assert.equal(conflict?.note, "key");
+  const unresolved = leftovers.find((l) => l.state === "unresolved");
   assert.equal(unresolved?.legacyLink, "[[Ghost.paper]]");
+  assert.equal(unresolved?.paperId, undefined);
   assert.equal(unresolved?.note, undefined);
   assert.match(await fs.readText(LIST), /Ghost/);
 });

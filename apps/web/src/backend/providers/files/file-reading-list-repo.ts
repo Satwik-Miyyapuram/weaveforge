@@ -22,6 +22,7 @@ import {
   type ReadingList,
   type ReadingListFilter,
   type ReadingListItem,
+  type ReadingListLegacyLeftover,
   type ReadingListTreeNode,
 } from "@weaveforge/core";
 import { readyCore } from "@/lib/rust-core";
@@ -142,6 +143,11 @@ export class FileReadingListItemRepository implements IReadingListItemRepository
     return (await this.memberships()).unreadable;
   }
 
+  /** The 0.9.6 leftovers of a list: members that are not items (conflicting, unresolved or pending). */
+  async legacyLeftovers(listId: string): Promise<ReadingListLegacyLeftover[]> {
+    return (await this.memberships()).leftovers.filter((l) => l.listId === listId);
+  }
+
   async find(listId: string, paperId: string): Promise<ReadingListItem | null> {
     return (await this.listItems(listId)).find((i) => i.paperId === paperId) ?? null;
   }
@@ -188,11 +194,14 @@ export class FileReadingListItemRepository implements IReadingListItemRepository
    * Every membership of a live list, each list's members ordered by workspace path, plus the
    * paths that could not be read. A paper or note whose membership value is unreadable is left
    * out and reported; its file is not touched. A member whose link names no live list is not
-   * listed; its frontmatter is kept. Legacy (0.9.6) members still in a list file are listed too:
-   * a member the paper holds a different note for is `conflict`; a link that names nothing is
-   * `unresolved` (no target, `legacyLink` set). Their notes stay in the list file.
+   * listed; its frontmatter is kept. Legacy (0.9.6) members still in a list file are never items
+   * (an item needs a paper or note id): they are leftovers, see `legacyLeftovers`.
    */
-  private async memberships(): Promise<{ items: ReadingListItem[]; unreadable: string[] }> {
+  private async memberships(): Promise<{
+    items: ReadingListItem[];
+    unreadable: string[];
+    leftovers: ReadingListLegacyLeftover[];
+  }> {
     await this.migrate();
     const files = await this.lists.readAll();
     const listIdByLink = new Map(files.map((f) => [listLinkFor(f.path), f.row.id]));
@@ -217,21 +226,21 @@ export class FileReadingListItemRepository implements IReadingListItemRepository
         byList.set(listId, [...(byList.get(listId) ?? []), item]);
       }
     }
+    const leftovers: ReadingListLegacyLeftover[] = [];
     for (const file of files) {
       if (file.row.members === undefined && file.row.memberNotes === undefined) continue;
       const listId = file.row.id;
       for (const raw of legacyMemberLinks(file.row)) {
         const target = snapshot.resolve(raw);
         if (!target || !snapshot.pathFor(target)) {
-          byList.set(listId, [
-            ...(byList.get(listId) ?? []),
-            { id: `${listId}:legacy:${raw}`, listId, legacyState: "unresolved", legacyLink: raw, sortOrder: 0 },
-          ]);
+          leftovers.push({ listId, state: "unresolved", legacyLink: raw });
           continue;
         }
         const note = legacyNoteOf(file.row, target);
+        const noteField = note === undefined ? {} : { note };
         const item = (byList.get(listId) ?? []).find((i) => i.id === itemIdOf(listId, target));
-        if (item && note !== undefined && item.note !== note) item.legacyState = "conflict";
+        if (!item) leftovers.push({ listId, state: "pending", ...target, ...noteField });
+        else if (note !== undefined && item.note !== note) leftovers.push({ listId, state: "conflict", ...target, note });
       }
     }
     const out: ReadingListItem[] = [];
@@ -239,6 +248,6 @@ export class FileReadingListItemRepository implements IReadingListItemRepository
       items.forEach((item, index) => (item.sortOrder = index));
       out.push(...items);
     }
-    return { items: out, unreadable };
+    return { items: out, unreadable, leftovers };
   }
 }

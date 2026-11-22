@@ -19,8 +19,8 @@ export interface ReadingList extends Identifiable {
 }
 
 /**
- * A paper or note membership in a list (the join row). Exactly one of paperId / vaultPageId,
- * except an `unresolved` legacy leftover, which has neither.
+ * A paper or note membership in a list (the join row). Exactly one of paperId / vaultPageId.
+ * A 0.9.6 member that cannot be shown as an item is a {@link ReadingListLegacyLeftover} instead.
  */
 export interface ReadingListItem extends Identifiable {
   id: string;
@@ -30,14 +30,27 @@ export interface ReadingListItem extends Identifiable {
   sortOrder: number;
   /** Why this item is in this list. */
   note?: string;
-  /** Set on a 0.9.6 leftover: `conflict` when the paper holds a different note, `unresolved` when its link names nothing. */
-  legacyState?: "conflict" | "unresolved";
-  /** The 0.9.6 link text of an `unresolved` leftover. */
-  legacyLink?: string;
   /** Set when membership was propagated from a descendant list. */
   inheritedFromListId?: string;
   /** Marked during screening as a duplicate of another record in this list. */
   duplicateOfItemId?: string;
+}
+
+/**
+ * A 0.9.6 legacy member of a list file that is not shown as an item (it has no paper or note to
+ * point at, or its paper does not carry the membership yet). `conflict`: the paper holds a
+ * different note; `unresolved`: its link names nothing; `pending`: the paper resolves but its
+ * membership is not migrated yet.
+ */
+export interface ReadingListLegacyLeftover {
+  listId: string;
+  state: "conflict" | "unresolved" | "pending";
+  /** The 0.9.6 link text (set for `unresolved`). */
+  legacyLink?: string;
+  paperId?: string;
+  vaultPageId?: string;
+  /** The note the 0.9.6 list file holds for this member. */
+  note?: string;
 }
 
 export interface NewReadingListInput {
