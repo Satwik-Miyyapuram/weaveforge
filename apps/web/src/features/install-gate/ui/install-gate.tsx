@@ -11,10 +11,14 @@ import { desktop } from "@/lib/desktop/desktop-bridge";
 export const INSTALL_GATE_TEXT =
   "This update needs WeaveForge 0.9.7 first. Install 0.9.7, open it once so it moves your data to files, then install 0.9.8.";
 
-/** Asks the desktop shell. No bridge or no command (browser, Electron) means no gate. */
+/**
+ * Asks the desktop shell. A browser (no bridge) means no gate. A desktop bridge without the
+ * command fails closed: the shell cannot say the upgrade is done, so the gate shows.
+ */
 export async function askInstallGate(): Promise<boolean> {
   const bridge = desktop();
-  if (!bridge?.installGateRequired) return false;
+  if (!bridge) return false;
+  if (!bridge.installGateRequired) return true;
   try {
     return await bridge.installGateRequired();
   } catch {

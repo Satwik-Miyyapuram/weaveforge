@@ -8,7 +8,7 @@ import { createElement } from "react";
 import { act, create, type ReactTestInstance, type ReactTestRenderer } from "react-test-renderer";
 
 import "@/lib/test/react-harness";
-import { INSTALL_GATE_TEXT, InstallGate } from "../ui/install-gate";
+import { askInstallGate, INSTALL_GATE_TEXT, InstallGate } from "../ui/install-gate";
 
 const textOf = (node: ReactTestInstance): string =>
   node.children.map((c) => (typeof c === "string" ? c : textOf(c))).join("");
@@ -41,4 +41,46 @@ test("a failed check renders the blocking screen", async () => {
   const tree = await mount(() => Promise.reject(new Error("device id unreadable")));
   const dialog = tree.root.find((n) => n.props.role === "alertdialog");
   assert.equal(textOf(dialog), INSTALL_GATE_TEXT);
+});
+
+/** Runs `fn` with `window.weaveforge` set to `bridge` (or absent when null), then restores it. */
+async function withDesktop(bridge: Record<string, unknown> | null, fn: () => Promise<void>) {
+  const g = globalThis as { window?: unknown };
+  const before = g.window;
+  g.window = bridge === null ? {} : { weaveforge: { fetchTitle: () => undefined, ...bridge } };
+  try {
+    await fn();
+  } finally {
+    g.window = before;
+  }
+}
+
+test("browser (no desktop bridge) never shows the gate", async () => {
+  await withDesktop(null, async () => {
+    assert.equal(await askInstallGate(), false);
+  });
+});
+
+test("desktop bridge without the installGateRequired member fails closed", async () => {
+  await withDesktop({}, async () => {
+    assert.equal(await askInstallGate(), true);
+  });
+});
+
+test("desktop reads the shell's true and false answers", async () => {
+  await withDesktop({ installGateRequired: () => Promise.resolve(true) }, async () => {
+    assert.equal(await askInstallGate(), true);
+  });
+  await withDesktop({ installGateRequired: () => Promise.resolve(false) }, async () => {
+    assert.equal(await askInstallGate(), false);
+  });
+});
+
+test("a rejected shell check on desktop shows the gate", async () => {
+  await withDesktop(
+    { installGateRequired: () => Promise.reject(new Error("device id unreadable")) },
+    async () => {
+      assert.equal(await askInstallGate(), true);
+    },
+  );
 });
