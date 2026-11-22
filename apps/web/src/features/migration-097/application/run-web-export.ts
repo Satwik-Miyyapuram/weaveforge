@@ -1,5 +1,6 @@
 import {
-  REPORT_PATH,
+  ownReportPath,
+  readMigrationRuns,
   type KindCount,
   type MigrationReport,
   type MigrationState,
@@ -66,20 +67,20 @@ export type DesktopMigration = {
 };
 
 /**
- * The runs already in report.json. [] when there is no report yet; null when report.json exists but cannot be
+ * This device's own report file: its runs, or [] when there is none yet. Null when the file exists but cannot be
  * read as a report (not JSON, or no runs array). A null is never merged over.
  */
-async function readExistingRuns(sink: FileSink): Promise<RunReport[] | null> {
-  // A failed listing does not prove there is no report: read report.json directly before deciding.
+async function readOwnRuns(sink: FileSink, path: string): Promise<RunReport[] | null> {
+  // A failed listing does not prove there is no file: read it directly before deciding.
   let listed: string[] | null = null;
   try {
     listed = await sink.list();
   } catch {
     // Falls through to the direct read.
   }
-  if (listed !== null && !listed.includes(REPORT_PATH)) return [];
+  if (listed !== null && !listed.includes(path)) return [];
   try {
-    const parsed = JSON.parse(await sink.readText(REPORT_PATH)) as Partial<MigrationReport>;
+    const parsed = JSON.parse(await sink.readText(path)) as Partial<MigrationReport>;
     if (Array.isArray(parsed.runs)) return parsed.runs;
   } catch {
     // Falls through: unreadable or absent.
@@ -87,8 +88,8 @@ async function readExistingRuns(sink: FileSink): Promise<RunReport[] | null> {
   return null;
 }
 
-/** Moves an unreadable report.json to report.json.bad, or .bad.N when that name is taken. Nothing is overwritten. */
-async function moveAside(sink: FileSink): Promise<boolean> {
+/** Moves an unreadable report file to <path>.bad, or .bad.N when that name is taken. Nothing is overwritten. */
+async function moveAside(sink: FileSink, path: string): Promise<boolean> {
   // Without a listing there is no safe free name, so nothing is moved and false says so.
   let taken: Set<string>;
   try {
@@ -96,16 +97,16 @@ async function moveAside(sink: FileSink): Promise<boolean> {
   } catch {
     return false;
   }
-  let bad = `${REPORT_PATH}.bad`;
-  for (let n = 2; taken.has(bad); n++) bad = `${REPORT_PATH}.bad.${n}`;
-  await sink.rename(REPORT_PATH, bad);
+  let bad = `${path}.bad`;
+  for (let n = 2; taken.has(bad); n++) bad = `${path}.bad.${n}`;
+  await sink.rename(path, bad);
   return true;
 }
 
-/** The report-level backup already in report.json, or null. Read only to keep it: see writeReport. */
-async function readExistingBackup(sink: FileSink): Promise<string | null> {
+/** The report-level backup already in this device's file, or null. Read only to keep it: see writeReport. */
+async function readOwnBackup(sink: FileSink, path: string): Promise<string | null> {
   try {
-    const parsed = JSON.parse(await sink.readText(REPORT_PATH)) as Partial<MigrationReport>;
+    const parsed = JSON.parse(await sink.readText(path)) as Partial<MigrationReport>;
     return typeof parsed.backup === "string" ? parsed.backup : null;
   } catch {
     return null;
@@ -113,32 +114,28 @@ async function readExistingBackup(sink: FileSink): Promise<string | null> {
 }
 
 /**
- * Writes report.json via a .part file and rename, so a half-written report is never seen.
- * The runs of other devices already in report.json are kept; this device's entry is replaced.
- * The report-level backup is the first non-null one: a later run never replaces it, not with null
- * and not with another device's dump. Each device's own dump is in its own runs entry.
+ * Writes this device's report file (report-<deviceId>.json) via a .part file and rename, so a half-written
+ * report is never seen. Only that file is ever written: the legacy report.json and other devices' files are
+ * read, never rewritten. The report-level backup is the first non-null one this device's file holds: a later
+ * run never replaces it, not with null and not with another device's dump.
  */
 async function writeReport(sink: FileSink, report: MigrationReport): Promise<void> {
-  // A run with no device id is never written: without an id it cannot be told apart from another browser's run,
-  // so it could replace that run or be taken for this device's own.
+  // A run with no device id is never written: without an id there is no file of its own to write it to.
   const device = report.runs[0]?.deviceId;
   if (device === undefined) return;
-  // Read before any move: a moved-aside report can no longer be read for its backup.
-  const priorBackup = await readExistingBackup(sink);
-  const existing = await readExistingRuns(sink);
-  let runs = report.runs;
-  if (existing === null) {
+  const path = ownReportPath(device);
+  // Read before any move: a moved-aside file can no longer be read for its backup.
+  const priorBackup = await readOwnBackup(sink, path);
+  if ((await readOwnRuns(sink, path)) === null) {
     // Unreadable: kept aside, never merged over. If it cannot be kept aside, it is left as it is and not replaced.
-    if (!(await moveAside(sink))) return;
-  } else {
-    runs = [...existing.filter((r) => r.deviceId !== device), ...report.runs];
+    if (!(await moveAside(sink, path))) return;
   }
   const backup = priorBackup ?? report.backup;
-  const merged: MigrationReport = { ...report, backup, runs };
-  const part = tempPathFor(REPORT_PATH);
+  const merged: MigrationReport = { ...report, backup, runs: report.runs };
+  const part = tempPathFor(path);
   try {
     await sink.write(part, JSON.stringify(merged, null, 2));
-    await sink.rename(part, REPORT_PATH);
+    await sink.rename(part, path);
   } catch (err) {
     await sink.remove(part).catch(() => undefined);
     throw err;
@@ -252,13 +249,9 @@ export function verifyReasonCode(raw: string): string {
  * their files are never overwritten or listed as this device's orphans. Empty when there is no such run.
  */
 async function priorOutputs(sink: FileSink, deviceId: string | undefined): Promise<Outputs> {
-  let parsed: Partial<MigrationReport>;
-  try {
-    parsed = JSON.parse(await sink.readText(REPORT_PATH)) as Partial<MigrationReport>;
-  } catch {
-    return {};
-  }
-  const own = (Array.isArray(parsed.runs) ? parsed.runs : []).filter((r) => deviceId !== undefined && r.deviceId === deviceId);
+  const runs = await readMigrationRuns(sink);
+  if (runs === null) return {};
+  const own = runs.filter((r) => deviceId !== undefined && r.deviceId === deviceId);
   const latest = own.reduce<RunReport | undefined>((best, r) => (!best || r.startedAt > best.startedAt ? r : best), undefined);
   return latest?.outputs ?? {};
 }
@@ -273,9 +266,9 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
     return refused(sink, now, "no device id: the browser install id is missing or malformed", target);
   }
 
-  // An unreadable report.json is never merged over: it is kept aside and this run is refused before any write.
-  if ((await readExistingRuns(sink)) === null) {
-    await moveAside(sink);
+  // Any unreadable report file (legacy, own or another device's) is never merged over: this run is refused before
+  // any write. Only this device's own file is kept aside, by the refused write itself; the others are left as they are.
+  if ((await readMigrationRuns(sink)) === null) {
     return refused(sink, now, "report unreadable", target, { deviceId: runDeviceId });
   }
   const writerFor = (kind: string) => writers.find((w) => w.kinds.includes(kind));

@@ -1,8 +1,8 @@
+import { onlyReportPath } from "./own-report";
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { runWebExport } from "../application/run-web-export";
 import type { FileCodec, Row, ServerSource } from "../domain/ports";
-import { REPORT_PATH } from "../domain/report";
 import { MemorySink } from "../infrastructure/memory-sink";
 
 const NOW = "2026-11-22T00:00:00.000Z";
@@ -45,7 +45,7 @@ test("keys unreadable: the refused run is still written to report.json under thi
 
   assert.equal(result.state, "incomplete");
   assert.ok(result.run.missing.some((m) => m.reason === "keys: unreadable"));
-  const written = JSON.parse(await sink.readText(REPORT_PATH));
+  const written = JSON.parse(await sink.readText(await onlyReportPath(sink)));
   assert.equal(written.state, "incomplete");
   assert.deepEqual(
     written.runs.map((r: { deviceId?: string; missing: { reason: string }[] }) => [r.deviceId, r.missing[0]?.reason]),

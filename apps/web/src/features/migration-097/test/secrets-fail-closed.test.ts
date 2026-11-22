@@ -1,8 +1,8 @@
+import { onlyReportPath } from "./own-report";
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { runWebExport } from "../application/run-web-export";
 import type { FileCodec, Row, ServerSource } from "../domain/ports";
-import { REPORT_PATH } from "../domain/report";
 import { MemorySink } from "../infrastructure/memory-sink";
 import { PostgrestSource } from "../infrastructure/postgrest-source";
 
@@ -45,7 +45,7 @@ test("secrets: a source that cannot say which providers hold secrets refuses, an
   assert.ok(result.run.missing.some((m) => m.reason === "keys: unreadable"));
   assert.deepEqual(marks, [], "no server marker when the secrets cannot be read");
   assert.equal((await sink.list()).some((p) => p.startsWith("logEntries/")), false, "a refused run writes no data");
-  assert.equal(JSON.parse(await sink.readText(REPORT_PATH)).state, "incomplete");
+  assert.equal(JSON.parse(await sink.readText(await onlyReportPath(sink))).state, "incomplete");
 });
 
 test("secrets: no providers with secrets runs without a mover and verifies, reconnecting nothing", async () => {
@@ -79,7 +79,7 @@ test("secrets: a provider with a secret does not block the export; it is named f
   assert.equal(result.state, "verified");
   assert.deepEqual(result.reconnectProviders, ["zotero", "overleaf"]);
   assert.deepEqual(marks, ["mark"]);
-  assert.deepEqual(JSON.parse(await sink.readText(REPORT_PATH)).reconnectProviders, ["zotero", "overleaf"]);
+  assert.deepEqual(JSON.parse(await sink.readText(await onlyReportPath(sink))).reconnectProviders, ["zotero", "overleaf"]);
 });
 
 test("secrets: a provider with a secret and a mover runs the mover once after verify, reconnecting nothing", async () => {
@@ -133,7 +133,7 @@ test("keys: with secrets and no mover, the result and report carry provider name
   assert.equal(result.state, "verified");
   assert.deepEqual(result.reconnectProviders, ["zotero"]);
   assert.equal(JSON.stringify(result).includes(SECRET), false, "result holds no secret value");
-  const report = await sink.readText(REPORT_PATH);
+  const report = await sink.readText(await onlyReportPath(sink));
   assert.equal(report.includes(SECRET), false, "report holds no secret value");
   assert.deepEqual(JSON.parse(report).reconnectProviders, ["zotero"]);
   assert.deepEqual(marks, ["mark"]);

@@ -45,25 +45,22 @@ function listFailingSink(reportText: string | null, reportReadFails: boolean): M
   return sink;
 }
 
-test("report listing fails but report.json reads: this device keeps the other device's run", async () => {
+test("report listing fails: refused even though report.json reads, since the other device reports cannot be seen", async () => {
   const report = {
     version: 1,
     state: "incomplete",
     runs: [{ deviceId: "dev-a", state: "incomplete", at: NOW, kinds: {}, blobs: { db: 0, verified: 0 }, missing: [] }],
   };
-  const sink = listFailingSink(JSON.stringify(report), false);
+  const legacy = JSON.stringify(report);
+  const sink = listFailingSink(legacy, false);
   const result = await runWebExport({ kinds: KINDS, codec, source: server([L1]), sink, now: NOW, runDeviceId: "dev-b" });
 
-  assert.ok(!result.run.missing.some((m) => m.reason === "report unreadable"), "a readable report is not refused");
-  const written = JSON.parse(await sink.readText(REPORT_PATH));
-  assert.deepEqual(
-    written.runs.map((r: { deviceId?: string }) => r.deviceId),
-    ["dev-a", "dev-b"],
-    "the other device's run is kept when the listing fails",
-  );
+  assert.equal(result.state, "incomplete");
+  assert.ok(result.run.missing.some((m) => m.reason === "report unreadable"), "a listing that fails is never read as a clean union");
+  assert.equal(await MemorySink.prototype.readText.call(sink, REPORT_PATH), legacy, "the legacy report is read-only");
 });
 
-test("report listing fails and report.json cannot be read: refused, the report is never replaced", async () => {
+test("report listing fails and report.json cannot be read: refused, the legacy report is never replaced", async () => {
   const truncated = '{"version":1,"state":"verified","runs":[{"deviceId":"dev-a"';
   const sink = listFailingSink(truncated, true);
   const result = await runWebExport({ kinds: KINDS, codec, source: server([L1]), sink, now: NOW, runDeviceId: "dev-b" });

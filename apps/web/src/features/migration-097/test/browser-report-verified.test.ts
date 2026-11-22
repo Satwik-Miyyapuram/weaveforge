@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { MemorySink } from "../infrastructure/memory-sink";
 import { MIGRATION_KINDS, REPORT_PATH, type MigrationReport, type RunReport } from "../domain/report";
-import { browserReportVerified, readMigrationReport, unverifiedDevices } from "../domain/report";
+import { browserReportVerified, readMigrationRuns, unverifiedDevices } from "../domain/report";
 
 const KIND_OK = { db: 2, files: 2, written: 2, conflicts: [], trash: 0 };
 
@@ -144,16 +144,15 @@ test("browserReportVerified: without an ownDeviceId the check is false, even for
 
 const MALFORMED: [string, unknown][] = [
   ["runs is not an array", { runs: RUN }],
-  ["runs is empty", { runs: [] }],
   ["a run is null", { runs: [null] }],
   ["a run has no missing array", { runs: [{ ...RUN, missing: undefined }] }],
   ["a run's missing is an object", { runs: [{ ...RUN, missing: {} }] }],
 ];
 
 for (const [label, over] of MALFORMED) {
-  test(`readMigrationReport: a report whose ${label} is not a report (null, never throws)`, async () => {
+  test(`readMigrationRuns: a report whose ${label} is not a report (null, never throws)`, async () => {
     const sink = await sinkWith(JSON.stringify({ ...report(), ...(over as object) }));
-    assert.equal(await readMigrationReport(sink), null);
+    assert.equal(await readMigrationRuns(sink), null);
   });
 
   test(`browserReportVerified: a report whose ${label} is false, never throws`, async () => {
@@ -162,9 +161,9 @@ for (const [label, over] of MALFORMED) {
   });
 }
 
-test("readMigrationReport: a sink whose read throws gives null, never throws", async () => {
+test("readMigrationRuns: a sink whose read throws gives null, never throws", async () => {
   const throwing = { readText: async () => { throw new Error("EIO"); } };
-  assert.equal(await readMigrationReport(throwing), null);
+  assert.equal(await readMigrationRuns(throwing), null);
   assert.equal(await browserReportVerified(throwing), false);
 });
 
@@ -225,9 +224,9 @@ const BAD_SHAPE: [string, Partial<RunReport>][] = [
 ];
 
 for (const [label, over] of BAD_SHAPE) {
-  test(`readMigrationReport: a report whose ${label} is not a report (null)`, async () => {
+  test(`readMigrationRuns: a report whose ${label} is not a report (null)`, async () => {
     const sink = await sinkWith(JSON.stringify(report({ runs: [{ ...RUN, ...over }] })));
-    assert.equal(await readMigrationReport(sink), null);
+    assert.equal(await readMigrationRuns(sink), null);
   });
 
   test(`browserReportVerified: a report whose ${label} is false`, async () => {
