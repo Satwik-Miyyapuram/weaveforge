@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { createFileStore } from "../application/file-store";
+import { createFileStore, guardedSink } from "../application/file-store";
 import type { FileSink } from "../domain/ports";
 import { conflictCopyPath } from "../domain/conflict-path";
 import { sha256Hex } from "../domain/hash";
@@ -47,12 +47,12 @@ class FoldSink implements FileSink {
 
   async rename(from: string, to: string): Promise<void> {
     const bytes = await this.readBytes(from);
-    this.files.delete(from);
+    this.files.delete(this.storedKey(from));
     this.files.set(to, bytes);
   }
 
   async remove(path: string): Promise<void> {
-    if (!this.files.delete(path)) throw new Error(`missing file: ${path}`);
+    if (!this.files.delete(this.storedKey(path))) throw new Error(`missing file: ${path}`);
   }
 
   async writeIf(path: string, text: string, expected: string): Promise<boolean> {
@@ -71,6 +71,34 @@ test("presence is checked with stat: a case-only mismatch never overwrites the u
   assert.equal(await sink.readText("Notes/X.md"), "user", "the user's file keeps its bytes");
   assert.equal(held, conflictCopyPath("notes/x.md", 1), "the DB version lands in a conflict copy");
   assert.deepEqual(store.conflicts, [held]);
+});
+
+test("rename refuses a case-only collision with the user's file and keeps its bytes", async () => {
+  const sink = new FoldSink();
+  await sink.write("Notes/X.md", "user");
+  await sink.write("a.part", "mine");
+  const guarded = guardedSink(sink, await createFileStore(sink, {}));
+  await assert.rejects(guarded.rename("a.part", "notes/x.md"), /refusing to replace/);
+  assert.equal(await sink.readText("Notes/X.md"), "user", "the user's file keeps its bytes");
+  assert.equal(await sink.readText("a.part"), "mine", "the source is not moved");
+});
+
+test("rename to a free name moves the file", async () => {
+  const sink = new FoldSink();
+  await sink.write("a.part", "mine");
+  const guarded = guardedSink(sink, await createFileStore(sink, {}));
+  await guarded.rename("a.part", "b.md");
+  assert.equal(await sink.readText("b.md"), "mine");
+  assert.equal(await sink.exists("a.part"), false);
+});
+
+test("rename treats a target whose stat fails as present and refuses", async () => {
+  const sink = new FoldSink();
+  await sink.write("a.part", "mine");
+  sink.statFails.add("b.md");
+  const guarded = guardedSink(sink, await createFileStore(sink, {}));
+  await assert.rejects(guarded.rename("a.part", "b.md"), /refusing to replace/);
+  assert.equal(await sink.readText("a.part"), "mine", "the source is not moved");
 });
 
 test("a file whose stat fails counts as present and is never overwritten", async () => {

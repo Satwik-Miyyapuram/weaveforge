@@ -97,7 +97,14 @@ export function guardedSink(sink: FileSink, store: FileStore): FileSink {
     exists: (path) => sink.exists(path),
     async rename(from, to) {
       // Known gap until (c): the list-then-rename window is not atomic. (c) adds a refuse-to-replace rename on the real sinks.
-      if ((await sink.list()).includes(to)) throw new Error(`refusing to replace an existing file: ${to}`);
+      // Presence is stat, not list: a case-folding sink lists the stored spelling only. A failed stat counts as present.
+      let present: boolean;
+      try {
+        present = from !== to && (await sink.exists(to));
+      } catch {
+        present = true;
+      }
+      if (present) throw new Error(`refusing to replace an existing file: ${to}`);
       return sink.rename(from, to);
     },
     remove: (path) => sink.remove(path),
