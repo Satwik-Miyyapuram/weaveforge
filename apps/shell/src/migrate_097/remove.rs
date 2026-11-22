@@ -119,12 +119,16 @@ pub fn remove_old_data(
     if own_entry == "removed" || legacy_removed || (old_db_removed(pg_root) && !resume) {
         return Err("refused: old data already removed".to_owned());
     }
-    match state.as_str() {
-        "verified" | "removing" | "removed" => {}
-        other => {
-            return Err(format!(
-                "refused: migration state is not verified (report state: {other})"
-            ))
+    // A resume is decided by this device's own removing entry; another device's top-level state
+    // (say "incomplete" written mid-removal) must not strand a half-deleted cluster.
+    if !resume {
+        match state.as_str() {
+            "verified" | "removing" | "removed" => {}
+            other => {
+                return Err(format!(
+                    "refused: migration state is not verified (report state: {other})"
+                ))
+            }
         }
     }
     match report["runs"].as_array() {

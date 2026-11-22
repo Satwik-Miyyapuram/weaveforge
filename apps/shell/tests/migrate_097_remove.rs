@@ -785,6 +785,19 @@ fn refuses_when_exported_file_is_deleted_after_verify() {
 }
 
 #[test]
+fn a_resume_is_not_stranded_by_another_devices_top_level_state() {
+    let f = Fixture::new("resume-b-state", Some("verified"), Some(good_dump().as_slice()));
+    // dev-a started the removal; dev-b then wrote a top-level "incomplete" state.
+    f.set_report(&format!(
+        r#"{{"version":1,"state":"incomplete","removingDeviceId":"{DEVICE}","removals":{{"{DEVICE}":{{"state":"removing"}}}},"backup":"{BACKUP_NAME}","verifiedAt":"{NOW}","runs":[{RUN_CLEAN}]}}"#
+    ));
+    fs::remove_file(f.pg_root.join("exported-to.json")).unwrap();
+    f.run(&mut || Ok(())).expect("own removing entry decides, not the top-level state");
+    assert!(!f.pg_root.exists(), "cluster deleted on resume");
+    assert_eq!(f.report()["removals"][DEVICE]["state"], "removed");
+}
+
+#[test]
 fn resumes_a_removing_report_this_device_started() {
     let f = Fixture::new("resume", Some("verified"), Some(good_dump().as_slice()));
     f.set_report(&format!(
