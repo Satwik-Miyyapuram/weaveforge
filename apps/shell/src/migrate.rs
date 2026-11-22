@@ -255,6 +255,45 @@ fn configured_root(old_dir: &Path) -> Option<PathBuf> {
     Some(PathBuf::from(root))
 }
 
+/// The marker a 0.9.7 run leaves once it has moved this device's secrets: `<app data>/secrets-moved-<deviceId>.json`.
+#[must_use]
+pub fn secrets_marker_path(app_data: &Path, device_id: &str) -> PathBuf {
+    app_data.join(format!("secrets-moved-{device_id}.json"))
+}
+
+/// Whether the "install 0.9.7 first" gate shows. Only when old local-database data is on this device
+/// AND this device has neither a verified 0.9.7 export nor the secrets-moved marker. A fresh install
+/// has no old data, so it never sees the gate. An error or missing piece on the old-data or export
+/// check counts as "not done", so the gate shows rather than risking data.
+#[must_use]
+pub fn install_gate_required(
+    app_data: Option<&Path>,
+    electron: Option<&Path>,
+    device_id: Option<&str>,
+) -> bool {
+    match legacy_db_from(app_data, electron) {
+        Ok(false) => false,
+        Ok(true) => {
+            let migrated = marker_present(app_data, device_id)
+                || export_verified(electron.or(app_data), device_id);
+            !migrated
+        }
+        Err(_) => true,
+    }
+}
+
+fn marker_present(app_data: Option<&Path>, device_id: Option<&str>) -> bool {
+    matches!((app_data, device_id), (Some(dir), Some(id)) if secrets_marker_path(dir, id).is_file())
+}
+
+/// True when the workspace named by the prefs in `prefs_dir` holds this device's verified 0.9.7 run.
+fn export_verified(prefs_dir: Option<&Path>, device_id: Option<&str>) -> bool {
+    let (Some(dir), Some(id)) = (prefs_dir, device_id) else {
+        return false;
+    };
+    configured_root(dir).is_some_and(|root| matches!(report_state_verified(&root, Some(id)), Ok(true)))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -659,5 +698,80 @@ mod tests {
         fs::create_dir_all(legacy_pg_dir(&data).join("data")).unwrap();
         fs::write(legacy_pg_dir(&data).join("data").join("postmaster.pid"), "1").unwrap();
         assert_eq!(legacy_pg_data_present(&data), Ok(true));
+    }
+
+    fn write_report(ws: &Path, body: &str) {
+        let path = ws.join(REPORT_REL);
+        fs::create_dir_all(path.parent().unwrap()).unwrap();
+        fs::write(path, body).unwrap();
+    }
+
+    fn write_marker(app: &Path) {
+        fs::write(secrets_marker_path(app, DEVICE), "{}").unwrap();
+    }
+
+    /// The gate as the desktop asks it: this device id, app data only (no Electron dir).
+    fn gate(app: &Path) -> bool {
+        install_gate_required(Some(app), None, Some(DEVICE))
+    }
+
+    #[test]
+    fn fresh_install_shows_no_gate() {
+        let (data, _) = temp("gate-fresh");
+        assert!(!gate(&data));
+    }
+
+    #[test]
+    fn old_data_without_export_or_marker_shows_the_gate() {
+        let (data, _) = data_with("gate-bare", true, false);
+        assert!(gate(&data));
+    }
+
+    #[test]
+    fn old_data_with_verified_export_and_marker_shows_no_gate() {
+        let (data, ws) = data_with("gate-both", true, false);
+        write_report(&ws, COMPLETE);
+        write_marker(&data);
+        assert!(!gate(&data));
+    }
+
+    #[test]
+    fn old_data_with_verified_export_alone_shows_no_gate() {
+        let (data, ws) = data_with("gate-export", true, false);
+        write_report(&ws, COMPLETE);
+        assert!(!gate(&data));
+    }
+
+    #[test]
+    fn old_data_with_marker_alone_shows_no_gate() {
+        let (data, _) = data_with("gate-marker", true, false);
+        write_marker(&data);
+        assert!(!gate(&data));
+    }
+
+    #[test]
+    fn old_data_with_another_devices_export_shows_the_gate() {
+        let (data, ws) = data_with("gate-other-device", true, false);
+        write_report(&ws, &COMPLETE.replace(r#""deviceId":"device-a""#, r#""deviceId":"device-b""#));
+        assert!(gate(&data));
+    }
+
+    #[test]
+    fn old_data_with_an_unreadable_report_shows_the_gate() {
+        let (data, ws) = data_with("gate-bad-report", true, false);
+        fs::create_dir_all(ws.join(REPORT_REL)).unwrap();
+        assert!(gate(&data));
+    }
+
+    #[test]
+    fn unreadable_old_state_shows_the_gate() {
+        let (data, _) = temp("gate-unreadable");
+        fs::write(legacy_pg_dir(&data), "not a folder").unwrap();
+        assert!(gate(&data));
+    }
+
+    #[test]
+    fn missing_app_data_path_shows_the_gate() {
+        assert!(install_gate_required(None, None, Some(DEVICE)));
     }
 }
