@@ -106,8 +106,8 @@ pub fn remove_old_data(
         return Err("refused: report lists missing items".to_owned());
     }
     check_own_run_verdict(&report, device_id)?;
-    let resume = state == "removing"
-        && (report["removingDeviceId"].as_str() == Some(device_id) || !pg_root.exists());
+    // Only the device that started the removal resumes it; any other device runs the full checks.
+    let resume = state == "removing" && report["removingDeviceId"].as_str() == Some(device_id);
     if !resume {
         check_fresh_run(&report, device_id, now)?;
         check_exported_to(pg_root, folder)?;

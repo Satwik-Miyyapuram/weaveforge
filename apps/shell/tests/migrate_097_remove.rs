@@ -463,6 +463,53 @@ fn a_removed_cluster_is_marked_so_a_relaunch_never_restores_it() {
 }
 
 #[test]
+fn another_devices_removal_in_progress_is_refused_and_keeps_the_backups() {
+    let f = Fixture::new("other-device-backups", Some("verified"), Some(good_dump().as_slice()));
+    let run_b = RUN_CLEAN.replace("dev-a", "dev-b");
+    let report = format!(
+        r#"{{"version":1,"state":"removing","removingDeviceId":"{DEVICE}","backup":"{BACKUP_NAME}","verifiedAt":"{NOW}","runs":[{RUN_CLEAN},{run_b}]}}"#
+    );
+    f.set_report(&report);
+    fs::remove_dir_all(&f.pg_root).unwrap();
+    let mut stop = never_stop();
+    let result = remove_old_data(&f.folder, &f.pg_root, NOW, "dev-b", &mut || Ok(0), &mut stop);
+    let err = result.expect_err("dev-b must not finish dev-a's removal");
+    assert!(err.contains("exported"), "dev-b runs its own checks, which refuse: {err}");
+    assert!(
+        f.base.join("local-db-backups/keep.dump").exists(),
+        "dev-b must not delete the backups"
+    );
+    assert_eq!(f.report()["removingDeviceId"], DEVICE);
+}
+
+#[test]
+fn a_resume_with_the_cluster_gone_finishes_the_backup_delete() {
+    let f = Fixture::new("resume-gone", Some("verified"), Some(good_dump().as_slice()));
+    fs::write(f.base.join("old-db-removed"), "").unwrap();
+    f.set_report(&format!(
+        r#"{{"version":1,"state":"removing","removingDeviceId":"{DEVICE}","backup":"{BACKUP_NAME}","verifiedAt":"{NOW}","runs":[{RUN_CLEAN}]}}"#
+    ));
+    fs::remove_dir_all(&f.pg_root).unwrap();
+    f.run(&mut never_stop()).expect("the starting device resumes and finishes");
+    assert!(!f.base.join("local-db-backups").exists(), "backups deleted on resume");
+    assert_eq!(f.report()["state"], "removed");
+}
+
+#[test]
+fn a_junction_inside_local_db_backups_is_refused() {
+    let f = Fixture::new("backups-junction", Some("verified"), Some(good_dump().as_slice()));
+    let elsewhere = f.base.join("elsewhere");
+    fs::create_dir_all(&elsewhere).unwrap();
+    if !make_dir_link(&elsewhere, &f.base.join("local-db-backups/linked")) {
+        return;
+    }
+    let err = f.run(&mut never_stop()).expect_err("a junction in the backups must refuse");
+    assert!(err.contains("local-db-backups"), "{err}");
+    f.assert_untouched();
+    assert!(f.base.join("local-db-backups/keep.dump").exists(), "backups kept on refusal");
+}
+
+#[test]
 fn a_second_run_after_success_refuses() {
     let f = Fixture::new("second-run", Some("verified"), Some(good_dump().as_slice()));
     f.run(&mut || Ok(())).expect("first run removes");
