@@ -79,8 +79,12 @@ export async function readMigrationReport(fs: Pick<FileSink, "readText">): Promi
   } catch {
     return null;
   }
-  const state = (parsed as { state?: unknown } | null)?.state;
-  return state === "verified" || state === "incomplete" || state === "none" ? (parsed as MigrationReport) : null;
+  if (typeof parsed !== "object" || parsed === null) return null;
+  const { state, runs } = parsed as { state?: unknown; runs?: unknown };
+  if (!(state === "verified" || state === "incomplete" || state === "none")) return null;
+  if (!Array.isArray(runs) || runs.length === 0) return null;
+  const runsOk = runs.every((run) => typeof run === "object" && run !== null && Array.isArray((run as { missing?: unknown }).missing));
+  return runsOk ? (parsed as MigrationReport) : null;
 }
 
 /**

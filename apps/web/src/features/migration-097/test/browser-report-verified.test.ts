@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { MemorySink } from "../infrastructure/memory-sink";
 import { REPORT_PATH, type MigrationReport, type RunReport } from "../domain/report";
-import { browserReportVerified } from "../domain/report";
+import { browserReportVerified, readMigrationReport } from "../domain/report";
 
 const RUN: RunReport = {
   startedAt: "2026-11-22T00:00:00.000Z",
@@ -62,4 +62,30 @@ test("browserReportVerified: false when any run in the report lists a missing ro
     runs: [RUN, { ...RUN, missing: [{ kind: "blobs", id: "b1", reason: "size mismatch" }] }],
   });
   assert.equal(await browserReportVerified(await sinkWith(JSON.stringify(dirty))), false);
+});
+
+const MALFORMED: [string, unknown][] = [
+  ["runs is not an array", { runs: RUN }],
+  ["runs is empty", { runs: [] }],
+  ["a run is null", { runs: [null] }],
+  ["a run has no missing array", { runs: [{ ...RUN, missing: undefined }] }],
+  ["a run's missing is an object", { runs: [{ ...RUN, missing: {} }] }],
+];
+
+for (const [label, over] of MALFORMED) {
+  test(`readMigrationReport: a report whose ${label} is not a report (null, never throws)`, async () => {
+    const sink = await sinkWith(JSON.stringify({ ...report(), ...(over as object) }));
+    assert.equal(await readMigrationReport(sink), null);
+  });
+
+  test(`browserReportVerified: a report whose ${label} is false, never throws`, async () => {
+    const sink = await sinkWith(JSON.stringify({ ...report(), ...(over as object) }));
+    assert.equal(await browserReportVerified(sink), false);
+  });
+}
+
+test("readMigrationReport: a sink whose read throws gives null, never throws", async () => {
+  const throwing = { readText: async () => { throw new Error("EIO"); } };
+  assert.equal(await readMigrationReport(throwing), null);
+  assert.equal(await browserReportVerified(throwing), false);
 });
