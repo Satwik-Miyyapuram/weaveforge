@@ -95,5 +95,5 @@ export const INSTALL_097_NOTICE = {
 /** The web gate text for an account with legacy rows and no verified export. Your data is safe. */
 export const INSTALL_097_WEB_NOTICE = {
   title: "Export from 0.9.7 first.",
-  body: "Open this account once in WeaveForge 0.9.7 on the web or desktop and export, then come back. Your data is safe.",
+  body: "Open this account once in WeaveForge desktop 0.9.7, export, then come back. Your data is safe.",
 } as const;
