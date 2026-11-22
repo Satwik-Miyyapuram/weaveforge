@@ -401,17 +401,17 @@ test("runs: a run writes only this device's file, never rewrites the legacy repo
     deviceId: "dev-other",
   };
   const sink = new MemorySink();
-  const stale: RunReport = { ...other, deviceId: "web-me", startedAt: "2026-11-02T00:00:00.000Z" };
+  const stale: RunReport = { ...other, deviceId: "web-me-device", startedAt: "2026-11-02T00:00:00.000Z" };
   const legacy = JSON.stringify({ version: 1, state: "incomplete", backup: null, runs: [other, stale] });
   await sink.write(REPORT_PATH, legacy);
   const { source } = fakeServer({ rows: FIXTURE });
   const exportOnce = () =>
-    runWebExport({ kinds: KINDS, codec: fakeCodec(SUPPORTED), source, sink, now: NOW, runDeviceId: "web-me" });
+    runWebExport({ kinds: KINDS, codec: fakeCodec(SUPPORTED), source, sink, now: NOW, runDeviceId: "web-me-device" });
 
   await exportOnce();
   const first = (JSON.parse(await sink.readText(await onlyReportPath(sink))) as { runs: RunReport[] }).runs;
   assert.equal(first.length, 1, "the own file holds only this device's run");
-  assert.equal(first[0]?.deviceId, "web-me");
+  assert.equal(first[0]?.deviceId, "web-me-device");
   assert.equal(first[0]?.startedAt, NOW);
   assert.equal(await sink.readText(REPORT_PATH), legacy, "the legacy report keeps its bytes");
 
@@ -425,7 +425,7 @@ test("runs: a web run with no runDeviceId is refused with a fixed reason, never 
   const sink = new MemorySink();
   const result = await runWebExport({ kinds: KINDS, codec: fakeCodec(SUPPORTED), source, sink, now: NOW });
   assert.equal(result.state, "incomplete");
-  assert.deepEqual(result.run.missing.map((m) => m.reason), ["device id missing"]);
+  assert.deepEqual(result.run.missing.map((m) => m.reason), ["no device id: the browser install id is missing or malformed"]);
   assert.equal(result.run.deviceId, undefined);
 });
 
@@ -439,11 +439,11 @@ test("runs: a device's run replaces only its own older runs; another device's fa
     missing: [{ kind: "notes", id: "n1", reason: "x" }],
     deviceId: "dev-other",
   };
-  const mineOld: RunReport = { ...other, deviceId: "web-me", startedAt: "2026-11-02T00:00:00.000Z" };
+  const mineOld: RunReport = { ...other, deviceId: "web-me-device", startedAt: "2026-11-02T00:00:00.000Z" };
   const sink = new MemorySink();
   await sink.write(REPORT_PATH, JSON.stringify({ version: 1, state: "incomplete", backup: null, runs: [other, mineOld] }));
   const { source } = fakeServer({ rows: FIXTURE });
-  await runWebExport({ kinds: KINDS, codec: fakeCodec(SUPPORTED), source, sink, now: NOW, runDeviceId: "web-me" });
+  await runWebExport({ kinds: KINDS, codec: fakeCodec(SUPPORTED), source, sink, now: NOW, runDeviceId: "web-me-device" });
   const own = JSON.parse(await sink.readText(await onlyReportPath(sink))) as { runs: RunReport[] };
   assert.equal(own.runs.filter((r) => r.deviceId === "dev-other").length, 0, "another device's run is never copied into this file");
   // Readers union every file: dev-other's failed run in the legacy report is still named as unverified.

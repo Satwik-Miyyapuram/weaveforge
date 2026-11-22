@@ -80,12 +80,12 @@ test("backup: device A's backup stays in A's runs entry and the report-level bac
   await runWebExport({ kinds: [], codec: fakeCodec([]), source: a.source, sink, now: NOW, desktop: { folder: "/vault", bridge } });
 
   const b = fakeServer({ rows: {} });
-  await runWebExport({ runDeviceId: "dev-b", kinds: [], codec: fakeCodec([]), source: b.source, sink, now: NOW });
+  await runWebExport({ runDeviceId: "dev-b-install", kinds: [], codec: fakeCodec([]), source: b.source, sink, now: NOW });
 
   const reportA = JSON.parse(await sink.readText(ownReportPath("dev-a"))) as { backup: string | null; runs: RunReport[] };
   assert.equal(reportA.runs[0]?.backup, "dump-a.zip");
   assert.equal(reportA.backup, "dump-a.zip");
-  const reportB = JSON.parse(await sink.readText(ownReportPath("dev-b"))) as { backup: string | null; runs: RunReport[] };
+  const reportB = JSON.parse(await sink.readText(ownReportPath("dev-b-install"))) as { backup: string | null; runs: RunReport[] };
   assert.equal(reportB.runs[0]?.backup, null);
   assert.equal(reportB.backup, null, "device B's file never takes device A's dump");
 });
@@ -103,7 +103,7 @@ test("report: a legacy report whose runs is not a list refuses the run and is le
   const sink = new MemorySink();
   const legacy = JSON.stringify({ version: 1, state: "incomplete", backup: "old.dump", runs: "not-a-list" });
   await sink.write(REPORT_PATH, legacy);
-  const result = await runWebExport({ runDeviceId: "dev-x", kinds: [], codec: fakeCodec([]), source: fakeServer({ rows: {} }).source, sink, now: NOW });
+  const result = await runWebExport({ runDeviceId: "dev-x-install", kinds: [], codec: fakeCodec([]), source: fakeServer({ rows: {} }).source, sink, now: NOW });
   assert.equal(result.state, "incomplete");
   assert.ok(result.run.missing.some((m) => /is unreadable|cannot be listed/.test(m.reason)));
   assert.equal(await sink.readText(REPORT_PATH), legacy, "the unreadable legacy report is never merged over or rewritten");
