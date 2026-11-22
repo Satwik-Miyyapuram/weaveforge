@@ -175,3 +175,53 @@ test("non-milestone files in the plan folder are ignored", async () => {
   await fs.writeFile("thesis/plan/n--a.note.md", "---\nweaveforge-id: n\nweaveforge-type: note\n---\n");
   assert.deepEqual(await repo.list(), []);
 });
+
+test("add: builds the milestone with planned status, a trimmed title and a new id, and saves it", async () => {
+  const { repo, published } = setup();
+  const made = await repo.add({ title: "  Draft chapter 2 " });
+  assert.equal(made.title, "Draft chapter 2");
+  assert.equal(made.status, "planned");
+  assert.match(made.id, /^[0-9a-f-]{36}$/);
+  assert.deepEqual(await repo.getById(made.id), made);
+  assert.equal(published.at(-1)?.[0]?.title, "Draft chapter 2");
+});
+
+test("add: refuses an empty title and a target date that is not a calendar day, saving nothing", async () => {
+  const { repo, fs } = setup();
+  await assert.rejects(repo.add({ title: "   " }), /Milestone title is required\./);
+  await assert.rejects(repo.add({ title: "Bad", targetDate: "2026-02-30" }), /Target date must be yyyy-mm-dd\./);
+  assert.deepEqual(await files(fs), []);
+});
+
+test("setStatus: changes only the status", async () => {
+  const { repo } = setup();
+  await repo.save(milestone());
+  const changed = await repo.setStatus("ms-1", "done");
+  assert.deepEqual(changed, { ...milestone(), status: "done" });
+  assert.deepEqual(await repo.getById("ms-1"), changed);
+});
+
+test("update: applies the present fields and an empty targetDate clears the date", async () => {
+  const { repo } = setup();
+  await repo.save(milestone());
+  const renamed = await repo.update("ms-1", { title: " Submit thesis " });
+  assert.equal(renamed.title, "Submit thesis");
+  assert.equal(renamed.targetDate, "2026-12-01");
+  const cleared = await repo.update("ms-1", { targetDate: "" });
+  assert.equal(cleared.targetDate, undefined);
+});
+
+test("update: an empty title is refused and the stored milestone is unchanged", async () => {
+  const { repo } = setup();
+  await repo.save(milestone());
+  await assert.rejects(repo.update("ms-1", { title: "  " }), /Milestone title is required\./);
+  assert.equal((await repo.getById("ms-1"))?.title, "Submit draft");
+});
+
+test("remove: moves the milestone to the trash like delete", async () => {
+  const { repo, fs } = setup();
+  await repo.save(milestone());
+  await repo.remove("ms-1");
+  assert.equal(await repo.getById("ms-1"), null);
+  assert.ok((await files(fs)).some((path) => path.includes(".weaveforge/trash/")));
+});
