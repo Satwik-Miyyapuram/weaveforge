@@ -52,20 +52,50 @@ export type DesktopMigration = {
 };
 
 /**
+ * The runs already in report.json. [] when there is no report yet; null when report.json exists but cannot be
+ * read as a report (not JSON, or no runs array). A null is never merged over.
+ */
+async function readExistingRuns(sink: FileSink): Promise<RunReport[] | null> {
+  // A failed listing reads as no report, as before; the verify step reports the failed listing itself.
+  let listed: string[];
+  try {
+    listed = await sink.list();
+  } catch {
+    return [];
+  }
+  if (!listed.includes(REPORT_PATH)) return [];
+  try {
+    const parsed = JSON.parse(await sink.readText(REPORT_PATH)) as Partial<MigrationReport>;
+    if (Array.isArray(parsed.runs)) return parsed.runs;
+  } catch {
+    // Falls through: unreadable.
+  }
+  return null;
+}
+
+/** Moves an unreadable report.json to report.json.bad, or .bad.N when that name is taken. Nothing is overwritten. */
+async function moveAside(sink: FileSink): Promise<void> {
+  const taken = new Set(await sink.list());
+  let bad = `${REPORT_PATH}.bad`;
+  for (let n = 2; taken.has(bad); n++) bad = `${REPORT_PATH}.bad.${n}`;
+  await sink.rename(REPORT_PATH, bad);
+}
+
+/**
  * Writes report.json via a .part file and rename, so a half-written report is never seen.
  * The runs of other devices already in report.json are kept; this device's entry is replaced.
  */
 async function writeReport(sink: FileSink, report: MigrationReport): Promise<void> {
-  let existing: RunReport[] = [];
-  try {
-    const parsed = JSON.parse(await sink.readText(REPORT_PATH)) as Partial<MigrationReport>;
-    if (Array.isArray(parsed.runs)) existing = parsed.runs;
-  } catch {
-    existing = [];
+  const existing = await readExistingRuns(sink);
+  let runs = report.runs;
+  if (existing === null) {
+    // Unreadable: kept aside, never merged over. The export refuses before writing, so this is only a race.
+    await moveAside(sink);
+  } else {
+    const device = report.runs[0]?.deviceId;
+    runs = [...existing.filter((r) => r.deviceId !== device), ...report.runs];
   }
-  const device = report.runs[0]?.deviceId;
-  const kept = existing.filter((r) => r.deviceId !== device);
-  const merged: MigrationReport = { ...report, runs: [...kept, ...report.runs] };
+  const merged: MigrationReport = { ...report, runs };
   const part = `${REPORT_PATH}.part`;
   await sink.write(part, JSON.stringify(merged, null, 2));
   await sink.rename(part, REPORT_PATH);
@@ -191,6 +221,12 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
   if (projectFolders) checkProjectFolders(projectFolders);
   const writers = projectFolders ? [...givenWriters, createPaperFieldsWriter(sink, projectFolders)] : givenWriters;
   const target: MigrationTarget = desktop ? "folder" : "opfs";
+
+  // An unreadable report.json is never merged over: it is kept aside and this run is refused before any write.
+  if ((await readExistingRuns(sink)) === null) {
+    await moveAside(sink);
+    return refused(sink, now, "report unreadable", target, { deviceId: runDeviceId });
+  }
   const writerFor = (kind: string) => writers.find((w) => w.kinds.includes(kind));
   const dbCount: Record<string, number> = {};
   const backCount: Record<string, number> = {};
