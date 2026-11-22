@@ -133,3 +133,13 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
     }
 }
+
+/// Tauri command: this machine's id, created on first use in the app data folder.
+#[tauri::command]
+#[specta::specta]
+pub fn device_id(app: tauri::AppHandle) -> Result<String, String> {
+    use tauri::Manager;
+    let dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    get_or_create(&dir).map_err(|e| e.to_string())
+}
