@@ -9,6 +9,7 @@ import { defsToSettings, projectDefsMismatches, type FileFieldValue } from "../d
 import type { FileCodec, Row, ServerSource } from "../domain/ports";
 import { runWebExport } from "../application/run-web-export";
 import { createPaperFieldsWriter } from "../infrastructure/kind-writer-paper-fields";
+import { createTagsWriter } from "../infrastructure/kind-writer-tags";
 import { MemorySink } from "../infrastructure/memory-sink";
 import { sinkAsWorkspaceFs } from "../infrastructure/sink-workspace-fs";
 
@@ -201,4 +202,65 @@ test("paper field values: a value whose paper has no file is listed missing", as
   });
   assert.equal(result.state, "incomplete");
   assert.ok(result.run.missing.some((m) => m.kind === "paperFieldValues" && m.id === "v9"));
+});
+
+test("settings writers: paper fields and tags keep each other's keys in either write order", async () => {
+  for (const order of ["fields-first", "tags-first"] as const) {
+    const sink = new MemorySink();
+    const fields = createPaperFieldsWriter(sink, FOLDERS);
+    const tags = createTagsWriter(sink);
+    const writeFields = async () => {
+      for (const def of DEFS) await fields.write("paperFields", def);
+    };
+    const writeTag = () => tags.write("tags", { id: "Urgent", name: "Urgent", color: "#f00" });
+    if (order === "fields-first") {
+      await writeFields();
+      await writeTag();
+    } else {
+      await writeTag();
+      await writeFields();
+    }
+    const doc = await readSettings(sink);
+    assert.deepEqual(doc.paperFields, defsToSettings(DEFS, FOLDERS), order);
+    // The tag's settings key is the slugged name.
+    assert.deepEqual(doc.tags, { urgent: { color: "#f00" } }, order);
+  }
+});
+
+test("paper field values: a null or empty projectId maps to the workspace root", async () => {
+  const core = typedCore();
+  const sink = new MemorySink();
+  await sink.write("papers/b.paper.md", core.writePaperRow(null, { id: "p2", title: "B" }) + "Body.\n");
+  const writer = createPaperFieldsWriter(sink, FOLDERS);
+  await writer.write("paperFields", DEFS[2] as Row);
+  await writer.write("paperFieldValues", { id: "v5", projectId: null, paperId: "p2", fieldId: "fb", value: "ICML" });
+  await writer.write("paperFieldValues", { id: "v6", projectId: "", paperId: "p2", fieldId: "fb", value: "ICML" });
+  const fs = sinkAsWorkspaceFs(sink);
+  const { FilePaperRepository } = await import("@/features/papers/infrastructure/file-paper-repository");
+  const root = new FilePaperFieldRepository(new FilePaperRepository(fs, ""), settingsOver(await readSettings(sink)), fs, () => "");
+  assert.deepEqual((await root.listValuesForProject()).map((v) => [v.id, v.value as FileFieldValue]), [["p2:fb", "ICML"]]);
+});
+
+test("paper field values: an unmapped project is a per-row missing entry and the other rows still export", async () => {
+  const core = typedCore();
+  const sink = new MemorySink();
+  await sink.write("Thesis/papers/a.paper.md", core.writePaperRow(null, { id: "p1", title: "A" }) + "Body.\n");
+  const values = [...VALUES.slice(0, 2), { id: "v8", projectId: "proj-unknown", paperId: "p1", fieldId: "fa", value: "x" }];
+  const result = await runWebExport({
+    kinds: ["paperFields", "paperFieldValues"],
+    codec: NO_CODEC,
+    now: NOW,
+    source: fakeSource({ paperFields: DEFS, paperFieldValues: values }),
+    sink,
+    writers: [createPaperFieldsWriter(sink, FOLDERS)],
+  });
+  assert.equal(result.state, "incomplete");
+  const missing = result.run.missing.filter((m) => m.kind === "paperFieldValues" && m.id === "v8");
+  assert.equal(missing.length, 1);
+  assert.ok(!missing[0]?.reason.includes("proj-unknown"));
+  const doc = await readSettings(sink);
+  const { FilePaperRepository } = await import("@/features/papers/infrastructure/file-paper-repository");
+  const fs = sinkAsWorkspaceFs(sink);
+  const thesis = new FilePaperFieldRepository(new FilePaperRepository(fs, "Thesis"), settingsOver(doc), fs, () => "Thesis");
+  assert.deepEqual((await thesis.listValuesForProject()).map((v) => v.id), ["p1:fa", "p1:fa2"]);
 });
