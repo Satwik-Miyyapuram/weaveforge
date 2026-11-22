@@ -177,7 +177,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: gh release download v0.9.7 --pattern latest.json --dir bridge
 
-      # Fails if a .sig is missing or the tag differs from tauri.conf.json.
+      # Fails if a .sig is missing, the tag differs from tauri.conf.json, or the fetched bridge is not the 0.9.7 latest.json byte for byte.
       - name: Write latest-v2.json and latest.json
         run: |
           bridge=""
