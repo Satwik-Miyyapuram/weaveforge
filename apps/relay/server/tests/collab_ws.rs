@@ -880,6 +880,31 @@ async fn sync_step1_flood_is_rate_limited() {
 }
 
 #[tokio::test]
+async fn deferred_sync_step1_is_sent_once_the_budget_allows() {
+    let dir = TempDir::new("step1-deferred");
+    let store = Arc::new(MemoryStore::new());
+    seed(&store, ITEM, Vec::new()).await;
+    let relay = Relay::start(dir.path(), store.clone(), PERSIST).await;
+
+    let mut owner = join(relay.port, ITEM, OWNER_TOKEN, Q1)
+        .await
+        .expect("owner joins");
+    let _hello = next_json(&mut owner).await;
+    let step1 = sync_step1(&StateVector::default());
+
+    // Burst of three is answered at once; the fourth is over budget and deferred.
+    for _ in 0..4 {
+        send_frame(&mut owner, step1.clone()).await;
+    }
+    assert_eq!(count_step2_replies(&mut owner).await, 3);
+
+    // The clock gives one token back. The client sends nothing more, so the reply to the
+    // deferred SyncStep1 must come from the retry tick alone.
+    relay.now.fetch_add(1_000, Ordering::SeqCst);
+    assert_eq!(count_step2_replies(&mut owner).await, 1);
+}
+
+#[tokio::test]
 async fn lagged_client_rechecks_after_revoke() {
     let dir = TempDir::new("lagged");
     let store = Arc::new(MemoryStore::new());
