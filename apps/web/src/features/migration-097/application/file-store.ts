@@ -52,8 +52,22 @@ export async function createFileStore(sink: FileSink, prior: Outputs): Promise<F
     }
   };
 
-  /** A sidecar that cannot be checked counts as taken, so the blob is never written without a sidecar name it owns. */
-  const sidecarTaken = (sidecar: string): Promise<boolean> => sink.exists(sidecar).catch(() => true);
+  /**
+   * Whether a sidecar name is taken. A sidecar already holding this blob's own sha256 is free: it is the blob's sidecar.
+   * A sidecar that cannot be checked or read counts as taken, so the blob is never written without a sidecar it owns.
+   */
+  const sidecarTaken = async (sidecar: string, hash: string): Promise<boolean> => {
+    try {
+      if (!(await sink.exists(sidecar))) return false;
+    } catch {
+      return true;
+    }
+    try {
+      return (await sink.readText(sidecar)).split("\n")[0] !== hash;
+    } catch {
+      return true;
+    }
+  };
 
   return {
     async store(path, data, hash, copy) {
@@ -64,7 +78,7 @@ export async function createFileStore(sink: FileSink, prior: Outputs): Promise<F
         const state = await stateAt(candidate);
         if (!state.present) {
           // A candidate is free only when its .sha256 sidecar name is free too: a stale sidecar would leave the blob without its own.
-          if (await sidecarTaken(`${candidate}.sha256`)) continue;
+          if (await sidecarTaken(`${candidate}.sha256`, out.hash)) continue;
           await sink.write(candidate, out.data);
         } else {
           // An unreadable file is never overwritten: skip to the next candidate.
