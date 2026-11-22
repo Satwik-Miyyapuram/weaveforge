@@ -97,6 +97,27 @@ test("with the overlay on, a settings write lands in the file repo and PostgREST
   assert.deepEqual(dbCalls, [], "no PostgREST call for the settings write");
 });
 
+test("with the overlay on, a credential save never reaches the database client", async () => {
+  const { bridge } = memoryVault();
+  const section = { get: () => undefined, set: () => {} } as never;
+  const backend = wireBackend(config, { projectId: null }, () => null, {
+    migration: "verified",
+    onDesktop: true,
+    wireDesktopFileBackend: wireDesktopFileBackend(bridge, section),
+  });
+  const dbCalls: string[] = [];
+  backend.db.from = (table: string) => {
+    dbCalls.push(`from ${table}`);
+    throw new Error(`unexpected database call: from ${table}`);
+  };
+  backend.db.rpc = (name: string) => {
+    dbCalls.push(`rpc ${name}`);
+    throw new Error(`unexpected database call: rpc ${name}`);
+  };
+  await backend.manageSettings.save({ zoteroApiKey: "key-for-test" });
+  assert.deepEqual(dbCalls, [], "the credential stayed off the database client");
+});
+
 test("with the overlay on, screening goes to the file repo and PostgREST sees no write", async () => {
   const { bridge } = memoryVault();
   const backend = wireBackend(config, { projectId: null }, () => null, {
