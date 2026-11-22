@@ -6,7 +6,7 @@ import { FormError } from "@/components/form-error";
 import { WeaveForgeLogo } from "@/components/weave-forge-logo";
 import { appOrigin, authRedirectTo, pastedSignInQuery } from "@/lib/desktop/desktop-auth";
 import { desktop } from "@/lib/desktop/desktop-bridge";
-import { setLocalMode } from "@/backend/providers/local/local-identity";
+import { setLocalMode } from "@/features/auth/domain/no-account-mode";
 import { runBusy } from "./run-busy";
 import { Button } from "@/components/button";
 

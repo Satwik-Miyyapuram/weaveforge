@@ -26,11 +26,8 @@ import type {
 } from "@weaveforge/core";
 import type { LocalQuery } from "./pglite-client";
 
-import { readStored, removeStored, writeStored } from "@/lib/safe-storage";
+import { setLocalMode } from "@/features/auth/domain/no-account-mode";
 import { readyCore } from "@/lib/rust-core";
-
-/** Where the choice is kept. The shell remembers it too, for the next launch. */
-const choiceKey = (): string => readyCore().localModeKey();
 
 export const LOCAL_USER: AuthUser = {
   id: LOCAL_USER_ID,
@@ -38,19 +35,6 @@ export const LOCAL_USER: AuthUser = {
   emailVerified: false,
   providers: ["local"],
 };
-
-/** Whether this window is working on the computer rather than on an account. */
-export function isLocalMode(): boolean {
-  // A window with storage denied cannot remember a choice, so it has none.
-  return readyCore().localIsLocalMode(readStored(choiceKey()) ?? undefined);
-}
-
-/** Remember the choice. Reloading is the caller's job: the wiring is built once. */
-export function setLocalMode(on: boolean): void {
-  // Storage denied: the window simply starts on the sign-in screen next time.
-  if (on) writeStored(choiceKey(), "1");
-  else removeStored(choiceKey());
-}
 
 const NEEDS_ACCOUNT =
   "This copy is working on your computer, with no account. Sign in to use that.";

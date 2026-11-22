@@ -3,7 +3,7 @@
 import { desktop } from "@/lib/desktop/desktop-bridge";
 import { readStored, removeStored, writeStoredJson } from "@/lib/safe-storage";
 import { readyCore } from "@/lib/rust-core";
-import { isLocalMode } from "./local-identity";
+import { isLocalMode } from "@/features/auth/domain/no-account-mode";
 
 /**
  * Which account this desktop's database belongs to, once it has been adopted

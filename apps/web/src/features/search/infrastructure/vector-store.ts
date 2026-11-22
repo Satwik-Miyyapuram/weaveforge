@@ -1,4 +1,4 @@
-import { isLocalMode } from "@/backend/providers/local/local-identity";
+import { isLocalMode } from "@/features/auth/domain/no-account-mode";
 import { LocalRunner } from "@/backend/providers/local/parts";
 import { localFiles, type LocalFiles } from "@/backend/providers/local/parts-1";
 import { desktop } from "@/lib/desktop/desktop-bridge";

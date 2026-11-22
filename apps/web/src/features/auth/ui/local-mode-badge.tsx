@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { isLocalMode } from "@/backend/providers/local/local-identity";
+import { isLocalMode } from "@/features/auth/domain/no-account-mode";
 
 /**
  * Says, in the app itself, that this copy needs nothing from the network.

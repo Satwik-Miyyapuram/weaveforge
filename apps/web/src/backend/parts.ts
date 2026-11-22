@@ -13,7 +13,8 @@ import {
   ManageSettingsUseCase as ManageSettingsUseCaseClass,
 } from "@weaveforge/core";
 import type { BackendConfigField } from "@weaveforge/wasm";
-import { isLocalMode, LocalAuthService } from "./providers/local/local-identity";
+import { isLocalMode } from "@/features/auth/domain/no-account-mode";
+import { LocalAuthService } from "./providers/local/local-identity";
 import { localBackendParts } from "./providers/local/parts";
 import { createDataClient } from "./providers/postgrest/parts-1";
 import { rustRepository } from "./providers/postgrest/rust-repository";

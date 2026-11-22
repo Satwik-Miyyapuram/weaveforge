@@ -1,5 +1,5 @@
 import { readBackendConfig } from "@/backend/parts";
-import { isLocalMode } from "@/backend/providers/local/local-identity";
+import { isLocalMode } from "@/features/auth/domain/no-account-mode";
 import { localBackendParts } from "@/backend/providers/local/parts";
 import { createDataClient } from "@/backend/providers/postgrest/parts-1";
 import type { CitationFormat } from "@/features/overleaf/application/parts";

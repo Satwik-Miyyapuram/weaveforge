@@ -15,10 +15,7 @@ import { formatError } from "@/lib/format-error";
 import { readyCore } from "@/lib/rust-core";
 import { useCapability } from "@/deployment/capabilities";
 import { desktop } from "@/lib/desktop/desktop-bridge";
-import {
-  isLocalMode,
-  setLocalMode,
-} from "@/backend/providers/local/local-identity";
+import { isLocalMode, setLocalMode } from "@/features/auth/domain/no-account-mode";
 import { Button } from "@/components/button";
 
 /**
