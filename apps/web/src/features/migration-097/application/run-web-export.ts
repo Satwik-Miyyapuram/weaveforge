@@ -7,7 +7,7 @@ import {
   type MissingRow,
   type RunReport,
 } from "../domain/report";
-import type { FileCodec, FileSink, ServerSource } from "../domain/ports";
+import type { FileCodec, FileSink, Row, ServerSource } from "../domain/ports";
 import type { KindWriter } from "../domain/kind-writer";
 import { sha256Hex } from "../domain/hash";
 import { sameRows, verifyExport, type Verdict } from "./verify-export";
@@ -90,6 +90,36 @@ async function refused(
  * (via a .part file and rename, so a half-written report is never seen).
  * Never deletes or changes a server personal row.
  */
+const TRASH_DIR = ".weaveforge/migration-0.9.7/trash";
+
+/**
+ * Trashed rows are never dropped. Each raw row is written as JSON and must read back to the
+ * same JSON, or it is listed missing. Returns how many rows verified.
+ */
+async function exportTrash(kind: string, rows: Row[], sink: FileSink, missing: MissingRow[]): Promise<number> {
+  let verified = 0;
+  for (const row of rows) {
+    const id = String(row.id);
+    const path = `${TRASH_DIR}/${kind}/${encodeURIComponent(id)}.json`;
+    const text = JSON.stringify(row);
+    try {
+      await sink.write(path, text);
+    } catch {
+      missing.push({ kind, id, reason: "trash write failed" });
+      continue;
+    }
+    let back: string;
+    try {
+      back = JSON.stringify(JSON.parse(await sink.readText(path)));
+    } catch {
+      back = "";
+    }
+    if (back === text) verified++;
+    else missing.push({ kind, id, reason: "trash read-back mismatch" });
+  }
+  return verified;
+}
+
 export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
   const { kinds, codec, source, sink, now, onProgress, desktop, writers = [], moveSecrets, secretsPresent, runDeviceId } = opts;
   const target: MigrationTarget = desktop ? "folder" : "opfs";
@@ -163,6 +193,7 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
     ],
   });
 
+  const trashCount: Record<string, number> = {};
   let current = "*";
   try {
     for (const kind of kinds) {
@@ -176,6 +207,7 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
         if (bad > 0) missing.push({ kind, id: "*", reason: `${bad} content_enc row(s) failed to decrypt` });
         written[kind] = 0;
         dbCount[kind] = rows.length;
+        trashCount[kind] = await exportTrash(kind, await source.listTrashed(kind), sink, missing);
         const writer = writerFor(kind);
         if (writer) {
           for (const row of rows) {
@@ -268,6 +300,7 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
       files: isWriter ? (backCount[kind] ?? 0) : (verdict.kinds[kind]?.files ?? 0),
       written: written[kind] ?? 0,
       conflicts: conflicts[kind] ?? [],
+      trash: trashCount[kind] ?? 0,
     };
   }
 

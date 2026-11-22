@@ -7,6 +7,8 @@ export type BlobRef = { bucket: string; path: string; sizeBytes: number };
 /** Server side of the export. Real PostgREST wiring is a later step; tests use fakes. */
 export interface ServerSource {
   listRows(kind: string): Promise<Row[]>;
+  /** Raw rows with deleted_at set. Never dropped: the export writes each one to trash/. */
+  listTrashed(kind: string): Promise<Row[]>;
   /** Raw server count for the kind (HEAD, Prefer: count=exact). Cross-checks listRows. */
   countRows(kind: string): Promise<number>;
   /** Unflushed local writes. Non-zero means the export must refuse to run. */

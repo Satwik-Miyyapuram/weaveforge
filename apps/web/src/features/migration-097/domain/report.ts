@@ -31,7 +31,7 @@ export type MigrationState = "verified" | "incomplete" | "none";
 /** Where the export landed: the browser OPFS repos, or a desktop folder. */
 export type MigrationTarget = "opfs" | "folder";
 
-export type KindCount = { db: number; files: number; written: number; conflicts: string[] };
+export type KindCount = { db: number; files: number; written: number; conflicts: string[]; trash: number };
 
 export type MissingRow = { kind: string; id: string; reason: string };
 

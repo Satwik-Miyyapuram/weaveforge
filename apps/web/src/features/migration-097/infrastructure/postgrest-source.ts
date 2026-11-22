@@ -76,9 +76,10 @@ export class PostgrestSource implements ServerSource {
     this.opts = opts;
   }
 
-  private filter(table: string): string {
+  private filter(table: string, trashed = false): string {
     const base = `${this.opts.baseUrl}/${table}?user_id=eq.${this.opts.userId}`;
-    return SOFT_DELETE_TABLES.has(table) ? `${base}&deleted_at=is.null` : base;
+    if (!SOFT_DELETE_TABLES.has(table)) return base;
+    return `${base}&deleted_at=${trashed ? "not.is.null" : "is.null"}`;
   }
 
   private async request(
@@ -104,6 +105,18 @@ export class PostgrestSource implements ServerSource {
       return (await res.json()) as Row[];
     }, PAGE_SIZE);
     return rows.map(toCamelRow);
+  }
+
+  /** Raw trashed rows (deleted_at not null). Tables without deleted_at have no trash. */
+  async listTrashed(kind: string): Promise<Row[]> {
+    if (FILE_ONLY_KINDS.includes(kind)) return [];
+    const table = tableFor(kind);
+    if (!SOFT_DELETE_TABLES.has(table)) return [];
+    return listAllPages<Row>(async (offset, limit) => {
+      const url = `${this.filter(table, true)}&order=id.asc&limit=${limit}&offset=${offset}`;
+      const res = await this.request(url, { method: "GET" }, table);
+      return (await res.json()) as Row[];
+    }, PAGE_SIZE);
   }
 
   async countRows(kind: string): Promise<number> {

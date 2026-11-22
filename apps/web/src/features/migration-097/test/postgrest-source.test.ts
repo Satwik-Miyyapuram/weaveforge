@@ -230,3 +230,28 @@ test("a table without a deleted_at column is listed with no deleted_at filter (P
     `${BASE}/user_settings?user_id=eq.${USER}&order=id.asc&limit=1000&offset=0`,
   );
 });
+
+test("listTrashed reads deleted rows (deleted_at not null); listRows keeps live rows only", async () => {
+  const trashed = { id: "p9", title: "old", deleted_at: "2026-11-01T00:00:00.000Z" };
+  const { fetch, calls } = fakeFetch((call) => {
+    const offset = new URL(call.url).searchParams.get("offset");
+    return Response.json(offset === "0" ? [trashed] : []);
+  });
+  const source = sourceWith(fetch);
+  assert.deepEqual(await source.listTrashed("papers"), [trashed]);
+  const trashCall = calls[0];
+  assert.ok(trashCall);
+  assert.equal(new URL(trashCall.url).searchParams.get("deleted_at"), "not.is.null");
+
+  const before = calls.length;
+  await source.listRows("papers");
+  const liveCall = calls[before];
+  assert.ok(liveCall);
+  assert.equal(new URL(liveCall.url).searchParams.get("deleted_at"), "is.null");
+});
+
+test("listTrashed on a table without deleted_at makes no request and returns nothing", async () => {
+  const { fetch, calls } = fakeFetch(() => Response.json([]));
+  assert.deepEqual(await sourceWith(fetch).listTrashed("metrics"), []);
+  assert.equal(calls.length, 0);
+});

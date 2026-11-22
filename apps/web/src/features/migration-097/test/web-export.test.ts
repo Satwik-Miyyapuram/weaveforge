@@ -33,6 +33,7 @@ function fakeServer(opts: {
   rawCounts?: Record<string, number>;
   outbox?: number;
   undecryptable?: Record<string, number>;
+  trashed?: Record<string, Row[]>;
 }) {
   const calls: string[] = [];
   const source: ServerSource = {
@@ -46,6 +47,10 @@ function fakeServer(opts: {
       return opts.rawCounts?.[kind] ?? (opts.rows[kind] ?? []).length;
     },
     pendingOutbox: async () => opts.outbox ?? 0,
+    listTrashed: async (kind) => {
+      calls.push(`trash:${kind}`);
+      return opts.trashed?.[kind] ?? [];
+    },
     undecryptable: async (kind) => opts.undecryptable?.[kind] ?? 0,
     listBlobs: async () => (opts.blobs ?? []).map((b) => b.ref),
     fetchBlob: async (ref) => {
@@ -1208,4 +1213,37 @@ test("readMigrationReport: the report the web export writes reads back and switc
   assert.equal(report.target, "opfs");
   assert.deepEqual(report, JSON.parse(await sink.readText(REPORT_PATH)));
   assert.equal(writesOff(report), true);
+});
+
+const TRASH_ROW = { id: "t1", body: "gone", deleted_at: "2026-11-01T00:00:00.000Z" };
+const TRASH_PATH = ".weaveforge/migration-0.9.7/trash/logEntries/t1.json";
+
+test("trash: a trashed row is exported as raw JSON, read back equal, and counted per kind", async () => {
+  const { source } = fakeServer({ rows: FIXTURE, trashed: { logEntries: [TRASH_ROW] } });
+  const sink = new MemorySink();
+  const result = await runWebExport({ kinds: KINDS, codec: fakeCodec(SUPPORTED), source, sink, now: NOW });
+
+  assert.deepEqual(JSON.parse(await sink.readText(TRASH_PATH)), TRASH_ROW);
+  assert.equal(result.run.kinds.logEntries?.trash, 1);
+  assert.equal(result.run.kinds.experiments?.trash, 0);
+  assert.equal(result.run.missing.filter((m) => m.reason.startsWith("trash")).length, 0);
+});
+
+test("trash: a trash file that does not read back equal goes to missing, state incomplete, no marker", async () => {
+  class TamperingSink extends MemorySink {
+    override async readText(path: string): Promise<string> {
+      return path.includes("/trash/") ? JSON.stringify({ id: "t1", body: "changed" }) : super.readText(path);
+    }
+  }
+  const { source, calls } = fakeServer({ rows: FIXTURE, trashed: { logEntries: [TRASH_ROW] } });
+  const result = await runWebExport({
+    kinds: KINDS, codec: fakeCodec(SUPPORTED), source, sink: new TamperingSink(), now: NOW,
+  });
+
+  assert.equal(result.state, "incomplete");
+  assert.deepEqual(
+    result.run.missing.filter((m) => m.kind === "logEntries" && m.reason.startsWith("trash")),
+    [{ kind: "logEntries", id: "t1", reason: "trash read-back mismatch" }],
+  );
+  assert.equal(calls.some((c) => c.startsWith("mark:")), false);
 });
