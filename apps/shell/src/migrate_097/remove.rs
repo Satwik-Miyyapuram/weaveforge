@@ -120,6 +120,28 @@ pub fn remove_old_data(
     local_secrets_rows: &mut dyn FnMut() -> Result<u64, String>,
     stop_pg: &mut dyn FnMut() -> Result<(), String>,
 ) -> Result<(), String> {
+    remove_with(
+        folder,
+        pg_root,
+        now,
+        device_id,
+        local_secrets_rows,
+        stop_pg,
+        &mut |path: &Path, change: &dyn Fn(&mut serde_json::Value)| update_report(path, change),
+    )
+}
+
+/// `remove_old_data` with the final report write injected. The write runs after the cluster is
+/// deleted; if it fails, the next launch resumes from the `removing` entry and finishes it.
+pub(crate) fn remove_with(
+    folder: &Path,
+    pg_root: &Path,
+    now: &str,
+    device_id: &str,
+    local_secrets_rows: &mut dyn FnMut() -> Result<u64, String>,
+    stop_pg: &mut dyn FnMut() -> Result<(), String>,
+    final_write: &mut dyn FnMut(&Path, &dyn Fn(&mut serde_json::Value)) -> Result<(), String>,
+) -> Result<(), String> {
     let report_path = folder.join(REPORT_REL);
     let report = read_report(&report_path)?;
     let state = report["state"].as_str().unwrap_or("").to_owned();
@@ -219,13 +241,14 @@ pub fn remove_old_data(
         fs::remove_dir_all(&backups)
             .map_err(|e| format!("cannot delete {}: {e}", backups.display()))?;
     }
-    update_report(&report_path, |r| {
+    final_write(&report_path, &|r: &mut serde_json::Value| {
         r["removals"][device_id] = serde_json::json!({ "state": "removed", "removedAt": now });
         if is_removal_state(r) {
             r["state"] = "removed".into();
             r["removedAt"] = now.into();
         }
     })
+    .map_err(|e| format!("removed, but report.json not updated: {e}"))
 }
 
 /// Launch hook: finishes a removal this device started and did not finish (a crash or power cut
@@ -658,5 +681,117 @@ mod update_report_tests {
         let err = result.expect_err("a report that keeps moving must refuse");
         assert!(err.starts_with("refused: report.json kept changing"), "{err}");
         assert_eq!(calls.get(), REPORT_WRITE_TRIES);
+    }
+}
+
+#[cfg(test)]
+mod final_write_tests {
+    use super::*;
+    use std::cell::Cell;
+
+    const NOW_T: &str = "2026-11-23T08:00:00Z";
+    const DEV: &str = "dev-a";
+    const RUN: &str = r#"{"startedAt":"2026-11-23T07:59:00Z","finishedAt":"2026-11-23T08:00:00Z","state":"verified","sources":[],"kinds":{"notes":{"db":1,"files":1}},"blobs":{"db":0,"verified":0},"deviceId":"dev-a","missing":[]}"#;
+
+    struct Setup {
+        base: PathBuf,
+        folder: PathBuf,
+        pg_root: PathBuf,
+    }
+
+    impl Drop for Setup {
+        fn drop(&mut self) {
+            let _ = fs::remove_dir_all(&self.base);
+        }
+    }
+
+    /// A verified folder with a good backup, this device's secrets file and exported-to.json, plus
+    /// a cluster dir and a backups dir beside it. Mirrors what `remove_old_data` gates on.
+    fn setup(name: &str) -> Setup {
+        let base = std::env::temp_dir()
+            .join(format!("wf-m097-final-write-{name}-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&base);
+        let folder = base.join("vault");
+        let pg_root = base.join("local-pg");
+        let dir = folder.join(MIGRATION_DIR);
+        fs::create_dir_all(&dir).unwrap();
+        fs::create_dir_all(pg_root.join("data")).unwrap();
+        fs::write(pg_root.join("data/PG_VERSION"), "16").unwrap();
+        fs::create_dir_all(base.join("local-db-backups")).unwrap();
+        fs::write(
+            folder.join(REPORT_REL),
+            format!(
+                r#"{{"version":1,"state":"verified","backup":"pre-migration.dump","verifiedAt":"{NOW_T}","runs":[{RUN}]}}"#
+            ),
+        )
+        .unwrap();
+        let mut dump = b"PGDMP".to_vec();
+        dump.extend_from_slice(&[1, 16, 0, 4, 8, 1]);
+        dump.resize(4096, 0);
+        fs::write(dir.join("pre-migration.dump"), dump).unwrap();
+        fs::write(
+            folder.join(secrets_rel(DEV)),
+            format!(r#"{{"movedAt":"{NOW_T}","count":0,"deviceId":"{DEV}"}}"#),
+        )
+        .unwrap();
+        let exported = serde_json::json!({ "folder": canonical(&folder).unwrap() });
+        fs::write(pg_root.join(EXPORTED_TO), exported.to_string()).unwrap();
+        Setup {
+            base,
+            folder,
+            pg_root,
+        }
+    }
+
+    fn read_report(folder: &Path) -> serde_json::Value {
+        let text = fs::read_to_string(folder.join(REPORT_REL)).unwrap();
+        serde_json::from_str(&text).unwrap()
+    }
+
+    #[test]
+    fn a_failed_final_write_leaves_a_removed_cluster_that_the_next_launch_finishes() {
+        let s = setup("final-write");
+        let injected = Cell::new(0_usize);
+        let mut fail_final = |_path: &Path, _change: &dyn Fn(&mut serde_json::Value)| {
+            injected.set(injected.get() + 1);
+            Err("disk full".to_owned())
+        };
+        let first = remove_with(
+            &s.folder,
+            &s.pg_root,
+            NOW_T,
+            DEV,
+            &mut || Ok(0),
+            &mut || Ok(()),
+            &mut fail_final,
+        );
+        let err = first.expect_err("the injected final write fails");
+        assert!(
+            err.starts_with("removed, but report.json not updated"),
+            "the failure must say the cluster is gone: {err}"
+        );
+        assert_eq!(injected.get(), 1, "the final write runs once");
+        assert!(!s.pg_root.exists(), "the cluster is deleted before the final write");
+        assert!(old_db_removed(&s.pg_root), "the marker is written before the delete");
+        let stuck = read_report(&s.folder);
+        assert_eq!(stuck["state"], "removing");
+        assert_eq!(stuck["removals"][DEV]["state"], "removing");
+
+        // Next launch: this device's own `removing` entry resumes the removal, stops Postgres once,
+        // and writes `removed` without deleting anything a second time.
+        let mut stops = 0_usize;
+        let mut count_stop = || {
+            stops += 1;
+            Ok(())
+        };
+        let resumed = resume_on_launch(&s.folder, &s.pg_root, DEV, NOW_T, &mut count_stop);
+        assert_eq!(resumed, Ok(true));
+        assert_eq!(stops, 1, "postgres is stopped once on the resume");
+        let done = read_report(&s.folder);
+        assert_eq!(done["state"], "removed");
+        assert_eq!(done["removals"][DEV]["state"], "removed");
+        assert!(old_db_removed(&s.pg_root), "the marker survives the resume");
+        assert!(!s.pg_root.exists(), "the cluster stays deleted");
+        assert!(!s.pg_root.parent().unwrap().join("local-db-backups").exists());
     }
 }
