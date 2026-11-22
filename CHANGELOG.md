@@ -20,6 +20,15 @@ tracks at once.
 
 ### iOS
 
+## [1.0.0] - TBD
+
+WeaveForge 1.0.0 is the first stable release. Your data lives in your workspace folder as plain files. The server keeps only organisation, sharing and relay data.
+
+### Desktop
+- **Changed:** Stable release. Everything in 0.9.8 is included.
+- **Removed:** The server no longer keeps personal notes, papers or other personal data. Only organisation, sharing and relay data stays on the server.
+- **TBD:** Whether an explicit "Remove old data" action ships in 1.0.0 (the plan puts it in 1.0.x).
+
 ## [0.9.8] - TBD
 
 Desktop (`v0.9.8`). Python SDK stays on 0.7.1; Android stays on 0.8.2; iOS stays on 0.8.0.
