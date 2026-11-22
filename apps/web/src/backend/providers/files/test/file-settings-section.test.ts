@@ -39,6 +39,26 @@ describe("file settings section: crash recovery of settings.json.part", () => {
   });
 });
 
+describe("file settings section: concurrent writers", () => {
+  it("two concurrent saves of different keys from separate handles both survive", async () => {
+    const fs = new MemoryWorkspaceFs();
+    const a = await openFileSettingsSection(fs, ROOT);
+    const b = await openFileSettingsSection(fs, ROOT);
+    await Promise.all([a.set(["zoteroLibrary"], "users/1"), b.set(["appearance"], { mode: "dark" })]);
+    const reopened = await openFileSettingsSection(fs, ROOT);
+    assert.equal(reopened.get(["zoteroLibrary"]), "users/1");
+    assert.deepEqual(reopened.get(["appearance"]), { mode: "dark" });
+  });
+
+  it("a failed write rejects the set that caused it", async () => {
+    const fs = new FailingPartFs();
+    await fs.mkdirp(`${ROOT}/.weaveforge`);
+    const s = await openFileSettingsSection(fs, ROOT);
+    fs.failPart = true;
+    await assert.rejects(s.set(["theme"], "dark"), /disk full/);
+  });
+});
+
 describe("file settings section: corrupt settings.json", () => {
   it("moves a corrupt file aside, starts empty and reports a notice", async () => {
     const fs = new MemoryWorkspaceFs();

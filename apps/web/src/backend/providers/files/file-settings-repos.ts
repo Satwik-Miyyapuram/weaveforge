@@ -81,8 +81,7 @@ export class FileDashboardLayoutRepository implements IDashboardLayoutRepository
   }
 
   save(projectId: string, layout: DashboardLayout): Promise<void> {
-    this.settings.set(["dashboard", projectId], clone(layout));
-    return Promise.resolve();
+    return Promise.resolve(this.settings.set(["dashboard", projectId], clone(layout)));
   }
 }
 
@@ -95,8 +94,7 @@ export class FileGraphSettingsRepository implements IGraphSettingsRepository {
   }
 
   save(projectId: string, state: GraphPersistedState): Promise<void> {
-    this.settings.set(["graph", projectId], clone(state));
-    return Promise.resolve();
+    return Promise.resolve(this.settings.set(["graph", projectId], clone(state)));
   }
 }
 
@@ -105,19 +103,18 @@ const QUOTATION_TYPES: readonly QuotationType[] = ["direct", "paraphrase", "summ
 export class FileQuotationTypeRepository implements IAnnotationQuotationTypeRepository {
   constructor(private readonly settings: SettingsSection) {}
 
-  save({ paperId, annotationKey, quotationType }: SaveAnnotationQuotationTypeInput): Promise<AnnotationQuotationType> {
+  async save({ paperId, annotationKey, quotationType }: SaveAnnotationQuotationTypeInput): Promise<AnnotationQuotationType> {
     const now = new Date().toISOString();
     const stored = this.settings.get(["quotationTypes", paperId, annotationKey]);
     const createdAt = isObject(stored) && typeof stored.createdAt === "string" ? stored.createdAt : now;
-    this.settings.set(["quotationTypes", paperId, annotationKey], { type: quotationType, createdAt, updatedAt: now });
-    return Promise.resolve({ id: `${paperId}:${annotationKey}`, paperId, annotationKey, quotationType, createdAt, updatedAt: now });
+    await this.settings.set(["quotationTypes", paperId, annotationKey], { type: quotationType, createdAt, updatedAt: now });
+    return { id: `${paperId}:${annotationKey}`, paperId, annotationKey, quotationType, createdAt, updatedAt: now };
   }
 
-  remove(paperId: string, annotationKey: string): Promise<void> {
+  async remove(paperId: string, annotationKey: string): Promise<void> {
     if (this.settings.get(["quotationTypes", paperId, annotationKey]) !== undefined) {
-      this.settings.set(["quotationTypes", paperId, annotationKey], undefined);
+      await this.settings.set(["quotationTypes", paperId, annotationKey], undefined);
     }
-    return Promise.resolve();
   }
 
   /** In file order; an entry with an unknown kind is skipped but kept. */
@@ -149,8 +146,7 @@ export class FileBibliographyCollectionStore implements IProjectBibliographyColl
   }
 
   setCollection(projectId: string, collectionKey: string | null): Promise<void> {
-    this.settings.set(["integrations", "zoteroCollection", projectId], collectionKey || undefined);
-    return Promise.resolve();
+    return Promise.resolve(this.settings.set(["integrations", "zoteroCollection", projectId], collectionKey || undefined));
   }
 }
 
@@ -229,8 +225,7 @@ export class FileSettingsRepository implements ISettingsRepository, SettingsWrit
   }
 
   saveDisclaimer(acceptedAt: string, version: number): Promise<void> {
-    this.settings.set(["disclaimer"], { acceptedAt, version });
-    return Promise.resolve();
+    return Promise.resolve(this.settings.set(["disclaimer"], { acceptedAt, version }));
   }
 
   acceptDisclaimer(): Promise<void> {
@@ -241,14 +236,12 @@ export class FileSettingsRepository implements ISettingsRepository, SettingsWrit
   saveAppearance(appearance: UserAppearance): Promise<void> {
     const stored = this.settings.get(["appearance"]);
     const merged = { ...(isObject(stored) ? stored : {}), ...appearance };
-    this.settings.set(["appearance"], typedCore().normalizeAppearance(merged) ?? undefined);
-    return Promise.resolve();
+    return Promise.resolve(this.settings.set(["appearance"], typedCore().normalizeAppearance(merged) ?? undefined));
   }
 
   saveNoticeSeen(version: string): Promise<void> {
     if (!version) return Promise.reject(new Error("A release notice version is required."));
-    this.settings.set(["releaseNoticeSeen"], version);
-    return Promise.resolve();
+    return Promise.resolve(this.settings.set(["releaseNoticeSeen"], version));
   }
 
   /** The release notice last dismissed, if any. */

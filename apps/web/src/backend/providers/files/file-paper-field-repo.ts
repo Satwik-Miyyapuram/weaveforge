@@ -55,15 +55,13 @@ export class FilePaperFieldRepository implements IPaperFieldRepository {
     );
   }
 
-  saveDef({ id, name, kind, options, sortOrder }: PaperFieldDef): Promise<void> {
-    this.settings.set([DEFS, id], { name, kind, options: [...options], sortOrder });
-    return Promise.resolve();
+  async saveDef({ id, name, kind, options, sortOrder }: PaperFieldDef): Promise<void> {
+    await this.settings.set([DEFS, id], { name, kind, options: [...options], sortOrder });
   }
 
   /** Drops the definition; papers keep their values in the file, unlisted. */
-  deleteDef(id: string): Promise<void> {
-    this.settings.set([DEFS, id], undefined);
-    return Promise.resolve();
+  async deleteDef(id: string): Promise<void> {
+    await this.settings.set([DEFS, id], undefined);
   }
 
   async listValuesForPaper(paperId: string): Promise<PaperFieldValue[]> {

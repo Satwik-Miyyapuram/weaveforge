@@ -43,6 +43,8 @@ function hasSecretInValue(value: unknown): string | null {
 export interface FileSettingsSection extends SettingsSection {
   /** Resolves once every `set` so far is on disk. Rejects if the write failed. */
   flush(): Promise<void>;
+  /** Resolves once the write is on disk; rejects if it failed. */
+  set(key: readonly string[], value: unknown): Promise<void>;
   /** Set when a corrupt settings.json was moved aside on open. */
   notice?: string;
 }
@@ -88,13 +90,20 @@ export async function openFileSettingsSection(fs: IWorkspaceFs, root: string): P
     }
   }
 
-  let queue: Promise<void> = Promise.resolve();
-  const persist = (keys: readonly string[]) => {
-    const next = queue
+  /**
+   * One write at a time per file, across every handle in this process. Each write re-reads the file,
+   * applies its own change to what is on disk, and writes it back, so a write never drops another's key.
+   */
+  const persist = (keys: readonly string[], apply: (doc: Json) => void): Promise<void> => {
+    const prev = writeQueues.get(path) ?? Promise.resolve();
+    const next = prev
       .then(async () => {
+        const doc = await readOnDisk();
+        apply(doc);
         await fs.mkdirp(dir);
-        await fs.writeFile(partPath, `${JSON.stringify(data, null, 2)}\n`);
+        await fs.writeFile(partPath, `${JSON.stringify(doc, null, 2)}\n`);
         await fs.rename(partPath, path);
+        data = doc;
       })
       .catch((error: unknown) => {
         // Key names and the error name only: a value may be a credential or a private note.
@@ -104,8 +113,13 @@ export async function openFileSettingsSection(fs: IWorkspaceFs, root: string): P
         });
         throw error;
       });
-    queue = next.catch(() => undefined);
+    writeQueues.set(path, next.catch(() => undefined));
     return next;
+  };
+
+  const readOnDisk = async (): Promise<Json> => {
+    if (!(await fs.stat(path))) return {};
+    return parseObject(await fs.readText(path)) ?? data;
   };
 
   return {
@@ -121,18 +135,25 @@ export async function openFileSettingsSection(fs: IWorkspaceFs, root: string): P
       if (key.some(isSecretPathSegment) || hasSecretInValue(value) !== null) {
         throw new Error(`Refusing to store a secret in settings.json (key "${key.join(".")}").`);
       }
-      let node: Json = data;
-      for (const part of key.slice(0, -1)) {
-        if (!isObject(node[part])) node[part] = {};
-        node = node[part] as Json;
-      }
-      const last = key[key.length - 1];
-      if (last !== undefined) node[last] = structuredClone(value);
-      persist(key).catch(() => undefined);
+      setAt(data, key, structuredClone(value));
+      return persist(key, (doc) => setAt(doc, key, structuredClone(value)));
     },
     flush() {
-      return persist([]);
+      return persist([], () => undefined);
     },
     notice,
   };
+}
+
+/** The write chain per settings.json path, shared by every section opened on that path in this process. */
+const writeQueues = new Map<string, Promise<void>>();
+
+function setAt(root: Json, key: readonly string[], value: unknown): void {
+  let node: Json = root;
+  for (const part of key.slice(0, -1)) {
+    if (!isObject(node[part])) node[part] = {};
+    node = node[part] as Json;
+  }
+  const last = key[key.length - 1];
+  if (last !== undefined) node[last] = value;
 }

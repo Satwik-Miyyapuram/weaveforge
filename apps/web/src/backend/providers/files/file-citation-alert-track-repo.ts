@@ -51,12 +51,12 @@ export class FileCitationAlertTrackRepository implements ICitationAlertTrackRepo
       lastCheckedAt: input.lastCheckedAt ?? existing?.lastCheckedAt,
       seenCitingIds: [...(input.seenCitingIds ?? existing?.seenCitingIds ?? [])],
     };
-    this.settings.set(["citationAlerts", input.paperId], stored);
+    await this.settings.set(["citationAlerts", input.paperId], stored);
     return toTrack(input.paperId, stored);
   }
 
   async untrack(paperId: string): Promise<void> {
-    this.settings.set(["citationAlerts", paperId], undefined);
+    await this.settings.set(["citationAlerts", paperId], undefined);
   }
 
   async listForProject(): Promise<CitationAlertTrack[]> {
@@ -79,7 +79,7 @@ export class FileCitationAlertTrackRepository implements ICitationAlertTrackRepo
       lastCheckedAt: track.lastCheckedAt,
       seenCitingIds: [...track.seenCitingIds],
     };
-    this.settings.set(["citationAlerts", track.paperId], stored);
+    await this.settings.set(["citationAlerts", track.paperId], stored);
   }
 
   private read(paperId: string): Stored | null {
