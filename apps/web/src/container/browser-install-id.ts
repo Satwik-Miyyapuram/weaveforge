@@ -1,10 +1,8 @@
 import type { IWorkspaceFs } from "@weaveforge/core";
+import { ID_SHAPE } from "@/features/migration-097/domain/install-id-shape";
 
 /** Where the browser and Android install keeps its id: the gitignored local folder, never synced. */
 export const INSTALL_ID_PATH = ".weaveforge/local/install-id";
-
-/** The shape of a usable install id. Callers that receive one from outside check it with this. */
-export const ID_SHAPE = /^[A-Za-z0-9-]{8,64}$/;
 
 const LOCK_NAME = "wf-install-id";
 
@@ -22,7 +20,19 @@ export async function readOrCreateInstallId(
   newId: () => string = () => crypto.randomUUID(),
 ): Promise<string> {
   const locks = globalThis.navigator?.locks;
-  if (locks) return locks.request(LOCK_NAME, () => readOrCreateUnlocked(fs, newId));
+  if (locks) {
+    let granted = false;
+    try {
+      return await locks.request(LOCK_NAME, () => {
+        granted = true;
+        return readOrCreateUnlocked(fs, newId);
+      });
+    } catch (error) {
+      // A denied lock (SecurityError) that was never granted falls back to the unlocked path.
+      // Any other failure, or one raised by the file work itself, still fails closed.
+      if (granted || (error as { name?: unknown } | null)?.name !== "SecurityError") throw error;
+    }
+  }
   return readOrCreateUnlocked(fs, newId);
 }
 

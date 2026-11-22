@@ -11,7 +11,7 @@ import type { FileCodec, FileSink, Row, ServerSource } from "../domain/ports";
 import type { KindWriter } from "../domain/kind-writer";
 import { sha256Hex } from "../domain/hash";
 import { sameRows, verifyExport, type Verdict } from "./verify-export";
-import { ID_SHAPE } from "@/container/browser-install-id";
+import { ID_SHAPE } from "../domain/install-id-shape";
 
 export type ExportProgress = { kind: string; done: number; total: number };
 
@@ -132,7 +132,7 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
 
   // A browser run must name a well-formed install id; without one the run cannot be matched or verified later.
   if (!desktop && !ID_SHAPE.test(runDeviceId ?? "")) {
-    return refused(sink, now, "no device id: the browser install id is missing", target);
+    return refused(sink, now, "no device id: the browser install id is missing or malformed", target);
   }
   const writerFor = (kind: string) => writers.find((w) => w.kinds.includes(kind));
   const dbCount: Record<string, number> = {};

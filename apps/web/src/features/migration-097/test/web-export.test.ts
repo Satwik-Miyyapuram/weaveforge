@@ -502,7 +502,7 @@ for (const bad of ["", "../../etc", "bad id!"]) {
     const { source, calls } = fakeServer({ rows: FIXTURE });
     const result = await runWebExport({ runDeviceId: bad, kinds: KINDS, codec: fakeCodec(SUPPORTED), source, sink, now: NOW });
     assert.equal(result.state, "incomplete");
-    assert.match(result.run.missing[0]?.reason ?? "", /no device id/);
+    assert.equal(result.run.missing[0]?.reason, "no device id: the browser install id is missing or malformed");
     assert.deepEqual(calls, [], "the server is not read with a malformed install id");
     assert.deepEqual(await sink.list(), [], "a malformed id writes no file, report included");
   });

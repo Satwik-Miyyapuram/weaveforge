@@ -107,6 +107,44 @@ test("with navigator.locks, two concurrent calls are serialised and both return 
   }
 });
 
+/** Runs `run` with navigator.locks replaced by `locks`, then restores navigator. */
+async function withLocks<T>(locks: unknown, run: () => Promise<T>): Promise<T> {
+  const original = Object.getOwnPropertyDescriptor(globalThis, "navigator");
+  Object.defineProperty(globalThis, "navigator", { value: { locks }, configurable: true });
+  try {
+    return await run();
+  } finally {
+    if (original) Object.defineProperty(globalThis, "navigator", original);
+    else Reflect.deleteProperty(globalThis, "navigator");
+  }
+}
+
+/** A lock manager whose every request rejects with the given error, as a denied lock does. */
+function rejectingLocks(error: unknown) {
+  return {
+    request<T>(_name: string, _callback: () => Promise<T>): Promise<T> {
+      return Promise.reject(error);
+    },
+  };
+}
+
+test("a SecurityError from navigator.locks falls back to the unlocked path and still returns an id", async () => {
+  const denied = Object.assign(new Error("lock denied"), { name: "SecurityError" });
+  const fs = folder();
+  const id = await withLocks(rejectingLocks(denied), () => readOrCreateInstallId(fs, () => "web-fallback-id"));
+  assert.equal(id, "web-fallback-id");
+  assert.equal(fs.files.get(INSTALL_ID_PATH), "web-fallback-id");
+});
+
+test("any other navigator.locks rejection still fails closed and writes no id", async () => {
+  const fs = folder();
+  await assert.rejects(
+    withLocks(rejectingLocks(new Error("lock broke")), () => readOrCreateInstallId(fs, () => "web-x")),
+    /lock broke/,
+  );
+  assert.equal(fs.files.size, 0);
+});
+
 test("two tabs creating an id at once both return the id that ended up stored", async () => {
   const fs = folder({}, "web-other-tab-id");
   const id = await readOrCreateInstallId(fs, () => "web-this-tab-id");
