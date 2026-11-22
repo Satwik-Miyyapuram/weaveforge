@@ -14,7 +14,7 @@ use serde_json::{Map, Value, json};
 use wf_core::storage::blob_access::{MAX_BLOB_BYTES, base64_byte_length, is_safe_segment};
 
 use crate::routes::AppState;
-use crate::safe_error::SERVER_FAULT;
+use crate::safe_error::{SERVER_FAULT, transport_log_line};
 use crate::sdk::{error_response, json_response, parse_body, user_db};
 use crate::sdk_inbox;
 
@@ -245,7 +245,7 @@ async fn store(
     let response = match reply {
         Ok(response) => response,
         Err(err) => {
-            eprintln!("[sdk-artifacts] upload failed: {err}");
+            eprintln!("{}", transport_log_line(&err, "sdk-artifacts"));
             return false;
         }
     };
@@ -253,7 +253,6 @@ async fn store(
     if status.is_success() {
         return true;
     }
-    let text = response.text().await.unwrap_or_default();
-    eprintln!("[sdk-artifacts] upload failed: {} {text}", status.as_u16());
+    eprintln!("[sdk-artifacts] upload failed: HTTP {}", status.as_u16());
     false
 }

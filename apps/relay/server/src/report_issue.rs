@@ -21,6 +21,7 @@ use wf_core::error_report::redact::{MAX_REPORT_CHARS, redact_and_cap};
 
 use crate::limiter::{Limit, RateLimiter};
 use crate::routes::AppState;
+use crate::safe_error::transport_log_line;
 use crate::sdk::{caller, error_response, json_response};
 
 /// Five reports in a burst, then one an hour: generous for a person, useless as spam.
@@ -153,7 +154,7 @@ async fn file_issue(state: &AppState, token: &str, payload: &Value) -> Result<Va
     let answer = match sent {
         Ok(answer) => answer,
         Err(err) => {
-            eprintln!("[report-issue] tracker unreachable: {err}");
+            eprintln!("{}", transport_log_line(&err, "report-issue tracker"));
             return Err(error_response(
                 502,
                 "The issue tracker could not be reached.",
@@ -177,7 +178,7 @@ async fn file_issue(state: &AppState, token: &str, payload: &Value) -> Result<Va
             }
         },
         Err(err) => {
-            eprintln!("[report-issue] tracker reply unreadable: {err}");
+            eprintln!("{}", transport_log_line(&err, "report-issue tracker reply"));
             return Err(error_response(
                 502,
                 "The issue tracker could not be reached.",

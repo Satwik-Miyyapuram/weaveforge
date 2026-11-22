@@ -77,3 +77,28 @@ pub fn log_line(err: &DbError, context: &str) -> String {
     };
     format!("[{context}] database error {code}")
 }
+
+/// The server log line for a failed outbound HTTP request: the context and the error kind only.
+/// The error's own text is never logged, since it names the URL, whose path and query can
+/// carry keys and user ids.
+#[must_use]
+pub fn transport_log_line(err: &reqwest::Error, context: &str) -> String {
+    let kind = if err.is_timeout() {
+        "timeout"
+    } else if err.is_connect() {
+        "connect"
+    } else if err.is_builder() {
+        "builder"
+    } else if err.is_redirect() {
+        "redirect"
+    } else if err.is_body() {
+        "body"
+    } else if err.is_decode() {
+        "decode"
+    } else if err.is_request() {
+        "request"
+    } else {
+        "other"
+    };
+    format!("[{context}] request failed: {kind}")
+}

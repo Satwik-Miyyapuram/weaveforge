@@ -4,7 +4,7 @@
 
 use wf_relay_server::postgrest::DbError;
 use wf_relay_server::safe_error::{
-    SERVER_FAULT, database_code, format_error_for_response, log_line,
+    SERVER_FAULT, database_code, format_error_for_response, log_line, transport_log_line,
 };
 
 const MIGRATION_HINT: &str = "The server is missing a database migration; apply the schema migrations (npm run migrate:schema) and try again.";
@@ -153,4 +153,34 @@ fn database_code_rejects_free_text_shaped_like_a_code() {
         format_error_for_response(&db(Some("23key")), "t"),
         SERVER_FAULT
     );
+}
+
+/// A reqwest error for a request whose URL carries a key in its path and query.
+async fn transport_error_for(url: &str) -> reqwest::Error {
+    reqwest::Client::new().get(url).send().await.unwrap_err()
+}
+
+#[tokio::test]
+async fn the_transport_log_line_names_the_kind_and_never_the_url() {
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    let port = listener.local_addr().unwrap().port();
+    drop(listener);
+    let err = transport_error_for(&format!(
+        "http://127.0.0.1:{port}/secret-path?key=eq.secret-key"
+    ))
+    .await;
+    let line = transport_log_line(&err, "t");
+    assert_eq!(line, "[t] request failed: connect");
+    assert!(
+        !line.contains("secret") && !line.contains("127.0.0.1"),
+        "{line}"
+    );
+}
+
+#[tokio::test]
+async fn the_transport_log_line_hides_a_malformed_url() {
+    let err = transport_error_for("http://[secret-key/").await;
+    let line = transport_log_line(&err, "t");
+    assert_eq!(line, "[t] request failed: builder");
+    assert!(!line.contains("secret"), "{line}");
 }
