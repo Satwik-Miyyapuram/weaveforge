@@ -180,10 +180,12 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
   const probe = shell ? null : await openMarkedBrowserFiles();
   const start = probe ? chooseBrowserStart(probe, localSwitchPending().isPending()) : null;
   if (start && start.mode !== "files") {
-    setSwitchRetryNeeded(start.mode === "read-only");
+    const readOnly = start.mode === "read-only";
+    setSwitchRetryNeeded(readOnly);
     void retrySwitch(
       () => decideBrowserSwitchFromConfig(readBackendConfig(), shell),
       () => window.location.reload(),
+      { readOnly },
     );
   }
   if (start?.mode === "files") clearSwitchReloadGuard();

@@ -78,11 +78,14 @@ export function clearSwitchReloadGuard(): void {
 /**
  * Runs the switch for startup or for Retry. A switched run reloads into files mode once per
  * session; a repeat switch keeps the banner instead of reloading. Any other outcome updates the
- * banner. Resolves with the outcome and never rejects.
+ * banner, except that a read-only start (`readOnly`) keeps it until a switch succeeds: the
+ * browser is still read-only whatever the retry found, signed out included.
+ * Resolves with the outcome and never rejects.
  */
 export async function retrySwitch(
   run: () => Promise<SwitchDecision>,
   onSwitched: () => void,
+  options: { readOnly?: boolean } = {},
 ): Promise<SwitchDecision | null> {
   const outcome = await runBrowserSwitchInBackground(run);
   if (outcome?.switch && takeReloadGuard()) {
@@ -91,7 +94,7 @@ export async function retrySwitch(
   } else if (outcome?.switch) {
     setSwitchRetryNeeded(true);
   } else {
-    setSwitchRetryNeeded(needsSwitchRetry(outcome));
+    setSwitchRetryNeeded((options.readOnly ?? false) || needsSwitchRetry(outcome));
   }
   return outcome;
 }

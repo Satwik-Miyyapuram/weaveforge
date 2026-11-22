@@ -102,6 +102,18 @@ test("(item3 P2) clearing the reload guard lets a switched run reload again", as
   setSwitchRetryNeeded(false);
 });
 
+test("(item3 P4) a read-only start keeps the banner when Retry finds no session; a server start does not", async () => {
+  clearSwitchReloadGuard();
+  setSwitchRetryNeeded(true);
+  await retrySwitch(async () => ({ switch: false, reason: "no-session" }), () => {}, { readOnly: true });
+  assert.equal(isSwitchRetryNeeded(), true, "read-only stays read-only: the banner stays while signed out");
+
+  setSwitchRetryNeeded(true);
+  await retrySwitch(async () => ({ switch: false, reason: "no-session" }), () => {}, { readOnly: false });
+  assert.equal(isSwitchRetryNeeded(), false, "a server start with no session has nothing to retry");
+  setSwitchRetryNeeded(false);
+});
+
 test("(item3) the app shell mounts the retry banner beside the release notice", () => {
   const shell = readFileSync(fileURLToPath(new URL("../../app/app-shell.tsx", import.meta.url)), "utf8");
   assert.match(shell, /import \{ SwitchRetryBanner \} from "\.\/switch-retry-banner";/);
