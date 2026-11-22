@@ -4,10 +4,9 @@ import { wireFileBackend } from "@/backend/providers/files/wire-file-backend";
 import type { SettingsSection } from "@/backend/providers/files/file-tag-repo";
 import type { SecretsStore } from "@/features/settings/infrastructure/parts";
 import { DeviceSecretsStore } from "@/backend/providers/local/parts";
-import { wirePostgrestBackend } from "@/backend/providers/postgrest/wire-postgrest-backend";
+import { wirePostgrestBackend, type WiredPostgrestBackend } from "@/backend/providers/postgrest/wire-postgrest-backend";
 import { DesktopWorkspaceFs, type VaultFileBridge } from "@/features/workspace/infrastructure/parts";
 import { systemClock } from "@/lib/parts";
-import type { WiredBackend } from "./parts";
 import { overlayFileRepositories } from "./with-file-repositories";
 import { readOnlyDb } from "./read-only-repositories";
 
@@ -25,7 +24,7 @@ export function wireDesktopFileBackend(
   settings: SettingsSection,
   // Credentials live in the OS keychain (one entry per field): they survive a restart and never reach a file or the server.
   secrets: SecretsStore = new DeviceSecretsStore(),
-): (config: BackendConfig, projectContext: { projectId: string | null }, pid: () => string | null) => WiredBackend {
+): (config: BackendConfig, projectContext: { projectId: string | null }, pid: () => string | null) => WiredPostgrestBackend {
   return (config, projectContext, pid) => {
     // The client is guarded before the repositories are built on it, so no repository holds the raw one.
     const postgrest = wirePostgrestBackend(config, projectContext, pid, undefined, readOnlyDb);

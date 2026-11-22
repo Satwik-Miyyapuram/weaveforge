@@ -60,7 +60,6 @@ import { LoadReadingListsScreenUseCase } from "@/features/reading-lists/applicat
 import { DuplicateSharedVaultPageUseCase } from "@/features/library/application/duplicate-shared-vault.use-case";
 import { LoadSharedWithMeScreenUseCase } from "@/features/sharing/application/parts";
 import { rustShareLinkRepository } from "@/backend/providers/postgrest/rust-repository";
-import { FileAiProposalStore } from "@/backend/providers/files/file-ai-proposal-store";
 import {
   FILES_MODE_CRDT_TYPES,
   limitCrdtSnapshotStore,
@@ -184,7 +183,7 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
   }
 
   // Files mode: the server CRDT log keeps only the non-personal types (files-mode-crdt-limit).
-  const filesMode = backend.aiProposalStore instanceof FileAiProposalStore;
+  const filesMode = backend.filesMode;
   const crdtUpdateStore = filesMode
     ? limitCrdtUpdateStore(rustCrdtUpdateStore(backend.db), FILES_MODE_CRDT_TYPES)
     : rustCrdtUpdateStore(backend.db);
