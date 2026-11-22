@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import type { ExportProgress, ExportResult } from "../application/run-web-export";
+import { OUTBOX_NOT_EMPTY_REASON, type ExportProgress, type ExportResult } from "../application/run-web-export";
 import { makeWebUpgradeRunner, type WebUpgradeRun } from "../application/web-upgrade-runner";
 import type { WebUpgradeOptions } from "../application/run-web-upgrade";
 import type { FileCodec } from "../domain/ports";
@@ -66,6 +66,18 @@ test("web upgrade runner: the local outbox count is passed through, never a stub
 
   assert.equal(calls.length, 1);
   assert.equal(await calls[0]!.server.pendingOutbox!(), 2, "the unflushed outbox rows reach the export's refusal check");
+});
+
+test("web upgrade runner: a refusal for unsent outbox ops is flagged pendingSync, other refusals are not", async () => {
+  const refused = (reason: string): WebUpgradeRun => async () => ({
+    ...RESULT,
+    state: "incomplete",
+    run: { missing: [{ kind: "*", id: "*", reason }] } as unknown as ExportResult["run"],
+  });
+  const flagged = await makeWebUpgradeRunner(deps(refused(OUTBOX_NOT_EMPTY_REASON)))("", () => {});
+  assert.equal(flagged.pendingSync, true);
+  const other = await makeWebUpgradeRunner(deps(refused("backup-failed")))("", () => {});
+  assert.equal(other.pendingSync, false);
 });
 
 test("web upgrade runner: the run's undecryptable count reaches the screen unchanged", async () => {

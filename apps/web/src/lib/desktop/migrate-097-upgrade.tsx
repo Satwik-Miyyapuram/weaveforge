@@ -22,25 +22,35 @@ export interface UpgradeKindProgress {
   total: number;
 }
 
+/** What the exporter reports back. The web fields are optional; the desktop answer is `state` alone. */
+export type ExportReply = {
+  state: Migrate097StateName;
+  /** Provider names whose secret stayed on the server; the user reconnects them. */
+  reconnectProviders?: string[];
+  /** Server rows the web cannot decrypt; the desktop app exports them. */
+  undecryptable?: number;
+  /** The refusal was unsent sync outbox ops: sync pending changes first. */
+  pendingSync?: boolean;
+};
+
 /** The exporter: runs the move and reports its state. Injected; WEB-EXPORT supplies it. */
-export type ExportRunner = (
-  folder: string,
-  onProgress: (p: Migrate097Progress) => void,
-) => Promise<{ state: Migrate097StateName }>;
+export type ExportRunner = (folder: string, onProgress: (p: Migrate097Progress) => void) => Promise<ExportReply>;
 
 /**
  * Runs one upgrade pass. `verified` only when the exporter says so; a
  * throw or any other answer is `stopped`, so a failed run never wires the
- * file backend.
+ * file backend. `onReply` receives the exporter's reply when it answers.
  */
 export async function runUpgrade(
   folder: string,
   runExport: ExportRunner | null,
   onProgress: (p: Migrate097Progress) => void,
+  onReply?: (reply: ExportReply) => void,
 ): Promise<"verified" | "stopped"> {
   if (!runExport) return "stopped";
   try {
     const reply = await runExport(folder, onProgress);
+    onReply?.(reply);
     return reply.state === "verified" ? "verified" : "stopped";
   } catch {
     return "stopped";
@@ -59,6 +69,12 @@ export type UpgradeBodyProps = {
   reportPath: string;
   /** Kind names the exporter could not move; listed when the run stopped. */
   missing?: string[];
+  /** Web: provider names the user reconnects to finish the upgrade. */
+  reconnectProviders?: string[];
+  /** Web: rows only the desktop app can export. */
+  undecryptable?: number;
+  /** Web: the run stopped because unsent sync changes remain. */
+  pendingSync?: boolean;
   copied: boolean;
   onCopy: () => void;
   onRetry: () => void;
@@ -71,6 +87,9 @@ export function Migrate097UpgradeBody({
   progress,
   reportPath,
   missing = [],
+  reconnectProviders = [],
+  undecryptable = 0,
+  pendingSync = false,
   copied,
   onCopy,
   onRetry,
@@ -97,12 +116,21 @@ export function Migrate097UpgradeBody({
     <div>
       <p>The upgrade did not finish. Your old data is untouched.</p>
       {missing.length > 0 ? <p>{`Not moved yet: ${missing.join(", ")}.`}</p> : null}
-      <p>
-        Report: <code style={{ userSelect: "text", WebkitUserSelect: "text" }}>{reportPath}</code>
-      </p>
-      <Button variant="secondary" onClick={onCopy}>
-        {copied ? "Copied" : "Copy report path"}
-      </Button>
+      {pendingSync ? <p>Sync pending changes first, then try again.</p> : null}
+      {reconnectProviders.length > 0 ? <p>{`Reconnect ${reconnectProviders.join(", ")} to finish the upgrade.`}</p> : null}
+      {undecryptable > 0 ? (
+        <p>{`${undecryptable} items cannot be read here. Open the desktop app to export these ${undecryptable} items.`}</p>
+      ) : null}
+      {reportPath ? (
+        <>
+          <p>
+            Report: <code style={{ userSelect: "text", WebkitUserSelect: "text" }}>{reportPath}</code>
+          </p>
+          <Button variant="secondary" onClick={onCopy}>
+            {copied ? "Copied" : "Copy report path"}
+          </Button>
+        </>
+      ) : null}
       <ModalActions>
         <Button variant="secondary" onClick={onKeepOld}>
           Keep using old data
@@ -139,14 +167,19 @@ export function Migrate097Upgrade({
   const [progress, setProgress] = useState<Record<string, UpgradeKindProgress>>({});
   const [copied, setCopied] = useState(false);
   const [missing, setMissing] = useState<string[]>([]);
+  const [reply, setReply] = useState<ExportReply>({ state: "incomplete" });
   const started = useRef(false);
 
   async function run() {
     setPhase("running");
     setProgress({});
     setMissing([]);
-    const outcome = await runUpgrade(folder, runExport, (p) =>
-      setProgress((prev) => ({ ...prev, [p.kind]: { done: p.done, total: p.total } })),
+    setReply({ state: "incomplete" });
+    const outcome = await runUpgrade(
+      folder,
+      runExport,
+      (p) => setProgress((prev) => ({ ...prev, [p.kind]: { done: p.done, total: p.total } })),
+      setReply,
     );
     if (outcome === "verified") {
       onReady();
@@ -181,8 +214,11 @@ export function Migrate097Upgrade({
     <Migrate097UpgradeView
       phase={phase}
       progress={progress}
-      reportPath={upgradeReportPath(folder)}
+      reportPath={folder ? upgradeReportPath(folder) : ""}
       missing={missing}
+      reconnectProviders={reply.reconnectProviders}
+      undecryptable={reply.undecryptable}
+      pendingSync={reply.pendingSync}
       copied={copied}
       onCopy={copyPath}
       onRetry={() => void run()}

@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { wiringNeedsReload, type WiringKey } from "@/container/wiring-key";
+import { makeWebUpgradeRunner, type WebUpgradeRunnerOptions } from "@/features/migration-097/application/web-upgrade-runner";
 import { desktop } from "./desktop-bridge";
 import { shouldShowFinishRemoving, shouldShowRetry, shouldShowUpgrade } from "./migrate-097-gate-decision";
 import { migrate097Status, type Migrate097Resolved } from "./migrate-097";
@@ -45,11 +46,20 @@ async function readKey(): Promise<WiringKey> {
  * children unchanged. Inside, it shows the upgrade screen for an incomplete
  * folder, and reloads the window when the folder or a verified migration
  * differs from the wiring built at startup, since the container is wired once.
+ * Web: when `webUpgrade` is given, the upgrade screen runs the web export instead of the shell.
  */
-export function Migrate097Gate({ children }: { children?: React.ReactNode }) {
+export function Migrate097Gate({
+  children,
+  webUpgrade = null,
+}: {
+  children?: React.ReactNode;
+  webUpgrade?: WebUpgradeRunnerOptions | null;
+}) {
   const [upgradeFolder, setUpgradeFolder] = useState<string | null>(null);
   const [banner, setBanner] = useState<WiringKey | null>(null);
+  const [webOpen, setWebOpen] = useState(true);
   const built = useRef<WiringKey | null>(null);
+  const webRunner = useMemo(() => (webUpgrade ? makeWebUpgradeRunner(webUpgrade) : null), [webUpgrade]);
 
   useEffect(() => {
     const shell = desktop();
@@ -113,6 +123,14 @@ export function Migrate097Gate({ children }: { children?: React.ReactNode }) {
           runExport={null}
           onReady={() => window.location.reload()}
           onKeepOld={() => setUpgradeFolder(null)}
+        />
+      ) : null}
+      {webRunner && webOpen ? (
+        <Migrate097Upgrade
+          folder=""
+          runExport={webRunner}
+          onReady={() => window.location.reload()}
+          onKeepOld={() => setWebOpen(false)}
         />
       ) : null}
     </>
