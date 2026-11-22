@@ -486,12 +486,13 @@ async fn create_hides_the_database_message() {
 async fn create_reports_an_unknown_admin_user() {
     let up = upstream(vec![(
         ADMIN_USER,
-        vec![json_reply(404, r#"{"msg":"User not found"}"#)],
+        vec![json_reply(404, r#"{"msg":"secret-key upstream text"}"#)],
     )])
     .await;
     let (status, value) = send(&up, request("POST", "/api/org/create", r#"{"name":"Lab"}"#)).await;
     assert_eq!(status, StatusCode::BAD_REQUEST);
-    assert_eq!(value, json!({"error": "User not found"}));
+    // The auth server's own text never reaches the caller.
+    assert_eq!(value, json!({"error": "User not found."}));
 }
 
 #[tokio::test]

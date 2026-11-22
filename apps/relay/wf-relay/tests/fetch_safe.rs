@@ -317,6 +317,19 @@ async fn redirect_nowhere() {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn unreadable_redirect_does_not_echo_its_target() {
+    let target = "http://[secret-token?key=secret-key";
+    let server = Server::start(vec![("/u", canned(302, &[("Location", target)], b""))]).await;
+    let f = safe_fetch_via(&test_net(), &server.url("/u"), &defaults())
+        .await
+        .unwrap_err();
+    assert_eq!(f.kind, FailKind::Upstream);
+    assert_eq!(f.status, 502);
+    // The redirect target can carry a third party's tokens, so it is never shown.
+    assert_eq!(f.message, "That site redirected somewhere unreadable.");
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn too_many_redirects() {
     let server = Server::start(vec![("/loop", canned(302, &[("Location", "/loop")], b""))]).await;
     let f = safe_fetch_via(&test_net(), &server.url("/loop"), &options(2, 1000, 10_000))
