@@ -29,6 +29,14 @@ pub fn get_or_create(dir: &Path) -> io::Result<String> {
     parse_id(&path, text.trim())
 }
 
+/// Returns the stored id if the file holds a valid one. Never writes: a missing, empty or corrupt
+/// file gives `None`, so a read-only check stays closed instead of creating an id.
+pub fn get_existing(dir: &Path) -> Option<String> {
+    let text = fs::read_to_string(dir.join(FILE)).ok()?;
+    let id = text.trim();
+    is_valid(id).then(|| id.to_owned())
+}
+
 /// Writes the id to `<file>.part`, syncs it, then hard-links it to the final name. The link fails
 /// when another call already created the name, and that call's id is read back. The name is only
 /// ever bound to a complete file, so a crash cannot leave a partial id behind.

@@ -292,3 +292,26 @@ fn a_verified_report_from_another_device_holds_0_9_7_back() {
     assert!(install_allowed("0.9.7", "0.9.8", local).is_err());
     let _ = std::fs::remove_dir_all(&root);
 }
+
+#[test]
+fn a_missing_device_id_is_not_written_and_holds_the_update() {
+    // Legacy data is exported, but this data folder has no device-id file yet. The gate must
+    // hold the update without creating one: a check that writes is not a read-only check.
+    let root = std::env::temp_dir().join(format!("wf-no-device-id-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&root);
+    let data = root.join("data");
+    let ws = root.join("ws");
+    let pg = data.join("local-pg");
+    std::fs::create_dir_all(&pg).unwrap();
+    std::fs::write(pg.join("PG_VERSION"), "16").unwrap();
+    std::fs::write(
+        pg.join("exported-to.json"),
+        format!(r#"{{"folder":"{}"}}"#, ws.display().to_string().replace('\\', "\\\\")),
+    )
+    .unwrap();
+    let local = local_data_in(Some(&data));
+    assert_eq!(local, LocalData::Unverified);
+    assert!(install_allowed("0.9.7", "0.9.8", local).is_err());
+    assert!(!data.join("device-id").exists(), "the check wrote a device id");
+    let _ = std::fs::remove_dir_all(&root);
+}

@@ -277,7 +277,8 @@ pub fn local_data_in(data: Option<&std::path::Path>) -> LocalData {
         return LocalData::Unverified;
     };
     let pg = data.join("local-pg");
-    let device = crate::device_id::get_or_create(data).ok();
+    // Read-only: the gate never creates an id. No id means no verified run for this device.
+    let device = crate::device_id::get_existing(data);
     let native = native_database_present(&pg);
     let old = !matches!(
         crate::migrate::old_db_state(data),
