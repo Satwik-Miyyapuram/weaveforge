@@ -8,7 +8,8 @@ import { wasmFileCodec } from "@/features/migration-097/infrastructure/wasm-code
 import { workspaceFsAsSink } from "@/features/migration-097/infrastructure/workspace-fs-sink";
 import { BrowserWorkspaceFs } from "@/features/workspace/infrastructure/parts";
 import { decideBrowserSwitch, type SwitchDecision, type SwitchSession } from "./browser-export-switch";
-import { openBrowserFileWiring } from "./browser-file-backend";
+import { openBrowserFileWiring, type BrowserFileWiring } from "./browser-file-backend";
+import { openFilesIfSwitched } from "./browser-switch-background";
 import { HttpBlobStore } from "@/storage/providers/http/http-blob-store";
 
 /** Signed download URLs for the export's blob reads live for five minutes. */
@@ -54,4 +55,17 @@ export async function decideBrowserSwitchFromConfig(
     gate: gateOpfsSwitch,
     openWiring: openBrowserFileWiring,
   });
+}
+
+/**
+ * Startup path for a browser that already switched: a present marker opens the files wiring with no
+ * export. Null means the server path. A failed OPFS open also reads as null, and this never rejects.
+ */
+export async function openMarkedBrowserFiles(): Promise<BrowserFileWiring | null> {
+  try {
+    const sink = workspaceFsAsSink(await BrowserWorkspaceFs.openOpfs());
+    return await openFilesIfSwitched(sink, openBrowserFileWiring);
+  } catch {
+    return null;
+  }
 }

@@ -1,7 +1,12 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { runBrowserSwitchInBackground } from "../browser-switch-background";
+import { openFilesIfSwitched, runBrowserSwitchInBackground } from "../browser-switch-background";
 import type { SwitchDecision } from "../browser-export-switch";
+import { MemorySink } from "../../features/migration-097/infrastructure/memory-sink";
+import { SWITCH_MARKER_PATH, writeSwitchMarker } from "../../features/migration-097/domain/switch-marker";
+
+const MARKED = { switchedAt: "2026-11-22T00:00:00.000Z", deviceId: "dev-1" };
+const WIRING = { wiring: true, close: async () => {} } as never;
 
 /**
  * P2-4. The 0.9.7 export runs off the startup path: the caller gets a promise it can ignore,
@@ -44,4 +49,52 @@ test("(P2-4) a run that throws settles to null and never rejects", async () => {
 test("(P2-4) a verified run passes its decision through unchanged", async () => {
   const decision: SwitchDecision = { switch: false, reason: "not-verified" };
   assert.deepEqual(await runBrowserSwitchInBackground(async () => decision, 1000), decision);
+});
+
+/**
+ * Item 1 call site. A marker written by a verified switch means this browser opens files directly.
+ * An absent or unreadable marker leaves the caller on the server path.
+ */
+
+test("(item1) a present marker opens the files wiring", async () => {
+  const sink = new MemorySink();
+  await writeSwitchMarker(sink, MARKED);
+  let opened = 0;
+  const out = await openFilesIfSwitched(sink, async () => {
+    opened += 1;
+    return WIRING;
+  });
+  assert.equal(out, WIRING);
+  assert.equal(opened, 1);
+});
+
+test("(item1) no marker: the files wiring is not opened and the caller stays on the server", async () => {
+  let opened = 0;
+  const out = await openFilesIfSwitched(new MemorySink(), async () => {
+    opened += 1;
+    return WIRING;
+  });
+  assert.equal(out, null);
+  assert.equal(opened, 0);
+});
+
+test("(item1) an unreadable marker counts as absent: nothing opens and the server path stays", async () => {
+  const sink = new MemorySink();
+  await sink.write(SWITCH_MARKER_PATH, "{not json");
+  let opened = 0;
+  const out = await openFilesIfSwitched(sink, async () => {
+    opened += 1;
+    return WIRING;
+  });
+  assert.equal(out, null);
+  assert.equal(opened, 0);
+});
+
+test("(item1) a marker whose files fail to open returns null instead of throwing", async () => {
+  const sink = new MemorySink();
+  await writeSwitchMarker(sink, MARKED);
+  const out = await openFilesIfSwitched(sink, async () => {
+    throw new Error("opfs locked");
+  });
+  assert.equal(out, null);
 });

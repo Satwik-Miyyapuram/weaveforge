@@ -62,7 +62,8 @@ import { LoadSharedWithMeScreenUseCase } from "@/features/sharing/application/pa
 import { rustAiStores, rustShareLinkRepository } from "@/backend/providers/postgrest/rust-repository";
 import { PrefetchProjectUseCase } from "@/application/prefetch-project.use-case";
 import { readBackendConfig } from "@/backend/parts";
-import { decideBrowserSwitchFromConfig } from "./container/browser-switch-wiring";
+import { decideBrowserSwitchFromConfig, openMarkedBrowserFiles } from "./container/browser-switch-wiring";
+import { runBrowserSwitchInBackground } from "./container/browser-switch-background";
 import {
   PapersFacade,
   PaperFieldsFacade,
@@ -170,10 +171,17 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
   // the folder's migration report, so the choice never races a late answer.
   const migration = await resolveMigrationChoice(desktop());
   const shell = desktop();
-  // Browser and Android: every startup re-runs the 0.9.7 export and switches to OPFS files mode only
-  // when that fresh run verifies. A missing session or failed run keeps the server backend (Retry UI open).
-  const browserSwitch = await decideBrowserSwitchFromConfig(readBackendConfig(), shell);
-  const browserFiles = browserSwitch.switch ? browserSwitch.wiring : undefined;
+  // Browser and Android: a present switch marker opens OPFS files directly, with no export. Without one the
+  // 0.9.7 export runs off the startup path; a verified run writes the marker and reloads into files mode.
+  // A missing session, failed run or timeout keeps the server backend for this start.
+  const browserFiles = shell ? undefined : ((await openMarkedBrowserFiles()) ?? undefined);
+  if (!shell && !browserFiles) {
+    void runBrowserSwitchInBackground(() => decideBrowserSwitchFromConfig(readBackendConfig(), shell)).then(
+      (decision) => {
+        if (decision?.switch) window.location.reload();
+      },
+    );
+  }
   const backend = wireBackend(readBackendConfig(), projectContext, pid, {
     migration,
     onDesktop: Boolean(shell),
