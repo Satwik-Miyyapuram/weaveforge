@@ -134,3 +134,25 @@ test("unknown kind is rejected on write and on readBack", async () => {
   await assert.rejects(writer.write("nope", {}), /unknown kind/);
   await assert.rejects(writer.readBack("nope"), /unknown kind/);
 });
+
+test("annotations: a re-run of the same row is idempotent (no ConflictError, one row back)", async () => {
+  const { writer } = fresh();
+  const row = {
+    id: "ann-rerun",
+    paperId: "p9",
+    paperFile: "papers/r.paper.md",
+    type: "highlight",
+    color: "#00ff00",
+    text: "again",
+    comment: "",
+    tags: [],
+    anchor: { pageIndex: 1 },
+    sortIndex: "0001",
+    pageIndex: 1,
+  };
+  await writer.write("annotations", row);
+  await writer.write("annotations", row);
+  const back = await writer.readBack("annotations");
+  assert.equal(back.length, 1);
+  assert.equal(back[0]?.id, "ann-rerun");
+});

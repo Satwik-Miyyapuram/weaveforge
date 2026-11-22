@@ -42,6 +42,9 @@ export function createGroupCWriter(sink: FileSink, projectRoot: string): KindWri
         async write(row) {
           const paperId = String(row.paperId);
           paperFiles.set(paperId, String(row.paperFile));
+          // Idempotent re-run: a row already on disk is not created again (create would throw ConflictError).
+          // Gap: create() mints createdAt/updatedAt, so server timestamps are not kept; needs a repo change.
+          if ((await annotations.list(paperId)).some((a) => a.id === (row.id as string))) return;
           const draft: NewReaderAnnotation = {
             id: row.id as string,
             type: row.type as NewReaderAnnotation["type"],
