@@ -20,3 +20,13 @@ test("neither login surface calls setLocalMode, and both route through the folde
     assert.equal(source.includes("enterLocalOnly("), true, `${rel} must route through enterLocalOnly`);
   }
 });
+
+test("the gate's offline button answers an unavailable outcome with its own message, not the login copy", () => {
+  const gate = readFileSync(new URL("../ui/privacy-disclaimer-gate.tsx", import.meta.url), "utf8");
+  assert.equal(gate.includes('outcome === "unavailable"'), true, "the gate must handle the unavailable outcome");
+  assert.equal(
+    gate.includes("cannot open a workspace folder"),
+    false,
+    "the gate must not reuse the login-screen error text",
+  );
+});

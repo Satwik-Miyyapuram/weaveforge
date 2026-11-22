@@ -168,6 +168,7 @@ export function PrivacyDisclaimerGate({
 /** A dead end the user can act on: what went wrong, and a way to try again. */
 function StartupFailure({ message }: { message: string }) {
   const broken = useLocalDbFailure();
+  const [offlineError, setOfflineError] = useState<string | null>(null);
   return (
     <main
       className="app-shell"
@@ -189,8 +190,14 @@ function StartupFailure({ message }: { message: string }) {
           <Button
             onClick={() => {
               const shell = desktop();
-              if (shell) void enterLocalOnly(shell).then((outcome) => {
+              if (!shell) return;
+              setOfflineError(null);
+              void enterLocalOnly(shell).then((outcome) => {
                 if (outcome === "reload") window.location.reload();
+                else if (outcome === "unavailable")
+                  setOfflineError(
+                    "This computer cannot open the offline workspace right now. Try again after restarting the app.",
+                  );
               });
             }}
           >
@@ -198,6 +205,7 @@ function StartupFailure({ message }: { message: string }) {
           </Button>
         ) : null}
       </div>
+      {offlineError ? <FormError>{offlineError}</FormError> : null}
     </main>
   );
 }
