@@ -46,7 +46,8 @@
   const ready = (async () => {
     const ws = await fetch(BASE + "workspace.json").then((r) => r.json());
     for (const [path, entry] of Object.entries(ws.files)) {
-      store.set(path, "text" in entry ? { text: entry.text } : { url: BASE + entry.file });
+      const at = entry.modifiedAt;
+      store.set(path, "text" in entry ? { text: entry.text, at } : { url: BASE + entry.file, at });
     }
     if (pdfPaper && params.has("paper")) await cachePdf(pdfPaper).catch(() => {});
     return ws;
@@ -55,10 +56,13 @@
   // Workspace paths are relative to the root, with no leading or trailing slash.
   const key = (p) => String(p || "").replace(/^\.?\/+/, "").replace(/\/+$/, "");
   const under = (dir) => (dir ? dir + "/" : "");
-  const now = () => new Date().toISOString();
+  // Times are fixed: a file keeps the modifiedAt the seed gave it, and anything
+  // without one (or written in this page) gets the time this page loaded. Readers
+  // see the same times on every list and stat call.
+  const LOADED_AT = new Date().toISOString();
   const sizeOf = (e) => (e.text !== undefined ? new TextEncoder().encode(e.text).byteLength : e.bytes ? e.bytes.byteLength : 0);
-  const fileEntry = (path, e) => ({ path, kind: "file", size: sizeOf(e), modifiedAt: now() });
-  const dirEntry = (path) => ({ path, kind: "dir", size: 0, modifiedAt: now() });
+  const fileEntry = (path, e) => ({ path, kind: "file", size: sizeOf(e), modifiedAt: e.at || LOADED_AT });
+  const dirEntry = (path) => ({ path, kind: "dir", size: 0, modifiedAt: LOADED_AT });
   async function bytesOf(e) {
     if (e.text !== undefined) return new TextEncoder().encode(e.text);
     if (!e.bytes) e.bytes = new Uint8Array(await (await fetch(e.url)).arrayBuffer());
@@ -117,14 +121,14 @@
     },
     async writeVaultFile(p, text) {
       await ready;
-      store.set(key(p), { text: String(text) });
+      store.set(key(p), { text: String(text), at: LOADED_AT });
     },
     async writeVaultFileIf(p, text, expected) {
       await ready;
       const cur = store.get(key(p));
       const now = cur ? new TextDecoder().decode(await bytesOf(cur)) : null;
       if (now !== expected) return false;
-      store.set(key(p), { text: String(text) });
+      store.set(key(p), { text: String(text), at: LOADED_AT });
       return true;
     },
     async readVaultBytes(p) {
@@ -134,7 +138,7 @@
     },
     async writeVaultBytes(p, bytes) {
       await ready;
-      store.set(key(p), { bytes: new Uint8Array(bytes) });
+      store.set(key(p), { bytes: new Uint8Array(bytes), at: LOADED_AT });
     },
     async listVaultFiles(dir = "") {
       await ready;
@@ -164,6 +168,22 @@
       await ready;
       const k = key(p);
       for (const x of [...store.keys()]) if (x === k || x.startsWith(k + "/")) store.delete(x);
+    },
+    // A move like the desktop's: a file or a whole folder, replacing whatever is at
+    // the destination. Nothing is copied, so each entry keeps its contents and time.
+    async renameVaultFile(from, to) {
+      await ready;
+      const [a, b] = [key(from), key(to)];
+      const moved = [...store.keys()].filter((x) => x === a || x.startsWith(a + "/"));
+      if (!moved.length) throw new Error(`No file to move at ${a}`);
+      if (a === "" || b === "" || a === b || b.startsWith(a + "/") || a.startsWith(b + "/")) {
+        throw new Error(`Cannot move ${a} to ${b}`);
+      }
+      for (const x of [...store.keys()]) if (x === b || x.startsWith(b + "/")) store.delete(x);
+      for (const x of moved) {
+        store.set(b + x.slice(a.length), store.get(x));
+        store.delete(x);
+      }
     },
     commitVault: async () => ({ commit: null, reason: NO_ACCOUNT }),
     vaultLog: async () => [],

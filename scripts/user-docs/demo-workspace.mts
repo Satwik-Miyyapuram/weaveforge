@@ -44,7 +44,8 @@ mkdirSync(OUT, { recursive: true });
 // Outputs of the retired PGlite build; the reuse check below no longer reads them.
 for (const old of ["db.tar.gz", "files.json"]) rmSync(path.join(OUT, old), { force: true });
 
-const files: Record<string, { text: string } | { file: string }> = {};
+// modifiedAt is the seed-time stamp; the demo bridge shows it as each file's time.
+const files: Record<string, { text: string; modifiedAt: string } | { file: string; modifiedAt: string }> = {};
 for await (const entry of fs.walk("")) {
   if (entry.kind !== "file") continue;
   const bytes = await fs.readFile(entry.path);
@@ -52,9 +53,9 @@ for await (const entry of fs.walk("")) {
     const copy = path.join(OUT, entry.path);
     mkdirSync(path.dirname(copy), { recursive: true });
     writeFileSync(copy, bytes);
-    files[entry.path] = { file: entry.path };
+    files[entry.path] = { file: entry.path, modifiedAt: entry.modifiedAt };
   } else {
-    files[entry.path] = { text: new TextDecoder().decode(bytes) };
+    files[entry.path] = { text: new TextDecoder().decode(bytes), modifiedAt: entry.modifiedAt };
   }
 }
 
