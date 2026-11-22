@@ -408,22 +408,24 @@ describe("no keychain on this machine (Linux without a Secret Service)", () => {
     await assert.rejects(() => desktopMoveSecrets(bridge)(), KeychainUnavailableError);
   });
 
-  it("a move that left write-only fields behind warns with their names and resolves", async () => {
+  it("a move that left write-only fields behind shows their names in a notice and resolves", async () => {
     const bridge = {
-      migrate097MoveSecrets: async () => ["overleafToken.extra"],
+      migrate097MoveSecrets: async () => ["overleafToken.extra", "zoteroApiKey.x"],
     } as unknown as DesktopBridge;
-    const warnings: string[] = [];
-    const warn = console.warn;
-    console.warn = (...args: unknown[]) => {
-      warnings.push(args.map(String).join(" "));
-    };
-    try {
-      await desktopMoveSecrets(bridge)();
-    } finally {
-      console.warn = warn;
-    }
-    assert.equal(warnings.length, 1);
-    assert.match(warnings[0], /overleafToken\.extra/);
+    const shown: string[] = [];
+    await desktopMoveSecrets(bridge, (message) => shown.push(message))();
+    assert.deepEqual(shown, [
+      "These keys were not moved to the keychain: overleafToken.extra, zoteroApiKey.x. Re-enter them in Settings.",
+    ]);
+  });
+
+  it("a move that moved every field shows no notice", async () => {
+    const bridge = {
+      migrate097MoveSecrets: async () => [],
+    } as unknown as DesktopBridge;
+    const shown: string[] = [];
+    await desktopMoveSecrets(bridge, (message) => shown.push(message))();
+    assert.deepEqual(shown, []);
   });
 
   it("a save after a move that left fields behind still saves, so the first save is not lost", async () => {
@@ -434,7 +436,7 @@ describe("no keychain on this machine (Linux without a Secret Service)", () => {
     const warn = console.warn;
     console.warn = () => {};
     try {
-      const store = new DeviceSecretsStore(fakeRun([]).run, keychain, desktopMoveSecrets(bridge));
+      const store = new DeviceSecretsStore(fakeRun([]).run, keychain, desktopMoveSecrets(bridge, () => {}));
       await store.save({ zoteroApiKey: "k" });
     } finally {
       console.warn = warn;

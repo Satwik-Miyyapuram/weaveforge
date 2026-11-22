@@ -5,6 +5,7 @@ import {
 } from "@/features/settings/infrastructure/parts";
 import { desktop, type DesktopBridge, type DesktopSecretName } from "@/lib/desktop/desktop-bridge";
 import { notifyWorkspaceChange } from "@/lib/parts";
+import { showToast } from "@/lib/toast/index";
 import { readyCore } from "@/lib/rust-core";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { LOCAL_USER_ID } from "@weaveforge/core";
@@ -282,7 +283,10 @@ export class SecretsMovePendingError extends Error {
  * first save, because the shell has already written its marker), and only their NAMES are warned.
  * The shell keeps the same names in the marker so a status view can list them.
  */
-export function desktopMoveSecrets(bridge: DesktopBridge | null = desktop()): () => Promise<void> {
+export function desktopMoveSecrets(
+  bridge: DesktopBridge | null = desktop(),
+  notify: (message: string) => void = showToast,
+): () => Promise<void> {
   return async () => {
     if (!bridge) return;
     let notMoved: string[];
@@ -292,7 +296,7 @@ export function desktopMoveSecrets(bridge: DesktopBridge | null = desktop()): ()
       throw asKeychainUnavailable(err);
     }
     if (notMoved.length > 0) {
-      console.warn(`These saved credentials were not moved to the keychain: ${notMoved.join(", ")}.`);
+      notify(`These keys were not moved to the keychain: ${notMoved.join(", ")}. Re-enter them in Settings.`);
     }
   };
 }
