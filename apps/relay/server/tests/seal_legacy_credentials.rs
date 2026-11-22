@@ -35,9 +35,9 @@ fn json_reply(status: u16, body: &str) -> Reply {
     )
 }
 
-/// A PostgREST `PATCH` answer with no body.
-fn no_content() -> Reply {
-    response(204, &[], b"")
+/// A PostgREST `PATCH` answer with `return=representation`: the rows it changed.
+fn patched_row() -> Reply {
+    json_reply(200, &json!([{"user_id": "user-1"}]).to_string())
 }
 
 /// A row holding plaintext legacy secrets and no envelope.
@@ -59,7 +59,7 @@ fn expected_secrets() -> Value {
 fn legacy_turns() -> Vec<Reply> {
     vec![
         json_reply(200, &json!([legacy_row()]).to_string()),
-        no_content(),
+        patched_row(),
         json_reply(200, "[]"),
     ]
 }
@@ -255,7 +255,7 @@ async fn get(up: &Upstream, key: Option<&str>) -> (StatusCode, HeaderMap, Value)
 async fn get_seals_legacy_plaintext_on_read_and_writes_it_back() {
     let up = serve(vec![
         (AUTH_USER, vec![json_reply(200, r#"{"id":"user-1"}"#)]),
-        (SETTINGS, vec![json_reply(200, &json!([legacy_row()]).to_string()), no_content()]),
+        (SETTINGS, vec![json_reply(200, &json!([legacy_row()]).to_string()), patched_row()]),
     ])
     .await;
     let (status, headers, value) = get(&up, Some(KEY)).await;
@@ -280,4 +280,69 @@ async fn get_refuses_a_legacy_row_without_the_key() {
     assert_eq!(status, StatusCode::INTERNAL_SERVER_ERROR);
     assert_eq!(value["error"].as_str(), Some(MISSING_KEY));
     assert!(patches(&up).is_empty(), "nothing is written without the key");
+}
+
+#[tokio::test]
+async fn a_write_guard_requires_a_row_that_still_holds_legacy_plaintext() {
+    let up = serve(vec![(SETTINGS, legacy_turns())]).await;
+    seal_legacy_credentials(&config(&up), &reqwest::Client::new(), Some(KEY), false)
+        .await
+        .expect("run");
+    let sent = patches(&up);
+    assert!(sent[0].target.contains("zotero_api_key.not.is.null"));
+    assert!(sent[0].target.contains("semantic_scholar_key.not.is.null"));
+    assert!(sent[0].target.contains("integrations.not.is.null"));
+}
+
+#[tokio::test]
+async fn a_row_cleared_between_read_and_write_is_not_counted_or_rewritten() {
+    // The keys were cleared after the read: the guarded PATCH matches no row.
+    let up = serve(vec![(
+        SETTINGS,
+        vec![
+            json_reply(200, &json!([legacy_row()]).to_string()),
+            json_reply(200, "[]"),
+        ],
+    )])
+    .await;
+    let report = seal_legacy_credentials(&config(&up), &reqwest::Client::new(), Some(KEY), false)
+        .await
+        .expect("run");
+    assert_eq!(
+        report,
+        Report {
+            found: 1,
+            converted: 0,
+            dry_run: false
+        }
+    );
+    assert_eq!(patches(&up).len(), 1, "the guarded write was attempted once");
+}
+
+#[tokio::test]
+async fn get_after_a_concurrent_clear_returns_current_state_not_stale_legacy() {
+    let cleared = json!({
+        "credentials_enc": null,
+        "zotero_api_key": null,
+        "semantic_scholar_key": null,
+        "integrations": null
+    });
+    let up = serve(vec![
+        (AUTH_USER, vec![json_reply(200, r#"{"id":"user-1"}"#)]),
+        (
+            SETTINGS,
+            vec![
+                json_reply(200, &json!([legacy_row()]).to_string()),
+                json_reply(200, "[]"),
+                json_reply(200, &json!([cleared]).to_string()),
+            ],
+        ),
+    ])
+    .await;
+    let (status, _headers, value) = get(&up, Some(KEY)).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(value, json!({}), "the stale legacy secrets must not be returned");
+    let sent = patches(&up);
+    assert_eq!(sent.len(), 1);
+    assert!(sent[0].target.contains("zotero_api_key.not.is.null"));
 }

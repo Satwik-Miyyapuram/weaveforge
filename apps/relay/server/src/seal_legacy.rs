@@ -5,7 +5,7 @@ use serde_json::Value;
 
 use crate::config::Config;
 use crate::credential_crypto::MISSING_KEY;
-use crate::legacy_credentials::{legacy_secrets, seal_patch};
+use crate::legacy_credentials::{HAS_LEGACY_OR, legacy_secrets, seal_patch};
 use crate::postgrest::{DbError, UserDb, eq};
 
 /// Rows fetched per page.
@@ -59,11 +59,7 @@ pub async fn seal_legacy_credentials(
                     .to_string(),
             ),
             ("credentials_enc", "is.null".to_string()),
-            (
-                "or",
-                "(zotero_api_key.not.is.null,semantic_scholar_key.not.is.null,integrations.not.is.null)"
-                    .to_string(),
-            ),
+            ("or", HAS_LEGACY_OR.to_string()),
             ("order", "user_id.asc".to_string()),
             ("limit", PAGE.to_string()),
         ];
@@ -90,10 +86,16 @@ pub async fn seal_legacy_credentials(
             let guard = [
                 ("user_id", eq(user)),
                 ("credentials_enc", "is.null".to_string()),
+                ("or", HAS_LEGACY_OR.to_string()),
             ];
-            db.update("user_settings", &guard, &patch)
+            let written = db
+                .update_returning("user_settings", &guard, &patch)
                 .await
                 .map_err(|err| db_error("write", &err))?;
+            // No row matched: the row changed after it was read, so it is left as it is.
+            if written.is_empty() {
+                continue;
+            }
             report.converted += 1;
         }
         let Some(last) = rows.last() else {

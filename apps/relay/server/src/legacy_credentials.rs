@@ -9,6 +9,11 @@ use crate::credentials::clean_secrets;
 /// The plaintext columns that predate `credentials_enc`.
 pub const LEGACY_COLUMNS: [&str; 3] = ["zotero_api_key", "semantic_scholar_key", "integrations"];
 
+/// PostgREST `or` filter: the row still holds some legacy plaintext column. Used in every
+/// guarded write, so a row whose keys were cleared after it was read is not rewritten.
+pub const HAS_LEGACY_OR: &str =
+    "(zotero_api_key.not.is.null,semantic_scholar_key.not.is.null,integrations.not.is.null)";
+
 /// The cleaned secrets of a row that holds legacy plaintext and no envelope.
 ///
 /// `None` when the row is sealed or has no legacy value at all. `Some` of an empty map

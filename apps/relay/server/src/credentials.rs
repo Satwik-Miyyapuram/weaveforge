@@ -18,7 +18,7 @@ use wf_core::sync::instant::format_instant;
 
 use crate::auth::Caller;
 use crate::credential_crypto::{open, seal};
-use crate::legacy_credentials::{legacy_secrets, seal_patch};
+use crate::legacy_credentials::{HAS_LEGACY_OR, legacy_secrets, seal_patch};
 use crate::postgrest::eq;
 use crate::routes::AppState;
 use crate::sdk::{caller, db_failure, error_response, json_response, user_db};
@@ -68,6 +68,30 @@ pub async fn credentials_get(State(state): State<Arc<AppState>>, headers: Header
         Ok(caller) => caller,
         Err(response) => return response,
     };
+    let row = match settings_row(&state, &caller).await {
+        Ok(row) => row,
+        Err(response) => return response,
+    };
+    // A sealed envelope wins over any legacy plaintext columns.
+    let secrets = match sealed_envelope(&row) {
+        Some(envelope) => match open_secrets(&envelope, state.settings.credential_key.as_deref()) {
+            Ok(secrets) => secrets,
+            Err(response) => return response,
+        },
+        // Legacy plaintext is never served as is: seal it, clear the columns, then return it.
+        None => match legacy_secrets(&row) {
+            Some(secrets) => match seal_on_read(&state, &caller, &secrets).await {
+                Ok(stored) => stored,
+                Err(response) => return response,
+            },
+            None => Map::new(),
+        },
+    };
+    no_store(json_response(200, &Value::Object(secrets)))
+}
+
+/// The caller's `user_settings` row, or null when there is none.
+async fn settings_row(state: &AppState, caller: &Caller) -> Result<Value, Response> {
     let query = [
         (
             "select",
@@ -76,31 +100,18 @@ pub async fn credentials_get(State(state): State<Arc<AppState>>, headers: Header
         ("user_id", eq(&caller.user_id)),
         ("limit", "1".to_string()),
     ];
-    let db = user_db(&state, &caller);
-    let row = match db.select("user_settings", &query).await {
-        Ok(rows) => rows.into_iter().next().unwrap_or(Value::Null),
-        Err(err) => return db_failure(&err, "credentials"),
-    };
-    // A sealed envelope wins over any legacy plaintext columns.
-    let sealed = field(&row, "credentials_enc")
+    match user_db(state, caller).select("user_settings", &query).await {
+        Ok(rows) => Ok(rows.into_iter().next().unwrap_or(Value::Null)),
+        Err(err) => Err(db_failure(&err, "credentials")),
+    }
+}
+
+/// The sealed envelope of a row, when it has a non-empty one.
+fn sealed_envelope(row: &Value) -> Option<String> {
+    field(row, "credentials_enc")
         .as_str()
         .filter(|envelope| !envelope.is_empty())
-        .map(str::to_owned);
-    let secrets = match sealed {
-        Some(envelope) => match open_secrets(&envelope, state.settings.credential_key.as_deref()) {
-            Ok(secrets) => secrets,
-            Err(response) => return response,
-        },
-        // Legacy plaintext is never served as is: seal it, clear the columns, then return it.
-        None => match legacy_secrets(&row) {
-            Some(secrets) => match seal_on_read(&state, &caller, &secrets).await {
-                Ok(()) => secrets,
-                Err(response) => return response,
-            },
-            None => Map::new(),
-        },
-    };
-    no_store(json_response(200, &Value::Object(secrets)))
+        .map(str::to_owned)
 }
 
 /// `POST /api/settings/credentials`: seal and store the caller's secrets, clearing legacy columns.
@@ -157,23 +168,34 @@ fn open_secrets(envelope: &str, key: Option<&str>) -> Result<Map<String, Value>,
     }
 }
 
-/// Stores legacy `secrets` sealed and clears the plaintext columns, guarded so a row sealed
-/// meanwhile is left alone. Fails the read rather than return secrets that were not saved.
+/// Stores legacy `secrets` sealed and clears the plaintext columns. The write is guarded so a
+/// row that changed since it was read is left alone. Returns the secrets now held: the ones
+/// sent when the write landed, else the row's current state (never the stale legacy values).
+/// Fails the read rather than return secrets that were not saved.
 async fn seal_on_read(
     state: &AppState,
     caller: &Caller,
     secrets: &Map<String, Value>,
-) -> Result<(), Response> {
+) -> Result<Map<String, Value>, Response> {
     let patch = seal_patch(secrets, state.settings.credential_key.as_deref())
         .map_err(|message| error_response(500, &message))?;
     let guard = [
         ("user_id", eq(&caller.user_id)),
         ("credentials_enc", "is.null".to_string()),
+        ("or", HAS_LEGACY_OR.to_string()),
     ];
-    user_db(state, caller)
-        .update("user_settings", &guard, &patch)
+    let written = user_db(state, caller)
+        .update_returning("user_settings", &guard, &patch)
         .await
-        .map_err(|err| db_failure(&err, "credentials"))
+        .map_err(|err| db_failure(&err, "credentials"))?;
+    if !written.is_empty() {
+        return Ok(secrets.clone());
+    }
+    let current = settings_row(state, caller).await?;
+    match sealed_envelope(&current) {
+        Some(envelope) => open_secrets(&envelope, state.settings.credential_key.as_deref()),
+        None => Ok(Map::new()),
+    }
 }
 
 /// A reply that must not be cached, since it carries secrets.
