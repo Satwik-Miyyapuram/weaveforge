@@ -254,8 +254,8 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
   // dump returns. Before the dump there is none, so a desktop refusal writes no report (fail closed).
   let deviceId: string | undefined = desktop ? undefined : runDeviceId;
 
-  // Any unreadable report file (legacy, own or another device's) is never merged over: this run is refused before
-  // any write. Only this device's own file is kept aside, by the refused write itself; the others are left as they are.
+  // Any unreadable report file (legacy, own or another device's) is never merged over and never renamed: it is left
+  // in place, and this run is refused before any write.
   const unreadable = await unreadableReportName(sink);
   if (unreadable !== null) {
     const reason = unreadable === "" ? "the report folder cannot be listed" : `${unreadable} is unreadable`;

@@ -78,6 +78,9 @@ pub async fn migrate_097_move_secrets(
         .map_err(|err| ShellError::from(err.to_string()))?;
     let device = crate::device_id::get_or_create(&app_data)
         .map_err(|err| ShellError::from(err.to_string()))?;
+    if !crate::device_id::is_file_name_id(&device) {
+        return Err(ShellError::from(format!("the device id {device:?} is not usable in a file name")));
+    }
     // No legacy database folder means no old rows: a fresh install moves zero rows. A stopped or
     // unreadable database is an error, so the save that asked for the move is refused.
     let rows = if db.legacy_db_present() {

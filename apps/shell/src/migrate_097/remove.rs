@@ -31,8 +31,10 @@ const FOLDER_MOVED: &str = "refused: folder moved, export again";
 
 /// Per-device secrets count file (written by the KEYS lane once every local secret is in the
 /// keychain): `{count, deviceId}`.
-fn secrets_rel(device_id: &str) -> String {
-    format!("{MIGRATION_DIR}/secrets-moved-{device_id}.json")
+/// `None` when the id is not safe in a file name, so no path is ever built from it.
+fn secrets_rel(device_id: &str) -> Option<String> {
+    crate::device_id::is_file_name_id(device_id)
+        .then(|| format!("{MIGRATION_DIR}/secrets-moved-{device_id}.json"))
 }
 
 /// Records in `pg_root/exported-to.json` that the export wrote `folder` (called by the KEYS lane
@@ -289,7 +291,7 @@ fn update_report(report_path: &Path, change: impl Fn(&mut serde_json::Value)) ->
         let before = fs::read_to_string(report_path)
             .map_err(|e| format!("cannot read {}: {e}", report_path.display()))?;
         let mut fresh: serde_json::Value = serde_json::from_str(&before)
-            .map_err(|_| "refused: migration report is unparsable".to_owned())?;
+            .map_err(|_| "refused: migration report is unreadable".to_owned())?;
         change(&mut fresh);
         if fs::read_to_string(report_path).is_ok_and(|now| now == before) {
             write_json_atomic(report_path, &fresh)?;
@@ -446,10 +448,7 @@ pub(super) fn read_reports(
     device_id: &str,
 ) -> Result<Vec<(String, serde_json::Value)>, ReportsError> {
     // The id becomes a file name (`report-<id>.json`), so it must not carry path characters.
-    let safe = !device_id.is_empty()
-        && device_id.len() <= 128
-        && device_id.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-');
-    if !safe {
+    if !crate::device_id::is_file_name_id(device_id) {
         return Err(ReportsError::DeviceId(device_id.to_owned()));
     }
     let own = own_report_name(device_id);
@@ -697,7 +696,8 @@ fn check_exported_to(pg_root: &Path, folder: &Path) -> Result<(), String> {
 /// Reads `count` from this device's `secrets-moved-<deviceId>.json`. Missing, unparsable or
 /// count-less files refuse, and so does a file that names no `deviceId` or another device's.
 fn read_secrets_moved(folder: &Path, device_id: &str) -> Result<u64, String> {
-    let text = fs::read_to_string(folder.join(secrets_rel(device_id)))
+    let rel = secrets_rel(device_id).ok_or_else(|| "refused: secrets-moved file for this device is missing".to_owned())?;
+    let text = fs::read_to_string(folder.join(rel))
         .map_err(|_| "refused: secrets-moved file for this device is missing".to_owned())?;
     let value: serde_json::Value = serde_json::from_str(&text)
         .map_err(|_| "refused: secrets-moved file is unparsable".to_owned())?;
@@ -865,7 +865,7 @@ mod final_write_tests {
         dump.resize(4096, 0);
         fs::write(dir.join("pre-migration.dump"), dump).unwrap();
         fs::write(
-            folder.join(secrets_rel(DEV)),
+            folder.join(secrets_rel(DEV).expect("a test device id is file-name safe")),
             format!(r#"{{"movedAt":"{NOW_T}","count":0,"deviceId":"{DEV}"}}"#),
         )
         .unwrap();
@@ -1100,6 +1100,33 @@ mod union_tests {
         assert_eq!(
             refusal.as_deref(),
             Some("refused: migration report report-dev-a (1).json is unreadable; delete the conflict copy report-dev-a (1).json")
+        );
+    }
+
+    #[test]
+    fn a_device_id_outside_the_file_name_shape_is_refused_and_writes_nothing() {
+        let long = "a".repeat(129);
+        for id in ["", long.as_str(), "../x", "a/b", "a_b"] {
+            let (base, folder, pg_root) = fixture("id-shape", &[("report-dev-a.json", VERIFIED_A)]);
+            let read = read_reports(&folder, id);
+            let refusal = removal_refusal(&folder, id, &pg_root);
+            let recorded = record_verified_export(&pg_root, &folder, id);
+            let exported = pg_root.join(EXPORTED_TO).exists();
+            let _ = fs::remove_dir_all(&base);
+            assert!(read.is_err(), "{id:?}: the reader refuses the id");
+            assert!(refusal.as_deref().is_some_and(|r| r.contains("device id")), "{id:?}: {refusal:?}");
+            assert!(recorded.is_err() && !exported, "{id:?}: nothing is recorded");
+        }
+    }
+
+    #[test]
+    fn base_report_never_falls_back_to_another_devices_file() {
+        let (base, folder, _pg_root) = fixture("no-fallback", &[("report-dev-b.json", VERIFIED_B)]);
+        let reports = read_reports(&folder, ME);
+        let _ = fs::remove_dir_all(&base);
+        assert!(
+            reports.as_ref().is_ok_and(|r| base_report(r, ME).is_none()),
+            "dev-b's file never stands in for dev-a"
         );
     }
 }
