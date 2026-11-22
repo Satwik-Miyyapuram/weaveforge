@@ -25,16 +25,24 @@ export async function readOrCreateInstallId(
   return locks.request(LOCK_NAME, () => readOrCreateUnlocked(fs, newId));
 }
 
+/** True for a missing file: the ENOENT code, the NotFoundError name, or BrowserWorkspaceFs's "ENOENT:" message. */
+function isNotFound(error: unknown): boolean {
+  const { code, name, message } = (error ?? {}) as { code?: unknown; name?: unknown; message?: unknown };
+  return code === "ENOENT" || name === "NotFoundError" || (typeof message === "string" && message.startsWith("ENOENT:"));
+}
+
 async function readOrCreateUnlocked(
   fs: Pick<IWorkspaceFs, "readText" | "writeFile" | "rename">,
   newId: () => string,
 ): Promise<string> {
+  let stored: string | undefined;
   try {
-    const stored = (await fs.readText(INSTALL_ID_PATH)).trim();
-    if (ID_SHAPE.test(stored)) return stored;
-  } catch {
-    // Absent: create one below.
+    stored = (await fs.readText(INSTALL_ID_PATH)).trim();
+  } catch (error) {
+    // Only a missing file is absent. Any other read error refuses, so a transient failure never rotates the id.
+    if (!isNotFound(error)) throw error;
   }
+  if (stored !== undefined && ID_SHAPE.test(stored)) return stored;
   // A unique name per call, so two tabs or two calls never write the same temp file.
   const temp = `${INSTALL_ID_PATH}.${crypto.randomUUID()}.part`;
   await fs.writeFile(temp, newId());

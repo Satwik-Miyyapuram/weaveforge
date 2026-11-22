@@ -69,6 +69,16 @@ test("a stored id that is not a plain token is replaced", async () => {
   assert.equal(fs.files.get(INSTALL_ID_PATH), "web-clean-id");
 });
 
+test("a read error other than not-found refuses and does not replace the stored id", async () => {
+  const fs = folder({ [INSTALL_ID_PATH]: "web-kept-id" });
+  fs.readText = async () => {
+    throw Object.assign(new Error("I/O error"), { code: "EIO" });
+  };
+  await assert.rejects(createId(fs, () => "web-rotated-id"), /I\/O error/);
+  assert.equal(fs.renames.length, 0);
+  assert.equal(fs.files.get(INSTALL_ID_PATH), "web-kept-id");
+});
+
 test("a failed write rejects, so the caller can fail closed", async () => {
   const fs = folder();
   fs.writeFile = async () => {
