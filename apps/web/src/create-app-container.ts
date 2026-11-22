@@ -59,7 +59,7 @@ import { PlanFeedLinks } from "@/features/plan/infrastructure/plan-feed-links";
 import { LoadReadingListsScreenUseCase } from "@/features/reading-lists/application/parts";
 import { DuplicateSharedVaultPageUseCase } from "@/features/library/application/duplicate-shared-vault.use-case";
 import { LoadSharedWithMeScreenUseCase } from "@/features/sharing/application/parts";
-import { rustAiStores, rustShareLinkRepository } from "@/backend/providers/postgrest/rust-repository";
+import { rustShareLinkRepository } from "@/backend/providers/postgrest/rust-repository";
 import { FilePaperFieldRepository } from "@/backend/providers/files/file-paper-field-repo";
 import { PrefetchProjectUseCase } from "@/application/prefetch-project.use-case";
 import { readBackendConfig } from "@/backend/parts";
@@ -192,7 +192,9 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
   const commentRepository = backend.commentRepository;
   const encryptedBlobStore = new FetchingBlobStore(backend.rawBlobStore);
 
-  const { proposals: aiProposalStore, audit: aiAuditStore } = rustAiStores(backend.db, projectContext, backend.session);
+  // Personal AI data: folder files in files mode, PostgREST otherwise (wired in wirePostgrestBackend).
+  const aiProposalStore = backend.aiProposalStore;
+  const aiAuditStore = backend.aiAuditStore;
 
   const paperImageStore = new PaperImageStore(encryptedBlobStore, backend.session);
   const vaultAssetStore = new VaultAssetStore(encryptedBlobStore, backend.session);

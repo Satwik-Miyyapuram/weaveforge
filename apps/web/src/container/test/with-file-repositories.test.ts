@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { before, test } from "node:test";
 
+import { loadTestCore } from "@/lib/test/load-test-core";
 import type { BackendConfig } from "../../backend/parts";
 import { wireFileBackend, type FileRepositories } from "../../backend/providers/files/wire-file-backend";
 import { wirePostgrestBackend } from "../../backend/providers/postgrest/wire-postgrest-backend";
@@ -11,6 +12,9 @@ import {
   overlayFileRepositories,
   unclassifiedKeys,
 } from "../with-file-repositories";
+
+// wirePostgrestBackend builds the storage layer, which needs the Rust core loaded.
+before(loadTestCore);
 
 const parts = {
   fs: {} as never,

@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { before, test } from "node:test";
+import { loadTestCore } from "@/lib/test/load-test-core";
 import { wirePostgrestBackend } from "../../backend/providers/postgrest/wire-postgrest-backend";
+
+// wirePostgrestBackend builds the storage layer, which needs the Rust core loaded.
+before(loadTestCore);
 import type { BackendConfig } from "../../backend/parts";
 import {
   READ_ONLY_MESSAGE,

@@ -31,6 +31,8 @@ export const PERSONAL_REPOSITORY_KEYS: Record<keyof FileRepositories, true> = {
   bibliographyCollectionStore: true,
   screeningRepository: true,
   integrationsStore: true,
+  aiProposalStore: true,
+  aiAuditStore: true,
 };
 
 /**

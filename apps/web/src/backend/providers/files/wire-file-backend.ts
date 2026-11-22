@@ -7,6 +7,8 @@ import { FileReaderAnnotationRepository } from "@/features/reader/infrastructure
 import { FileScreeningRepository } from "@/features/reading-lists/infrastructure/file-screening-repository";
 import { WorkspaceListFilesPort } from "@/features/reading-lists/infrastructure/shell-list-files-port";
 import type { SecretsStore } from "@/features/settings/infrastructure/parts";
+import { FileAiAuditStore } from "./file-ai-audit-store";
+import { FileAiProposalStore } from "./file-ai-proposal-store";
 import { FileCitationAlertTrackRepository } from "./file-citation-alert-track-repo";
 import { FileExperimentRepository } from "./file-experiment-repo";
 import { FileLibraryPinRepository } from "./file-library-pin-repo";
@@ -59,6 +61,8 @@ export interface FileRepositories {
   readonly bibliographyCollectionStore: FileBibliographyCollectionStore;
   readonly screeningRepository: FileScreeningRepository;
   readonly integrationsStore: FileIntegrationsStore;
+  readonly aiProposalStore: FileAiProposalStore;
+  readonly aiAuditStore: FileAiAuditStore;
 }
 
 export interface FileBackendParts {
@@ -105,5 +109,7 @@ export function wireFileBackend(parts: FileBackendParts): FileRepositories {
     bibliographyCollectionStore: new FileBibliographyCollectionStore(settings),
     screeningRepository: new FileScreeningRepository(new WorkspaceListFilesPort(fs, "")),
     integrationsStore: new FileIntegrationsStore(settings, secrets),
+    aiProposalStore: new FileAiProposalStore(fs),
+    aiAuditStore: new FileAiAuditStore(fs),
   };
 }

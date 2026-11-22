@@ -79,6 +79,8 @@ import {
   type IVaultPageRepository,
   type ManageSettingsUseCase,
   ManageSettingsUseCase as ManageSettingsUseCaseClass,
+  type IAiAuditStore,
+  type IAiProposalStore,
   type Milestone,
   type MilestoneFilter,
   type Project,
@@ -88,7 +90,7 @@ import type { ISharedReader, SharedItem } from "../../../features/sharing/domain
 import type { Integration, SyncProvider } from "../../../features/sync/domain/parts";
 import { SupabaseAdminUserProvisioner, SupabaseSessionProvider } from "../supabase-auth/parts";
 import { createDataClient } from "./parts-1";
-import { projectUserCtx, rustRepository, rustVaultPageRepository } from "./rust-repository";
+import { projectUserCtx, rustAiStores, rustRepository, rustVaultPageRepository } from "./rust-repository";
 import { watchWrites } from "./watch-writes";
 
 export type { SharedItem } from "../../../features/sharing/domain/shared-reader";
@@ -176,6 +178,8 @@ export interface WiredPostgrestBackend {
   readonly dashboardLayoutRepository: IDashboardLayoutRepository;
   readonly graphSettingsRepository: IGraphSettingsRepository;
   readonly integrationsStore: IIntegrationsStore;
+  readonly aiProposalStore: IAiProposalStore;
+  readonly aiAuditStore: IAiAuditStore & { countAccepted(): Promise<number> };
   readonly paperRepository: IPaperRepository;
   readonly tagRepository: ITagRepository & ITagManager;
   readonly paperTagRepository: IPaperTagRepository;
@@ -289,6 +293,7 @@ export function wirePostgrestBackend(
     { resourceType: "graph_settings" },
   );
   const integrationsStore: IIntegrationsStore = rustIntegrationsStore(db);
+  const ai = rustAiStores(db, projectContext, session);
   const paperRepository = cachePaperRepository(rustPaperRepository(db, projectContext), pid);
 
   const tagPaperCache = new Map<string, Promise<unknown>>();
@@ -568,6 +573,8 @@ export function wirePostgrestBackend(
     dashboardLayoutRepository,
     graphSettingsRepository,
     integrationsStore,
+    aiProposalStore: ai.proposals,
+    aiAuditStore: ai.audit,
     paperRepository,
     tagRepository,
     paperTagRepository,
