@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { before, test } from "node:test";
+import { ConflictError } from "@weaveforge/core";
 import { loadCore } from "@/lib/rust-core";
 import { MemorySink } from "../infrastructure/memory-sink";
 import { createGroupCWriter } from "../infrastructure/kind-writer-group-c";
@@ -157,7 +158,10 @@ test("annotations: a same id with different content is a conflict, and the exist
     pageIndex: 1,
   };
   await writer.write("annotations", row);
-  await assert.rejects(() => writer.write("annotations", { ...row, text: "changed" }), /^Error: conflict:|conflict: annotation ann-conflict/);
+  await assert.rejects(
+    () => writer.write("annotations", { ...row, text: "changed" }),
+    (err: unknown) => err instanceof ConflictError && /conflict: annotation ann-conflict/.test(err.message),
+  );
   const back = await writer.readBack("annotations");
   assert.equal(back.length, 1);
   assert.equal(back[0]?.text, "original");
