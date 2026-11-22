@@ -57,6 +57,7 @@ fn a_098_shell_exposes_the_legacy_gate_commands() {
         text.contains("migrationReportVerified:"),
         "bindings lack migrationReportVerified"
     );
+    assert!(text.contains("installGateRequired:"), "bindings lack installGateRequired");
     assert!(!text.contains("migrate093Run:"), "migrate093Run must be gone");
     assert!(text.contains("pickFolder:"), "bindings lack pickFolder");
 }

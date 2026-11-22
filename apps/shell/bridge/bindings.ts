@@ -57,6 +57,8 @@ export const commands = {
 	 *  (`migrationReportVerified`). Read-only; an unreadable file is a typed error.
 	 */
 	migrationReportVerified: (folder: string) => typedError<boolean, ShellError_Serialize>(__TAURI_INVOKE("migration_report_verified", { folder })),
+		/**  Bridge: whether the "install 0.9.7 first" gate shows (`installGateRequired`). Errors when this device's id is unreadable. */
+		installGateRequired: () => typedError<boolean, ShellError_Serialize>(__TAURI_INVOKE("install_gate_required")),
 	/**
 	 *  Writes a text file atomically if it still has digest `expected_hash` (`None` = always).
 	 * 

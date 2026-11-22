@@ -124,6 +124,7 @@ pub fn specta_builder() -> tauri_specta::Builder<tauri::Wry> {
         crate::device_settings::device_settings_patch,
         crate::migrate::legacy_db_present,
         crate::migrate::migration_report_verified,
+        crate::migrate::install_gate_required,
         crate::cmd_files::file_write,
         crate::cmd_files::file_write_bytes,
         crate::cmd_files::file_delete,

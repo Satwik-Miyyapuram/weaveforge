@@ -255,43 +255,73 @@ fn configured_root(old_dir: &Path) -> Option<PathBuf> {
     Some(PathBuf::from(root))
 }
 
-/// The marker a 0.9.7 run leaves once it has moved this device's secrets: `<app data>/secrets-moved-<deviceId>.json`.
+/// This device's KEYS marker, written once its secrets are moved: `<workspace>/.weaveforge/migration-0.9.7/secrets-moved-<deviceId>.json`.
+/// Copied from `marker_path` in the KEYS branch (`apps/shell/src/secrets_moved.rs`); keep the two in step.
 #[must_use]
-pub fn secrets_marker_path(app_data: &Path, device_id: &str) -> PathBuf {
-    app_data.join(format!("secrets-moved-{device_id}.json"))
+pub fn secrets_marker_path(workspace: &Path, device_id: &str) -> PathBuf {
+    workspace
+        .join(WORKSPACE_META_DIR)
+        .join("migration-0.9.7")
+        .join(format!("secrets-moved-{device_id}.json"))
 }
 
 /// Whether the "install 0.9.7 first" gate shows. Only when old local-database data is on this device
-/// AND this device has neither a verified 0.9.7 export nor the secrets-moved marker. A fresh install
-/// has no old data, so it never sees the gate. An error or missing piece on the old-data or export
-/// check counts as "not done", so the gate shows rather than risking data.
+/// AND this device has neither a verified 0.9.7 export nor its secrets-moved marker, both in the
+/// configured workspace. A fresh install has no old data, so it never sees the gate. An error or
+/// missing piece on the old-data or export check counts as "not done", so the gate shows.
 #[must_use]
-pub fn install_gate_required(
+pub fn gate_required_from(
     app_data: Option<&Path>,
     electron: Option<&Path>,
     device_id: Option<&str>,
 ) -> bool {
     match legacy_db_from(app_data, electron) {
         Ok(false) => false,
-        Ok(true) => {
-            let migrated = marker_present(app_data, device_id)
-                || export_verified(electron.or(app_data), device_id);
-            !migrated
-        }
+        Ok(true) => !migrated_here(electron.or(app_data), device_id),
         Err(_) => true,
     }
 }
 
-fn marker_present(app_data: Option<&Path>, device_id: Option<&str>) -> bool {
-    matches!((app_data, device_id), (Some(dir), Some(id)) if secrets_marker_path(dir, id).is_file())
+/// Bridge: whether the "install 0.9.7 first" gate shows (`installGateRequired`). Errors when this
+/// device's id cannot be read, so the page shows the gate rather than guessing.
+#[tauri::command]
+#[specta::specta]
+pub fn install_gate_required(app: tauri::AppHandle) -> Result<bool, ShellError> {
+    use tauri::Manager as _;
+    let paths = app.path();
+    let dir = paths.app_data_dir().ok();
+    let electron = paths
+        .config_dir()
+        .ok()
+        .zip(paths.resource_dir().ok())
+        .and_then(|(config, resources)| {
+            let source = crate::launch::app_source(resources);
+            crate::launch::electron_data_dir(&source, &app.package_info().name, &config)
+        });
+    let device = match dir.as_deref() {
+        Some(data) => device_id::read_existing(data).map_err(|e| {
+            ShellError::coded("device_id_unreadable", &format!("cannot read this device's id: {e}"))
+        })?,
+        None => None,
+    };
+    Ok(gate_required_from(
+        dir.as_deref(),
+        electron.as_deref(),
+        device.as_deref(),
+    ))
 }
 
-/// True when the workspace named by the prefs in `prefs_dir` holds this device's verified 0.9.7 run.
-fn export_verified(prefs_dir: Option<&Path>, device_id: Option<&str>) -> bool {
+/// True when the workspace named by the prefs in `prefs_dir` holds this device's marker or its
+/// verified 0.9.7 run. No workspace or no device id is not migrated.
+fn migrated_here(prefs_dir: Option<&Path>, device_id: Option<&str>) -> bool {
     let (Some(dir), Some(id)) = (prefs_dir, device_id) else {
         return false;
     };
-    configured_root(dir).is_some_and(|root| matches!(report_state_verified(&root, Some(id)), Ok(true)))
+    let Some(root) = configured_root(dir) else {
+        return false;
+    };
+    secrets_marker_path(&root, id).is_file()
+        || matches!(report_state_verified(&root, Some(id)), Ok(true))
 }
 
 #[cfg(test)]
@@ -706,13 +736,32 @@ mod tests {
         fs::write(path, body).unwrap();
     }
 
-    fn write_marker(app: &Path) {
-        fs::write(secrets_marker_path(app, DEVICE), "{}").unwrap();
+    /// The KEYS marker, written where the 0.9.7 run puts it: inside the workspace folder.
+    fn write_marker(ws: &Path) {
+        let path = secrets_marker_path(ws, DEVICE);
+        fs::create_dir_all(path.parent().unwrap()).unwrap();
+        fs::write(path, "{}").unwrap();
     }
 
     /// The gate as the desktop asks it: this device id, app data only (no Electron dir).
     fn gate(app: &Path) -> bool {
-        install_gate_required(Some(app), None, Some(DEVICE))
+        gate_required_from(Some(app), None, Some(DEVICE))
+    }
+
+    #[test]
+    fn marker_path_is_in_the_workspace_migration_folder() {
+        let ws = Path::new("ws-root");
+        assert_eq!(
+            secrets_marker_path(ws, DEVICE),
+            ws.join(".weaveforge").join("migration-0.9.7").join("secrets-moved-device-a.json")
+        );
+    }
+
+    #[test]
+    fn a_marker_in_app_data_does_not_count() {
+        let (data, _) = data_with("gate-app-marker", true, false);
+        fs::write(data.join("secrets-moved-device-a.json"), "{}").unwrap();
+        assert!(gate(&data));
     }
 
     #[test]
@@ -731,7 +780,7 @@ mod tests {
     fn old_data_with_verified_export_and_marker_shows_no_gate() {
         let (data, ws) = data_with("gate-both", true, false);
         write_report(&ws, COMPLETE);
-        write_marker(&data);
+        write_marker(&ws);
         assert!(!gate(&data));
     }
 
@@ -744,8 +793,8 @@ mod tests {
 
     #[test]
     fn old_data_with_marker_alone_shows_no_gate() {
-        let (data, _) = data_with("gate-marker", true, false);
-        write_marker(&data);
+        let (data, ws) = data_with("gate-marker", true, false);
+        write_marker(&ws);
         assert!(!gate(&data));
     }
 
@@ -772,6 +821,6 @@ mod tests {
 
     #[test]
     fn missing_app_data_path_shows_the_gate() {
-        assert!(install_gate_required(None, None, Some(DEVICE)));
+        assert!(gate_required_from(None, None, Some(DEVICE)));
     }
 }
