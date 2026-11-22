@@ -351,7 +351,12 @@ test("(P3) a list that vanishes between the existence check and the write is Not
       for await (const e of real) if (!(hide && e.kind === "file")) yield e;
     })();
   };
-  await assert.rejects(items.add({ id: "a", listId: l.id, paperId: "p1", sortOrder: 0 }), NotFoundError);
+  // Exact type and message: another NotFoundError (e.g. "No file for paper") must not satisfy this.
+  await assert.rejects(items.add({ id: "a", listId: l.id, paperId: "p1", sortOrder: 0 }), (err: unknown) => {
+    assert.ok(err instanceof NotFoundError, `expected NotFoundError, got ${String(err)}`);
+    assert.equal(err.message, `No reading list with id "${l.id}".`);
+    return true;
+  });
 });
 
 test("an empty list file reads as no members; delete moves the list to the trash", async () => {
