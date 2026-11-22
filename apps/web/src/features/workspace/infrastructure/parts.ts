@@ -90,8 +90,11 @@ export class BrowserWorkspaceFs implements IWorkspaceFs {
     try {
       return await dir.getFileHandle(name, { create });
     } catch (error) {
-      // Only a missing file is absent. Any other refusal (permission, a type clash) reaches the caller.
-      if ((error as { name?: unknown } | null)?.name === "NotFoundError") return null;
+      // On a read, a missing file or a folder that holds this name is absent (the browser throws
+      // TypeMismatchError for a folder name). On a create, a clash rethrows so the write reports it.
+      // Any other refusal (permission and the like) reaches the caller.
+      const errorName = (error as { name?: unknown } | null)?.name;
+      if (errorName === "NotFoundError" || (errorName === "TypeMismatchError" && !create)) return null;
       throw error;
     }
   }
