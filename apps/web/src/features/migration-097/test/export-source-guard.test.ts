@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { before, test } from "node:test";
+import { fileURLToPath } from "node:url";
 import { MemoryWorkspaceFs } from "@core-test/memory-workspace-fs";
 import type { Paper } from "@weaveforge/core";
 import { loadTestCore } from "@/lib/test/load-test-core";
@@ -85,4 +87,18 @@ test("app writes are refused in files mode while the export source still reads",
   });
   await source.listRows("papers");
   assert.ok(exportNet.urls.length > 0, "the export read must still reach PostgREST");
+});
+
+test("source probe: the only send() outside request() is markExported097, and every read is GET or HEAD", () => {
+  const src = readFileSync(fileURLToPath(new URL("../infrastructure/postgrest-source.ts", import.meta.url)), "utf8");
+  const sendCalls = src.split("this.send(").length - 1;
+  const markAt = src.indexOf("async markExported097");
+  assert.ok(markAt > 0, "markExported097 must exist");
+  // One send() in request() (before markExported097), one in markExported097 itself.
+  assert.equal(sendCalls, 2, "send() must have exactly two call sites: request() and markExported097()");
+  assert.equal(src.slice(0, markAt).split("this.send(").length - 1, 1, "only request() may call send() before markExported097");
+  const requests = src.split("this.request(").length - 1;
+  const methods = [...src.matchAll(/this\.request\(\s*\w+,\s*\{\s*method: "(\w+)"/g)].map((m) => m[1]);
+  assert.equal(methods.length, requests, "every this.request() call must pass a literal method");
+  for (const method of methods) assert.ok(method === "GET" || method === "HEAD", `read-only source uses ${method}`);
 });
