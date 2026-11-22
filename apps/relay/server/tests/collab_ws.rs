@@ -880,6 +880,71 @@ async fn sync_step1_flood_is_rate_limited() {
 }
 
 #[tokio::test]
+async fn deferred_sync_step1_is_sent_once_the_budget_allows() {
+    let dir = TempDir::new("step1-deferred");
+    let store = Arc::new(MemoryStore::new());
+    seed(&store, ITEM, Vec::new()).await;
+    let relay = Relay::start(dir.path(), store.clone(), PERSIST).await;
+
+    let mut owner = join(relay.port, ITEM, OWNER_TOKEN, Q1)
+        .await
+        .expect("owner joins");
+    let _hello = next_json(&mut owner).await;
+    let step1 = sync_step1(&StateVector::default());
+
+    // Burst of three is answered at once; the fourth is over budget and deferred.
+    for _ in 0..4 {
+        send_frame(&mut owner, step1.clone()).await;
+    }
+    assert_eq!(count_step2_replies(&mut owner).await, 3);
+
+    // The clock gives one token back. The client sends nothing more, so the reply to the
+    // deferred SyncStep1 must come from the retry tick alone.
+    relay.now.fetch_add(1_000, Ordering::SeqCst);
+    assert_eq!(count_step2_replies(&mut owner).await, 1);
+}
+
+#[tokio::test]
+async fn deferred_sync_step1_is_not_sent_after_a_silent_revoke() {
+    let dir = TempDir::new("step1-revoked");
+    let store = Arc::new(MemoryStore::new());
+    seed(&store, ITEM, Vec::new()).await;
+    let _grant = grant_edit(&store, ITEM).await;
+    let relay = Relay::start(dir.path(), store.clone(), PERSIST).await;
+    let mut guest = join(relay.port, ITEM, GUEST_TOKEN, Q1)
+        .await
+        .expect("guest joins");
+    let _hello = next_json(&mut guest).await;
+    let step1 = sync_step1(&StateVector::default());
+    for _ in 0..4 {
+        send_frame(&mut guest, step1.clone()).await;
+    }
+    assert_eq!(count_step2_replies(&mut guest).await, 3);
+    store
+        .revoke_item_grants(ITEM)
+        .await
+        .expect("revoke the item grants");
+    relay.now.fetch_add(1_000, Ordering::SeqCst);
+    let mut denied = false;
+    let mut replies = 0;
+    loop {
+        match tokio::time::timeout(Duration::from_millis(500), guest.next()).await {
+            Err(_) | Ok(None) | Ok(Some(Ok(Message::Close(_)))) | Ok(Some(Err(_))) => break,
+            Ok(Some(Ok(Message::Text(text)))) => denied |= text.as_str().contains("denied"),
+            Ok(Some(Ok(Message::Binary(frame)))) => {
+                replies += usize::from(frame.get(..2) == Some(&[0, 1][..]));
+            }
+            Ok(Some(Ok(_))) => {}
+        }
+    }
+    assert!(denied, "a revoked guest must be told it was denied");
+    assert_eq!(
+        replies, 0,
+        "a revoked guest must not get the held-back reply"
+    );
+}
+
+#[tokio::test]
 async fn lagged_client_rechecks_after_revoke() {
     let dir = TempDir::new("lagged");
     let store = Arc::new(MemoryStore::new());
