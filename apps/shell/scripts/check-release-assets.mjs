@@ -28,7 +28,8 @@ const run = promisify(execFile);
  * Returns one line per problem; an empty list means the release passes.
  * `release` is the parsed `gh api releases/tags/<tag>` response. `readAsset(name)`
  * resolves the asset's text, or null when it cannot be downloaded. `bridge` is the
- * raw 0.9.7 latest.json text, needed to check latest.json on releases after 0.9.7.
+ * `bridgeBytes` are the raw bytes of the 0.9.7 latest.json, needed to check latest.json
+ * on releases after 0.9.7.
  */
 export async function checkRelease({ tag, release, readAsset, bridgeBytes }) {
   const version = versionFromTag(tag);
