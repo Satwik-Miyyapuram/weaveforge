@@ -1,10 +1,17 @@
 #![allow(clippy::unwrap_used, clippy::expect_used, missing_docs)]
 
+mod common;
+
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::time::{Duration, Instant};
 
-use wf_relay_server::overleaf_git::{clone_failure, collect_text_files, read_overleaf_project};
+use common::{Reply, response, serve};
+use wf_relay_server::overleaf_git::{
+    clone_failure, clone_settings, collect_text_files, read_overleaf_project,
+    read_overleaf_project_within,
+};
 
 static COUNTER: AtomicU64 = AtomicU64::new(0);
 
@@ -103,8 +110,142 @@ async fn missing_entry_file_is_an_error() {
     let err = read_overleaf_project(&slash(&base), &id, "nope.tex", "tok")
         .await
         .unwrap_err();
-    assert_eq!(err, "Entry file not found: nope.tex");
+    // Fixed wording: the caller's entry name is not echoed.
+    assert_eq!(err, "Entry file not found.");
     let _ = std::fs::remove_dir_all(&base);
+}
+
+/// The temp clone dirs for one project, by name.
+fn temp_entries(project_id: &str) -> Vec<String> {
+    let prefix = format!("weaveforge-overleaf-{project_id}-");
+    std::fs::read_dir(std::env::temp_dir())
+        .unwrap()
+        .filter_map(Result::ok)
+        .map(|entry| entry.file_name().to_string_lossy().into_owned())
+        .filter(|name| name.starts_with(&prefix))
+        .collect()
+}
+
+#[tokio::test]
+async fn stalled_clone_is_killed_and_its_checkout_removed() {
+    const LIMIT: Duration = Duration::from_secs(15);
+    // Unique per run (process id plus clock; Windows reuses process ids), so a checkout left
+    // by another run on this machine is never counted.
+    let nanos = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_nanos();
+    let id: &'static str =
+        Box::leak(format!("stall{}x{nanos}", std::process::id()).into_boxed_str());
+    let refs: &'static str = Box::leak(format!("/{id}/info/refs").into_boxed_str());
+    let up = serve(vec![(refs, vec![Reply::Silent])]).await;
+    let git_base = up.base.as_str().trim_end_matches('/').to_string();
+    let started = Instant::now();
+    let read = tokio::spawn(async move {
+        read_overleaf_project_within(&git_base, id, "main.tex", "tok", LIMIT).await
+    });
+    // Once git has asked the stand-in for refs it is stalled, and its checkout sits under an
+    // unguessable name with the usual prefix. Polling has the whole clone limit, so a slow
+    // spawn on a loaded runner does not fail the test.
+    let mut during = Vec::new();
+    let wait_until = Instant::now() + LIMIT;
+    while during.is_empty() && Instant::now() < wait_until {
+        tokio::time::sleep(Duration::from_millis(50)).await;
+        during = temp_entries(id);
+    }
+    assert_eq!(during.len(), 1, "{during:?}");
+    let suffix = &during[0][format!("weaveforge-overleaf-{id}-").len()..];
+    assert_eq!(suffix.len(), 32, "{suffix}");
+    assert!(suffix.chars().all(|c| c.is_ascii_hexdigit()), "{suffix}");
+    let err = read.await.unwrap().unwrap_err();
+    assert_eq!(err, "Overleaf git clone timed out.");
+    assert!(started.elapsed() < LIMIT * 2);
+    // The checkout is removed before the error returns; allow a few seconds for a slow disk.
+    let gone_by = Instant::now() + Duration::from_secs(5);
+    while count_temp_entries(id) != 0 && Instant::now() < gone_by {
+        tokio::time::sleep(Duration::from_millis(50)).await;
+    }
+    assert_eq!(count_temp_entries(id), 0);
+    assert_eq!(up.seen().len(), 1);
+}
+
+#[tokio::test]
+async fn redirect_is_not_followed_so_the_token_stays_on_the_first_host() {
+    let other = serve(vec![(
+        "/elsewhere/info/refs",
+        vec![response(200, &[], b"")],
+    )])
+    .await;
+    let location = format!("http://127.0.0.1:{}/elsewhere/info/refs", other.port);
+    let first = serve(vec![(
+        "/redirproj/info/refs",
+        vec![response(302, &[("Location", location.as_str())], b"")],
+    )])
+    .await;
+    let git_base = first.base.as_str().trim_end_matches('/');
+    let err = read_overleaf_project_within(
+        git_base,
+        "redirproj",
+        "main.tex",
+        "tok",
+        Duration::from_secs(30),
+    )
+    .await
+    .unwrap_err();
+    assert!(err.starts_with("Overleaf git clone failed"), "{err}");
+    // git's default (follow the first redirect, then send later requests, header and all,
+    // to the new host) would reach `other`; with redirects off it gets nothing.
+    assert!(other.seen().is_empty(), "{:?}", other.seen());
+    let sent = first.seen();
+    assert_eq!(sent.len(), 1);
+    assert_eq!(sent[0].header("authorization"), Some("Basic Z2l0OnRvaw=="));
+    assert_eq!(count_temp_entries("redirproj"), 0);
+}
+
+#[test]
+fn clone_turns_redirects_off_and_stops_a_slow_transfer() {
+    let settings = clone_settings("Authorization: Basic x".to_string());
+    let pairs: Vec<(&str, &str)> = settings.iter().map(|(k, v)| (*k, v.as_str())).collect();
+    assert_eq!(
+        pairs,
+        [
+            ("http.extraHeader", "Authorization: Basic x"),
+            ("http.followRedirects", "false"),
+            ("http.lowSpeedLimit", "1000"),
+            ("http.lowSpeedTime", "30"),
+        ]
+    );
+}
+
+fn nested(dir: &Path, levels: usize) -> PathBuf {
+    let mut deep = dir.to_path_buf();
+    for _ in 0..levels {
+        deep.push("d");
+    }
+    deep
+}
+
+#[test]
+fn folders_nested_past_the_depth_cap_are_an_error() {
+    let dir = unique_dir("deep");
+    let deep = nested(&dir, 33);
+    std::fs::create_dir_all(&deep).unwrap();
+    write(&deep, "a.tex", b"x");
+    let err = collect_text_files(&dir).unwrap_err();
+    assert_eq!(err, "Overleaf project nests folders too deeply.");
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn folders_nested_to_the_depth_cap_are_read() {
+    let dir = unique_dir("deep-ok");
+    let deep = nested(&dir, 32);
+    std::fs::create_dir_all(&deep).unwrap();
+    write(&deep, "a.tex", b"x");
+    let files = collect_text_files(&dir).unwrap();
+    assert_eq!(files.len(), 1);
+    assert_eq!(files[0].path, format!("{}a.tex", "d/".repeat(32)));
+    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[tokio::test]
@@ -198,6 +339,19 @@ fn file_count_limit_is_enforced() {
 }
 
 #[test]
+fn files_that_are_not_read_do_not_count_toward_the_file_limit() {
+    let dir = unique_dir("countskip");
+    for i in 0..250 {
+        write(&dir, &format!("f{i:03}.txt"), b"x");
+    }
+    write(&dir, "zz.png", b"png");
+    write(&dir, "zz/inner.png", b"png");
+    let files = collect_text_files(&dir).unwrap();
+    assert_eq!(files.len(), 250);
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
 fn per_file_size_limit_is_enforced() {
     let dir = unique_dir("size");
     write(&dir, "big.txt", &vec![b'a'; 2_000_001]);
@@ -212,11 +366,9 @@ fn per_file_size_limit_is_enforced() {
 #[tokio::test]
 async fn no_temp_dir_left_after_failed_read() {
     let (base, id) = make_repo(&[("main.tex", "Hello")]);
-    let before = count_temp_entries(&id);
     let result = read_overleaf_project(&slash(&base), &id, "nope.tex", "tok").await;
     assert!(result.is_err());
-    let after = count_temp_entries(&id);
-    assert!(after <= before, "before={before} after={after}");
+    assert_eq!(count_temp_entries(&id), 0);
     let _ = std::fs::remove_dir_all(&base);
 }
 
