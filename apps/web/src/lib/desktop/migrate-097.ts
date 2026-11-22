@@ -70,7 +70,11 @@ async function read(bridge: Migrate097Bridge, folder: string): Promise<Migrate09
       const remover = typeof report?.deviceId === "string" && report.removingDeviceId === report.deviceId;
       return ownRun || remover ? "removed" : "unexported";
     }
-    return state === "verified" || state === "incomplete" || state === "none" ? state : "unavailable";
+    if (state === "verified") {
+      // Files wire only on a device that verified its own export; another device's verified report is "unexported" here.
+      return report?.ownRunVerified === true ? "verified" : "unexported";
+    }
+    return state === "incomplete" || state === "none" ? state : "unavailable";
   } catch {
     return "unavailable";
   }

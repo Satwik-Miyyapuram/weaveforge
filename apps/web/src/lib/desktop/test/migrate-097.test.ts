@@ -6,9 +6,18 @@ import { migrate097Status, usesFileBackend } from "../migrate-097";
 const FOLDER = "C:\Users\me\Documents\WeaveForge";
 
 test("a verified migration report is the only state that wires the file backend", async () => {
-  const bridge = { migrate097Status: async () => ({ state: "verified" }) };
+  const bridge = { migrate097Status: async () => ({ state: "verified", deviceId: "dev-a", ownRunVerified: true }) };
   assert.equal(await migrate097Status(bridge, FOLDER), "verified");
   assert.equal(usesFileBackend("verified"), true);
+});
+
+test("a verified report that this device did not verify itself never wires files on this device", async () => {
+  const otherDevice = { migrate097Status: async () => ({ state: "verified", deviceId: "dev-a", ownRunVerified: false }) };
+  const resolved = await migrate097Status(otherDevice, FOLDER);
+  assert.notEqual(resolved, "verified");
+  assert.equal(usesFileBackend(resolved), false);
+  const missingFlag = { migrate097Status: async () => ({ state: "verified", deviceId: "dev-a" }) };
+  assert.equal(usesFileBackend(await migrate097Status(missingFlag, FOLDER)), false);
 });
 
 test("none and incomplete keep their own state", async () => {
