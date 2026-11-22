@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { test } from "node:test";
-import { REPORT_PATH, writesOff, type RunReport } from "../domain/report";
+import { REPORT_PATH, readMigrationReport, writesOff, type RunReport } from "../domain/report";
 import { SERVER_ONLY_FIELDS } from "../domain/server-only-fields";
 import type { BlobRef, FileCodec, Row, ServerSource } from "../domain/ports";
 import type { KindWriter } from "../domain/kind-writer";
@@ -1177,4 +1177,35 @@ test("writesOff: only a verified report with target opfs switches the browser wr
   assert.equal(writesOff({ state: "incomplete", target: "opfs" }), false);
   assert.equal(writesOff({ state: "verified" }), false);
   assert.equal(writesOff(undefined), false);
+});
+
+test("readMigrationReport: an absent report gives null", async () => {
+  assert.equal(await readMigrationReport(new MemorySink()), null);
+});
+
+test("readMigrationReport: corrupt JSON gives null and never throws", async () => {
+  const sink = new MemorySink();
+  await sink.write(REPORT_PATH, "{not json");
+  assert.equal(await readMigrationReport(sink), null);
+});
+
+test("readMigrationReport: JSON that is not a report (null, or an unknown state) gives null", async () => {
+  const sink = new MemorySink();
+  await sink.write(REPORT_PATH, "null");
+  assert.equal(await readMigrationReport(sink), null);
+  await sink.write(REPORT_PATH, JSON.stringify({ state: "done" }));
+  assert.equal(await readMigrationReport(sink), null);
+});
+
+test("readMigrationReport: the report the web export writes reads back and switches writes off", async () => {
+  const { source } = fakeServer({ rows: {} });
+  const sink = new MemorySink();
+  const result = await runWebExport({ kinds: [], codec: fakeCodec([]), source, sink, now: NOW });
+  assert.equal(result.state, "verified");
+  const report = await readMigrationReport(sink);
+  assert.ok(report);
+  assert.equal(report.state, "verified");
+  assert.equal(report.target, "opfs");
+  assert.deepEqual(report, JSON.parse(await sink.readText(REPORT_PATH)));
+  assert.equal(writesOff(report), true);
 });

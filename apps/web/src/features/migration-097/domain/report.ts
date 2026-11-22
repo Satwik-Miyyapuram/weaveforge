@@ -1,3 +1,5 @@
+import type { FileSink } from "./ports";
+
 /** Kinds named by the 0.9.7 migration contract (LANES.md). */
 export const MIGRATION_KINDS = [
   "notes",
@@ -63,4 +65,19 @@ export type MigrationReport = {
  */
 export function writesOff(report: Pick<MigrationReport, "state" | "target"> | null | undefined): boolean {
   return report?.state === "verified" && report.target === "opfs";
+}
+
+/**
+ * Reads the report from the OPFS sink. Null when the file is absent, is not JSON, or is not a
+ * report with a known state. Never throws, so a damaged report reads as no report.
+ */
+export async function readMigrationReport(fs: Pick<FileSink, "readText">): Promise<MigrationReport | null> {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(await fs.readText(REPORT_PATH));
+  } catch {
+    return null;
+  }
+  const state = (parsed as { state?: unknown } | null)?.state;
+  return state === "verified" || state === "incomplete" || state === "none" ? (parsed as MigrationReport) : null;
 }
