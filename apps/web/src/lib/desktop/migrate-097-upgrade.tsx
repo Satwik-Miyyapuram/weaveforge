@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { Button } from "@/components/button";
 import { Modal, ModalActions } from "@/components/modal";
+import { InstallIdLocksUnavailableError } from "@/container/browser-install-id";
 import { desktop } from "./desktop-bridge";
 import type { Migrate097Progress, Migrate097StateName } from "./desktop-bridge";
 
@@ -46,13 +47,15 @@ export async function runUpgrade(
   runExport: ExportRunner | null,
   onProgress: (p: Migrate097Progress) => void,
   onReply?: (reply: ExportReply) => void,
+  onError?: (err: unknown) => void,
 ): Promise<"verified" | "stopped"> {
   if (!runExport) return "stopped";
   try {
     const reply = await runExport(folder, onProgress);
     onReply?.(reply);
     return reply.state === "verified" ? "verified" : "stopped";
-  } catch {
+  } catch (err) {
+    onError?.(err);
     return "stopped";
   }
 }
@@ -70,6 +73,8 @@ export type UpgradeBodyProps = {
   phase: UpgradePhase;
   progress: Record<string, UpgradeKindProgress>;
   reportFolder: string;
+  /** The message for a failure the screen can name (a WebView lock failure); otherwise the generic line shows. */
+  failureMessage?: string;
   /** Kind names the exporter could not move; listed when the run stopped. */
   missing?: string[];
   /** Web: provider names the user reconnects to finish the upgrade. */
@@ -93,6 +98,7 @@ export function Migrate097UpgradeBody({
   phase,
   progress,
   reportFolder,
+  failureMessage,
   missing = [],
   reconnectProviders = [],
   undecryptable = 0,
@@ -148,7 +154,7 @@ export function Migrate097UpgradeBody({
   }
   return (
     <div>
-      <p>The upgrade did not finish. Your old data is untouched.</p>
+      {failureMessage ? <p>{failureMessage}</p> : <p>The upgrade did not finish. Your old data is untouched.</p>}
       {missing.length > 0 ? <p>{`Not moved yet: ${missing.join(", ")}.`}</p> : null}
       {pendingSync ? <p>Sync pending changes first, then try again.</p> : null}
       {reconnectProviders.length > 0 ? <p>{`Reconnect ${reconnectProviders.join(", ")} to finish the upgrade.`}</p> : null}
@@ -156,7 +162,7 @@ export function Migrate097UpgradeBody({
         <p>{`${undecryptable} items cannot be read here. Open the desktop app to export these ${undecryptable} items.`}</p>
       ) : null}
       <p>
-        Report folder: <code style={{ userSelect: "text", WebkitUserSelect: "text" }}>{reportFolder}</code>
+        Report folder: <code style={{ userSelect: "text", WebkitUserSelect: "text" }}>{reportFolder}</code>{" "}{"(report-<device>.json)"}
       </p>
       <Button variant="secondary" onClick={onCopy}>
         {copied ? "Copied" : "Copy report folder"}
@@ -199,6 +205,7 @@ export function Migrate097Upgrade({
   const [copied, setCopied] = useState(false);
   const [missing, setMissing] = useState<string[]>([]);
   const [reply, setReply] = useState<ExportReply>({ state: "incomplete" });
+  const [failure, setFailure] = useState<string | null>(null);
   const started = useRef(false);
 
   async function run() {
@@ -206,11 +213,13 @@ export function Migrate097Upgrade({
     setProgress({});
     setMissing([]);
     setReply({ state: "incomplete" });
+    setFailure(null);
     const outcome = await runUpgrade(
       folder,
       runExport,
       (p) => setProgress((prev) => ({ ...prev, [p.kind]: { done: p.done, total: p.total } })),
       setReply,
+      (err) => setFailure(err instanceof InstallIdLocksUnavailableError ? err.message : null),
     );
     if (outcome === "verified") {
       setPhase("verified");
@@ -247,6 +256,7 @@ export function Migrate097Upgrade({
       phase={phase}
       progress={progress}
       reportFolder={upgradeReportFolder(folder)}
+      failureMessage={failure ?? undefined}
       missing={missing}
       reconnectProviders={reply.reconnectProviders}
       undecryptable={reply.undecryptable}
