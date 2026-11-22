@@ -192,6 +192,31 @@ test("forgetting removes what a later load would have found", async () => {
   });
 });
 
+test("a locked keychain is nothing stored, not a failed load, and the secret stays out of the log", async () => {
+  const globals = globalThis as { window?: FakeWindow };
+  const previous = globals.window;
+  globals.window = {
+    weaveforge: {
+      version: "test",
+      platform: "linux",
+      fetchTitle: () => Promise.reject(new Error("not used")),
+      fetchImage: () => Promise.reject(new Error("not used")),
+      onSignIn: () => () => {},
+      checkUpdate: () => Promise.resolve(null),
+      readSecret: () => Promise.reject(new Error("keychain is locked")),
+      writeSecret: () => Promise.resolve(),
+      clearSecret: () => Promise.resolve(),
+      reportAppLog: () => {},
+    },
+  };
+  try {
+    assert.equal(await restoreActiveProvider(), false);
+    assert.equal(activeProviderLabel(), null);
+  } finally {
+    globals.window = previous;
+  }
+});
+
 test("a blob that is not what this module writes is ignored", async () => {
   for (const blob of [
     "not json at all",

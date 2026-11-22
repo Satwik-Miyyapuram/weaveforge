@@ -715,7 +715,12 @@ export interface DesktopVaultEntry {
  * (`PAGE_WRITABLE`), which also keeps `local-api-token` for the shell alone, and lets the page
  * write but never read back `overleaf-token` or `git-sync-token`.
  */
-export type DesktopSecretName = "ai-provider" | "overleaf-token" | "git-sync-token";
+export type DesktopSecretName =
+  | "ai-provider"
+  | "overleaf-token"
+  | "git-sync-token"
+  | "device-secrets"
+  | `device-secrets/${string}`;
 
 /**
  * The shell preferences the page may write. Equal to `PAGE_WRITABLE` in

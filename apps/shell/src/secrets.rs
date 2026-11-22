@@ -7,7 +7,7 @@ use keyring_core::CredentialStore;
 use crate::commands::ShellError;
 
 /// Every secret the shell keeps. Adding one is a reviewed change.
-pub const SECRET_NAMES: [&str; 6] = [
+pub const SECRET_NAMES: [&str; 7] = [
     "ai-provider",
     "local-api-token",
     "overleaf-token",
@@ -15,11 +15,26 @@ pub const SECRET_NAMES: [&str; 6] = [
     "overleaf-session",
     // Secrets moved out of an older settings.json (`settings_secrets.rs`); shell only.
     "settings-legacy",
+    // This device's integration credentials, as JSON (the page's DeviceSecretsStore).
+    "device-secrets",
 ];
 /// Secrets the page may read back.
-pub const PAGE_READABLE: [&str; 1] = ["ai-provider"];
+pub const PAGE_READABLE: [&str; 2] = ["ai-provider", "device-secrets"];
+/// Secrets the page may write and clear but never read back, even as a device field. The camelCase
+/// names are the device-field keys the migration writes (`device-secrets/overleafToken`).
+pub const WRITE_ONLY: [&str; 4] = [
+    "overleaf-token",
+    "git-sync-token",
+    "overleafToken",
+    "gitSyncToken",
+];
 /// Secrets the page may write and clear.
-pub const PAGE_WRITABLE: [&str; 3] = ["ai-provider", "overleaf-token", "git-sync-token"];
+pub const PAGE_WRITABLE: [&str; 4] = [
+    "ai-provider",
+    "overleaf-token",
+    "git-sync-token",
+    "device-secrets",
+];
 
 /// Why a secret call was refused. The Display text is shown to the reader as-is.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
@@ -41,6 +56,46 @@ pub enum SecretError {
     /// The keychain failed for a reason other than the above.
     #[error("The keychain could not be reached just now, so nothing was changed.")]
     Unreachable,
+    /// The old device row holds more than one secrets row; the keychain keeps one entry.
+    #[error("This device has more than one saved secrets row, so nothing was moved.")]
+    SeveralRows,
+    /// Every secret is in the keychain, but the record of the move could not be written.
+    #[error(
+        "The secrets are in the keychain, but the move could not be recorded, so it will run again."
+    )]
+    MarkerFailed,
+    /// The keychain is locked, so the saved credentials cannot be read. Nothing was changed.
+    #[error(
+        "The keychain is locked, so the saved credentials cannot be read. Unlock it and try again. Nothing was changed."
+    )]
+    Locked,
+    /// The old device row is not the expected JSON.
+    #[error("The saved credentials on this device could not be read, so nothing was moved.")]
+    BadRow,
+    /// The keychain's index of saved fields is damaged. Resetting it (clearing `device-secrets/_index`)
+    /// lets the move run again.
+    #[error(
+        "The saved credentials index on this device is damaged, so nothing was moved. Reset it to continue."
+    )]
+    CorruptIndex,
+}
+
+/// The name the device's credentials are filed under. Each field is one keychain entry,
+/// `device-secrets/<key>`, because Windows caps a single credential blob at 2560 bytes.
+pub const DEVICE_SECRETS: &str = "device-secrets";
+
+/// Whether `name` is one field entry of the device's credentials (`device-secrets/<key>`). The index
+/// entry `device-secrets/_index` counts; every other key that starts with `_` is reserved.
+#[must_use]
+pub fn is_device_field(name: &str) -> bool {
+    name.strip_prefix("device-secrets/").is_some_and(|key| {
+        !key.is_empty()
+            && key.len() <= 128
+            && (key == "_index" || !key.starts_with('_'))
+            && key
+                .bytes()
+                .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'_' | b'.' | b'-'))
+    })
 }
 
 /// The keychain store and the service name every secret is filed under.
@@ -79,13 +134,18 @@ impl Secrets {
         .unwrap_or(Err(SecretError::Unreachable))
     }
 
-    /// The stored value, or `None` when nothing is stored or it cannot be read.
+    /// The stored value, or `None` only when nothing is stored (`NoEntry`). A missing, locked or
+    /// unreachable keychain is an error, so the caller never mistakes it for an empty store and
+    /// overwrites what is there.
     pub fn read(&self, name: &str) -> Result<Option<String>, SecretError> {
         known(&SECRET_NAMES, name)?;
-        Ok(self
-            .entry(name)
-            .and_then(Result::ok)
-            .and_then(|entry| entry.get_password().ok()))
+        let entry = self.entry(name).ok_or(SecretError::NoKeychain)?;
+        let entry = entry.map_err(|e| read_error(&e))?;
+        match entry.get_password() {
+            Ok(value) => Ok(Some(value)),
+            Err(keyring_core::Error::NoEntry) => Ok(None),
+            Err(e) => Err(read_error(&e)),
+        }
     }
 
     /// Stores `value` under `name`, replacing any earlier value.
@@ -122,6 +182,9 @@ impl Secrets {
     /// `read`, for the page: only names in `PAGE_READABLE`.
     pub fn page_read(&self, name: &str) -> Result<Option<String>, SecretError> {
         known(&PAGE_READABLE, name)?;
+        if is_write_only(name) {
+            return Err(SecretError::UnknownName);
+        }
         self.read(name)
     }
 
@@ -145,12 +208,31 @@ impl Secrets {
     }
 }
 
-/// Refuses a name outside `list`; the match is exact.
+/// Whether `name` is a write-only token, or a device field of one (`device-secrets/<token>.<sub>`).
+fn is_write_only(name: &str) -> bool {
+    let key = name.strip_prefix("device-secrets/").unwrap_or(name);
+    let top = key.split('.').next().unwrap_or(key);
+    WRITE_ONLY.contains(&top)
+}
+
+/// Refuses a name outside `list`. The match is exact, except that any device field entry is
+/// allowed wherever the device credentials are.
 fn known(list: &[&str], name: &str) -> Result<(), SecretError> {
-    if list.contains(&name) {
+    if list.contains(&name) || (list.contains(&DEVICE_SECRETS) && is_device_field(name)) {
         Ok(())
     } else {
         Err(SecretError::UnknownName)
+    }
+}
+
+/// Maps a keychain failure during a read to the reader-facing reason.
+fn read_error(error: &keyring_core::Error) -> SecretError {
+    match error {
+        keyring_core::Error::NoStorageAccess(_) => SecretError::Locked,
+        keyring_core::Error::NoDefaultStore | keyring_core::Error::NotSupportedByStore(_) => {
+            SecretError::NoKeychain
+        }
+        _ => SecretError::Unreachable,
     }
 }
 

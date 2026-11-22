@@ -7,7 +7,9 @@ use std::fmt::Display;
 use serde_json::{Map, Value};
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::{JsError, wasm_bindgen};
-use wf_core::papers::paper_file::{paper_row, parse_paper_file, write_paper_row};
+use wf_core::papers::paper_file::{
+    ExtrasChange, paper_extras, paper_row, parse_paper_file, write_paper_extras, write_paper_row,
+};
 use wf_core::reader::annotations_file::{
     AnnotationRow, annotations_file_path, parse_annotations, render_annotations,
 };
@@ -47,6 +49,39 @@ pub fn write_paper_row_js(
 ) -> Result<String, JsError> {
     let row: Map<String, Value> = serde_wasm_bindgen::from_value(row).map_err(js_error)?;
     write_paper_row(existing.as_deref(), &row).map_err(js_error)
+}
+
+/// [`paper_extras`] of [`parse_paper_file`]: the file's `relations` and `fields`.
+///
+/// # Errors
+///
+/// Fails when the text is not a paper file.
+#[wasm_bindgen(
+    js_name = paperExtrasFromFile,
+    unchecked_return_type = "{ relations: { to: string; type: string; [key: string]: unknown }[]; fields: Record<string, unknown> }"
+)]
+pub fn paper_extras_from_file_js(text: &str) -> Result<JsValue, JsError> {
+    let file = parse_paper_file(text).map_err(js_error)?;
+    to_js(&paper_extras(&file)).map_err(js_error)
+}
+
+/// [`write_paper_extras`]: the file text after replacing the `relations` and/or
+/// `fields` that `change` holds (an absent part is kept).
+///
+/// # Errors
+///
+/// Fails when `existing` is not a paper file, is from a newer app, or holds an
+/// unreadable `relations` entry that `change` would replace.
+#[wasm_bindgen(js_name = writePaperExtras)]
+pub fn write_paper_extras_js(
+    existing: &str,
+    #[wasm_bindgen(
+        unchecked_param_type = "{ relations?: readonly { to: string; type: string; [key: string]: unknown }[]; fields?: Record<string, unknown> }"
+    )]
+    change: JsValue,
+) -> Result<String, JsError> {
+    let change: ExtrasChange = serde_wasm_bindgen::from_value(change).map_err(js_error)?;
+    write_paper_extras(existing, &change).map_err(js_error)
 }
 
 /// [`parse_annotations`]: the rows of an annotations file.

@@ -1,116 +1,21 @@
-# How WeaveForge is put together
-
-A map of the whole thing: where the code lives, what each surface can do, and
-which of those things still work with the network unplugged.
-
-It is written for somebody deciding where a change belongs, and for anybody who
-wants to know what runs on their machine and what does not.
-
-## The shape of it
-
-One codebase, four surfaces, one schema.
-
-- **`packages/core`** — the rules. Domain types and use cases with no framework
-  and no database in them: citation keys, LaTeX section trees, the paste
-  pipeline, the search ranking. Everything else depends on this, and it depends
-  on nothing.
-- **`apps/web`** — the app. Screens, features, API routes, and the wiring that
-  chooses which backend is behind them. The browser runs this; so does the
-  desktop window, unchanged.
-- **`apps/shell`** — the shell. Only what a window can do and a tab cannot:
-  the keychain, a folder on your disk, a local database, a loopback API, the
-  menu, updates.
-- **`apps/pitch`** — the public site, including this page.
-- **`python/weaveforge`** — the SDK training scripts import.
-- **`db/migrations`** — the schema, applied in the same order to a hosted
-  database and to the one in your app's folder. There is no second schema.
-
-## What runs where
-
-Three ways to run it, and they are not three versions. The same feature code
-sits above every one of them; what changes underneath is the database client,
-the identity, the auth service and the blob store — four things, swapped at
-startup.
-
-| | In a browser | Desktop, signed in | Desktop, no account |
-| --- | --- | --- | --- |
-| Where data lives | Hosted Postgres | Hosted Postgres | PGlite, in the app's folder |
-| Who you are | Your account | Your account | One local user |
-| Attachments | Object storage | Object storage | A local table |
-| Integration tokens | Sealed with a server key | Sealed with a server key | This computer's keychain |
-| Needs a network | Yes | Yes | No |
-
-## Offline, precisely
-
-"Works offline" is a claim worth being exact about. A copy with no account makes
-no outbound request at boot, and these work with the network unplugged:
-
-| Feature | Offline | How |
-| --- | --- | --- |
-| Projects, notes, papers, lists, reports | Yes | Ordinary rows in the local database |
-| The editor, including typing in a document | Yes | The CRDT log is still written; the sync channel is not opened, because there is nobody to reach |
-| The workspace folder mirror | Yes | The shell reads and writes the folder directly |
-| The workspace editor — panes, explorer, quick open | Yes | Pane layout, tree and fuzzy match are client logic; the documents are rows in the local database |
-| Experiments, and training scripts logging into them | Yes | The loopback API answers the SDK's own routes |
-| The MCP server | Yes | Same database, same rows |
-| Reading a PDF — outline, citation links, figure links | Yes | Parsed from the text layer on the client; the reference list and in-text mentions are found by core's parsers |
-| The citation popover's record — title, venue, DOI | No | Looked up on arXiv, Crossref, Semantic Scholar and OpenAlex, then cached for thirty days keyed by the text's fingerprint |
-| Linking and editing an Overleaf report | Yes | The token sits in the keychain; the row is an ordinary row |
-| Opening an Overleaf report's contents | No | It is a clone from overleaf.com — offline means no server of ours, not no Overleaf |
-| Attachments logged from a training script | No | Blobs, and the loopback API only runs SQL |
-| Sharing, supervision, anything with a second person | No | Account features |
-
-### Why the editor needed a fix rather than a flag
-
-The editor opens a realtime channel to carry other people's keystrokes. That
-channel is built from configuration compiled into the app, not from whichever
-database the app is talking to — so a copy with no account opened it anyway,
-failed on every keystroke, and put a "live sync unavailable" notice under a
-document nobody else can open. Now the provider takes a `live` flag: solo means
-no transport, not no history. The document is still recorded; nothing is sent.
-
-### Why Overleaf needed a keychain
-
-Linking an Overleaf report does three jobs, and only one of them needs a server.
-The rows are ordinary rows. The LaTeX parse is a pure function in `core`. Only
-holding the token needs somewhere safe — and on a server that is a key the
-browser never sees. The equivalent this machine has is its own keychain, so the
-token is kept there, the clone happens in the shell, and the page never holds
-the credential either way. The clone code is not duplicated: the shell imports
-the app's own reader.
-
-## How big it is
-
-Counted from the files git is tracking, not remembered — run `npm run docs:generate` to refresh it.
-
-<!-- generated:code-map -->
+# How WeaveForge is put togetherA map of the whole thing: where the code lives, what each surface can do, andwhich of those things still work with the network unplugged.It is written for somebody deciding where a change belongs, and for anybody whowants to know what runs on their machine and what does not.## The shape of itOne codebase, four surfaces, one schema.- **`packages/core`** — the rules. Domain types and use cases with no framework  and no database in them: citation keys, LaTeX section trees, the paste  pipeline, the search ranking. Everything else depends on this, and it depends  on nothing.- **`apps/web`** — the app. Screens, features, API routes, and the wiring that  chooses which backend is behind them. The browser runs this; so does the  desktop window, unchanged.- **`apps/shell`** — the shell. Only what a window can do and a tab cannot:  the keychain, a folder on your disk, a local database, a loopback API, the  menu, updates.- **`apps/pitch`** — the public site, including this page.- **`python/weaveforge`** — the SDK training scripts import.- **`db/migrations`** — the schema, applied in the same order to a hosted  database and to the one in your app's folder. There is no second schema.## What runs whereThree ways to run it, and they are not three versions. The same feature codesits above every one of them; what changes underneath is the database client,the identity, the auth service and the blob store — four things, swapped atstartup.| | In a browser | Desktop, signed in | Desktop, no account || --- | --- | --- | --- || Where data lives | Hosted Postgres | Hosted Postgres | PGlite, in the app's folder || Who you are | Your account | Your account | One local user || Attachments | Object storage | Object storage | A local table || Integration tokens | Sealed with a server key | Sealed with a server key | This computer's keychain || Needs a network | Yes | Yes | No |## Offline, precisely"Works offline" is a claim worth being exact about. A copy with no account makesno outbound request at boot, and these work with the network unplugged:| Feature | Offline | How || --- | --- | --- || Projects, notes, papers, lists, reports | Yes | Ordinary rows in the local database || The editor, including typing in a document | Yes | The CRDT log is still written; the sync channel is not opened, because there is nobody to reach || The workspace folder mirror | Yes | The shell reads and writes the folder directly || The workspace editor — panes, explorer, quick open | Yes | Pane layout, tree and fuzzy match are client logic; the documents are rows in the local database || Experiments, and training scripts logging into them | Yes | The loopback API answers the SDK's own routes || The MCP server | Yes | Same database, same rows || Reading a PDF — outline, citation links, figure links | Yes | Parsed from the text layer on the client; the reference list and in-text mentions are found by core's parsers || The citation popover's record — title, venue, DOI | No | Looked up on arXiv, Crossref, Semantic Scholar and OpenAlex, then cached for thirty days keyed by the text's fingerprint || Linking and editing an Overleaf report | Yes | The token sits in the keychain; the row is an ordinary row || Opening an Overleaf report's contents | No | It is a clone from overleaf.com — offline means no server of ours, not no Overleaf || Attachments logged from a training script | No | Blobs, and the loopback API only runs SQL || Sharing, supervision, anything with a second person | No | Account features |### Why the editor needed a fix rather than a flagThe editor opens a realtime channel to carry other people's keystrokes. Thatchannel is built from configuration compiled into the app, not from whicheverdatabase the app is talking to — so a copy with no account opened it anyway,failed on every keystroke, and put a "live sync unavailable" notice under adocument nobody else can open. Now the provider takes a `live` flag: solo meansno transport, not no history. The document is still recorded; nothing is sent.### Why Overleaf needed a keychainLinking an Overleaf report does three jobs, and only one of them needs a server.The rows are ordinary rows. The LaTeX parse is a pure function in `core`. Onlyholding the token needs somewhere safe — and on a server that is a key thebrowser never sees. The equivalent this machine has is its own keychain, so thetoken is kept there, the clone happens in the shell, and the page never holdsthe credential either way. The clone code is not duplicated: the shell importsthe app's own reader.## How big it isCounted from the files git is tracking, not remembered — run `npm run docs:generate` to refresh it.<!-- generated:code-map -->
 
 <!-- Generated by scripts/update-docs.mjs — run `npm run docs:generate`. -->
 
 | Where | Size | What lives there |
 | --- | --- | --- |
 | `packages/core` | 24,704 lines | Domain and application logic shared by every surface |
-| `apps/web` | 246,384 lines | The app itself: screens, features, API routes, backend wiring |
-| `apps/shell` | 5,433 lines | The Tauri shell — what only an installed app can do |
+| `apps/web` | 250,624 lines | The app itself: screens, features, API routes, backend wiring |
+| `apps/shell` | 5,453 lines | The Tauri shell — what only an installed app can do |
 | `apps/pitch` | 406 lines | The public site and this documentation |
 | `python/weaveforge` | 3,403 lines | The SDK training scripts import |
 | `python/tests` | 2,304 lines | Its tests |
 | `db/migrations` | 160 files | The schema, as an ordered sequence |
 | `docs` | 219 files | Documentation, this page included |
 
-**282,634 lines of code in all**, across 2,221 source files.
+**286,894 lines of code in all**, across 2,247 source files.
 
-<!-- /generated:code-map -->
-
-## The IPC surface
-
-Everything the desktop shell can do that a tab cannot goes through one of these,
-a Rust command in `apps/shell/src`, typed once in the generated
-`apps/shell/bridge/bindings.ts` and wrapped by `desktop-bridge.ts`. Two are pushed the other way — main to renderer — because
-they are events nobody asked for: a sign-in finishing, and somebody else
-changing the folder.
-
-<!-- generated:desktop-ipc -->
+<!-- /generated:code-map -->## The IPC surfaceEverything the desktop shell can do that a tab cannot goes through one of these,a Rust command in `apps/shell/src`, typed once in the generated`apps/shell/bridge/bindings.ts` and wrapped by `desktop-bridge.ts`. Two are pushed the other way — main to renderer — becausethey are events nobody asked for: a sign-in finishing, and somebody elsechanging the folder.<!-- generated:desktop-ipc -->
 
 <!-- Generated by scripts/update-docs.mjs — run `npm run docs:generate`. -->
 
@@ -202,27 +107,4 @@ changing the folder.
 - `plan_widget_palette` — `planWidgetPalette`
 - `plan_widget_open` — `planWidgetOpen`
 
-<!-- /generated:desktop-ipc -->
-
-The number is deliberately visible. A codebase this size is a cost, and a figure
-that only ever goes up is a figure somebody should be arguing with.
-
-## Where to put a change
-
-- A rule that would be true in any client — **`packages/core`**.
-- A screen, or a rule about how one behaves — **`apps/web/src/features`**.
-- Something only an installed window can do — **`apps/shell/src`**, exposed
-  as Tauri commands in `commands.rs` and typed once in `apps/shell/bridge/bindings.ts`.
-- A column — a new migration in **`db/migrations`**. Never an edit to an
-  old one; they have already run on other people's machines.
-
-## Related
-
-- [The atlas](../atlas.html) — the same map drawn out, one page, every figure
-  read off this commit by `scripts/build-atlas.mjs`
-- [The desktop app](../using/desktop.md) — including working without an account
-- [The workspace folder](../using/workspace-folder.md)
-- [Collaborative editing](../using/collaborative-editing.md)
-- [Integrations](../using/integrations.md)
-- [Design principles](design.md)
-- [Core modules](core/README.md)
+<!-- /generated:desktop-ipc -->The number is deliberately visible. A codebase this size is a cost, and a figurethat only ever goes up is a figure somebody should be arguing with.## Where to put a change- A rule that would be true in any client — **`packages/core`**.- A screen, or a rule about how one behaves — **`apps/web/src/features`**.- Something only an installed window can do — **`apps/shell/src`**, exposed  as Tauri commands in `commands.rs` and typed once in `apps/shell/bridge/bindings.ts`.- A column — a new migration in **`db/migrations`**. Never an edit to an  old one; they have already run on other people's machines.## Related- [The atlas](../atlas.html) — the same map drawn out, one page, every figure  read off this commit by `scripts/build-atlas.mjs`- [The desktop app](../using/desktop.md) — including working without an account- [The workspace folder](../using/workspace-folder.md)- [Collaborative editing](../using/collaborative-editing.md)- [Integrations](../using/integrations.md)- [Design principles](design.md)- [Core modules](core/README.md)

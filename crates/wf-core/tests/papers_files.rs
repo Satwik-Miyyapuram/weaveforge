@@ -6,8 +6,9 @@ use serde_json::{Map, Value, json};
 use wf_core::index::graph::relation_graph;
 use wf_core::index::scan::index_files;
 use wf_core::papers::paper_file::{
-    PaperFile, PaperFileError, RelationRef, VALUE_KEYS, may_write, paper_row, parse_paper_file,
-    render_paper_file, write_paper_row,
+    ExtrasChange, PaperExtras, PaperFile, PaperFileError, RelationRef, VALUE_KEYS, may_write,
+    paper_extras, paper_row, parse_paper_file, render_paper_file, write_paper_extras,
+    write_paper_row,
 };
 use wf_core::sync::frontmatter::{FORMAT_VERSION, canonical_text};
 
@@ -26,13 +27,18 @@ mod support {
         wf_core::papers::paper_file::write_paper_row(None, row).expect("writes")
     }
 
+    /// A JSON object literal as an extras change.
+    pub fn extras_change(value: Value) -> wf_core::papers::paper_file::ExtrasChange {
+        serde_json::from_value(value).expect("change")
+    }
+
     /// Parses `text`, failing the test if it is not a paper file.
     pub fn parse(text: &str) -> wf_core::papers::paper_file::PaperFile {
         wf_core::papers::paper_file::parse_paper_file(text).expect("parses")
     }
 }
 
-use support::{new_file, parse, row};
+use support::{extras_change, new_file, parse, row};
 
 fn full_row() -> Map<String, Value> {
     row(json!({
@@ -422,4 +428,93 @@ proptest! {
         let written = write_paper_row(Some(&text), &row).expect("writes");
         prop_assert_eq!(paper_row(&parse_paper_file(&written).expect("parses")), row);
     }
+}
+
+#[test]
+fn extras_round_trip_and_keep_the_rest() {
+    let text = new_file(&full_row()).replace('\n', "\r\n") + "Body \u{00fc}.\r\n";
+    let text = text.replacen("---\r\nBody", "x-mine: 1\r\n---\r\nBody", 1);
+    assert_eq!(paper_extras(&parse(&text)), PaperExtras::default());
+    let change = extras_change(json!({
+        "relations": [{"to": "[[\u{00fc}nicode b.paper]]", "type": "cites", "note": "\u{00ab}k\u{00bb}"}],
+        "fields": {"f1": "h\u{00e9}llo", "f2": 4.5, "f3": ["[[b.paper]]"]}
+    }));
+    let written = write_paper_extras(&text, &change).expect("writes");
+    let extras = paper_extras(&parse(&written));
+    assert_eq!(extras.relations.len(), 1);
+    assert_eq!(extras.relations[0].to, "[[\u{00fc}nicode b.paper]]");
+    assert_eq!(
+        extras.relations[0].extra.get("note"),
+        Some(&json!("\u{00ab}k\u{00bb}"))
+    );
+    assert_eq!(
+        Value::Object(extras.fields),
+        json!({"f1": "h\u{00e9}llo", "f2": 4.5, "f3": ["[[b.paper]]"]})
+    );
+    assert!(written.ends_with("Body \u{00fc}.\r\n"));
+    assert!(written.contains("x-mine: 1\r\n"));
+    assert!(!written.replace("\r\n", "").contains('\n'));
+    assert_eq!(paper_row(&parse(&written)), full_row());
+}
+
+#[test]
+fn extras_change_touches_only_what_it_names() {
+    let text = new_file(&row(json!({"id": "p", "title": "T"})));
+    let both =
+        extras_change(json!({"relations": [{"to": "b", "type": "cites"}], "fields": {"f": 1}}));
+    let text = write_paper_extras(&text, &both).expect("writes");
+    let only_fields =
+        write_paper_extras(&text, &extras_change(json!({"fields": {"g": 2}}))).expect("writes");
+    let extras = paper_extras(&parse(&only_fields));
+    assert_eq!(extras.relations.len(), 1);
+    assert_eq!(Value::Object(extras.fields), json!({"g": 2}));
+    assert_eq!(
+        write_paper_extras(&text, &ExtrasChange::default()).expect("writes"),
+        text
+    );
+}
+
+#[test]
+fn empty_extras_remove_their_keys() {
+    let plain = new_file(&row(json!({"id": "p", "title": "T"})));
+    let full = write_paper_extras(
+        &plain,
+        &extras_change(json!({"relations": [{"to": "b", "type": "cites"}], "fields": {"f": 1}})),
+    )
+    .expect("writes");
+    let cleared = write_paper_extras(
+        &full,
+        &extras_change(json!({"relations": [], "fields": {}})),
+    )
+    .expect("writes");
+    assert_eq!(cleared, plain);
+}
+
+#[test]
+fn extras_refuse_newer_and_unreadable_files() {
+    let newer = "---\nweaveforge-id: p\nweaveforge-type: paper\nwf: 99\n---\n";
+    let change = extras_change(json!({"fields": {"f": 1}}));
+    assert_eq!(
+        write_paper_extras(newer, &change),
+        Err(PaperFileError::ReadOnly(99))
+    );
+    let bad = "---\nweaveforge-id: p\nweaveforge-type: paper\nrelations: oops\n---\n";
+    assert!(paper_extras(&parse(bad)).relations.is_empty());
+    let set = extras_change(json!({"relations": [{"to": "b", "type": "cites"}]}));
+    assert!(matches!(
+        write_paper_extras(bad, &set),
+        Err(PaperFileError::Unreadable(_))
+    ));
+    let kept = write_paper_extras(bad, &change).expect("fields still write");
+    assert!(kept.contains("relations: oops\n"));
+    assert_eq!(
+        write_paper_extras("no frontmatter", &change),
+        Err(PaperFileError::NoFrontmatter)
+    );
+}
+
+#[test]
+fn hand_typed_non_object_fields_read_as_empty() {
+    let text = "---\nweaveforge-id: p\nweaveforge-type: paper\nfields: 3\n---\n";
+    assert!(paper_extras(&parse(text)).fields.is_empty());
 }

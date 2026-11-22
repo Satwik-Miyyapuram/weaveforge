@@ -318,9 +318,7 @@ fn configured_root(old_dir: &Path) -> Option<PathBuf> {
 }
 
 /// This device's KEYS marker, written once its secrets are moved: `<workspace>/.weaveforge/migration-0.9.7/secrets-moved-<deviceId>.json`.
-/// Copied from `marker_path` in the KEYS branch (`apps/shell/src/secrets_moved.rs`); keep the two in step.
-// TODO(after merge of feat/097-keys): delete this copy and call `secrets_moved.rs` `marker_path`, the
-// shared function, so the marker path has one definition.
+/// The marker path is defined here only; `secrets_moved.rs` was removed in 0.9.8 (the 0.9.7 gate does the move).
 #[must_use]
 pub fn secrets_marker_path(workspace: &Path, device_id: &str) -> PathBuf {
     workspace
