@@ -1,8 +1,9 @@
 //! This machine's id for the 0.9.7 migration: a random 64-char hex string kept in
 //! `<app data>/device-id`. Written once. A corrupt file is an error and is never regenerated,
-//! so reports written by this device keep matching it.
+//! so reports written by this device keep matching it. An empty file is a crash leftover, not an
+//! id, so it is regenerated.
 
-use std::fs::{self, OpenOptions};
+use std::fs::{self, File};
 use std::io::{self, Write};
 use std::path::Path;
 
@@ -11,32 +12,49 @@ const FILE: &str = "device-id";
 /// Returns the stored id, creating the file on first use.
 pub fn get_or_create(dir: &Path) -> io::Result<String> {
     let path = dir.join(FILE);
-    match read_id(&path) {
-        Ok(id) => Ok(id),
-        Err(e) if e.kind() == io::ErrorKind::NotFound => create(dir, &path),
-        Err(e) => Err(e),
+    let text = match fs::read_to_string(&path) {
+        Ok(text) => text,
+        Err(e) if e.kind() == io::ErrorKind::NotFound => String::new(),
+        Err(e) => return Err(e),
+    };
+    if text.trim().is_empty() {
+        // Absent, or an empty leftover from a crash: remove it so the new file can take the name.
+        match fs::remove_file(&path) {
+            Ok(()) => {}
+            Err(e) if e.kind() == io::ErrorKind::NotFound => {}
+            Err(e) => return Err(e),
+        }
+        return create(dir, &path);
     }
+    parse_id(&path, text.trim())
 }
 
-/// Creates the file with `create_new`, so two first calls cannot both write. When another call
-/// created it first, that call's id is read back.
+/// Writes the id to `<file>.part`, syncs it, then hard-links it to the final name. The link fails
+/// when another call already created the name, and that call's id is read back. The name is only
+/// ever bound to a complete file, so a crash cannot leave a partial id behind.
 fn create(dir: &Path, path: &Path) -> io::Result<String> {
     fs::create_dir_all(dir)?;
     let id = new_id(dir);
-    match OpenOptions::new().write(true).create_new(true).open(path) {
-        Ok(mut file) => {
-            file.write_all(id.as_bytes())?;
-            file.sync_all()?;
-            Ok(id)
+    let part = path.with_extension("part");
+    {
+        // `create` truncates a `.part` left by an earlier crash.
+        let mut file = File::create(&part)?;
+        file.write_all(id.as_bytes())?;
+        file.sync_all()?;
+    }
+    let linked = fs::hard_link(&part, path);
+    let _ = fs::remove_file(&part);
+    match linked {
+        Ok(()) => Ok(id),
+        Err(e) if e.kind() == io::ErrorKind::AlreadyExists => {
+            let text = fs::read_to_string(path)?;
+            parse_id(path, text.trim())
         }
-        Err(e) if e.kind() == io::ErrorKind::AlreadyExists => read_id(path),
         Err(e) => Err(e),
     }
 }
 
-fn read_id(path: &Path) -> io::Result<String> {
-    let text = fs::read_to_string(path)?;
-    let id = text.trim();
+fn parse_id(path: &Path, id: &str) -> io::Result<String> {
     if is_valid(id) {
         Ok(id.to_owned())
     } else {
@@ -87,6 +105,31 @@ mod tests {
         std::fs::write(dir.join("device-id"), "not-hex").unwrap();
         assert!(get_or_create(&dir).is_err());
         assert_eq!(std::fs::read_to_string(dir.join("device-id")).unwrap(), "not-hex");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn an_empty_id_file_is_regenerated() {
+        let dir = std::env::temp_dir().join(format!("wf-devid-empty-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("device-id"), "").unwrap();
+        let id = get_or_create(&dir).expect("an empty file is regenerated");
+        assert_eq!(id.len(), 64);
+        assert_eq!(std::fs::read_to_string(dir.join("device-id")).unwrap(), id);
+        assert!(!dir.join("device-id.part").exists());
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn a_valid_id_file_is_kept() {
+        let dir = std::env::temp_dir().join(format!("wf-devid-keep-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let kept = "ab".repeat(32);
+        std::fs::write(dir.join("device-id"), &kept).unwrap();
+        assert_eq!(get_or_create(&dir).expect("kept"), kept);
+        assert_eq!(std::fs::read_to_string(dir.join("device-id")).unwrap(), kept);
         let _ = std::fs::remove_dir_all(&dir);
     }
 }
