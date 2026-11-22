@@ -200,6 +200,7 @@ fn refuses_when_report_is_unreadable() {
     );
     f.assert_untouched();
 }
+
 #[test]
 fn refuses_when_the_backup_is_missing() {
     let f = Fixture::new("no-backup", Some("verified"), None);
@@ -1243,7 +1244,7 @@ fn an_unreadable_own_report_is_named_and_left_in_place() {
         "refused: report-dev-a.json is unreadable; restore it from your backup or run the export again"
     );
     assert_eq!(fs::read_to_string(&own).unwrap(), "{ not json", "the unreadable report stays as it is");
-    assert!(!f.folder.join(".weaveforge/migration-0.9.7").join("report-dev-a.json.bad").exists());
+    assert!(!f.folder.join(".weaveforge/migration-0.9.7").join(format!("report-{DEVICE}.json.bad")).exists());
     assert!(f.pg_root.join("data/PG_VERSION").exists(), "the cluster is not touched");
 }
 
@@ -1260,6 +1261,7 @@ fn an_unreadable_conflict_copy_is_named_and_left_in_place() {
     assert_eq!(fs::read_to_string(&copy).unwrap(), "{ broken", "the conflict copy is not renamed");
     assert!(f.pg_root.join("data/PG_VERSION").exists(), "the cluster is not touched");
 }
+
 #[test]
 fn a_stale_part_file_is_replaced_when_exported_to_is_written() {
     let f = Fixture::new("stale-part", Some("verified"), Some(good_dump().as_slice()));
