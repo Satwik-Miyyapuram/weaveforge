@@ -20,7 +20,7 @@ use tauri::Manager;
 
 use crate::cmd_vault;
 use crate::commands::{LocalDb, ShellError};
-use crate::secrets::{DEVICE_SECRETS, SecretError, Secrets, is_device_field};
+use crate::secrets::{DEVICE_SECRETS, SecretError, Secrets, WRITE_ONLY, is_device_field};
 use crate::vault::VaultState;
 
 /// The index entry: the keys the device's fields are stored under, and who wrote them.
@@ -54,6 +54,9 @@ pub fn legacy_dir_missing(db: tauri::State<'_, LocalDb>) -> bool {
 /// root on this side, never a value from the page. EXPORT calls it after the export is verified and
 /// before remove-old.
 ///
+/// Returns the names of write-only fields that were not moved, never their values. A rerun after a
+/// marker exists moves nothing and returns none.
+///
 /// # Errors
 /// The keychain's reason when a field is not stored (for example `NoKeychain` on a machine without
 /// one), or the database's reason when the rows cannot be read. No marker is written on either.
@@ -64,7 +67,7 @@ pub async fn migrate_097_move_secrets(
     secrets: tauri::State<'_, Secrets>,
     db: tauri::State<'_, LocalDb>,
     vault: tauri::State<'_, VaultState>,
-) -> Result<(), ShellError> {
+) -> Result<Vec<String>, ShellError> {
     let folder = cmd_vault::root(&vault)
         .await
         .map(|root| PathBuf::from(root.path))
@@ -96,14 +99,17 @@ pub async fn migrate_097_move_secrets(
 /// row that is not the expected JSON, `TooLong` for a field over the cap (checked before any write),
 /// the keychain's error for a field that could not be stored, `Locked` when the keychain cannot be
 /// read, or `MarkerFailed` when every field moved but the marker could not be written.
+///
+/// Returns the names of the write-only fields that were not moved (their values are never
+/// returned). A rerun for a device that already has a marker is a no-op and returns none.
 pub fn move_into_keychain(
     secrets: &Secrets,
     folder: &Path,
     device: &str,
     rows: &[Value],
-) -> Result<(), SecretError> {
+) -> Result<Vec<String>, SecretError> {
     if marker_matches(secrets, folder, device) {
-        return Ok(());
+        return Ok(Vec::new());
     }
     if rows.len() > 1 {
         return Err(SecretError::SeveralRows);
@@ -111,37 +117,61 @@ pub fn move_into_keychain(
     let marker = || {
         record_secrets_moved(folder, device, rows.len()).map_err(|_| SecretError::MarkerFailed)
     };
-    let fields = row_fields(rows)?;
+    let (fields, skipped) = row_fields(rows)?;
     match index_source(secrets)? {
         IndexSource::Save => {
             // The save index is the truth: a key it does not list was deleted by the user and stays
-            // deleted. Only a listed key whose entry is missing gets its old value back.
+            // deleted. Only a listed key whose entry is missing gets its old value back. A routed
+            // token is never restored: the page saved it under its own entry name.
             let listed = listed_keys(secrets)?;
             let mut restore = Vec::new();
             for (key, text) in &fields {
-                if listed.contains(key) && secrets.read(&field_name(key))?.is_none() {
+                if routed_name(key).is_none()
+                    && listed.contains(key)
+                    && secrets.read(&field_name(key))?.is_none()
+                {
                     restore.push((key.clone(), text.clone()));
                 }
             }
             store_fields(secrets, &restore)?;
-            return marker();
+            marker()?;
+            return Ok(skipped);
         }
         IndexSource::Move | IndexSource::Absent => {}
     }
-    // An empty row (no rows at all) still writes an empty move index, so the move is recorded.
-    let keys: Vec<String> = fields.iter().map(|(key, _)| key.clone()).collect();
+    // A routed token has its own entry, so it is left out of the index. An empty row (no rows at
+    // all) still writes an empty move index, so the move is recorded.
+    let keys: Vec<String> = fields
+        .iter()
+        .map(|(key, _)| key.clone())
+        .filter(|key| routed_name(key).is_none())
+        .collect();
     check_index_fits(&keys)?;
     store_fields(secrets, &fields)?;
     write_index(secrets, "move", &keys)?;
-    marker()
+    marker()?;
+    Ok(skipped)
 }
 
-/// The `(key, text)` fields of the one old row, or none when there are no rows.
-fn row_fields(rows: &[Value]) -> Result<Vec<(String, String)>, SecretError> {
+/// The `(key, text)` fields of the one old row and the names of the write-only fields that were
+/// skipped. Both are empty when there are no rows.
+fn row_fields(rows: &[Value]) -> Result<(Vec<(String, String)>, Vec<String>), SecretError> {
     match rows.first() {
-        None => Ok(Vec::new()),
+        None => Ok((Vec::new(), Vec::new())),
         Some(row) => device_fields(row),
     }
+}
+
+/// Legacy top-level keys that the native shell reads under their own entry name. They are stored
+/// there, not under `device-secrets/`.
+const ROUTED: [(&str, &str); 2] = [
+    ("overleafToken", "overleaf-token"),
+    ("gitSyncToken", "git-sync-token"),
+];
+
+/// The entry name a routed legacy key is stored under, or `None` for an ordinary device field.
+fn routed_name(key: &str) -> Option<&'static str> {
+    ROUTED.iter().find(|(old, _)| *old == key).map(|(_, new)| *new)
 }
 
 /// The keys the index lists. Call only after `index_source` has read the index as valid.
@@ -191,9 +221,11 @@ fn index_source(secrets: &Secrets) -> Result<IndexSource, SecretError> {
 }
 
 /// The `(key, text)` pairs of one row. A top-level string is one field; an object is one field per
-/// sub-key, named `<name>.<sub>` with its JSON text. Empty strings are not stored. Every field is
-/// checked here, before the first keychain write.
-fn device_fields(row: &Value) -> Result<Vec<(String, String)>, SecretError> {
+/// sub-key, named `<name>.<sub>` with its JSON text. Empty strings are not stored. A write-only
+/// name is moved only as a routed string (`overleafToken`, `gitSyncToken`); any other write-only
+/// field is skipped and its name returned, never its value. Every field is checked here, before
+/// the first keychain write.
+fn device_fields(row: &Value) -> Result<(Vec<(String, String)>, Vec<String>), SecretError> {
     let parsed: Value;
     let value: &Value = match row.get("secrets") {
         Some(Value::String(text)) => {
@@ -207,13 +239,19 @@ fn device_fields(row: &Value) -> Result<Vec<(String, String)>, SecretError> {
         return Err(SecretError::BadRow);
     };
     let mut fields = Vec::new();
+    let mut skipped = Vec::new();
     for (name, field) in map {
         // A dot is the separator between a name and its sub-key, and a leading `_` is reserved (the
         // index entry is `_index`), so a top-level name may hold neither.
         if name.contains('.') || name.starts_with('_') {
             return Err(SecretError::BadRow);
         }
+        let write_only = WRITE_ONLY.contains(&name.as_str());
         match field {
+            Value::String(text) if text.is_empty() => {}
+            Value::String(_) if write_only && routed_name(name).is_none() => {
+                skipped.push(name.clone());
+            }
             Value::String(text) => push_field(&mut fields, name.clone(), text.clone())?,
             Value::Object(nested) => {
                 for (sub, nested_value) in nested {
@@ -221,13 +259,17 @@ fn device_fields(row: &Value) -> Result<Vec<(String, String)>, SecretError> {
                         continue;
                     }
                     let key = format!("{name}.{}", sub_key(sub));
-                    push_field(&mut fields, key, nested_value.to_string())?;
+                    if write_only {
+                        skipped.push(key);
+                    } else {
+                        push_field(&mut fields, key, nested_value.to_string())?;
+                    }
                 }
             }
             _ => return Err(SecretError::BadRow),
         }
     }
-    Ok(fields)
+    Ok((fields, skipped))
 }
 
 /// A sub-key as a keychain name part. Plain alphanumeric names pass through; any other name is
@@ -245,7 +287,7 @@ pub fn sub_key(sub: &str) -> String {
 /// Adds a field after checking that its key can be a keychain entry name and that its text fits.
 fn push_field(fields: &mut Vec<(String, String)>, key: String, text: String) -> Result<(), SecretError> {
     // `_index` is the index entry's own name; a credential under it would overwrite the index.
-    if key == RESERVED_INDEX_KEY || !is_device_field(&field_name(&key)) {
+    if key == RESERVED_INDEX_KEY || (routed_name(&key).is_none() && !is_device_field(&field_name(&key))) {
         return Err(SecretError::BadRow);
     }
     if text.is_empty() {
@@ -263,11 +305,16 @@ fn field_name(key: &str) -> String {
     format!("{DEVICE_SECRETS}/{key}")
 }
 
+/// The keychain entry name for one field key: its routed entry, or `device-secrets/<key>`.
+fn entry_name(key: &str) -> String {
+    routed_name(key).map_or_else(|| field_name(key), str::to_owned)
+}
+
 /// One keychain write per field. The first failure is returned. The index is written last, so a
 /// partial failure leaves no readable index and a retry rewrites every field.
 fn store_fields(secrets: &Secrets, fields: &[(String, String)]) -> Result<(), SecretError> {
     for (key, text) in fields {
-        secrets.write(&field_name(key), text)?;
+        secrets.write(&entry_name(key), text)?;
     }
     Ok(())
 }
@@ -446,17 +493,17 @@ mod tests {
     }
 
     fn move_now(secrets: &Secrets, folder: &Path, rows: &[Value]) -> Result<(), SecretError> {
-        move_into_keychain(secrets, folder, DEVICE, rows)
+        move_into_keychain(secrets, folder, DEVICE, rows).map(|_| ())
     }
 
     #[test]
     fn all_rows_moved_writes_marker_with_count_one() {
         let dir = Scratch::new("all-moved");
         let secrets = fake_keychain(&store());
-        move_now(&secrets, &dir.0, &[old_row(r#"{"overleafToken":"tok"}"#)]).expect("moves");
+        move_now(&secrets, &dir.0, &[old_row(r#"{"plainToken":"tok"}"#)]).expect("moves");
         assert_eq!(read_marker(&dir.0), serde_json::json!({ "count": 1, "deviceId": DEVICE }));
         assert_eq!(
-            secrets.read("device-secrets/overleafToken").expect("read"),
+            secrets.read("device-secrets/plainToken").expect("read"),
             Some("tok".to_owned())
         );
     }
@@ -467,11 +514,11 @@ mod tests {
         let st = store();
         inject(
             &st,
-            "device-secrets/overleafToken",
+            "device-secrets/plainToken",
             keyring_core::Error::NoStorageAccess("locked".into()),
         );
         let secrets = fake_keychain(&st);
-        let rows = [old_row(r#"{"overleafToken":"tok","gitSyncToken":"g"}"#)];
+        let rows = [old_row(r#"{"plainToken":"tok","otherToken":"g"}"#)];
         assert!(move_now(&secrets, &dir.0, &rows).is_err());
         assert!(!marker_path(&dir.0, DEVICE).exists());
     }
@@ -494,7 +541,7 @@ mod tests {
     fn no_keychain_writes_no_marker() {
         let dir = Scratch::new("no-keychain");
         let secrets = Secrets::new(None, "test");
-        let rows = [old_row(r#"{"overleafToken":"tok"}"#)];
+        let rows = [old_row(r#"{"plainToken":"tok"}"#)];
         assert!(move_now(&secrets, &dir.0, &rows).is_err());
         assert!(!marker_path(&dir.0, DEVICE).exists());
     }
@@ -505,7 +552,7 @@ mod tests {
         let st = store();
         inject(&st, INDEX, keyring_core::Error::NoStorageAccess("locked".into()));
         let secrets = fake_keychain(&st);
-        let rows = [old_row(r#"{"overleafToken":"tok"}"#)];
+        let rows = [old_row(r#"{"plainToken":"tok"}"#)];
         assert!(matches!(
             move_now(&secrets, &dir.0, &rows),
             Err(SecretError::Locked)
@@ -518,16 +565,16 @@ mod tests {
         let dir = Scratch::new("save-index");
         let secrets = fake_keychain(&store());
         secrets
-            .write(INDEX, r#"{"source":"save","keys":["overleafToken"]}"#)
+            .write(INDEX, r#"{"source":"save","keys":["plainToken"]}"#)
             .expect("save index");
         secrets
-            .write("device-secrets/overleafToken", "typed")
+            .write("device-secrets/plainToken", "typed")
             .expect("typed value");
-        move_now(&secrets, &dir.0, &[old_row(r#"{"overleafToken":"old"}"#)])
+        move_now(&secrets, &dir.0, &[old_row(r#"{"plainToken":"old"}"#)])
             .expect("save on this device is a no-op move");
         assert_eq!(read_marker(&dir.0), serde_json::json!({ "count": 1, "deviceId": DEVICE }));
         assert_eq!(
-            secrets.read("device-secrets/overleafToken").expect("read"),
+            secrets.read("device-secrets/plainToken").expect("read"),
             Some("typed".to_owned())
         );
     }
@@ -538,15 +585,15 @@ mod tests {
         let secrets = fake_keychain(&store());
         // A marker is trusted only while the index and its fields are still in the keychain.
         secrets
-            .write(INDEX, r#"{"source":"move","keys":["overleafToken"]}"#)
+            .write(INDEX, r#"{"source":"move","keys":["plainToken"]}"#)
             .expect("index");
         secrets
-            .write("device-secrets/overleafToken", "kept")
+            .write("device-secrets/plainToken", "kept")
             .expect("field");
         record_secrets_moved(&dir.0, DEVICE, 1).expect("marker");
-        move_now(&secrets, &dir.0, &[old_row(r#"{"overleafToken":"tok"}"#)]).expect("no-op");
+        move_now(&secrets, &dir.0, &[old_row(r#"{"plainToken":"tok"}"#)]).expect("no-op");
         assert_eq!(
-            secrets.read("device-secrets/overleafToken").expect("read"),
+            secrets.read("device-secrets/plainToken").expect("read"),
             Some("kept".to_owned())
         );
     }
@@ -556,9 +603,9 @@ mod tests {
         let dir = Scratch::new("other-device");
         let secrets = fake_keychain(&store());
         record_secrets_moved(&dir.0, "device-b", 1).expect("marker");
-        move_now(&secrets, &dir.0, &[old_row(r#"{"overleafToken":"tok"}"#)]).expect("moves here");
+        move_now(&secrets, &dir.0, &[old_row(r#"{"plainToken":"tok"}"#)]).expect("moves here");
         assert_eq!(
-            secrets.read("device-secrets/overleafToken").expect("read"),
+            secrets.read("device-secrets/plainToken").expect("read"),
             Some("tok".to_owned())
         );
         assert_eq!(read_marker(&dir.0), serde_json::json!({ "count": 1, "deviceId": DEVICE }));
@@ -573,9 +620,9 @@ mod tests {
             br#"{"count":1,"deviceId":"device-b"}"#,
         )
         .expect("copied marker");
-        move_now(&secrets, &dir.0, &[old_row(r#"{"overleafToken":"tok"}"#)]).expect("moves here");
+        move_now(&secrets, &dir.0, &[old_row(r#"{"plainToken":"tok"}"#)]).expect("moves here");
         assert_eq!(
-            secrets.read("device-secrets/overleafToken").expect("read"),
+            secrets.read("device-secrets/plainToken").expect("read"),
             Some("tok".to_owned())
         );
     }
@@ -586,10 +633,10 @@ mod tests {
         let secrets = fake_keychain(&store());
         secrets.write(INDEX, "not json").expect("damaged index");
         assert!(matches!(
-            move_now(&secrets, &dir.0, &[old_row(r#"{"overleafToken":"tok"}"#)]),
+            move_now(&secrets, &dir.0, &[old_row(r#"{"plainToken":"tok"}"#)]),
             Err(SecretError::CorruptIndex)
         ));
-        assert_eq!(secrets.read("device-secrets/overleafToken").expect("read"), None);
+        assert_eq!(secrets.read("device-secrets/plainToken").expect("read"), None);
         assert!(!marker_path(&dir.0, DEVICE).exists());
     }
 
@@ -613,7 +660,7 @@ mod tests {
         secrets.write(INDEX, "not json").expect("damaged index");
         reset_corrupt_index(&secrets).expect("reset");
         assert_eq!(secrets.read(INDEX).expect("read"), None);
-        move_now(&secrets, &dir.0, &[old_row(r#"{"overleafToken":"tok"}"#)]).expect("moves");
+        move_now(&secrets, &dir.0, &[old_row(r#"{"plainToken":"tok"}"#)]).expect("moves");
         assert_eq!(read_marker(&dir.0)["count"], 1);
     }
 
@@ -621,12 +668,12 @@ mod tests {
     fn reset_leaves_a_readable_index_alone() {
         let secrets = fake_keychain(&store());
         secrets
-            .write(INDEX, r#"{"source":"save","keys":["overleafToken"]}"#)
+            .write(INDEX, r#"{"source":"save","keys":["plainToken"]}"#)
             .expect("save index");
         reset_corrupt_index(&secrets).expect("reset is a no-op");
         assert_eq!(
             secrets.read(INDEX).expect("read"),
-            Some(r#"{"source":"save","keys":["overleafToken"]}"#.to_owned())
+            Some(r#"{"source":"save","keys":["plainToken"]}"#.to_owned())
         );
     }
 
@@ -691,7 +738,7 @@ mod tests {
     fn the_marker_holds_names_and_counts_but_never_a_secret_value() {
         let dir = Scratch::new("marker-no-values");
         let secrets = fake_keychain(&store());
-        let row = old_row(r#"{"overleafToken":"SECRET-VALUE-XYZ"}"#);
+        let row = old_row(r#"{"plainToken":"SECRET-VALUE-XYZ"}"#);
         move_now(&secrets, &dir.0, &[row]).expect("moves");
         let text = std::fs::read_to_string(marker_path(&dir.0, DEVICE)).expect("marker");
         assert!(!text.contains("SECRET-VALUE-XYZ"), "marker leaked a value: {text}");
@@ -701,10 +748,10 @@ mod tests {
     fn a_row_whose_json_column_is_already_an_object_moves() {
         let dir = Scratch::new("object-row");
         let secrets = fake_keychain(&store());
-        let row = serde_json::json!({ "secrets": { "overleafToken": "tok" } });
+        let row = serde_json::json!({ "secrets": { "plainToken": "tok" } });
         move_now(&secrets, &dir.0, &[row]).expect("moves");
         assert_eq!(
-            secrets.read("device-secrets/overleafToken").expect("read"),
+            secrets.read("device-secrets/plainToken").expect("read"),
             Some("tok".to_owned())
         );
     }
@@ -732,13 +779,13 @@ mod tests {
         let secrets = fake_keychain(&store());
         // 2048 UTF-16 units are 4096 bytes, over the 2560-byte cap.
         let big = "x".repeat(2048);
-        let row = old_row(&format!(r#"{{"gitSyncToken":"small","overleafToken":"{big}"}}"#));
+        let row = old_row(&format!(r#"{{"otherToken":"small","plainToken":"{big}"}}"#));
         assert!(matches!(
             move_now(&secrets, &dir.0, &[row]),
             Err(SecretError::TooLong)
         ));
         assert_eq!(
-            secrets.read("device-secrets/gitSyncToken").expect("read"),
+            secrets.read("device-secrets/otherToken").expect("read"),
             None
         );
         assert_eq!(secrets.read(INDEX).expect("read"), None);
@@ -751,7 +798,7 @@ mod tests {
         let secrets = fake_keychain(&store());
         // 1280 UTF-16 units are 2560 bytes: exactly the cap.
         let edge = "x".repeat(1280);
-        let row = old_row(&format!(r#"{{"overleafToken":"{edge}"}}"#));
+        let row = old_row(&format!(r#"{{"plainToken":"{edge}"}}"#));
         move_now(&secrets, &dir.0, &[row]).expect("moves");
     }
 
@@ -777,18 +824,18 @@ mod tests {
     fn a_key_the_user_deleted_from_a_save_stays_deleted_when_the_move_reruns() {
         let dir = Scratch::new("deleted-key");
         let secrets = fake_keychain(&store());
-        // The save index lists only overleafToken: gitSyncToken was deleted by the user. The marker
-        // was removed, so the move runs again with the old row that still holds gitSyncToken.
-        let save_index = r#"{"source":"save","keys":["overleafToken"]}"#;
+        // The save index lists only plainToken: otherToken was deleted by the user. The marker
+        // was removed, so the move runs again with the old row that still holds otherToken.
+        let save_index = r#"{"source":"save","keys":["plainToken"]}"#;
         secrets.write(INDEX, save_index).expect("save index");
         secrets
-            .write("device-secrets/overleafToken", "typed")
+            .write("device-secrets/plainToken", "typed")
             .expect("typed value");
-        let row = old_row(r#"{"overleafToken":"old","gitSyncToken":"g"}"#);
+        let row = old_row(r#"{"plainToken":"old","otherToken":"g"}"#);
         move_now(&secrets, &dir.0, &[row]).expect("moves");
-        assert_eq!(secrets.read("device-secrets/gitSyncToken").expect("read"), None);
+        assert_eq!(secrets.read("device-secrets/otherToken").expect("read"), None);
         assert_eq!(
-            secrets.read("device-secrets/overleafToken").expect("read"),
+            secrets.read("device-secrets/plainToken").expect("read"),
             Some("typed".to_owned())
         );
         assert_eq!(secrets.read(INDEX).expect("read"), Some(save_index.to_owned()));
@@ -800,19 +847,19 @@ mod tests {
         let dir = Scratch::new("save-fill");
         let secrets = fake_keychain(&store());
         secrets
-            .write(INDEX, r#"{"source":"save","keys":["overleafToken","gitSyncToken"]}"#)
+            .write(INDEX, r#"{"source":"save","keys":["plainToken","otherToken"]}"#)
             .expect("save index");
         secrets
-            .write("device-secrets/overleafToken", "typed")
+            .write("device-secrets/plainToken", "typed")
             .expect("typed value");
-        let row = old_row(r#"{"overleafToken":"old","gitSyncToken":"g"}"#);
+        let row = old_row(r#"{"plainToken":"old","otherToken":"g"}"#);
         move_now(&secrets, &dir.0, &[row]).expect("moves");
         assert_eq!(
-            secrets.read("device-secrets/overleafToken").expect("read"),
+            secrets.read("device-secrets/plainToken").expect("read"),
             Some("typed".to_owned())
         );
         assert_eq!(
-            secrets.read("device-secrets/gitSyncToken").expect("read"),
+            secrets.read("device-secrets/otherToken").expect("read"),
             Some("g".to_owned())
         );
         let index: Value = serde_json::from_str(
@@ -820,7 +867,7 @@ mod tests {
         )
         .expect("index is JSON");
         assert_eq!(index["source"], "save");
-        assert_eq!(index["keys"], serde_json::json!(["overleafToken", "gitSyncToken"]));
+        assert_eq!(index["keys"], serde_json::json!(["plainToken", "otherToken"]));
         assert_eq!(read_marker(&dir.0), serde_json::json!({ "count": 1, "deviceId": DEVICE }));
     }
 
@@ -830,12 +877,12 @@ mod tests {
         let secrets = fake_keychain(&store());
         // Each field is small, but 300 sub-keys make the index body larger than the 2560-byte cap.
         let subs: Vec<String> = (0..300).map(|i| format!("\"s{i:04}\":\"1\"")).collect();
-        let row = old_row(&format!(r#"{{"overleafToken":{{{}}}}}"#, subs.join(",")));
+        let row = old_row(&format!(r#"{{"plainToken":{{{}}}}}"#, subs.join(",")));
         assert!(matches!(
             move_now(&secrets, &dir.0, &[row]),
             Err(SecretError::TooLong)
         ));
-        assert_eq!(secrets.read("device-secrets/overleafToken.s0000").expect("read"), None);
+        assert_eq!(secrets.read("device-secrets/plainToken.s0000").expect("read"), None);
         assert_eq!(secrets.read(INDEX).expect("read"), None);
         assert!(!marker_path(&dir.0, DEVICE).exists());
     }
@@ -846,13 +893,13 @@ mod tests {
         record_secrets_moved(&dir.0, DEVICE, 1).expect("marker");
         // An empty keychain: the index and every field were cleared after the marker was written.
         let secrets = fake_keychain(&store());
-        move_now(&secrets, &dir.0, &[old_row(r#"{"overleafToken":"tok"}"#)]).expect("moves again");
+        move_now(&secrets, &dir.0, &[old_row(r#"{"plainToken":"tok"}"#)]).expect("moves again");
         assert_eq!(
-            secrets.read("device-secrets/overleafToken").expect("read"),
+            secrets.read("device-secrets/plainToken").expect("read"),
             Some("tok".to_owned())
         );
         let index = secrets.read(INDEX).expect("read").expect("index rewritten");
-        assert!(index.contains("overleafToken"));
+        assert!(index.contains("plainToken"));
     }
 
     #[test]
@@ -862,7 +909,7 @@ mod tests {
         fs::create_dir_all(part.parent().expect("folder")).expect("folder");
         fs::write(&part, b"{\"count\": 9, \"partial").expect("leftover");
         let secrets = fake_keychain(&store());
-        move_now(&secrets, &dir.0, &[old_row(r#"{"overleafToken":"tok"}"#)]).expect("moves");
+        move_now(&secrets, &dir.0, &[old_row(r#"{"plainToken":"tok"}"#)]).expect("moves");
         assert_eq!(read_marker(&dir.0), serde_json::json!({ "count": 1, "deviceId": DEVICE }));
         assert!(!part.exists(), "the .part file is renamed away, not left behind");
     }
@@ -890,27 +937,54 @@ mod tests {
     }
 
     #[test]
+    fn a_legacy_token_routes_to_its_own_entry_and_is_never_indexed() {
+        let dir = Scratch::new("route-token");
+        let secrets = fake_keychain(&store());
+        let row = old_row(r#"{"overleafToken":"tok","gitSyncToken":"g","notesToken":"n"}"#);
+        move_now(&secrets, &dir.0, &[row]).expect("moves");
+        assert_eq!(secrets.read("overleaf-token").expect("read"), Some("tok".to_owned()));
+        assert_eq!(secrets.read("git-sync-token").expect("read"), Some("g".to_owned()));
+        assert_eq!(secrets.read("device-secrets/overleafToken").expect("read"), None);
+        let index: Value =
+            serde_json::from_str(&secrets.read(INDEX).expect("read").expect("index")).expect("json");
+        assert_eq!(index["keys"], serde_json::json!(["notesToken"]));
+    }
+
+    #[test]
+    fn a_write_only_key_that_cannot_route_is_skipped_and_only_its_name_is_returned() {
+        let dir = Scratch::new("skip-token");
+        let secrets = fake_keychain(&store());
+        let row = old_row(r#"{"overleafToken":{"extra":"SECRET-SUB"},"notesToken":"n"}"#);
+        let skipped = move_into_keychain(&secrets, &dir.0, DEVICE, &[row]).expect("moves");
+        assert_eq!(skipped, vec!["overleafToken.extra".to_owned()]);
+        assert_eq!(read_marker(&dir.0), serde_json::json!({ "count": 1, "deviceId": DEVICE }));
+        let index = secrets.read(INDEX).expect("read").expect("index");
+        assert!(!index.contains("overleafToken") && !index.contains("SECRET-SUB"));
+        assert_eq!(secrets.read("device-secrets/overleafToken.extra").expect("read"), None);
+    }
+
+    #[test]
     fn a_partial_keychain_failure_is_retried_to_all_fields_and_the_index() {
         let dir = Scratch::new("partial-retry");
         let st = store();
-        // The second field (in key order, overleafToken) fails once; gitSyncToken is already written.
+        // The second field (in key order, plainToken) fails once; otherToken is already written.
         inject(
             &st,
-            "device-secrets/overleafToken",
+            "device-secrets/plainToken",
             keyring_core::Error::NoStorageAccess("locked".into()),
         );
         let secrets = fake_keychain(&st);
-        let rows = [old_row(r#"{"gitSyncToken":"g","overleafToken":"tok"}"#)];
+        let rows = [old_row(r#"{"otherToken":"g","plainToken":"tok"}"#)];
         assert!(move_now(&secrets, &dir.0, &rows).is_err());
         assert!(!marker_path(&dir.0, DEVICE).exists());
         // No index was written, so the retry is a full move again.
         move_now(&secrets, &dir.0, &rows).expect("retry moves everything");
         assert_eq!(
-            secrets.read("device-secrets/gitSyncToken").expect("read"),
+            secrets.read("device-secrets/otherToken").expect("read"),
             Some("g".to_owned())
         );
         assert_eq!(
-            secrets.read("device-secrets/overleafToken").expect("read"),
+            secrets.read("device-secrets/plainToken").expect("read"),
             Some("tok".to_owned())
         );
         let index: Value = serde_json::from_str(
