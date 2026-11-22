@@ -56,22 +56,13 @@ export const commands = {
 	 *  See [`patch_device_settings`]; also no folder chosen.
 	 */
 	deviceSettingsPatch: (patch: string) => typedError<string, ShellError_Serialize>(__TAURI_INVOKE("device_settings_patch", { patch })),
+	/**  Bridge: whether old local-database data is on this device (`legacyDbPresent`). */
+	legacyDbPresent: () => typedError<boolean, ShellError_Serialize>(__TAURI_INVOKE("legacy_db_present")),
 	/**
-	 *  Exports the 0.9.2 data into workspace files, verifies it, and writes the report. Shares are
-	 *  counted, not granted: the grant sink is not wired, so any grantable share keeps the
-	 *  migration incomplete.
-	 * 
-	 *  # Errors
-	 *  No folder chosen, the database cannot be read, or the report cannot be written.
+	 *  Bridge: whether the workspace at `folder` has a verified 0.9.7 migration report
+	 *  (`migrationReportVerified`). Read-only; an unreadable file is a typed error.
 	 */
-	migrate093Run: () => typedError<MigrateReply_Serialize, ShellError_Serialize>(__TAURI_INVOKE("migrate_093_run")),
-	/**
-	 *  Where the migration stands, and its report if one exists.
-	 * 
-	 *  # Errors
-	 *  No folder chosen, or the report cannot be read.
-	 */
-	migrate093Status: () => typedError<MigrateReply_Serialize, ShellError_Serialize>(__TAURI_INVOKE("migrate_093_status")),
+	migrationReportVerified: (folder: string) => typedError<boolean, ShellError_Serialize>(__TAURI_INVOKE("migration_report_verified", { folder })),
 	/**
 	 *  Writes a text file atomically if it still has digest `expected_hash` (`None` = always).
 	 * 
@@ -174,6 +165,14 @@ export const commands = {
 	 *  The reason the picked folder cannot hold a workspace; nothing changes.
 	 */
 	vaultChoose: () => typedError<Choice_Serialize, ShellError_Serialize>(__TAURI_INVOKE("vault_choose")),
+	/**
+	 *  Bridge (`pickFolder`): opens the folder dialog and returns the path, or `None` on cancel or
+	 *  on a phone. Read-only: it never changes the workspace; `vault_choose` does that.
+	 * 
+	 *  # Errors
+	 *  A second dialog while one is open.
+	 */
+	pickFolder: () => typedError<string | null, ShellError_Serialize>(__TAURI_INVOKE("pick_folder")),
 	/**
 	 *  Whether the first-open question is due, and the folder Skip would use.
 	 * 
@@ -1198,34 +1197,6 @@ export type MenuItem_Serialize = {
 	/**  A page action the page runs itself. */
 	command?: string,
 };
-
-/**  Reply of `migrate_093_status` and `migrate_093_run`. */
-export type MigrateReply = MigrateReply_Serialize | MigrateReply_Deserialize;
-
-/**  Reply of `migrate_093_status` and `migrate_093_run`. */
-export type MigrateReply_Deserialize = {
-	/**  Where the migration stands. */
-	state: MigrateState,
-	/**  The report's workspace path, once one is written. */
-	report_path?: string | null,
-};
-
-/**  Reply of `migrate_093_status` and `migrate_093_run`. */
-export type MigrateReply_Serialize = {
-	/**  Where the migration stands. */
-	state: MigrateState,
-	/**  The report's workspace path, once one is written. */
-	report_path: string | null,
-};
-
-/**  Where the migration stands. */
-export type MigrateState = 
-/**  No report yet. */
-"not_started" | 
-/**  A report exists, but something is pending or failed, so the 0.9.2 database must be kept. */
-"incomplete" | 
-/**  Every row is in files, every grant is in, and the report says so. The database may go. */
-"verified";
 
 /**  One download's progress, as the page reads it. Sizes are bytes. */
 export type ModelDownload = ModelDownload_Serialize | ModelDownload_Deserialize;

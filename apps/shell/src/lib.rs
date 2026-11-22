@@ -938,13 +938,11 @@ mod tests {
     fn bundle_ships_the_web_export() {
         let bundle = include_str!("../tauri.bundle.json");
         assert!(bundle.contains("\"dist/web/\": \"web/\""));
-        // `launch::migration_dirs` and `launch::bridge_source` look in `<resources>/app`.
-        assert!(bundle.contains("\"../../db/migrations/*.sql\": \"app/migrations/\""));
-        assert!(bundle.contains("\"../../db/migrations-local/*.sql\": \"app/migrations-local/\""));
         assert!(bundle.contains("\"app/weaveforge-mcp.mjs\""));
         assert!(!bundle.contains("sidecar"));
-        // `local_pg::server::locate_bin` looks in `<resources>/postgres/bin`.
-        assert!(bundle.contains("\"target/stage/postgres/\": \"postgres/\""));
+        // 0.9.8: no bundled Postgres and no server migrations in the desktop app.
+        assert!(!bundle.contains("migrations"));
+        assert!(!bundle.contains("target/stage/postgres"));
     }
 
     #[test]

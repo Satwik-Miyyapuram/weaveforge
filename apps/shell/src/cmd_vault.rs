@@ -176,7 +176,7 @@ pub async fn vault_choose(
     let Some(_choosing) = Choosing::start() else {
         return Err(ShellError::from(PICK_BUSY.to_owned()));
     };
-    let picked = pick_folder(&app, &window).await;
+    let picked = choose_folder(&app, &window).await;
     let vault = vault.inner().clone();
     let prefs = prefs.inner().clone();
     let watch = watch.inner().clone();
@@ -387,7 +387,7 @@ impl Drop for Choosing {
 
 /// The folder the reader picked, or `None` when the dialog was cancelled or the pick is not a local path.
 #[cfg(desktop)]
-async fn pick_folder(
+async fn choose_folder(
     app: &tauri::AppHandle,
     window: &tauri::WebviewWindow,
 ) -> Option<std::path::PathBuf> {
@@ -408,11 +408,30 @@ async fn pick_folder(
 
 /// Phones have no folder picker: the workspace is the app's own store there (phase 4 design).
 #[cfg(mobile)]
-async fn pick_folder(
+async fn choose_folder(
     _app: &tauri::AppHandle,
     _window: &tauri::WebviewWindow,
 ) -> Option<std::path::PathBuf> {
     None
+}
+
+/// Bridge (`pickFolder`): opens the folder dialog and returns the path, or `None` on cancel or
+/// on a phone. Read-only: it never changes the workspace; `vault_choose` does that.
+///
+/// # Errors
+/// A second dialog while one is open.
+#[tauri::command]
+#[specta::specta]
+pub async fn pick_folder(
+    app: tauri::AppHandle,
+    window: tauri::WebviewWindow,
+) -> Result<Option<String>, ShellError> {
+    let Some(_choosing) = Choosing::start() else {
+        return Err(ShellError::from(PICK_BUSY.to_owned()));
+    };
+    Ok(choose_folder(&app, &window)
+        .await
+        .map(|path| path.to_string_lossy().into_owned()))
 }
 
 /// Reads a text file in the chosen folder.
