@@ -1,7 +1,7 @@
 import { ManageSettingsUseCase, type ISettingsRepository } from "@weaveforge/core";
 import { RPC_WRITES } from "@/backend/providers/postgrest/watch-writes";
 import { systemClock } from "@/lib/parts";
-import { ORG_SERVER_RPCS, ORG_SERVER_TABLES } from "./org-server-allowlist";
+import { ORG_SERVER_BUCKETS, ORG_SERVER_RPCS, ORG_SERVER_TABLES } from "./org-server-allowlist";
 import { PERSONAL_ALIASES, PERSONAL_REPOSITORY_KEYS } from "./with-file-repositories";
 
 /**
@@ -72,6 +72,7 @@ export const READ_ONLY_KEYS: ReadonlySet<string> = new Set([
 const ORG_TABLES: ReadonlySet<string> = new Set(ORG_SERVER_TABLES);
 const ORG_RPCS: ReadonlySet<string> = new Set(ORG_SERVER_RPCS);
 const DB_WRITE_METHODS: ReadonlySet<string> = new Set(["insert", "update", "upsert", "delete"]);
+const STORAGE_WRITE_METHODS: ReadonlySet<string> = new Set(["upload", "update", "remove", "move", "copy", "uploadToSignedUrl"]);
 
 /** An rpc may run when it is an org-server function or a known read (RPC_WRITES maps reads to null). */
 function rpcAllowed(name: string): boolean {
@@ -94,15 +95,48 @@ function guardBuilder<B extends object>(builder: B, table: string): B {
   });
 }
 
+/** A storage bucket handle: writes are refused unless the bucket is an org-server bucket. */
+function guardBucket<B extends object>(bucket: B, name: string, orgBuckets: ReadonlySet<string>): B {
+  if (orgBuckets.has(name)) return bucket;
+  return new Proxy(bucket, {
+    get(target, prop) {
+      if (typeof prop === "string" && STORAGE_WRITE_METHODS.has(prop)) {
+        return () => {
+          throw new Error(READ_ONLY_MESSAGE);
+        };
+      }
+      const value: unknown = Reflect.get(target, prop, target);
+      return typeof value === "function" ? value.bind(target) : value;
+    },
+  });
+}
+
+/** The storage client: `from(bucket)` hands out guarded bucket handles. */
+function guardStorage<S extends object>(storage: S, orgBuckets: ReadonlySet<string>): S {
+  return new Proxy(storage, {
+    get(target, prop, receiver) {
+      const value: unknown = Reflect.get(target, prop, receiver);
+      if (prop === "from" && typeof value === "function") {
+        return (name: string) => guardBucket(value.call(target, name) as object, name, orgBuckets);
+      }
+      return typeof value === "function" ? value.bind(target) : value;
+    },
+  });
+}
+
 /**
  * Guards the database client of a read-only backend. `from` hands out builders
- * whose writes are refused except on org-server tables, and `rpc` runs only
- * org-server functions or reads, so a personal write cannot reach the database.
+ * whose writes are refused except on org-server tables, `rpc` runs only
+ * org-server functions or reads, `storage` refuses writes outside `orgBuckets`,
+ * and `schema` returns a guarded client too. A personal write cannot reach the
+ * database or the blob store. Wrap the client before any repository is built on it.
  */
-export function readOnlyDb<T extends object>(db: T): T {
+export function readOnlyDb<T extends object>(db: T, orgBuckets: readonly string[] = ORG_SERVER_BUCKETS): T {
+  const buckets: ReadonlySet<string> = new Set(orgBuckets);
   return new Proxy(db, {
     get(target, prop, receiver) {
       const value: unknown = Reflect.get(target, prop, receiver);
+      if (prop === "storage" && value && typeof value === "object") return guardStorage(value, buckets);
       if (typeof value !== "function") return value;
       if (prop === "from") {
         return (table: string) => guardBuilder(value.call(target, table), table);
@@ -112,6 +146,9 @@ export function readOnlyDb<T extends object>(db: T): T {
           if (!rpcAllowed(name)) throw new Error(READ_ONLY_MESSAGE);
           return value.call(target, name, ...args);
         };
+      }
+      if (prop === "schema") {
+        return (name: string) => readOnlyDb(value.call(target, name) as object, orgBuckets);
       }
       return value.bind(target);
     },

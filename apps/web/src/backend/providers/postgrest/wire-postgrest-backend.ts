@@ -243,11 +243,15 @@ export interface BackendParts {
   shareMarks?: ShareMarks;
 }
 
+/** Wraps the database client before any repository is built on it (the desktop read-only guard). */
+export type DbGuard = <T extends object>(db: T) => T;
+
 export function wirePostgrestBackend(
   config: BackendConfig,
   projectContext: ProjectContext,
   pid: () => string | null,
   parts?: BackendParts,
+  guardDb?: DbGuard,
 ): WiredPostgrestBackend {
   const url = config.supabaseUrl;
   const anonKey = config.supabaseAnonKey;
@@ -259,9 +263,11 @@ export function wirePostgrestBackend(
 
   // Wrapped once, here, so that every repository below reports its writes
   // without any of them having to know that something is listening.
-  const db =
+  const rawDb =
     parts?.db ??
     watchWrites(createDataClient(url as string, anonKey as string, config.dataUrl), notifyWorkspaceChange);
+  // Guarded before the first repository below is built, so no repository holds the raw client.
+  const db = guardDb ? guardDb(rawDb) : rawDb;
   // A session built here listens on the client; one passed in is its owner's.
   const ownSession = parts?.session ? null : new SupabaseSessionProvider(db);
   const session = parts?.session ?? ownSession!;

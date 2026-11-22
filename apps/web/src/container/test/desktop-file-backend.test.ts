@@ -171,3 +171,20 @@ test("with the overlay on, screening goes to the file repo and PostgREST sees no
   await backend.screeningRepository.remove("d1");
   assert.deepEqual(dbCalls, [], "no PostgREST call for screening");
 });
+
+test("a personal image written through the desktop blob store is refused before any request", async () => {
+  const { bridge } = memoryVault();
+  const backend = wireBackend(config, { projectId: null }, () => null, {
+    migration: "verified",
+    onDesktop: true,
+    wireDesktopFileBackend: wireDesktopFileBackend(bridge, settings, keychainSecrets()),
+  });
+  await assert.rejects(
+    () => backend.rawBlobStore.upload("paper-images", "p1/figure.png", new Blob(["x"]), "image/png"),
+    new Error(READ_ONLY_MESSAGE),
+  );
+  await assert.rejects(
+    () => backend.rawBlobStore.remove("paper-images", "p1/figure.png"),
+    new Error(READ_ONLY_MESSAGE),
+  );
+});

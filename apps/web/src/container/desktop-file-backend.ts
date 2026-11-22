@@ -27,18 +27,19 @@ export function wireDesktopFileBackend(
   secrets: SecretsStore = new DeviceSecretsStore(),
 ): (config: BackendConfig, projectContext: { projectId: string | null }, pid: () => string | null) => WiredBackend {
   return (config, projectContext, pid) => {
-    const postgrest = wirePostgrestBackend(config, projectContext, pid);
+    // The client is guarded before the repositories are built on it, so no repository holds the raw one.
+    const postgrest = wirePostgrestBackend(config, projectContext, pid, undefined, readOnlyDb);
     const files = wireFileBackend({
       fs: new DesktopWorkspaceFs(bridge),
       settings,
       secrets,
     });
     // Settings writes must reach the folder: the use case is rebuilt over the file repository.
-    // The database client stays live for org and sharing tables only: personal table writes and
-    // non-org rpcs are refused (readOnlyDb's rule), so no personal write can reach the server.
+    // The database client (postgrest.db, guarded above) stays live for org and sharing tables only:
+    // personal table writes, non-org rpcs, storage writes outside the org buckets and schema() writes
+    // are refused (readOnlyDb's rule), so no personal write can reach the server.
     return {
       ...overlayFileRepositories(postgrest, files),
-      db: readOnlyDb(postgrest.db),
       manageSettings: new ManageSettingsUseCase({ repository: files.settingsRepository, clock: systemClock }),
     };
   };
