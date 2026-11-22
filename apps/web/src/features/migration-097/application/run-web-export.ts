@@ -7,8 +7,9 @@ import {
   type RunReport,
 } from "../domain/report";
 import type { FileCodec, FileSink, ServerSource } from "../domain/ports";
+import type { KindWriter } from "../domain/kind-writer";
 import { sha256Hex } from "../domain/hash";
-import { verifyExport, type Verdict } from "./verify-export";
+import { sameRows, verifyExport, type Verdict } from "./verify-export";
 
 export type ExportProgress = { kind: string; done: number; total: number };
 
@@ -21,6 +22,8 @@ export type ExportOptions = {
   now: string;
   /** Called after each row is written to the sink. */
   onProgress?: (e: ExportProgress) => void;
+  /** Writers over the FILES repos. A kind a writer owns is written and read back through it. */
+  writers?: readonly KindWriter[];
   /** Desktop only: the backup runs before anything else, and a failure aborts the export. */
   desktop?: { folder: string; bridge: DesktopMigration };
 };
@@ -59,7 +62,10 @@ function refused(now: string, reason: string): ExportResult {
  * Never deletes or changes a server personal row.
  */
 export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
-  const { kinds, codec, source, sink, now, onProgress, desktop } = opts;
+  const { kinds, codec, source, sink, now, onProgress, desktop, writers = [] } = opts;
+  const writerFor = (kind: string) => writers.find((w) => w.kinds.includes(kind));
+  const dbCount: Record<string, number> = {};
+  const backCount: Record<string, number> = {};
   const written: Record<string, number> = {};
   const missing: MissingRow[] = [];
 
@@ -122,6 +128,27 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
       const bad = await source.undecryptable(kind);
       if (bad > 0) missing.push({ kind, id: "*", reason: `${bad} content_enc row(s) failed to decrypt` });
       written[kind] = 0;
+      dbCount[kind] = rows.length;
+      const writer = writerFor(kind);
+      if (writer) {
+        for (const row of rows) {
+          try {
+            await writer.write(kind, row);
+            written[kind]++;
+          } catch (err) {
+            missing.push({ kind, id: String(row.id), reason: (err as Error).message });
+          }
+          onProgress?.({ kind, done: written[kind] ?? 0, total: rows.length });
+        }
+        const back = await writer.readBack(kind);
+        backCount[kind] = back.length;
+        if (!sameRows(kind, rows, back)) {
+          missing.push({ kind, id: "*", reason: `readBack differs: ${back.length} read, ${rows.length} exported` });
+        }
+        continue;
+      }
+      // TODO(097-lanes): still raw codec + sink until their FILES repo lands: group (a) papers,
+      // notes, relations, paperFields; and lists (readingLists). Keep this list in sync.
       if (!codec.supports(kind)) {
         for (const row of rows) missing.push({ kind, id: String(row.id), reason: "no wf-wasm codec" });
         continue;
@@ -139,6 +166,7 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
       }
     }
     current = "blobs";
+    const blobWriter = writerFor("blobs");
     for (const ref of await source.listBlobs()) {
       try {
         const bytes = await source.fetchBlob(ref);
@@ -146,9 +174,13 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
           missing.push({ kind: "blobs", id: ref.path, reason: "sha256 mismatch on fetch" });
           continue;
         }
-        const path = `assets/${ref.bucket}/${ref.path}`;
-        await sink.write(path, bytes);
-        await sink.write(`${path}.sha256`, ref.sha256);
+        if (blobWriter) {
+          await blobWriter.write("blobs", { bucket: ref.bucket, path: ref.path, sha256: ref.sha256, bytes });
+        } else {
+          const path = `assets/${ref.bucket}/${ref.path}`;
+          await sink.write(path, bytes);
+          await sink.write(`${path}.sha256`, ref.sha256);
+        }
       } catch (err) {
         missing.push({ kind: "blobs", id: ref.path, reason: (err as Error).message });
       }
@@ -157,9 +189,11 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
     missing.push({ kind: current, id: "*", reason: (err as Error).message });
   }
 
+  // Writer kinds are compared by readBack above; verify decodes the raw codec files only.
+  const codecKinds = kinds.filter((k) => !writerFor(k));
   let verdict: Verdict;
   try {
-    verdict = await verifyExport({ kinds, codec, source, sink });
+    verdict = await verifyExport({ kinds: codecKinds, codec, source, sink });
   } catch (err) {
     verdict = { state: "incomplete", kinds: {}, blobs: { db: 0, verified: 0 }, errors: [] };
     missing.push({ kind: "verify", id: "*", reason: `verify failed: ${(err as Error).message}` });
@@ -168,9 +202,10 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
 
   const kindCounts: Record<string, KindCount> = {};
   for (const kind of kinds) {
+    const isWriter = writerFor(kind) !== undefined;
     kindCounts[kind] = {
-      db: verdict.kinds[kind]?.db ?? 0,
-      files: verdict.kinds[kind]?.files ?? 0,
+      db: isWriter ? (dbCount[kind] ?? 0) : (verdict.kinds[kind]?.db ?? 0),
+      files: isWriter ? (backCount[kind] ?? 0) : (verdict.kinds[kind]?.files ?? 0),
       written: written[kind] ?? 0,
       conflicts: [],
     };

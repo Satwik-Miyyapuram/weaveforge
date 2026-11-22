@@ -4,6 +4,7 @@ import { test } from "node:test";
 import { REPORT_PATH } from "../domain/report";
 import { SERVER_ONLY_FIELDS } from "../domain/server-only-fields";
 import type { BlobRef, FileCodec, Row, ServerSource } from "../domain/ports";
+import type { KindWriter } from "../domain/kind-writer";
 import { runWebExport } from "../application/run-web-export";
 import { verifyExport } from "../application/verify-export";
 import { MemorySink } from "../infrastructure/memory-sink";
@@ -638,4 +639,70 @@ test("verify listing throw: a missing entry and an incomplete report, no marker"
     calls.filter((c) => c.startsWith("mark:")),
     [],
   );
+});
+
+// In-memory KindWriter: write keeps rows, readBack returns them. Never touches the codec.
+function memoryWriter(kind: string, opts: { dropOnReadBack?: boolean } = {}) {
+  const stored: Row[] = [];
+  const writer: KindWriter = {
+    kinds: [kind],
+    write: async (_k, row) => {
+      stored.push(JSON.parse(JSON.stringify(row)) as Row);
+    },
+    readBack: async () => (opts.dropOnReadBack ? stored.slice(1) : stored.slice()),
+  };
+  return { writer, stored };
+}
+
+test("writer kinds: rows go through KindWriter.write, never the codec, and readBack must match", async () => {
+  const { source } = fakeServer({ rows: FIXTURE });
+  const sink = new MemorySink();
+  const { writer, stored } = memoryWriter("logEntries");
+  const codec: FileCodec = {
+    ...fakeCodec(SUPPORTED),
+    toFile: (kind, row) => {
+      if (kind === "logEntries") throw new Error("codec must not be used for logEntries");
+      return { path: `${kind}/${String(row.id)}.json`, text: JSON.stringify(row) };
+    },
+  };
+  const result = await runWebExport({
+    kinds: KINDS,
+    codec,
+    source,
+    sink,
+    now: NOW,
+    writers: [writer],
+  });
+  assert.equal(result.state, "verified");
+  assert.deepEqual(stored, FIXTURE.logEntries);
+  assert.equal(result.run.kinds.logEntries?.written, 2);
+  assert.equal(result.run.kinds.logEntries?.files, 2);
+});
+
+test("writer kinds: a readBack that loses a row makes the export incomplete", async () => {
+  const { source } = fakeServer({ rows: FIXTURE });
+  const sink = new MemorySink();
+  const { writer } = memoryWriter("logEntries", { dropOnReadBack: true });
+  const result = await runWebExport({
+    kinds: KINDS,
+    codec: fakeCodec(SUPPORTED),
+    source,
+    sink,
+    now: NOW,
+    writers: [writer],
+  });
+  assert.equal(result.state, "incomplete");
+  assert.ok(result.run.missing.some((m) => m.kind === "logEntries" && m.reason.includes("readBack")));
+});
+
+test("verify: a blob sidecar with a content-type line still verifies on its sha256 line", async () => {
+  const bytes = new Uint8Array([9, 8, 7]);
+  const ref: BlobRef = { bucket: "ink", path: "img/a.png", sha256: sha(bytes) };
+  const sink = new MemorySink();
+  await sink.write(`assets/${ref.bucket}/${ref.path}`, bytes);
+  await sink.write(`assets/${ref.bucket}/${ref.path}.sha256`, `${ref.sha256}\nimage/png`);
+  const { source } = fakeServer({ rows: {}, blobs: [{ ref, bytes }] });
+  const verdict = await verifyExport({ kinds: [], codec: fakeCodec([]), source, sink });
+  assert.deepEqual(verdict.errors, []);
+  assert.equal(verdict.blobs.verified, 1);
 });

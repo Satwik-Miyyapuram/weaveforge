@@ -16,6 +16,13 @@ function comparable(kind: string, row: Row): Row {
   return out;
 }
 
+/** True when two row lists hold the same rows after server-only fields are dropped (order-free). */
+export function sameRows(kind: string, want: Row[], got: Row[]): boolean {
+  const a = want.map((r) => canon(comparable(kind, r))).sort();
+  const b = got.map((r) => canon(comparable(kind, r))).sort();
+  return a.length === b.length && a.every((w, i) => w === b[i]);
+}
+
 export type VerifyInput = {
   kinds: readonly string[];
   codec: FileCodec;
@@ -85,7 +92,8 @@ export async function verifyExport(input: VerifyInput): Promise<Verdict> {
       const path = `assets/${ref.bucket}/${ref.path}`;
       try {
         const bytes = await sink.readBytes(path);
-        const sidecar = await sink.readText(`${path}.sha256`);
+        // Line 1 is the sha256; line 2 (the content type) is not compared here.
+        const sidecar = (await sink.readText(`${path}.sha256`)).split("\n")[0];
         if ((await sha256Hex(bytes)) === ref.sha256 && sidecar === ref.sha256) out.blobs.verified++;
         else errors.push(`blob ${path}: sha256 mismatch`);
       } catch (err) {
