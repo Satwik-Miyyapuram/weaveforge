@@ -167,6 +167,40 @@ test("CAS miss: the conflict check runs again on the re-read text, so a user val
   assert.ok((await sink.readText(PAPER)).includes("user"), "the user's value is not overwritten by the retry");
 });
 
+/** A sink where another writer replaces `path` once, after a compare-and-set lands and before its read-back. */
+class EditAfterWriteSink extends MemorySink {
+  private armed = true;
+  private readonly editPath: string;
+  private readonly edit: string;
+
+  constructor(editPath: string, edit: string) {
+    super();
+    this.editPath = editPath;
+    this.edit = edit;
+  }
+
+  override async writeIf(path: string, text: string, expected: string): Promise<boolean> {
+    const ok = await super.writeIf(path, text, expected);
+    if (ok && this.armed && path === this.editPath) {
+      this.armed = false;
+      await this.write(path, this.edit);
+    }
+    return ok;
+  }
+}
+
+test("P2: a CAS whose read-back shows a mid-run edit is not recorded as this run's output", async () => {
+  const sink = new EditAfterWriteSink("a.md", "user edit after our write");
+  await sink.write("a.md", "v1");
+  const store = await createFileStore(sink, { "a.md": await sha256Hex("v1") });
+  assert.equal(await guardedSink(sink, store).writeIf("a.md", "v2", "v1"), true);
+  assert.equal(
+    Object.prototype.hasOwnProperty.call(store.outputs, "a.md"),
+    false,
+    "bytes read back do not hash to the text written, so the file is not recorded as ours",
+  );
+});
+
 test("P1: a CAS on a user's file never records it as this run's output", async () => {
   const sink = new MemorySink();
   const userNote = '---\nwf: 3\n---\nuser text\n';

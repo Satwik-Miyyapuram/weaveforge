@@ -107,7 +107,11 @@ export function guardedSink(sink: FileSink, store: FileStore): FileSink {
       }
       const ok = await sink.writeIf(path, text, expected);
       if (ok && !ours && known === undefined && expected !== null) baselines.set(path, expected);
-      if (ok && ours) store.outputs[path] = await sha256Hex(await sink.readBytes(path));
+      if (ok && ours) {
+        // Recorded only when the bytes read back are the text written; a mid-run edit is the user's, not ours.
+        const landed = await sha256Hex(await sink.readBytes(path));
+        if (landed === (await sha256Hex(text))) store.outputs[path] = landed;
+      }
       return ok;
     },
   };
