@@ -266,3 +266,27 @@ test("a readable bridge latest.json parses with no problems", () => {
 test("a missing bridge latest.json is left for the release check to report", () => {
   assert.deepEqual(parseBridge(""), { bridge: undefined, problems: [] });
 });
+
+test("a release after 0.9.7 without latest.json is reported: 0.9.6 clients read it from releases/latest", async () => {
+  const tag = "v0.9.8";
+  const names = [
+    "WeaveForge_0.9.8_x64-setup.exe",
+    "WeaveForge_0.9.8_x64-setup.exe.sig",
+    "WeaveForge_0.9.8_arm64-setup.exe",
+    "WeaveForge_0.9.8_arm64-setup.exe.sig",
+    "latest-v2.json",
+  ];
+  const release = {
+    tag_name: tag,
+    draft: false,
+    prerelease: true,
+    assets: names.map((name) => ({ name, browser_download_url: `https://github.com/Satwik-Miyyapuram/weaveforge/releases/download/${tag}/${name}` })),
+  };
+  const files = {
+    "WeaveForge_0.9.8_x64-setup.exe.sig": SIG_X64,
+    "WeaveForge_0.9.8_arm64-setup.exe.sig": SIG_ARM,
+    "latest-v2.json": manifestFixture({ version: "0.9.8" }),
+  };
+  const problems = await checkRelease({ tag, release, readAsset: assetsFrom(files) });
+  assert.ok(problems.some((p) => p.includes("latest.json") && p.includes("missing")), problems.join("\n"));
+});
