@@ -11,7 +11,7 @@ import type { FileCodec, FileSink, Row, ServerSource } from "../domain/ports";
 import type { KindWriter } from "../domain/kind-writer";
 import { sha256Hex } from "../domain/hash";
 import { PAPER_FIELD_KINDS, projectDefsMismatches } from "../domain/paper-fields-file";
-import { isUnsafeAssetPath } from "../domain/asset-path";
+import { sanitizeBlobRefs } from "../domain/asset-path";
 import { createPaperFieldsWriter } from "../infrastructure/kind-writer-paper-fields";
 import { sameRows, verifyExport, type Verdict } from "./verify-export";
 
@@ -281,8 +281,9 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
     }
     current = "blobs";
     const blobWriter = writerFor("blobs");
-    for (const ref of await source.listBlobs()) {
-      if (isUnsafeAssetPath(ref.bucket, ref.path)) {
+    for (const item of sanitizeBlobRefs(await source.listBlobs())) {
+      const { ref } = item;
+      if (item.unsafe) {
         missing.push({ kind: "blobs", id: ref.path, reason: "unsafe path" });
         continue;
       }
@@ -294,9 +295,9 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
         }
         // The sha256 is computed here; the server never supplies one.
         const sha256 = await sha256Hex(bytes);
-        const path = `assets/${ref.bucket}/${ref.path}`;
+        const path = `assets/${item.bucket}/${item.path}`;
         if (blobWriter) {
-          await blobWriter.write("blobs", { bucket: ref.bucket, path: ref.path, sha256, bytes });
+          await blobWriter.write("blobs", { bucket: item.bucket, path: item.path, sha256, bytes });
         } else {
           await sink.write(path, bytes);
           await sink.write(`${path}.sha256`, sha256);

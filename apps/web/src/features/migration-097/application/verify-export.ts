@@ -1,6 +1,7 @@
 import type { KindCount, MigrationState } from "../domain/report";
 import type { FileCodec, FileSink, Row, ServerSource } from "../domain/ports";
 import { sha256Hex } from "../domain/hash";
+import { sanitizeBlobRefs } from "../domain/asset-path";
 import { SERVER_ONLY_FIELDS } from "../domain/server-only-fields";
 
 /** Local-only sync bookkeeping: never part of the server row or the file, so never compared. */
@@ -105,10 +106,16 @@ export async function verifyExport(input: VerifyInput): Promise<Verdict> {
   }
 
   try {
-    const refs = await source.listBlobs();
+    // The same sanitized names the blob loop writes under, so verify reads back what was written.
+    const refs = sanitizeBlobRefs(await source.listBlobs());
     out.blobs.db = refs.length;
-    for (const ref of refs) {
-      const path = `assets/${ref.bucket}/${ref.path}`;
+    for (const item of refs) {
+      const { ref } = item;
+      const path = `assets/${item.bucket}/${item.path}`;
+      if (item.unsafe) {
+        errors.push(`blob ${path}: unsafe path`);
+        continue;
+      }
       try {
         const bytes = await sink.readBytes(path);
         // Line 1 is the sha256; line 2 (the content type) is not compared here. Checked against
