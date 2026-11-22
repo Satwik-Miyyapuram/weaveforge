@@ -44,6 +44,8 @@ pub fn legacy_db_present(db: tauri::State<'_, LocalDb>) -> bool {
 
 /// The inverse of `legacy_db_present`: true when the old database folder is missing, so the page's
 /// legacy read can report "no old secrets" without an error.
+/// No web caller exists on any 0.9.7 branch yet (checked release/0.9.7, feat/097-web-upgrade-ui and
+/// docs). Kept for the upgrade UI; the caller is not yet assigned.
 #[tauri::command]
 #[specta::specta]
 pub fn legacy_dir_missing(db: tauri::State<'_, LocalDb>) -> bool {
