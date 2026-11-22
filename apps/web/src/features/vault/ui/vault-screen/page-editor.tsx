@@ -28,6 +28,7 @@ import { WORKSPACE_PATH } from "@/lib/hooks/parts";
 import { materializeBlobImagesInBody } from "../../lib/materialize-blob-images";
 import { holdOpenNotes } from "@/features/workspace/application/parts-3";
 import { NoteSaves } from "@/features/editor-workspace/application/parts";
+import { handBackRenamedBody } from "@/features/editor-workspace/ui/rename-hand-back";
 import { LazyCanvasEditor } from "@/features/canvas";
 import { canvasImages } from "@/features/canvas/application/canvas-images";
 import { resolveCanvasFile } from "@/features/canvas/application/canvas-files";
@@ -235,12 +236,16 @@ export function PageEditor({
     try {
       const renamed: RenamedVaultPage = await getContainer().vault.manageVaultPage.update(page.id, { title: next });
       toastLinkRewriteFailed(renamed);
-      // The open editor holds its own copy of the body, so the note's rewritten
-      // self-link goes through the editor, and its autosave stores it.
-      if (renamed.linkRewrittenBody !== undefined) {
-        if (editorHandle.current) editorHandle.current.replaceAll(renamed.linkRewrittenBody);
-        else await storeBody(renamed.linkRewrittenBody);
-      }
+      // The note's own `[[Old]]` self-links are rewritten from the editor's
+      // current text (unsaved typing included), and its autosave stores it.
+      const core = readyCore();
+      const renames = new Map([[core.normalizeTitleKey(page.title), renamed.title]]);
+      await handBackRenamedBody(
+        renamed,
+        editorHandle.current,
+        (body) => storeBody(body),
+        (text) => core.rewriteWikilinksOutsideCode(text, renames),
+      );
       await onChanged();
     } catch (err) {
       setSaveError(formatError(err));
