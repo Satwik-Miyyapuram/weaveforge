@@ -1,6 +1,6 @@
 /**
- * 0.9.8: the showcase demo button is hidden in no-account mode, because its
- * seeder still writes through the removed local database. It shows when signed in.
+ * 0.9.8: the showcase demo button is hidden in both modes until the seeder
+ * writes through the File* repositories (no local database).
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -14,10 +14,11 @@ const source = readFileSync(
 );
 
 test("demo button is absent in no-account mode", () => {
-  assert.doesNotMatch(source, /const demoButton = local \?/);
-  assert.match(source, /const demoButton = !local \?/);
+  assert.match(source, /const demoButton = null;/);
+  assert.doesNotMatch(source, /const demoButton = !local \?/);
 });
 
-test("demo button is present when signed in", () => {
-  assert.match(source, /const demoButton = !local \? \(\s*<Button/);
+test("demo button is absent when signed in", () => {
+  assert.doesNotMatch(source, /const demoButton = local \?/);
+  assert.doesNotMatch(source, /const demoButton = \(?\s*<Button/);
 });

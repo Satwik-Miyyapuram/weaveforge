@@ -10,7 +10,6 @@ import { ScreenHead } from "@/components/screen-head";
 import { FormError } from "@/components/form-error";
 import { EmptyState } from "@/components/empty-state";
 import { WeaveForgeLogo } from "@/components/weave-forge-logo";
-import { isLocalMode } from "@/features/auth/infrastructure/no-account-mode";
 import dynamic from "next/dynamic";
 import { Button } from "@/components/button";
 import { RowButton } from "@/components/controls";
@@ -41,7 +40,6 @@ export function ProjectsScreen() {
   useEffect(() => {
     openCreateOnMount = false;
   }, []);
-  const local = isLocalMode();
 
   const { busy, error, submit: create } = useSubmit(async () => {
     const p = await getContainer().projects.manageProject.create({ name });
@@ -87,13 +85,9 @@ export function ProjectsScreen() {
     await refresh();
     setProject(projectId);
   });
-  // 0.9.8: hidden in no-account mode, whose local database is gone. The seeder
-  // moves to the File* repositories as a follow-up.
-  const demoButton = !local ? (
-    <Button disabled={demoBusy} onClick={() => void loadDemo()}>
-      {demoBusy ? "Loading demo…" : "Load demo workspace"}
-    </Button>
-  ) : null;
+  // 0.9.8: hidden in both modes until the seeder writes through the File*
+  // repositories (no local database). Re-show it there, then flip the gate test.
+  const demoButton = null;
 
   return (
     <section className="screen">
