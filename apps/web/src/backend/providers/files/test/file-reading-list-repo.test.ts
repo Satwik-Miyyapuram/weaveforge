@@ -304,6 +304,19 @@ test("(P5b) two list files sharing a basename: each list keeps its own members",
   assert.deepEqual((await items.listItems(l2.id)).map((i) => i.paperId), ["p2"]);
 });
 
+test("(P5c) an unreadable tagged member file fails the read with a named error, not a silent drop", async () => {
+  const { fs, lists, items } = await setup();
+  const l1 = list();
+  await lists.save(l1);
+  await items.add({ id: "a", listId: l1.id, paperId: "p1", sortOrder: 1 });
+  const readText = fs.readText.bind(fs);
+  fs.readText = async (path: string) => {
+    if (path === `${ROOT}/papers/paper-one.paper.md`) throw new Error("EIO: read failed");
+    return readText(path);
+  };
+  await assert.rejects(items.listItems(l1.id), /Cannot read .*paper-one\.paper\.md: EIO: read failed/);
+});
+
 test("an empty list file reads as no members; delete moves the list to the trash", async () => {
   const { fs, lists, items } = await setup();
   const l = list();

@@ -100,8 +100,14 @@ export class LinkIndex {
     for await (const entry of this.fs.walk(dir)) {
       if (entry.kind !== "file" || !entry.path.endsWith(suffix)) continue;
       let id: string | undefined;
+      let text: string;
       try {
-        const text = await this.fs.readText(entry.path);
+        text = await this.fs.readText(entry.path);
+      } catch (error) {
+        // An unreadable file fails the scan: skipping it would drop its links and tags silently.
+        throw new Error(`Cannot read ${entry.path}: ${error instanceof Error ? error.message : String(error)}`);
+      }
+      try {
         if (kind === "paper") {
           const raw: unknown = core.paperRowFromFile(text).id;
           id = typeof raw === "string" && raw ? raw : entry.path;
