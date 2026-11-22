@@ -140,3 +140,10 @@ test("a removing report that cannot name this device is treated as another devic
   const bridge = { migrate097Status: async () => ({ state: "removing", removingDeviceId: "dev-a" }) };
   assert.equal(await migrate097Status(bridge, FOLDER), "removing-other");
 });
+
+test("a shell report of unexported resolves to unexported, which never wires files", async () => {
+  const bridge = { migrate097Status: async () => ({ state: "unexported" }) };
+  const resolved = await migrate097Status(bridge, FOLDER);
+  assert.equal(resolved, "unexported");
+  assert.equal(usesFileBackend(resolved), false);
+});

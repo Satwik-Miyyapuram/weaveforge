@@ -76,7 +76,7 @@ async function read(bridge: Migrate097Bridge, folder: string): Promise<Migrate09
       // Files wire only on a device that verified its own export; another device's verified report is "unexported" here.
       return report?.ownRunVerified === true ? "verified" : "unexported";
     }
-    return state === "incomplete" || state === "none" ? state : "unavailable";
+    return state === "incomplete" || state === "none" || state === "unexported" ? state : "unavailable";
   } catch {
     return "unavailable";
   }
