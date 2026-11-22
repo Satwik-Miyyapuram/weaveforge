@@ -198,6 +198,15 @@ test("metrics: an orphan point (no experiment row) is rejected and the error nam
   await assert.rejects(() => writer.write("metrics", { ...METRIC_ROW, experimentId: "0123456789abcdff" }), /0123456789abcdff.*val_loss|val_loss.*0123456789abcdff/);
 });
 
+test("metrics: a chunk already on disk with different text is a conflict, not a silent skip", async () => {
+  const sink = new MemorySink();
+  const writer = createGroupBWriter(sink, ROOTS);
+  await writer.write("experiments", EXPERIMENT_ROW);
+  await writer.write("metrics", METRIC_ROW);
+  const chunk = sink.paths().find((p) => p.endsWith(".csv"))!;
+  await sink.write(chunk, "run,step,metric,value\nedited,0,val_loss,9\n");
+  await assert.rejects(() => writer.write("metrics", METRIC_ROW), (err: Error) => err.message.startsWith("conflict:") && err.message.includes(chunk));
+});
 const OWNER = { userId: "user-1", projectId: "proj-1" };
 
 test("server-only owner columns never reach a file (guard, green today)", async () => {

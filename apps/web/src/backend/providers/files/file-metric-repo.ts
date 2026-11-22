@@ -65,7 +65,12 @@ export class FileMetricRepository implements IMetricRepository {
       await this.fs.mkdirp(path.slice(0, path.lastIndexOf("/")));
       // Write-once: the same batch again finds its chunk already there.
       if (!this.fs.writeTextIf) throw new Error(`${path}: this workspace cannot write without overwriting.`);
-      await this.fs.writeTextIf(path, text, null);
+      if (!(await this.fs.writeTextIf(path, text, null))) {
+        // Same batch again: the chunk already holds these exact bytes. Different bytes under the name are a conflict.
+        if ((await this.fs.readText(path)) !== text) {
+          throw new Error(`conflict: metric chunk ${path} differs from the file on disk; kept the file's version`);
+        }
+      }
     }
   }
 
