@@ -141,6 +141,24 @@ export class FilePaperRepository implements IPaperRepository {
     return (await this.readAll()).map((read) => ({ paperId: read.paper.id, extras: core.paperExtrasFromFile(read.text) }));
   }
 
+  /** The ids of the papers whose frontmatter says `pinned: true`. */
+  async listPinnedIds(): Promise<string[]> {
+    const core = typedCore();
+    return (await this.readAll()).filter((read) => core.paperPinnedFromFile(read.text)).map((read) => read.paper.id);
+  }
+
+  /** Sets or clears paper `id`'s `pinned` flag; false when no file holds the paper. */
+  async setPinned(id: string, pinned: boolean): Promise<boolean> {
+    const core = typedCore();
+    for (let attempt = 0; attempt < WRITE_ATTEMPTS; attempt += 1) {
+      const read = await this.findById(id);
+      if (!read) return false;
+      const text = core.writePaperPinned(read.text, pinned);
+      if (text === read.text || (await this.writeIf(read.path, text, read.text))) return true;
+    }
+    throw new ConflictError(`Paper ${id} kept changing on disk; not pinned.`);
+  }
+
   /**
    * Rewrites paper `id`'s `relations` and/or `fields` to what `change` returns from
    * the current ones; every other key and the body are kept. False when no file
