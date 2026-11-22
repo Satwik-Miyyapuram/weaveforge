@@ -68,10 +68,20 @@ function notesOf(fields: Fields): Record<string, MemberInfo> {
   return (objectOf(fields["list-notes"]) ?? {}) as Record<string, MemberInfo>;
 }
 
-/** The list a reading-list file (at `path`, holding `id`) is, as a tag target. */
-export function listFileOf(path: string, id: string): ListFile {
-  const link = `[[${path.slice(path.lastIndexOf("/") + 1, -".md".length)}]]`;
-  return { id, file: path, link, key: readyCore().listItemKey(link) ?? link };
+/**
+ * The list files as tag targets. A list is named by its bare file name, as `Links.linkFor`
+ * names a file, unless another list shares that name: then both are named by their path, so
+ * neither tag resolves to the other list.
+ */
+export function listFilesOf(lists: readonly { path: string; id: string }[]): ListFile[] {
+  const bare = (path: string) => path.slice(path.lastIndexOf("/") + 1, -".md".length);
+  const count = new Map<string, number>();
+  for (const l of lists) count.set(bare(l.path), (count.get(bare(l.path)) ?? 0) + 1);
+  return lists.map(({ path, id }) => {
+    const name = (count.get(bare(path)) ?? 0) > 1 ? path.slice(0, -".md".length) : bare(path);
+    const link = `[[${name}]]`;
+    return { id, file: path, link, key: readyCore().listItemKey(link) ?? link };
+  });
 }
 
 /** Every membership a paper or note tags, given the list files and the link snapshot. */

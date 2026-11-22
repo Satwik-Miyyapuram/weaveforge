@@ -280,6 +280,30 @@ test("(P5a) a legacy members list naming one paper twice reads as one membership
   assert.equal(found[0]!.sortOrder, 0, "the first legacy entry sets the place");
 });
 
+test("(P5b) two list files sharing a basename: each list keeps its own members", async () => {
+  const { fs, lists, items } = await setup();
+  const l1 = list();
+  const l2 = list();
+  await lists.save(l1);
+  await lists.save(l2);
+  const paths = await listFile(fs);
+  let p1 = "";
+  let p2 = "";
+  for (const p of paths) {
+    const text = await fs.readText(p);
+    if (text.includes(l1.id)) p1 = p;
+    if (text.includes(l2.id)) p2 = p;
+  }
+  assert.ok(p1 && p2 && p1 !== p2, "one list file per list");
+  // Same bare name, different folder: a `[[name]]` link is ambiguous between them.
+  const basename = p1.split("/").pop()!;
+  await fs.rename(p2, `${ROOT}/reading-lists/archive/${basename}`);
+  await items.add({ id: "a", listId: l1.id, paperId: "p1", sortOrder: 1 });
+  await items.add({ id: "b", listId: l2.id, paperId: "p2", sortOrder: 1 });
+  assert.deepEqual((await items.listItems(l1.id)).map((i) => i.paperId), ["p1"]);
+  assert.deepEqual((await items.listItems(l2.id)).map((i) => i.paperId), ["p2"]);
+});
+
 test("an empty list file reads as no members; delete moves the list to the trash", async () => {
   const { fs, lists, items } = await setup();
   const l = list();

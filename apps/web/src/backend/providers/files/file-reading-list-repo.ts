@@ -34,7 +34,7 @@ import { FileEntityStore, type ProjectRoot } from "./file-entity-store";
 import { LinkIndex, type LinkTarget, type Links } from "./link-index";
 import {
   editMemberFile,
-  listFileOf,
+  listFilesOf,
   objectOf,
   readTagged,
   withTag,
@@ -204,11 +204,11 @@ export class FileReadingListItemRepository implements IReadingListItemRepository
         code: INHERITED_LINK_CODE,
       });
     }
-    const { links, memberships } = await this.load();
+    const { links, memberships, files } = await this.load();
     const file = links.fileFor(target);
     if (!file) throw new NotFoundError(`No file for ${"paperId" in target ? "paper" : "note"} "${targetId(target)}".`);
 
-    const list = listFileOf(found.path, found.row.id);
+    const list = files.find((l) => l.id === found.row.id)!;
     const info: MemberInfo = { id: item.id, order: item.sortOrder };
     if (item.note) info.note = item.note;
     if (item.inheritedFromListId) info.from = item.inheritedFromListId;
@@ -249,17 +249,17 @@ export class FileReadingListItemRepository implements IReadingListItemRepository
    * Every membership: the tags on member files, then each list file's legacy members
    * whose paper or note has no tag in that list. One scan per call.
    */
-  private async load(): Promise<{ live: Set<string>; links: Links; memberships: Membership[] }> {
+  private async load(): Promise<{ live: Set<string>; links: Links; files: ListFile[]; memberships: Membership[] }> {
     const lists = await this.store.readAll();
     const live = new Set(lists.map((f) => f.row.id));
-    const files = lists.map((f) => listFileOf(f.path, f.row.id));
+    const files = listFilesOf(lists.map((f) => ({ path: f.path, id: f.row.id })));
     const links = await this.links.snapshot();
     const tagged = await readTagged(this.fs, links, files);
     const memberships: Membership[] = tagged.map((t) => ({ list: t.list, target: t.target, info: t.info, file: t.file }));
     // One membership per target in a list: a tag wins, then the first legacy entry for the target.
     const seen = new Set(tagged.map((t) => `${t.list.id}|${targetKey(t.target)}`));
-    for (const f of lists) {
-      const list = listFileOf(f.path, f.row.id);
+    for (const [i, f] of lists.entries()) {
+      const list = files[i]!;
       legacyMembers(f.text).forEach((m, index) => {
         const target = links.resolve(m.link);
         const key = `${list.id}|${target ? targetKey(target) : ""}`;
@@ -268,6 +268,6 @@ export class FileReadingListItemRepository implements IReadingListItemRepository
         memberships.push({ list, target, info: m.info, index });
       });
     }
-    return { live, links, memberships };
+    return { live, links, files, memberships };
   }
 }
