@@ -12,6 +12,7 @@ export const ORG_SERVER_READ_TABLES = [
   "experiment_metric_names",
   "lab_snapshots",
   "crdt_updates",
+  "crdt_snapshots",
   "profiles",
   "organizations",
   "org_memberships",
@@ -48,6 +49,9 @@ export const ORG_SERVER_WRITE_TABLES = [
   "share_links",
   "comments",
   "blob_objects",
+  // crdt_updates: insert only, and only live-share types (read-only-repositories.ts guardCrdtUpdates).
+  "crdt_updates",
+  "profiles",
 ] as const;
 
 export const ORG_SERVER_RPCS = [

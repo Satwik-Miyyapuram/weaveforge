@@ -29,6 +29,9 @@ const PERSONAL_SYNC = [
   "project_shares",
 ];
 
+/** Read names served by a repo over another table (crdt_snapshots is a step over crdt_updates), so no create table exists. */
+const VIRTUAL_TABLES: readonly string[] = ["crdt_snapshots"];
+
 const MIGRATIONS = fileURLToPath(new URL("../../../../../db/migrations", import.meta.url));
 const migrationSql = readdirSync(MIGRATIONS)
   .filter((f) => f.endsWith(".sql"))
@@ -53,6 +56,9 @@ describe("org server allowlist", () => {
       assert.equal((ORG_SERVER_WRITE_TABLES as readonly string[]).includes(t), true, t);
     }
   });
+  it("reads crdt_snapshots, the watermark getSnapshotUpto reads for the live-share log", () => {
+    assert.equal((ORG_SERVER_READ_TABLES as readonly string[]).includes("crdt_snapshots"), true, "crdt_snapshots");
+  });
   it("lists only org and share rpcs", () => {
     assert.equal((ORG_SERVER_RPCS as readonly string[]).includes("resolve_share_link"), true);
     assert.equal((ORG_SERVER_RPCS as readonly string[]).includes("latest_metric_activity"), false);
@@ -65,6 +71,7 @@ describe("org server allowlist", () => {
   });
   it("every table is created as a table in db/migrations", () => {
     for (const table of ORG_SERVER_READ_TABLES) {
+      if (VIRTUAL_TABLES.includes(table)) continue;
       const created = new RegExp(`create table( if not exists)? (public\\.)?${table}\\b`);
       assert.match(migrationSql, created, `${table} has no create table`);
     }

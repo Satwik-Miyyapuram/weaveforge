@@ -38,8 +38,8 @@ function fakeClient(reached: string[]) {
 test("storage writes to a personal bucket are refused and never reach the client", async () => {
   const reached: string[] = [];
   const db = readOnlyDb(fakeClient(reached));
-  await assert.rejects(async () => db.storage.from("paper-images").upload("p1/a.png", new Blob(["x"])), new Error(READ_ONLY_MESSAGE));
-  await assert.rejects(async () => db.storage.from("paper-images").remove(["p1/a.png"]), new Error(READ_ONLY_MESSAGE));
+  await assert.rejects(async () => db.storage.from("paper-images").upload("p1/a.png", new Blob(["x"])), { message: READ_ONLY_MESSAGE });
+  await assert.rejects(async () => db.storage.from("paper-images").remove(["p1/a.png"]), { message: READ_ONLY_MESSAGE });
   assert.deepEqual(reached, [], "nothing reached the storage client");
 });
 
@@ -54,13 +54,13 @@ test("an allowlisted org bucket still uploads to the server", async () => {
   const reached: string[] = [];
   const db = readOnlyDb(fakeClient(reached), ["org-shared"]);
   await db.storage.from("org-shared").upload("s1/a.png", new Blob(["x"]));
-  await assert.rejects(async () => db.storage.from("paper-images").upload("p1/a.png", new Blob(["x"])), new Error(READ_ONLY_MESSAGE));
+  await assert.rejects(async () => db.storage.from("paper-images").upload("p1/a.png", new Blob(["x"])), { message: READ_ONLY_MESSAGE });
   assert.deepEqual(reached, ["upload org-shared"]);
 });
 
 test("a write through schema() is refused like a write on the root client", async () => {
   const reached: string[] = [];
   const db = readOnlyDb(fakeClient(reached));
-  assert.throws(() => db.schema("public").from("projects").insert({}), new Error(READ_ONLY_MESSAGE));
+  assert.throws(() => db.schema("public").from("projects").insert({}), { message: READ_ONLY_MESSAGE });
   assert.deepEqual(reached, [], "nothing reached the schema client");
 });
