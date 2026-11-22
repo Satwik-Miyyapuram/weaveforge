@@ -184,3 +184,17 @@ test("P1/P2: a CAS on a file this device wrote records the hash of the bytes now
   assert.equal(await guardedSink(sink, store).writeIf("a.md", "v2", "v1"), true);
   assert.equal(store.outputs["a.md"], await sha256Hex(await sink.readBytes("a.md")));
 });
+
+test("same-set re-run: an identical value is a no-op that still reads back as exported, with no conflict", async () => {
+  const core = typedCore();
+  const base = core.writePaperRow(null, { id: "p1", title: "A" }) + "Body.\n";
+  const sink = new MemorySink();
+  await sink.write(PAPER, base);
+  const value: Row = { id: "v1", projectId: "proj-a", paperId: "p1", fieldId: "fa", value: "NeurIPS" };
+  await createPaperFieldsWriter(sink, FOLDERS).write("paperFields", DEF);
+  await createPaperFieldsWriter(sink, FOLDERS).write("paperFieldValues", value);
+  // Re-run with the identical set: no write, no throw, the value is still in the file.
+  await createPaperFieldsWriter(sink, FOLDERS).write("paperFieldValues", value);
+  const back = await createPaperFieldsWriter(sink, FOLDERS).readBack("paperFieldValues");
+  assert.deepEqual(back.map((r) => r.value), ["NeurIPS"], "the identical row is read back once, as exported");
+});
