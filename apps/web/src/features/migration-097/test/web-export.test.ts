@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { test } from "node:test";
-import { REPORT_PATH, type RunReport } from "../domain/report";
+import { REPORT_PATH, writesOff, type RunReport } from "../domain/report";
 import { SERVER_ONLY_FIELDS } from "../domain/server-only-fields";
 import type { BlobRef, FileCodec, Row, ServerSource } from "../domain/ports";
 import type { KindWriter } from "../domain/kind-writer";
@@ -1104,4 +1104,42 @@ test("per-kind failure: a failed kind is listed missing and the later kinds stil
   assert.equal(result.run.kinds.experiments?.written, 1);
   assert.ok((await sink.list()).includes("experiments/e1.json"), "the later kind is still written");
   assert.equal(calls.some((c) => c.startsWith("mark:")), false);
+});
+
+test("target: a web run records target opfs in report.json", async () => {
+  const { source } = fakeServer({ rows: FIXTURE });
+  const sink = new MemorySink();
+  await runWebExport({ kinds: KINDS, codec: fakeCodec(SUPPORTED), source, sink, now: NOW });
+  const report = JSON.parse(await sink.readText(REPORT_PATH)) as { target?: string };
+  assert.equal(report.target, "opfs");
+});
+
+test("target: a desktop run records target folder in report.json", async () => {
+  const { source, calls } = fakeServer({ rows: FIXTURE });
+  const sink = new MemorySink();
+  await runWebExport({
+    kinds: KINDS,
+    codec: fakeCodec(SUPPORTED),
+    source,
+    sink,
+    now: NOW,
+    desktop: { folder: "C:/ws", bridge: fakeDesktop(calls) },
+  });
+  const report = JSON.parse(await sink.readText(REPORT_PATH)) as { target?: string };
+  assert.equal(report.target, "folder");
+});
+
+test("zip-only export: the zip never writes a verified report, so the browser writes stay on", async () => {
+  const sink = new MemorySink();
+  const zip = await buildDownloadZip(sink);
+  assert.equal(unzipFiles(zip).has(REPORT_PATH), false);
+  assert.equal(writesOff(null), false);
+});
+
+test("writesOff: only a verified report with target opfs switches the browser writes off", () => {
+  assert.equal(writesOff({ state: "verified", target: "opfs" }), true);
+  assert.equal(writesOff({ state: "verified", target: "folder" }), false);
+  assert.equal(writesOff({ state: "incomplete", target: "opfs" }), false);
+  assert.equal(writesOff({ state: "verified" }), false);
+  assert.equal(writesOff(undefined), false);
 });

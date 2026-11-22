@@ -26,6 +26,9 @@ export const REPORT_PATH = ".weaveforge/migration-0.9.7/report.json";
 
 export type MigrationState = "verified" | "incomplete" | "none";
 
+/** Where the export landed: the browser OPFS repos, or a desktop folder. */
+export type MigrationTarget = "opfs" | "folder";
+
 export type KindCount = { db: number; files: number; written: number; conflicts: string[] };
 
 export type MissingRow = { kind: string; id: string; reason: string };
@@ -49,5 +52,15 @@ export type MigrationReport = {
   verifiedAt?: string;
   /** This install's id from the desktop backup. Absent on web and Android (no backup, no id). */
   deviceId?: string;
+  /** "folder" for desktop, "opfs" for the browser. Absent on reports written before this field. */
+  target?: MigrationTarget;
   runs: RunReport[];
 };
+
+/**
+ * True when the browser write gate must be on: the OPFS repos hold a verified export.
+ * The zip download never sets this (it writes no report), and a folder export never does either.
+ */
+export function writesOff(report: Pick<MigrationReport, "state" | "target"> | null | undefined): boolean {
+  return report?.state === "verified" && report.target === "opfs";
+}

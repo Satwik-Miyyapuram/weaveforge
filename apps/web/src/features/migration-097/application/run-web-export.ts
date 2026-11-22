@@ -3,6 +3,7 @@ import {
   type KindCount,
   type MigrationReport,
   type MigrationState,
+  type MigrationTarget,
   type MissingRow,
   type RunReport,
 } from "../domain/report";
@@ -67,6 +68,7 @@ async function refused(
   sink: FileSink,
   now: string,
   reason: string,
+  target: MigrationTarget,
   extra: { backup?: string | null; deviceId?: string } = {},
 ): Promise<ExportResult> {
   const run: RunReport = {
@@ -78,7 +80,7 @@ async function refused(
     missing: [{ kind: "*", id: "*", reason }],
     deviceId: extra.deviceId,
   };
-  await writeReport(sink, { version: 1, state: "incomplete", backup: extra.backup ?? null, deviceId: extra.deviceId, runs: [run] });
+  await writeReport(sink, { version: 1, state: "incomplete", backup: extra.backup ?? null, deviceId: extra.deviceId, target, runs: [run] });
   return { state: "incomplete", run };
 }
 
@@ -90,6 +92,7 @@ async function refused(
  */
 export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
   const { kinds, codec, source, sink, now, onProgress, desktop, writers = [], moveSecrets, secretsPresent, runDeviceId } = opts;
+  const target: MigrationTarget = desktop ? "folder" : "opfs";
   const writerFor = (kind: string) => writers.find((w) => w.kinds.includes(kind));
   const dbCount: Record<string, number> = {};
   const backCount: Record<string, number> = {};
@@ -99,14 +102,14 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
 
   // A source that holds secrets cannot be exported without the KEYS mover that moves them.
   if (secretsPresent && !moveSecrets) {
-    return refused(sink, now, "keys: no mover");
+    return refused(sink, now, "keys: no mover", target);
   }
 
   // The pre-migration dump comes first: nothing is read or written without it.
   let deviceId: string | undefined = desktop ? undefined : runDeviceId;
   let dumpName: string | null = null;
   if (desktop && typeof desktop.bridge?.backup !== "function") {
-    return refused(sink, now, "desktop migrate097Backup missing: the shell cannot make the pre-migration dump");
+    return refused(sink, now, "desktop migrate097Backup missing: the shell cannot make the pre-migration dump", target);
   }
   if (desktop) {
     try {
@@ -114,7 +117,7 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
       deviceId = made.deviceId;
       dumpName = made.dump;
     } catch (err) {
-      return refused(sink, now, `backup failed: ${(err as Error).message}`);
+      return refused(sink, now, `backup failed: ${(err as Error).message}`, target);
     }
   }
 
@@ -133,11 +136,11 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
       missing: [{ kind: "outbox", id: "*", reason }],
       deviceId,
     };
-    await writeReport(sink, { version: 1, state: "incomplete", backup: dumpName, deviceId, runs: [run] });
+    await writeReport(sink, { version: 1, state: "incomplete", backup: dumpName, deviceId, target, runs: [run] });
     return { state: "incomplete", run };
   }
   if (pending > 0) {
-    return refused(sink, now, "outbox not empty: flush before export", { backup: dumpName, deviceId });
+    return refused(sink, now, "outbox not empty: flush before export", target, { backup: dumpName, deviceId });
   }
 
   // Early report: if the run dies before the end, report.json already says incomplete.
@@ -146,6 +149,7 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
     state: "incomplete",
     backup: dumpName,
     deviceId,
+    target,
     runs: [
       {
         startedAt: now,
@@ -277,6 +281,7 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
       backup: dumpName,
       verifiedAt: state === "verified" ? finishedAt : undefined,
       deviceId,
+      target,
       runs: [run],
     };
     await writeReport(sink, report);
