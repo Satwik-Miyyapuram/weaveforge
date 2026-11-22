@@ -121,6 +121,17 @@ impl LocalDb {
         self.native()?.reset().await.map_err(ShellError::from)
     }
 
+    /// Dumps the open database into the backup places now; see `PgHost::backup_now`.
+    pub async fn backup_now(
+        &self,
+        now: std::time::SystemTime,
+    ) -> Result<Vec<std::path::PathBuf>, ShellError> {
+        self.native()?
+            .backup_now(now)
+            .await
+            .map_err(ShellError::from)
+    }
+
     /// One page of an allowlisted kind, read in a read-only transaction. See `local_pg::read`.
     pub async fn read_page(
         &self,
@@ -345,6 +356,7 @@ pub fn specta_builder() -> tauri_specta::Builder<tauri::Wry> {
         crate::migrate_093::migrate_093_status,
         crate::migrate_097::cmd::migrate_097_status,
         crate::migrate_097::cmd::migrate_097_counts,
+        crate::migrate_097::cmd::migrate_097_backup,
         crate::migrate_097::cmd::migrate_097_read,
         crate::migrate_097::cmd::migrate_097_remove_old,
         crate::migrate_097::cmd::mark_exported_097,

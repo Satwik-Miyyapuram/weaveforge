@@ -428,6 +428,33 @@ impl<E: Engine> PgHost<E> {
         self.backup_locked(&mut inner, now).await
     }
 
+    /// Dumps the open database now, changed or not, and returns the files written (the first is the
+    /// copy to keep). Never opens the database, and never overwrites: a backup already named for
+    /// `now` is an error.
+    ///
+    /// # Errors
+    /// No open database, no backup place, a backup already named for `now`, or no place got a copy.
+    pub async fn backup_now(&self, now: SystemTime) -> Result<Vec<PathBuf>, PgError> {
+        let mut inner = self.inner.lock().await;
+        let Some(backups) = &self.backups else {
+            return Err(PgError::local("no backup place is configured"));
+        };
+        let Some(open) = &mut inner.open else {
+            return Err(PgError::local("the database is not open"));
+        };
+        let name = super::backup::file_name(now);
+        if backups.dirs.iter().any(|dir| dir.join(&name).exists()) {
+            return Err(PgError::local(format!("backup {name} already exists")));
+        }
+        let written = backups
+            .take(now, |file| self.engine.dump(&open.handle, file))
+            .await?;
+        if written.is_empty() {
+            return Err(PgError::local("no backup place got a copy"));
+        }
+        Ok(written)
+    }
+
     async fn backup_locked(
         &self,
         inner: &mut Inner<E>,
@@ -1307,6 +1334,60 @@ mod tests {
         host.close_with(false).await;
         assert_eq!(engine.dumps.load(Ordering::SeqCst), 0);
         assert_eq!(engine.closes.load(Ordering::SeqCst), 1);
+        assert!(super::super::backup::list(&dir).is_empty());
+        let _ = std::fs::remove_dir_all(&dir);
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn backup_now_dumps_an_unchanged_open_database() -> Result<(), String> {
+        let (engine, host, dir) = backed_up("now");
+        let _ = host.query("select 1", &[]).await?;
+        let t = UNIX_EPOCH + std::time::Duration::from_secs(6_000);
+        let written = host.backup_now(t).await.map_err(|e| e.message)?;
+        assert_eq!(written.len(), 1);
+        assert_eq!(engine.dumps.load(Ordering::SeqCst), 1);
+        let _ = std::fs::remove_dir_all(&dir);
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn backup_now_refuses_when_closed_or_unconfigured() -> Result<(), String> {
+        let (engine, host, dir) = backed_up("now-closed");
+        let t = UNIX_EPOCH + std::time::Duration::from_secs(6_100);
+        assert!(host.backup_now(t).await.is_err(), "a closed database is not opened to back up");
+        assert_eq!(engine.dumps.load(Ordering::SeqCst), 0);
+        let _ = std::fs::remove_dir_all(&dir);
+
+        let (engine, host) = host();
+        let _ = host.query("select 1", &[]).await?;
+        assert!(host.backup_now(t).await.is_err(), "no backup places is an error");
+        assert_eq!(engine.dumps.load(Ordering::SeqCst), 0);
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn backup_now_never_overwrites_an_existing_backup() -> Result<(), String> {
+        let (engine, host, dir) = backed_up("now-exists");
+        let _ = host.query("select 1", &[]).await?;
+        let t = UNIX_EPOCH + std::time::Duration::from_secs(6_200);
+        std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+        let existing = dir.join(super::super::backup::file_name(t));
+        std::fs::write(&existing, "keep me").map_err(|e| e.to_string())?;
+        assert!(host.backup_now(t).await.is_err());
+        assert_eq!(engine.dumps.load(Ordering::SeqCst), 0, "no dump when the name is taken");
+        assert_eq!(std::fs::read(&existing).map_err(|e| e.to_string())?, b"keep me");
+        let _ = std::fs::remove_dir_all(&dir);
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn backup_now_failed_dump_is_an_error_and_leaves_no_file() -> Result<(), String> {
+        let (engine, host, dir) = backed_up("now-fail");
+        let _ = host.query("select 1", &[]).await?;
+        engine.fail_dumps.store(1, Ordering::SeqCst);
+        let t = UNIX_EPOCH + std::time::Duration::from_secs(6_300);
+        assert!(host.backup_now(t).await.is_err());
         assert!(super::super::backup::list(&dir).is_empty());
         let _ = std::fs::remove_dir_all(&dir);
         Ok(())

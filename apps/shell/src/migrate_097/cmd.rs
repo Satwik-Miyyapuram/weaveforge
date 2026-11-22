@@ -5,6 +5,7 @@
 use std::path::PathBuf;
 use std::time::SystemTime;
 
+use serde::Serialize;
 use tauri::Manager;
 
 use crate::commands::{LocalDb, ShellError};
@@ -54,6 +55,33 @@ pub async fn migrate_097_counts(db: tauri::State<'_, LocalDb>) -> Result<RowCoun
         .and_then(serde_json::Value::as_str)
         .ok_or_else(|| ShellError::from("row counts query returned no value".to_owned()))?;
     parse_counts(text).map_err(ShellError::from)
+}
+
+/// What `migrate_097_backup` made: this device's id and the dump to keep.
+#[derive(Debug, Serialize, specta::Type, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct MigrationBackup {
+    pub device_id: String,
+    pub dump_path: String,
+}
+
+/// Dumps the local database before the export, changed or not. Never overwrites a backup; any
+/// failure is an error, and the web gate then marks nothing.
+#[tauri::command]
+#[specta::specta]
+pub async fn migrate_097_backup(
+    app: tauri::AppHandle,
+    db: tauri::State<'_, LocalDb>,
+) -> Result<MigrationBackup, ShellError> {
+    let device = device_id(&app)?;
+    let written = db.backup_now(SystemTime::now()).await?;
+    let dump = written
+        .first()
+        .ok_or_else(|| ShellError::from("backup wrote no file".to_owned()))?;
+    Ok(MigrationBackup {
+        device_id: device,
+        dump_path: dump.to_string_lossy().into_owned(),
+    })
 }
 
 /// One page of exporter `kind`, read-only. `after` is the last key read (one value per key column);
