@@ -1003,6 +1003,22 @@ mod union_tests {
     }
 
     #[test]
+    fn a_device_id_with_path_characters_refuses_and_writes_nothing() {
+        let (base, folder, pg_root) = fixture("bad-device-id", &[("report-dev-a.json", VERIFIED_A)]);
+        for id in ["../x", "a/b", ""] {
+            let refusal = removal_refusal(&folder, id, &pg_root);
+            assert!(refusal.as_deref().is_some_and(|r| r.contains("device id")), "{id:?}: {refusal:?}");
+            assert!(record_verified_export(&pg_root, &folder, id).is_err(), "{id:?} records nothing");
+        }
+        let mut secrets = || Ok(0);
+        let mut stop = || Ok(());
+        let removed = remove_old_data(&folder, &pg_root, NOW, "a/b", &mut secrets, &mut stop);
+        let exported = pg_root.join(EXPORTED_TO).exists();
+        let _ = fs::remove_dir_all(&base);
+        assert!(removed.is_err() && !exported, "a path-unsafe device id writes nothing");
+    }
+
+    #[test]
     fn an_unreadable_legacy_report_refuses_with_a_restore_message() {
         let (base, folder, pg_root) = fixture("legacy-bad", &[("report.json", "{ not json")]);
         let refusal = removal_refusal(&folder, ME, &pg_root);

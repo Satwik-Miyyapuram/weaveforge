@@ -173,6 +173,25 @@ mod tests {
     }
 
     #[test]
+    fn another_devices_report_is_never_shown_as_this_devices_run() {
+        let base = std::env::temp_dir().join(format!("wf-m097-status-other-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&base);
+        let folder = base.join("vault");
+        let dir = folder.join(super::super::remove::MIGRATION_DIR);
+        fs::create_dir_all(&dir).unwrap();
+        fs::write(
+            dir.join("report-dev-b.json"),
+            r#"{"version":1,"state":"verified","runs":[{"deviceId":"dev-b","state":"verified","finishedAt":"2026-11-22T10:00:00.000Z"}]}"#,
+        )
+        .unwrap();
+        let status = migration_status(&folder, &base.join("local-pg"), "dev-a");
+        let _ = fs::remove_dir_all(&base);
+        assert_eq!(status.state, "none", "no run from this device");
+        assert!(!status.own_run_verified);
+        assert_eq!(status.verified_at, None);
+    }
+
+    #[test]
     fn an_unreadable_legacy_report_makes_the_status_unavailable_with_a_restore_step() {
         let base = std::env::temp_dir().join(format!("wf-m097-status-legacy-{}", std::process::id()));
         let _ = fs::remove_dir_all(&base);
