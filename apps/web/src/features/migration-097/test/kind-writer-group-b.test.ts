@@ -183,3 +183,8 @@ test("metrics: a long series (60 points) reads back complete, same steps and val
     source.map((p) => [p.step, p.value]),
   );
 });
+
+test("metrics: an orphan point (no experiment row) is rejected and the error names it", async () => {
+  const writer = createGroupBWriter(new MemorySink(), ROOT);
+  await assert.rejects(() => writer.write("metrics", { ...METRIC_ROW, experimentId: "0123456789abcdff" }), /0123456789abcdff.*val_loss|val_loss.*0123456789abcdff/);
+});

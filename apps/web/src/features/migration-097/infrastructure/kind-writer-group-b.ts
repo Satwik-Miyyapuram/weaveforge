@@ -76,16 +76,22 @@ export function createGroupBWriter(sink: FileSink, projectRoot: string): KindWri
       readBack: async () => (await experiments.list()).map((e) => defined({ ...e })),
     },
     metrics: {
-      write: (row) =>
-        metrics.append([
+      write: async (row) => {
+        const experimentId = row.experimentId as string;
+        // Named here so an orphan point is reported with its own metric and step.
+        if (!(await experiments.getById(experimentId))) {
+          throw new Error(`metrics: orphan point ${row.metric as string} step ${row.step as number} has no experiment ${experimentId}`);
+        }
+        await metrics.append([
           {
-            experimentId: row.experimentId as string,
+            experimentId,
             metric: row.metric as string,
             step: row.step as number,
             value: row.value as number,
             wallTime: row.wallTime as string | undefined,
           } satisfies MetricPoint,
-        ]),
+        ]);
+      },
       readBack: async () => {
         const out: Row[] = [];
         for (const e of await experiments.list()) {
