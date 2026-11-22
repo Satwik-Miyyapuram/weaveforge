@@ -87,6 +87,15 @@ test("the id is written to a temp file and renamed into place", async () => {
   assert.equal(fs.files.has(from), false);
 });
 
+test("each create uses its own temp file name, so two creates never share one", async () => {
+  const fs = folder();
+  await createId(fs, () => "web-same-id");
+  fs.files.delete(INSTALL_ID_PATH);
+  await createId(fs, () => "web-same-id");
+  assert.equal(fs.renames.length, 2);
+  assert.notEqual(fs.renames[0]?.[0], fs.renames[1]?.[0]);
+});
+
 /** A lock manager that runs each request after the previous one finishes, as navigator.locks does. */
 function serialisingLocks() {
   let tail: Promise<unknown> = Promise.resolve();
