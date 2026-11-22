@@ -1,6 +1,6 @@
 import type { FileCodec, FileSink } from "../domain/ports";
 import { PostgrestSource, type PostgrestSourceOptions } from "../infrastructure/postgrest-source";
-import { runWebExport, type ExportResult } from "./run-web-export";
+import { runWebExport, type ExportProgress, type ExportResult } from "./run-web-export";
 
 export type WebUpgradeOptions = {
   /** The owner's PostgREST connection (the server source). */
@@ -19,7 +19,10 @@ export type WebUpgradeOptions = {
  * Web upgrade: exports the owner's PostgREST rows into the browser's sink. No KEYS mover is passed, so secrets
  * stay on the server and `reconnectProviders` names the services to reconnect (provider names only).
  */
-export function runWebUpgrade(opts: WebUpgradeOptions): Promise<ExportResult> {
+export function runWebUpgrade(
+  opts: WebUpgradeOptions,
+  onProgress?: (e: ExportProgress) => void,
+): Promise<ExportResult> {
   return runWebExport({
     kinds: opts.kinds,
     codec: opts.codec,
@@ -27,5 +30,6 @@ export function runWebUpgrade(opts: WebUpgradeOptions): Promise<ExportResult> {
     sink: opts.sink,
     now: opts.now,
     runDeviceId: opts.runDeviceId,
+    onProgress,
   });
 }
