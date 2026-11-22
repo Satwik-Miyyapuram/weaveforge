@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { MIGRATION_KINDS } from "../domain/report";
 import { PostgrestSource, TABLE_BY_KIND, toCamelRow } from "../infrastructure/postgrest-source";
 
 const BASE = "https://api.example.test/rest";
@@ -36,18 +37,47 @@ function sourceWith(fetchImpl: typeof fetch, extra: Record<string, unknown> = {}
 
 test("table map covers every kind and snake_case rows convert to camelCase", () => {
   assert.deepEqual(TABLE_BY_KIND, {
-    logEntries: "log_entries",
-    reportSections: "report_sections",
-    readingLists: "reading_lists",
+    notes: "vault_pages",
+    papers: "papers",
+    tags: "tags",
     paperFields: "paper_fields",
+    relations: "paper_relations",
+    readingLists: "reading_lists",
+    screening: "screening_decisions",
+    logEntries: "log_entries",
+    milestones: "milestones",
+    experiments: "experiments",
+    metrics: "experiment_metrics",
+    reportSections: "report_sections",
+    annotations: "reader_annotations",
     annotationPins: "annotation_pins",
     libraryPins: "library_pins",
+    comments: "comments",
+    settings: "user_settings",
     aiProposals: "ai_proposals",
+    blobs: "blob_objects",
   });
   assert.deepEqual(
     toCamelRow({ id: 1, created_at: "t", log_entry_id: 7, nested: { created_at: "keep" } }),
     { id: 1, createdAt: "t", logEntryId: 7, nested: { created_at: "keep" } },
   );
+});
+
+test("every exporter kind is either mapped to a table or is file-only (ink)", () => {
+  for (const kind of MIGRATION_KINDS) {
+    if (kind === "ink") continue; // strokes are files, never a server table
+    assert.ok(
+      Object.prototype.hasOwnProperty.call(TABLE_BY_KIND, kind),
+      `kind ${kind} has no entry in TABLE_BY_KIND`,
+    );
+  }
+});
+
+test("listRows on the file-only ink kind returns no rows and makes no request", async () => {
+  const { fetch, calls } = fakeFetch(() => new Response("[]", { status: 200 }));
+  const rows = await sourceWith(fetch).listRows("ink");
+  assert.deepEqual(rows, []);
+  assert.equal(calls.length, 0);
 });
 
 test("listRows pages past 1000 rows until an empty page", async () => {

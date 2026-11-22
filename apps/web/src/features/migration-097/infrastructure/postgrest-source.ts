@@ -3,14 +3,29 @@ import { PAGE_SIZE, listAllPages } from "./paging";
 
 /** camelCase kind -> snake_case PostgREST table. */
 export const TABLE_BY_KIND = {
-  logEntries: "log_entries",
-  reportSections: "report_sections",
-  readingLists: "reading_lists",
+  notes: "vault_pages",
+  papers: "papers",
+  tags: "tags",
   paperFields: "paper_fields",
+  relations: "paper_relations",
+  readingLists: "reading_lists",
+  screening: "screening_decisions",
+  logEntries: "log_entries",
+  milestones: "milestones",
+  experiments: "experiments",
+  metrics: "experiment_metrics",
+  reportSections: "report_sections",
+  annotations: "reader_annotations",
   annotationPins: "annotation_pins",
   libraryPins: "library_pins",
+  comments: "comments",
+  settings: "user_settings",
   aiProposals: "ai_proposals",
+  blobs: "blob_objects",
 } as const;
+
+/** Kinds with no server table: their rows are files only, so the server side lists none. */
+const FILE_ONLY_KINDS: readonly string[] = ["ink"];
 
 export interface PostgrestSourceOptions {
   baseUrl: string;
@@ -71,6 +86,7 @@ export class PostgrestSource implements ServerSource {
   }
 
   async listRows(kind: string): Promise<Row[]> {
+    if (FILE_ONLY_KINDS.includes(kind)) return [];
     const table = tableFor(kind);
     const rows = await listAllPages<Row>(async (offset, limit) => {
       const url = `${this.filter(table)}&order=id.asc&limit=${limit}&offset=${offset}`;
@@ -81,6 +97,7 @@ export class PostgrestSource implements ServerSource {
   }
 
   async countRows(kind: string): Promise<number> {
+    if (FILE_ONLY_KINDS.includes(kind)) return 0;
     const table = tableFor(kind);
     const res = await this.request(
       this.filter(table),
