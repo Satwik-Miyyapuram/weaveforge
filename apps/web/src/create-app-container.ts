@@ -60,6 +60,7 @@ import { LoadReadingListsScreenUseCase } from "@/features/reading-lists/applicat
 import { DuplicateSharedVaultPageUseCase } from "@/features/library/application/duplicate-shared-vault.use-case";
 import { LoadSharedWithMeScreenUseCase } from "@/features/sharing/application/parts";
 import { rustAiStores, rustShareLinkRepository } from "@/backend/providers/postgrest/rust-repository";
+import { FilePaperFieldRepository } from "@/backend/providers/files/file-paper-field-repo";
 import { PrefetchProjectUseCase } from "@/application/prefetch-project.use-case";
 import { readBackendConfig } from "@/backend/parts";
 import {
@@ -360,8 +361,9 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
     onError: reportCitationAlertError,
   });
 
+  const fieldRepo = backend.paperFieldRepository;
   const managePaperFields = new ManagePaperFieldsUseCase({
-    fields: backend.paperFieldRepository,
+    fields: fieldRepo,
     ids: uuidIds,
   });
 
@@ -605,7 +607,13 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
       readerAnnotations: backend.readerAnnotationRepository,
       reportSections: reportSectionRepository,
     }),
-    paperFields: new PaperFieldsFacade({ paperFields: managePaperFields }),
+    paperFields: new PaperFieldsFacade({
+      paperFields: managePaperFields,
+      moveProjectFolder:
+        fieldRepo instanceof FilePaperFieldRepository
+          ? (from, to) => fieldRepo.moveProjectFolder(from, to)
+          : undefined,
+    }),
     libraryTidy: createLibraryTidy({ papers: paperRepository, updatePaper, resolver, backend, bibliography, newId: uuidIds.newId }),
     zotero: new ZoteroFacade({
       bibliography,
