@@ -86,6 +86,7 @@ import {
 } from "@weaveforge/core";
 import type { ISharedReader, SharedItem } from "../../../features/sharing/domain/shared-reader";
 import type { Integration, SyncProvider } from "../../../features/sync/domain/parts";
+import { guardOrgDb } from "@/container/org-db-guard";
 import { SupabaseAdminUserProvisioner, SupabaseSessionProvider } from "../supabase-auth/parts";
 import { createDataClient } from "./parts-1";
 import { projectUserCtx, rustRepository, rustVaultPageRepository } from "./rust-repository";
@@ -162,6 +163,11 @@ function rustProjectZoteroStore(db: SupabaseClient): IProjectBibliographyCollect
 }
 
 // --- wire-postgrest-backend ---
+export interface PostgrestWiringOptions {
+  /** Files mode: the container's personal repos wired here reach the org allowlist only. */
+  readonly filesMode?: boolean;
+}
+
 export interface WiredPostgrestBackend {
   readonly config: BackendConfig;
   readonly db: SupabaseClient;
@@ -236,6 +242,7 @@ export function wirePostgrestBackend(
   projectContext: ProjectContext,
   pid: () => string | null,
   parts?: BackendParts,
+  options?: PostgrestWiringOptions,
 ): WiredPostgrestBackend {
   const url = config.supabaseUrl;
   const anonKey = config.supabaseAnonKey;
@@ -251,6 +258,9 @@ export function wirePostgrestBackend(
     parts?.db ??
     watchWrites(createDataClient(url as string, anonKey as string, config.dataUrl), notifyWorkspaceChange);
   // A session built here listens on the client; one passed in is its owner's.
+  // In files mode the repos below that the container still wires over this client may reach only
+  // the org server allowlist: a personal call throws before any request is sent.
+  const serverDb = options?.filesMode ? guardOrgDb(db) : db;
   const ownSession = parts?.session ? null : new SupabaseSessionProvider(db);
   const session = parts?.session ?? ownSession!;
   const auth = parts?.auth ?? new SupabaseAuthService(db);
@@ -263,7 +273,7 @@ export function wirePostgrestBackend(
     parts?.settingsRepository ?? new PostgrestSettingsRepository(db, session, secretsStoreFor(db));
   const releaseNoticesRepository =
     parts?.releaseNotices ??
-    rustRepository<IReleaseNoticesRepository>(db, "release_notices", ["unseen"], async () => ({
+    rustRepository<IReleaseNoticesRepository>(serverDb, "release_notices", ["unseen"], async () => ({
       userId: (await session.getCurrentUserId()) ?? undefined,
     }));
   const manageSettings = new ManageSettingsUseCaseClass({ repository: settingsRepository, clock: systemClock });
@@ -288,7 +298,7 @@ export function wirePostgrestBackend(
     pid,
     { resourceType: "graph_settings" },
   );
-  const integrationsStore: IIntegrationsStore = rustIntegrationsStore(db);
+  const integrationsStore: IIntegrationsStore = rustIntegrationsStore(serverDb);
   const paperRepository = cachePaperRepository(rustPaperRepository(db, projectContext), pid);
 
   const tagPaperCache = new Map<string, Promise<unknown>>();
@@ -413,7 +423,7 @@ export function wirePostgrestBackend(
   );
   // Not cached: a decision another reviewer records is the point of the screen,
   // and a cache would show you your own half of it until something evicted.
-  const screeningRepository = rustRepository<IScreeningRepository>(db, "screening_decisions", [
+  const screeningRepository = rustRepository<IScreeningRepository>(serverDb, "screening_decisions", [
     "listForItems",
     "record",
     "remove",
@@ -456,7 +466,7 @@ export function wirePostgrestBackend(
   // What you can read depends on the grants, so a share change (yours or a
   // peer's broadcast) clears this memo with the share repository's.
   const sharedReader: ISharedReader = cacheRepo(
-    rustSharedReader(db),
+    rustSharedReader(serverDb),
     ["read"],
     [],
     pid,
@@ -482,7 +492,7 @@ export function wirePostgrestBackend(
     pid,
   );
   const supervisionRepository = rustSupervisionRepository(db);
-  const projectBibliographyCollection = rustProjectZoteroStore(db);
+  const projectBibliographyCollection = rustProjectZoteroStore(serverDb);
   const rawBlobStore = parts?.blobStore ?? wireStorage({ supabaseDb: db });
   const libraryPinRepository: ILibraryPinRepository = cacheRepo(
     rustRepository<ILibraryPinRepository>(

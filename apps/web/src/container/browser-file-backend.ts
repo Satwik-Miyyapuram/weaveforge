@@ -26,7 +26,7 @@ export type BrowserFileWiring = (
 export async function wireBrowserFiles(fs: IWorkspaceFs): Promise<BrowserFileWiring> {
   const settings = await openFileSettingsSection(fs, "");
   return (config, projectContext, pid) => {
-    const postgrest = wirePostgrestBackend(config, projectContext, pid);
+    const postgrest = wirePostgrestBackend(config, projectContext, pid, undefined, { filesMode: true });
     const files = wireFileBackend({ fs, settings, secrets: new RefusingSecretsStore() });
     // The container reaches the server only through `db`, so the guard sits there: personal
     // tables and rpcs throw before any request. Org and share tables stay reachable.
