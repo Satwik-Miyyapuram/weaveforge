@@ -22,9 +22,9 @@ describe("org db guard", () => {
   it("passes org tables and rpcs through to the server db", () => {
     const { db, calls } = spyDb();
     const guarded = guardOrgDb(db);
-    assert.deepEqual(guarded.from("project_shares").select(), { table: "project_shares" });
+    assert.deepEqual(guarded.from("share_links").select(), { table: "share_links" });
     assert.deepEqual(guarded.rpc("resolve_share_link"), { name: "resolve_share_link" });
-    assert.deepEqual(calls, ["from:project_shares", "rpc:resolve_share_link"]);
+    assert.deepEqual(calls, ["from:share_links", "rpc:resolve_share_link"]);
   });
 
   it("throws for personal tables and never reaches the server db", () => {
