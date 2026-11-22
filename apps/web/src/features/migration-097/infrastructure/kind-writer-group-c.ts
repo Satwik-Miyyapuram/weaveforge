@@ -126,7 +126,7 @@ export function createGroupCWriter(sink: FileSink, projectRoot: string): KindWri
           if ((await sha256Hex(bytes)) !== sha256) {
             throw new Error(`blobs: sha256 mismatch for ${bucket}/${path}`);
           }
-          // The web export's `.sha256` sidecar holds the sha256 alone (061ff182f): this contentType is not written to it.
+          // FileBlobStore writes this type to the `.sha256` sidecar's line 2. The web export's sidecar holds the sha256 alone (061ff182f).
           const contentType = row.contentType ? String(row.contentType) : "application/octet-stream";
           await blobs.upload(bucket, path, new Blob([new Uint8Array(bytes)]), contentType);
         },
