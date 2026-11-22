@@ -155,7 +155,25 @@ pub fn move_into_keychain(
     store_move_fields(secrets, &fields)?;
     write_index(secrets, "move", &keys)?;
     marker()?;
+    clear_verified_copies(secrets);
     Ok(skipped)
+}
+
+/// Clears a `device-secrets/<token>` copy of a routed token, but only where the native routed entry
+/// already holds the same value. Runs after the move is recorded, so a copy whose value differs from
+/// the native entry (a newer or unique token) is kept. Errors are ignored: the move is already done,
+/// and a leftover copy is harmless because the page never reads it.
+fn clear_verified_copies(secrets: &Secrets) {
+    for (old, _) in ROUTED {
+        let field = field_name(old);
+        let Ok(Some(copy)) = secrets.read(&field) else {
+            continue;
+        };
+        let native = secrets.read(&entry_name(old)).ok().flatten();
+        if native.as_deref() == Some(copy.as_str()) {
+            let _ = secrets.clear(&field);
+        }
+    }
 }
 
 /// The `(key, text)` fields of the one old row and the names of the write-only fields that were
@@ -1054,6 +1072,42 @@ mod tests {
         assert_eq!(index["source"], "move");
         assert_eq!(index["keys"].as_array().expect("keys").len(), 2);
         assert_eq!(read_marker(&dir.0), serde_json::json!({ "count": 1, "deviceId": DEVICE }));
+    }
+
+    #[test]
+    fn a_device_copy_matching_the_native_token_is_cleared_after_the_move() {
+        let dir = Scratch::new("copy-same");
+        let secrets = fake_keychain(&store());
+        secrets.write("git-sync-token", "tok").expect("native");
+        secrets.write("device-secrets/gitSyncToken", "tok").expect("copy");
+        move_now(&secrets, &dir.0, &[old_row(r#"{"gitSyncToken":"tok"}"#)]).expect("moves");
+        assert_eq!(secrets.read("device-secrets/gitSyncToken").expect("read"), None);
+        assert_eq!(secrets.read("git-sync-token").expect("read").as_deref(), Some("tok"));
+        assert_eq!(read_marker(&dir.0)["count"], 1);
+    }
+
+    #[test]
+    fn a_device_copy_that_differs_from_the_native_token_is_kept() {
+        let dir = Scratch::new("copy-differs");
+        let secrets = fake_keychain(&store());
+        secrets.write("git-sync-token", "newer").expect("native");
+        secrets.write("device-secrets/gitSyncToken", "old").expect("copy");
+        move_now(&secrets, &dir.0, &[old_row(r#"{"gitSyncToken":"old"}"#)]).expect("moves");
+        assert_eq!(secrets.read("device-secrets/gitSyncToken").expect("read").as_deref(), Some("old"));
+        assert_eq!(secrets.read("git-sync-token").expect("read").as_deref(), Some("newer"));
+    }
+
+    #[test]
+    fn nothing_is_cleared_when_the_move_is_not_verified() {
+        let dir = Scratch::new("copy-unverified");
+        let secrets = fake_keychain(&store());
+        secrets.write("git-sync-token", "tok").expect("native");
+        secrets.write("device-secrets/gitSyncToken", "tok").expect("copy");
+        // Two rows are refused before anything is written, so the move is not verified.
+        let rows = [old_row(r#"{"gitSyncToken":"tok"}"#), old_row(r#"{}"#)];
+        assert_eq!(move_now(&secrets, &dir.0, &rows), Err(SecretError::SeveralRows));
+        assert_eq!(secrets.read("device-secrets/gitSyncToken").expect("read").as_deref(), Some("tok"));
+        assert_eq!(secrets.read("git-sync-token").expect("read").as_deref(), Some("tok"));
     }
 
     #[test]
