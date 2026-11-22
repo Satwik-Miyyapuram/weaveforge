@@ -837,11 +837,21 @@ fn is_no_hard_link(err: &io::Error) -> bool {
 /// fails, the probe is removed only while it is still empty, so a file written there by
 /// someone else is never deleted.
 fn rename_without_replace(src: &Path, dest: &Path) -> io::Result<()> {
+    rename_with(src, dest, |s, d| fs::rename(s, d))
+}
+
+/// `rename_without_replace` with the rename step injected, so tests can fail the rename after
+/// the probe exists.
+fn rename_with(
+    src: &Path,
+    dest: &Path,
+    rename: impl Fn(&Path, &Path) -> io::Result<()>,
+) -> io::Result<()> {
     fs::OpenOptions::new()
         .write(true)
         .create_new(true)
         .open(dest)?;
-    fs::rename(src, dest).inspect_err(|_| {
+    rename(src, dest).inspect_err(|_| {
         if fs::metadata(dest).is_ok_and(|m| m.len() == 0) {
             let _ = fs::remove_file(dest);
         }
@@ -984,7 +994,10 @@ mod proofs {
 
 #[cfg(test)]
 mod move_tests {
-    use super::{is_no_hard_link, move_without_replace, rename_without_replace, trash_with_link};
+    use super::{
+        is_no_hard_link, move_without_replace, rename_with, rename_without_replace,
+        trash_with_link,
+    };
     use std::fs;
     use std::io;
 
@@ -1105,6 +1118,30 @@ mod move_tests {
         rename_without_replace(&src, &dest).unwrap();
         assert!(!src.exists());
         assert_eq!(fs::read_to_string(&dest).unwrap(), "moved");
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn rename_fallback_keeps_a_non_empty_destination_when_the_rename_fails() {
+        let dir = std::env::temp_dir().join(format!("wf-nr-nonempty-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+        let src = dir.join("src.md");
+        let dest = dir.join("dest.md");
+        fs::write(&src, "moved").unwrap();
+
+        // Someone writes to the probe, then the rename fails: the len == 0 guard must keep it.
+        let write_then_fail = |_: &std::path::Path, d: &std::path::Path| -> io::Result<()> {
+            fs::write(d, "written after the probe").unwrap();
+            Err(io::Error::from(io::ErrorKind::PermissionDenied))
+        };
+        let err = rename_with(&src, &dest, write_then_fail).expect_err("rename fails");
+        assert_eq!(err.kind(), io::ErrorKind::PermissionDenied);
+        assert_eq!(
+            fs::read_to_string(&dest).unwrap(),
+            "written after the probe"
+        );
+        assert_eq!(fs::read_to_string(&src).unwrap(), "moved");
         let _ = fs::remove_dir_all(&dir);
     }
 
