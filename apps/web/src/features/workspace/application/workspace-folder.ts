@@ -4,8 +4,7 @@ import { downloadLibraryPdfsOnce } from "@/features/reader/application/parts-1";
 import { desktop, type DesktopVaultRoot } from "@/lib/desktop/desktop-bridge";
 import { logToApp } from "@/lib/error-report/app-log";
 import { formatError } from "@/lib/format-error";
-import { isLocalMode } from "@/features/auth/infrastructure/no-account-mode";
-import { getDataClient, notifyEach, onWorkspaceChange } from "@/lib/parts";
+import { notifyEach, onWorkspaceChange } from "@/lib/parts";
 import { loadCore, readyCore } from "@/lib/rust-core";
 import {
   BrowserWorkspaceFs,
@@ -15,8 +14,7 @@ import {
 import { folderLock } from "./folder-lock";
 // Type-only: the import, restore and table modules load on first use, so they stay
 // out of the first-load bundle of every route that reaches the app container.
-import type { FolderImportDiff, FolderImportPicks, FolderImportResult, ImportSeams } from "./workspace-folder-tables";
-import type { RestoreConflict } from "./sync-tables";
+import type { FolderImportDiff, FolderImportPicks, FolderImportResult } from "./workspace-folder-tables";
 import {
   applyFolderImport,
   clearPendingAssets,
@@ -294,46 +292,12 @@ export function syncToFolder(): Promise<SyncOutcome> {
   return folderLock.run(runSyncToFolder);
 }
 
-async function liveImportSeams(): Promise<ImportSeams> {
-  // The no-account copy has no database, so there is nothing to restore the tables into.
-  if (isLocalMode()) throw new Error("Restoring tables from the folder needs an account. A no-account copy keeps its data in the folder.");
-  const [{ restTableStore, describeRestoreConflicts }, { connectedFolderTables, folderRestoreMarker }] =
-    await Promise.all([import("./workspace-folder-tables"), import("./workspace-folder-apply")]);
-  return {
-    store: restTableStore(getDataClient()),
-    folderTables: () => connectedFolderTables(activeFs),
-    preview: () => previewFolderImport(),
-    apply: (diff, picks) => applyFolderImport(diff, picks),
-    activeProjectId: async () => (await activeProject()).id,
-    restoreMarker: folderRestoreMarker(() => activeFs),
-    onRestoreConflicts: (conflicts) => warnRestoreConflicts(conflicts, describeRestoreConflicts(conflicts)),
-    onRestoreSkipped: warnRestoreSkipped,
-  };
-}
-
-/** A restore kept stored rows that differ from the folder. Name them, so the user can see what was not overwritten. */
-function warnRestoreConflicts(conflicts: RestoreConflict[], detail: string): void {
-  logToApp({
-    level: "warn",
-    source: "workspace-sync",
-    message: `Restore kept ${conflicts.length} stored row(s) that differ from the folder`,
-    detail,
-  });
-}
-
-/** A pending restore belongs to another project, so this Apply did not restore the tables. Say so. */
-function warnRestoreSkipped(message: string): void {
-  logToApp({ level: "warn", source: "workspace-sync", message, detail: "" });
-}
-
-/** Apply a reviewed folder import, through the live seams unless a caller passes its own. */
-export async function applyReviewedImport(
-  diff: FolderImportDiff,
-  picks: FolderImportPicks,
-  seams?: ImportSeams,
-): Promise<FolderImportResult> {
-  const { applyReviewedFolderImport } = await import("./workspace-folder-apply");
-  return applyReviewedFolderImport(diff, picks, seams ?? (await liveImportSeams()));
+/**
+ * Apply a reviewed folder import. Since 0.9.8 the files are the only personal store, so no
+ * table rows are restored onto the server: the import applies the folder's files only.
+ */
+export async function applyReviewedImport(diff: FolderImportDiff, picks: FolderImportPicks): Promise<FolderImportResult> {
+  return applyFolderImport(diff, picks);
 }
 
 async function runSyncToFolder(): Promise<SyncOutcome> {
@@ -355,19 +319,12 @@ async function runSyncToFolder(): Promise<SyncOutcome> {
   // This project's manifest, and only this project's: the paths last synced. Sync never removes.
   const base = await readMirrorBase(fs, projectRoot);
   const previousPaths = Object.keys(base);
-  // The synced tables, one file each. A failed read throws here, before anything is
-  // written, so a table file is never removed just because the server did not answer.
-  // Stable: two passes must agree, so a write during the read cannot mix two moments.
-  const [{ exportSyncTablesStable, syncTableFolderFiles }, { restTableReader }] =
-    await Promise.all([import("./sync-tables"), import("./workspace-folder-tables")]);
-  // No-account copy has no account tables to mirror, and no database to read them from.
-  const tableFiles = isLocalMode() ? {} : syncTableFolderFiles(await exportSyncTablesStable(restTableReader(getDataClient())));
+  // 0.9.8: no personal table is read from the server; the files are the only store.
   stillOurs();
 
   const mirror = await mirrorWorkspace(core, snapshot, fs, {
     project,
     seen: sessionSeen(project.id), // rewrite an existing file only if changed this session
-    extraFiles: tableFiles,
     // The digests, not only the paths: a file whose content has moved on since
     // the app wrote it is the reader's, and the mirror must not write over it
     // before the import has had the chance to offer it.
@@ -787,7 +744,6 @@ export async function previewFolderImport(only?: ReadonlySet<string>): Promise<F
 export const previewArchiveImport: typeof import("./workspace-folder-preview").previewArchiveImport = async (bytes) =>
   (await import("./workspace-folder-preview")).previewArchiveImport(bytes);
 
-export type { ImportSeams } from "./workspace-folder-tables";
 
 export {
   mergeBothChanged,

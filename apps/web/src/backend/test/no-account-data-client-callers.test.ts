@@ -12,21 +12,14 @@ const src = (rel: string) => readFileSync(fileURLToPath(new URL(`../../${rel}`, 
 
 const NO_ACCOUNT_IMPORT = /import \{ isLocalMode \} from "@\/features\/auth\/infrastructure\/no-account-mode";/;
 
-test("workspace folder sync skips the account tables in no-account mode", () => {
+test("workspace folder sync and import never read or restore account tables on the server (0.9.8)", () => {
+  // Files are the only personal store: the mirror writes no .weaveforge/tables files read from
+  // the server, and Apply restores no rows into it, signed in or not.
   const ws = src("features/workspace/application/workspace-folder.ts");
-  assert.match(ws, NO_ACCOUNT_IMPORT);
-  assert.match(
-    ws,
-    /const tableFiles = isLocalMode\(\) \? \{\} : syncTableFolderFiles\(await exportSyncTablesStable\(restTableReader\(getDataClient\(\)\)\)\);/,
-  );
-});
-
-test("the folder restore refuses in no-account mode before it reaches getDataClient", () => {
-  const ws = src("features/workspace/application/workspace-folder.ts");
-  assert.match(
-    ws,
-    /async function liveImportSeams\(\): Promise<ImportSeams> \{\s*(?:\/\/[^\n]*\n\s*)?if \(isLocalMode\(\)\) throw new Error\("[^"]+"\);\s*const \[/,
-  );
+  assert.doesNotMatch(ws, /getDataClient|restTableReader|restTableStore|exportSyncTablesStable|syncTableFolderFiles|liveImportSeams/);
+  assert.match(ws, /return applyFolderImport\(diff, picks\);/);
+  // F97-P2-20: the folder-switch check still runs after the base read, right before the mirror writes.
+  assert.match(ws, /await readMirrorBase\(fs, projectRoot\);[\s\S]*?stillOurs\(\);\s*const mirror = await mirrorWorkspace\(/);
 });
 
 test("zotero collection listing returns no collections in no-account mode, before getDataClient", () => {

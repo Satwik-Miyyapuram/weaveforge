@@ -3,9 +3,8 @@ import { test } from "node:test";
 
 import type { IWorkspaceFs } from "@weaveforge/core";
 
-import { applyReviewedImport, type ImportSeams } from "../application/workspace-folder";
-import { folderRestoreMarker } from "../application/workspace-folder-apply";
-import type { RestoreMarker } from "../application/workspace-folder-tables";
+import { applyReviewedFolderImport as applyReviewedImport, folderRestoreMarker } from "../application/workspace-folder-apply";
+import type { ImportSeams, RestoreMarker } from "../application/workspace-folder-tables";
 import type { SyncRow, SyncTable, SyncTableStore } from "../application/sync-tables";
 
 /**
