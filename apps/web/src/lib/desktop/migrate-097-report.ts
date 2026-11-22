@@ -54,23 +54,23 @@ function missingRows(missing: unknown): MigrationMissingRow[] {
 }
 
 /**
- * Summary of a parsed report, or null when the value is not a report with a
- * known state. Only the latest run is summarised; earlier runs are history. With
- * `ownDeviceId`, the latest run from this device is summarised instead, and a
- * device with no run of its own gets no kinds or missing rows.
+ * Summary of a parsed report for this device, or null when the value is not a
+ * report with a known state. Only the latest run from `ownDeviceId` is
+ * summarised; other devices' runs are ignored. A device with no run of its own
+ * is "incomplete" with no kinds, no missing rows and no backup, whatever the
+ * top-level state says. An empty `ownDeviceId` (device unknown) matches no run.
  */
-export function summarizeMigrationReport(raw: unknown, ownDeviceId?: string | null): MigrationSummary | null {
+export function summarizeMigrationReport(raw: unknown, ownDeviceId: string): MigrationSummary | null {
   if (!isObj(raw)) return null;
   if (raw.state !== "verified" && raw.state !== "incomplete") return null;
   const runs = Array.isArray(raw.runs) ? raw.runs.filter(isObj) : [];
-  const mine = ownDeviceId == null ? runs : runs.filter((r) => r.deviceId === ownDeviceId);
-  const last: Record<string, unknown> = mine.at(-1) ?? {};
+  const last = runs.filter((r) => r.deviceId === ownDeviceId).at(-1);
+  if (!last) return { state: "incomplete", backup: null, kinds: [], conflicts: [], missing: [], blobs: { db: 0, verified: 0 } };
   const kinds = kindRows(last.kinds);
   const blobs = isObj(last.blobs) ? last.blobs : {};
-  const backup = typeof last.backup === "string" ? last.backup : typeof raw.backup === "string" ? raw.backup : null;
   return {
     state: raw.state,
-    backup,
+    backup: typeof last.backup === "string" ? last.backup : null,
     kinds,
     conflicts: kinds.flatMap((k) => k.conflicts),
     missing: missingRows(last.missing),

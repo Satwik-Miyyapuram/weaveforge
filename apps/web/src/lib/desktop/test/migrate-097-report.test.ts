@@ -3,7 +3,10 @@ import { test } from "node:test";
 
 import { summarizeMigrationReport } from "../migrate-097-report";
 
+const DEVICE = "dev-a";
+
 const RUN_OLD = {
+  deviceId: DEVICE,
   startedAt: "2026-11-21T10:00:00Z",
   finishedAt: "2026-11-21T10:01:00Z",
   sources: ["local"],
@@ -13,8 +16,10 @@ const RUN_OLD = {
 };
 
 const RUN_LAST = {
+  deviceId: DEVICE,
   startedAt: "2026-11-22T09:00:00Z",
   finishedAt: "2026-11-22T09:05:00Z",
+  backup: ".weaveforge/migration-0.9.7/pre-migration.dump",
   sources: ["local", "server"],
   kinds: {
     notes: { db: 3, files: 3, written: 3, conflicts: ["notes/a.md.migrated-0.9.7.md"] },
@@ -24,13 +29,16 @@ const RUN_LAST = {
   missing: [{ kind: "comments", id: "c1", reason: "parent not found" }],
 };
 
-test("summarises the latest run with per-kind counts, conflicts and missing rows", () => {
-  const summary = summarizeMigrationReport({
-    version: 1,
-    state: "incomplete",
-    backup: ".weaveforge/migration-0.9.7/pre-migration.dump",
-    runs: [RUN_OLD, RUN_LAST],
-  });
+test("summarises this device's latest run with per-kind counts, conflicts and missing rows", () => {
+  const summary = summarizeMigrationReport(
+    {
+      version: 1,
+      state: "incomplete",
+      backup: ".weaveforge/migration-0.9.7/pre-migration.dump",
+      runs: [RUN_OLD, RUN_LAST],
+    },
+    DEVICE,
+  );
   assert.ok(summary);
   assert.equal(summary.state, "incomplete");
   assert.equal(summary.backup, ".weaveforge/migration-0.9.7/pre-migration.dump");
@@ -43,19 +51,19 @@ test("summarises the latest run with per-kind counts, conflicts and missing rows
   assert.deepEqual(summary.blobs, { db: 4, verified: 4 });
 });
 
-test("a report with no runs has no kinds and no missing rows", () => {
-  const summary = summarizeMigrationReport({ version: 1, state: "verified", backup: "b.dump", runs: [] });
+test("a verified report with no runs from this device is not verified for this device", () => {
+  const summary = summarizeMigrationReport({ version: 1, state: "verified", backup: "b.dump", runs: [] }, DEVICE);
   assert.ok(summary);
-  assert.equal(summary.state, "verified");
+  assert.equal(summary.state, "incomplete");
   assert.deepEqual(summary.kinds, []);
   assert.deepEqual(summary.missing, []);
   assert.deepEqual(summary.blobs, { db: 0, verified: 0 });
 });
 
 test("an unparsable or unknown state is not a summary", () => {
-  assert.equal(summarizeMigrationReport(null), null);
-  assert.equal(summarizeMigrationReport("garbage"), null);
-  assert.equal(summarizeMigrationReport({ version: 1, state: "maybe", runs: [] }), null);
+  assert.equal(summarizeMigrationReport(null, DEVICE), null);
+  assert.equal(summarizeMigrationReport("garbage", DEVICE), null);
+  assert.equal(summarizeMigrationReport({ version: 1, state: "maybe", runs: [] }, DEVICE), null);
 });
 
 test("with this device's id, the summary uses that device's run, not another device's latest run", () => {
@@ -78,13 +86,26 @@ test("with this device's id and no run from it, the summary has no kinds or miss
   assert.deepEqual(summary.missing, []);
 });
 
+test("a device with no run of its own never inherits a top-level verified state or backup", () => {
+  const summary = summarizeMigrationReport(
+    { version: 1, state: "verified", backup: "top.dump", runs: [{ ...RUN_LAST, deviceId: "dev-b" }] },
+    "dev-a",
+  );
+  assert.ok(summary);
+  assert.equal(summary.state, "incomplete");
+  assert.equal(summary.backup, null);
+});
+
 test("the run's own backup is shown in preference to the top-level backup", () => {
-  const summary = summarizeMigrationReport({
-    version: 1,
-    state: "verified",
-    backup: "top.dump",
-    runs: [{ ...RUN_LAST, backup: "run-a.dump" }],
-  });
+  const summary = summarizeMigrationReport(
+    {
+      version: 1,
+      state: "verified",
+      backup: "top.dump",
+      runs: [{ ...RUN_LAST, backup: "run-a.dump" }],
+    },
+    DEVICE,
+  );
   assert.ok(summary);
   assert.equal(summary.backup, "run-a.dump");
 });
