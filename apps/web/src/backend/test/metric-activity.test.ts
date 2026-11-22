@@ -3,7 +3,7 @@ import test from "node:test";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { rustMetricRepository } from "@/features/experiments/infrastructure/parts";
-import { createLocalClient, type LocalQuery } from "@/backend/providers/local/pglite-client";
+import { createLocalClient, type LocalQuery } from "@/backend/test/pglite-client";
 import { testDb } from "./pg-test-db";
 
 /**

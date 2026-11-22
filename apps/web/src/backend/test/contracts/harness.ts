@@ -7,7 +7,7 @@
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { ICurrentUserProvider } from "@weaveforge/core";
-import { createLocalClient, type LocalQuery } from "@/backend/providers/local/pglite-client";
+import { createLocalClient, type LocalQuery } from "@/backend/test/pglite-client";
 import type { ProjectContext } from "@/lib/parts-2";
 import type { testDb } from "../pg-test-db";
 

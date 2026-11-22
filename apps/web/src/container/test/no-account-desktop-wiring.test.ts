@@ -1,15 +1,13 @@
 /**
  * No-account (0.9.8): the container wires the File* repositories over the open
- * folder, never the local database. A trap fails the test if the local runner
- * is ever asked to query.
+ * folder, never the local database (the no-local-db-imports ratchet guards the imports).
  */
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import { loadCore } from "@/lib/rust-core";
 import { setLocalMode } from "@/features/auth/infrastructure/no-account-mode";
 import { wireBackend } from "@/container/parts";
-import { NoAccountWorkspaceFs } from "@/container/no-account-file-backend";
-import { LocalRunner } from "@/backend/providers/local/parts";
+import { NoAccountWorkspaceFs } from "@/backend/providers/files/no-account-fs";
 
 const host = globalThis as { localStorage?: Storage };
 const previous = host.localStorage;
@@ -53,18 +51,6 @@ test("no-account container wires File* repositories for each personal kind", () 
     assert.match(repo.constructor.name, /^File/, `${key} must be a File* repository`);
   }
   assert.equal((wired as unknown as { filesMode?: boolean }).filesMode, true);
-});
-
-test("no-account wiring never queries the local runner", () => {
-  const original = LocalRunner.prototype.query;
-  LocalRunner.prototype.query = () => {
-    throw new Error("LocalRunner.query ran in no-account mode");
-  };
-  try {
-    assert.doesNotThrow(() => wireNoAccount());
-  } finally {
-    LocalRunner.prototype.query = original;
-  }
 });
 
 test("no-account files refuse while no folder is open", async () => {

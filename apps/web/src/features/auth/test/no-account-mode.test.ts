@@ -28,8 +28,6 @@ test("the choice keeps the storage key and read/write helpers", () => {
   assert.match(src, /removeStored\(choiceKey\(\)\)/);
 });
 
-test("the provider no longer defines the choice", () => {
-  const src = read(OLD);
-  assert.doesNotMatch(src, /export function isLocalMode/);
-  assert.doesNotMatch(src, /export function setLocalMode/);
+test("the provider no longer defines the choice (its file is deleted)", () => {
+  assert.equal(existsSync(fileURLToPath(new URL(OLD, import.meta.url))), false);
 });

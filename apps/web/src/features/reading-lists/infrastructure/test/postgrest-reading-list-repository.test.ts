@@ -4,7 +4,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import type { IReadingListRepository } from "@weaveforge/core";
 import { projectUserCtx, rustRepository } from "@/backend/providers/postgrest/rust-repository";
-import { createLocalClient, type LocalQuery } from "@/backend/providers/local/pglite-client";
+import { createLocalClient, type LocalQuery } from "@/backend/test/pglite-client";
 import { loadTestCore } from "@/lib/test/load-test-core";
 
 before(async () => {

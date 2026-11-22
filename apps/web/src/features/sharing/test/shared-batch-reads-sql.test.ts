@@ -10,7 +10,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-import { createLocalClient, type LocalQuery } from "@/backend/providers/local/pglite-client";
+import { createLocalClient, type LocalQuery } from "@/backend/test/pglite-client";
 import { rustExperimentRepository } from "@/features/experiments/infrastructure/parts";
 import type { IReadingListRepository, ReadingList } from "@weaveforge/core";
 import { projectUserCtx, rustRepository } from "@/backend/providers/postgrest/rust-repository";

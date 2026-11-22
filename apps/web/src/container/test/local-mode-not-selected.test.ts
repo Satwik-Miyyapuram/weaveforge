@@ -18,9 +18,3 @@ test("the container wiring module does not import the local identity or local pa
   assert.doesNotMatch(source, /from ["'][^"']*local\/parts["']/);
   assert.doesNotMatch(source, /from ["'][^"']*local-first(-marker)?["']/);
 });
-
-test("isLocalMode is false in every 0.9.7 build, whatever is stored", () => {
-  const identity = read("../../backend/providers/local/local-identity.ts");
-  assert.match(identity, /export const LOCAL_MODE_IN_BUILD = false;/);
-  assert.match(identity, /if \(!LOCAL_MODE_IN_BUILD\) return false;/);
-});

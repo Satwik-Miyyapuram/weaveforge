@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test, { before } from "node:test";
 import { readyCore } from "@/lib/rust-core";
-import { createLocalClient, type LocalQuery } from "../pglite-client";
+import { createLocalClient, type LocalQuery } from "./pglite-client";
 import { loadTestCore } from "@/lib/test/load-test-core";
 
 before(loadTestCore);
