@@ -25,11 +25,11 @@ export function LoginScreen() {
   const [otp, setOtp] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // Only the desktop app has a database of its own to work in, and only it can
-  // answer this before there is a session. A browser never sees the offer.
+  // Only the desktop app has the bridge that can work without a session. A browser
+  // never sees the offer.
   const [onThisComputer, setOnThisComputer] = useState(false);
   useEffect(() => {
-    setOnThisComputer(typeof desktop()?.queryLocalDb === "function");
+    setOnThisComputer(desktop() !== null);
   }, []);
 
   // When another program holds the sign-in port, the browser's redirect never
