@@ -95,7 +95,7 @@ Counted from the files git is tracking, not remembered — run `npm run docs:gen
 | `apps/pitch` | 406 lines | The public site and this documentation |
 | `python/weaveforge` | 3,403 lines | The SDK training scripts import |
 | `python/tests` | 2,304 lines | Its tests |
-| `db/migrations` | 160 files | The schema, as an ordered sequence |
+| `db/migrations` | 161 files | The schema, as an ordered sequence |
 | `docs` | 219 files | Documentation, this page included |
 
 **291,489 lines of code in all**, across 2,266 source files.
