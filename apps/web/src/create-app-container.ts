@@ -126,6 +126,7 @@ import { clearActiveProvider } from "@/features/ai-assistant/application/parts";
 import { reresolveOnFocus, resolveMigrationChoice } from "@/container/resolve-migration-choice";
 import { wireDesktopFileBackend } from "@/container/desktop-file-backend";
 import { workspaceSettings } from "@/features/settings/application/workspace-settings";
+import { watchProjectChannel } from "@/container/project-watch";
 
 export interface CreatedAppContainer {
   container: AppContainer;
@@ -173,16 +174,20 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
   // the folder's migration report, so the choice never races a late answer.
   const migration = await resolveMigrationChoice(desktop());
   const shell = desktop();
+  // Browser and Android do not open OPFS yet. Legacy detection is not wired, so the 0.9.8 chooser
+  // ("unknown") always answers export-first and the OPFS report read and open would be wasted work.
+  // Restore the chooser call here (chooseBrowserBackend plus browserReportOk and openBrowserFileWiring
+  // from browser-file-backend) once legacy detection exists.
+  const browserFiles = undefined;
   // Desktop only: a folder still settling re-asks on focus, and the first usable answer reloads.
   if (shell) reresolveOnFocus(migration, shell, window, () => window.location.reload());
   const backend = wireBackend(readBackendConfig(), projectContext, pid, {
     migration,
     onDesktop: Boolean(shell),
     wireDesktopFileBackend: shell ? wireDesktopFileBackend(shell, workspaceSettings) : undefined,
+    wireBrowserFileBackend: browserFiles,
   });
-  if ("db" in backend) {
-    projectLww.watch(backend.db, pid());
-  }
+  watchProjectChannel(projectLww, backend, pid());
 
   // Files mode: the server CRDT log keeps only the non-personal types (files-mode-crdt-limit).
   const filesMode = backend.filesMode;
@@ -664,6 +669,7 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
       manageMilestone,
       notifications,
       feedLinks: new PlanFeedLinks(backend.db, backend.session),
+      feedLinksAvailable: !filesMode,
     }),
     logbook: new LogbookFacade({
       logEntries: logEntryRepository,
@@ -797,7 +803,7 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
       manageProject,
       context: projectContext,
       watchLww: (id) => {
-        if ("db" in backend) projectLww.watch(backend.db, id);
+        watchProjectChannel(projectLww, backend, id);
       },
     }),
     auth: new AuthFacade({ auth: backend.auth }),

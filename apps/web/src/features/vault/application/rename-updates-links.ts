@@ -12,7 +12,11 @@ import { readyCore } from "@/lib/rust-core";
 type VaultPages = IVaultPageRepository & IVaultPageManager;
 
 /** A rename's result; `linkRewriteFailed` names the notes whose links could not be rewritten. */
-export type RenamedVaultPage = EditedVaultPage & { readonly linkRewriteFailed?: readonly string[] };
+export type RenamedVaultPage = EditedVaultPage & {
+  readonly linkRewriteFailed?: readonly string[];
+  /** The renamed note's body with its own `[[Old]]` links rewritten, when it is open in an editor. */
+  readonly linkRewrittenBody?: string;
+};
 
 /**
  * The vault page writes, where renaming a note also rewrites `[[Old]]`,
@@ -37,14 +41,20 @@ export function withRenameLinkRewrite<T extends VaultPages>(pages: T): T {
     if (all.some((p) => p.id !== id && core.normalizeTitleKey(p.title) === oldKey)) return saved;
     const renames = new Map([[oldKey, saved.title]]);
     const failed: string[] = [];
+    // The renamed note's own body, rewritten, when it is open in an editor.
+    let handBack: string | undefined;
     for (const page of all) {
       // Only a note whose text holds the old title (case and spacing folded
-      // as link lookup folds them) can link to it.
-      if (page.id === id || !core.normalizeTitleKey(page.body).includes(oldKey)) continue;
+      // as link lookup folds them) can link to it. The renamed note itself is
+      // included: a note may link to its own old title.
+      if (!core.normalizeTitleKey(page.body).includes(oldKey)) continue;
       // A note open in an editor keeps its own copy of the body, and its next
-      // autosave would put [[Old]] back, so it is reported instead of rewritten.
+      // autosave would put [[Old]] back, so the repo must not write it. Another
+      // open note is reported instead. The renamed note is handed back in the
+      // saved result, and the editor applies and saves it.
       if (isNoteOpen(page.id)) {
-        failed.push(page.title);
+        if (page.id === id) handBack = core.rewriteWikilinksOutsideCode(saved.body, renames);
+        else failed.push(page.title);
         continue;
       }
       try {
@@ -59,7 +69,8 @@ export function withRenameLinkRewrite<T extends VaultPages>(pages: T): T {
         failed.push(page.title);
       }
     }
-    if (failed.length === 0) return saved;
+    const handed = handBack !== undefined && handBack !== saved.body ? { linkRewrittenBody: handBack } : {};
+    if (failed.length === 0) return Object.keys(handed).length === 0 ? saved : { ...saved, ...handed };
     // The rename itself saved; a retry would see the new title and rewrite
     // nothing, so the notes still holding [[Old]] are named here.
     logToApp({
@@ -68,7 +79,7 @@ export function withRenameLinkRewrite<T extends VaultPages>(pages: T): T {
       message: `Renamed "${before.title}" to "${saved.title}", but ${failed.length} note(s) still link to the old title`,
       detail: failed.join("\n"),
     });
-    return { ...saved, linkRewriteFailed: failed };
+    return { ...saved, ...handed, linkRewriteFailed: failed };
   };
   return Object.assign(Object.create(pages) as T, { update });
 }

@@ -1,8 +1,8 @@
+import { onlyReportPath } from "./own-report";
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { runWebExport } from "../application/run-web-export";
 import type { FileCodec, Row, ServerSource } from "../domain/ports";
-import { REPORT_PATH } from "../domain/report";
 import { MemorySink } from "../infrastructure/memory-sink";
 import { PostgrestSource } from "../infrastructure/postgrest-source";
 
@@ -39,13 +39,13 @@ test("secrets: a source that cannot say which providers hold secrets refuses, an
   const source = server(async () => {
     throw new Error("count failed");
   }, marks);
-  const result = await runWebExport({ runDeviceId: "dev-test", kinds: KINDS, codec, source, sink, now: NOW });
+  const result = await runWebExport({ runDeviceId: "dev-test", kinds: KINDS, codec, source, sink, now: NOW, secretsPresent: true });
 
   assert.equal(result.state, "incomplete");
   assert.ok(result.run.missing.some((m) => m.reason === "keys: unreadable"));
   assert.deepEqual(marks, [], "no server marker when the secrets cannot be read");
   assert.equal((await sink.list()).some((p) => p.startsWith("logEntries/")), false, "a refused run writes no data");
-  assert.equal(JSON.parse(await sink.readText(REPORT_PATH)).state, "incomplete");
+  assert.equal(JSON.parse(await sink.readText(await onlyReportPath(sink))).state, "incomplete");
 });
 
 test("secrets: no providers with secrets runs without a mover and verifies, reconnecting nothing", async () => {
@@ -53,6 +53,7 @@ test("secrets: no providers with secrets runs without a mover and verifies, reco
   const result = await runWebExport({
     runDeviceId: "dev-test",
     kinds: KINDS,
+    secretsPresent: true,
     codec,
     source: server(async () => [], marks),
     sink: new MemorySink(),
@@ -69,6 +70,7 @@ test("secrets: a provider with a secret does not block the export; it is named f
   const result = await runWebExport({
     runDeviceId: "dev-test",
     kinds: KINDS,
+    secretsPresent: true,
     codec,
     source: server(async () => ["zotero", "overleaf"], marks),
     sink,
@@ -77,7 +79,7 @@ test("secrets: a provider with a secret does not block the export; it is named f
   assert.equal(result.state, "verified");
   assert.deepEqual(result.reconnectProviders, ["zotero", "overleaf"]);
   assert.deepEqual(marks, ["mark"]);
-  assert.deepEqual(JSON.parse(await sink.readText(REPORT_PATH)).reconnectProviders, ["zotero", "overleaf"]);
+  assert.deepEqual(JSON.parse(await sink.readText(await onlyReportPath(sink))).reconnectProviders, ["zotero", "overleaf"]);
 });
 
 test("secrets: a provider with a secret and a mover runs the mover once after verify, reconnecting nothing", async () => {
@@ -86,6 +88,7 @@ test("secrets: a provider with a secret and a mover runs the mover once after ve
   const result = await runWebExport({
     runDeviceId: "dev-test",
     kinds: KINDS,
+    secretsPresent: true,
     codec,
     source: server(async () => ["zotero"], marks),
     sink: new MemorySink(),
@@ -111,6 +114,29 @@ test("secrets: PostgrestSource names each provider whose table has a secret row"
   assert.match(seen[0] ?? "", /\/project_integrations\?/);
   assert.match(seen[0] ?? "", /token=not\.is\.null/);
   assert.match(seen[0] ?? "", /projects\.user_id=eq\.u1/);
+});
+
+test("keys: with secrets and no mover, the result and report carry provider names only, never a secret value", async () => {
+  // The secret value is held by the source, never returned through ServerSource: the export gets names only.
+  const SECRET = "sk-live-do-not-leak-7731";
+  const marks: string[] = [];
+  const sink = new MemorySink();
+  const result = await runWebExport({
+    runDeviceId: "dev-test",
+    kinds: KINDS,
+    secretsPresent: true,
+    codec,
+    source: server(async () => ["zotero"], marks),
+    sink,
+    now: NOW,
+  });
+  assert.equal(result.state, "verified");
+  assert.deepEqual(result.reconnectProviders, ["zotero"]);
+  assert.equal(JSON.stringify(result).includes(SECRET), false, "result holds no secret value");
+  const report = await sink.readText(await onlyReportPath(sink));
+  assert.equal(report.includes(SECRET), false, "report holds no secret value");
+  assert.deepEqual(JSON.parse(report).reconnectProviders, ["zotero"]);
+  assert.deepEqual(marks, ["mark"]);
 });
 
 /** A fake PostgREST: each table's HEAD count comes from `totals`; `fail` names a table that answers 500. */

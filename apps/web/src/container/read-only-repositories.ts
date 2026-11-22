@@ -1,7 +1,8 @@
 import { ManageSettingsUseCase, type ISettingsRepository } from "@weaveforge/core";
 import { RPC_WRITES } from "@/backend/providers/postgrest/watch-writes";
 import { systemClock } from "@/lib/parts";
-import { ORG_SERVER_BUCKETS, ORG_SERVER_RPCS, ORG_SERVER_TABLES } from "./org-server-allowlist";
+import { FILES_MODE_CRDT_TYPES } from "@/features/collab/infrastructure/files-mode-crdt-limit";
+import { ORG_SERVER_BUCKETS, ORG_SERVER_RPCS, ORG_SERVER_WRITE_TABLES } from "./org-server-allowlist";
 import { PERSONAL_ALIASES, PERSONAL_REPOSITORY_KEYS } from "./with-file-repositories";
 
 /**
@@ -129,7 +130,7 @@ export const READ_ONLY_KEYS: ReadonlySet<string> = new Set([
   "manageSettings",
 ]);
 
-const ORG_TABLES: ReadonlySet<string> = new Set(ORG_SERVER_TABLES);
+const ORG_WRITE_TABLES: ReadonlySet<string> = new Set(ORG_SERVER_WRITE_TABLES);
 const ORG_RPCS: ReadonlySet<string> = new Set(ORG_SERVER_RPCS);
 const DB_WRITE_METHODS: ReadonlySet<string> = new Set(["insert", "update", "upsert", "delete"]);
 const STORAGE_WRITE_METHODS: ReadonlySet<string> = new Set(["upload", "update", "remove", "move", "copy", "uploadToSignedUrl"]);
@@ -139,9 +140,41 @@ function rpcAllowed(name: string): boolean {
   return ORG_RPCS.has(name) || RPC_WRITES[name] === null;
 }
 
-/** A query builder for `table`: write methods throw unless the table is org-server. */
+/**
+ * The crdt_updates resource types a read-only desktop may append: the live-share
+ * documents the org server still holds (the files-mode set, FILES_MODE_CRDT_TYPES).
+ * Every other type is personal document data and stays in the folder.
+ */
+const LIVE_SHARE_CRDT_TYPES: ReadonlySet<string> = new Set(FILES_MODE_CRDT_TYPES);
+
+/** A crdt_updates write passes only as an insert whose every row is a live-share type. */
+function guardCrdtUpdates<B extends object>(builder: B): B {
+  return new Proxy(builder, {
+    get(target, prop) {
+      if (prop === "insert") {
+        return (rows: unknown, ...rest: unknown[]) => {
+          const list = Array.isArray(rows) ? rows : [rows];
+          const shared = list.every((r) => LIVE_SHARE_CRDT_TYPES.has(String((r as { resource_type?: unknown }).resource_type)));
+          if (!shared) throw new ReadOnlyError();
+          const insert = Reflect.get(target, "insert", target) as (...a: unknown[]) => unknown;
+          return insert.call(target, rows, ...rest);
+        };
+      }
+      if (typeof prop === "string" && DB_WRITE_METHODS.has(prop)) {
+        return () => {
+          throw new ReadOnlyError();
+        };
+      }
+      const value: unknown = Reflect.get(target, prop, target);
+      return typeof value === "function" ? value.bind(target) : value;
+    },
+  });
+}
+
+/** A query builder for `table`: write methods throw unless the table is an org-server write table. */
 function guardBuilder<B extends object>(builder: B, table: string): B {
-  if (ORG_TABLES.has(table)) return builder;
+  if (table === "crdt_updates") return guardCrdtUpdates(builder);
+  if (ORG_WRITE_TABLES.has(table)) return builder;
   return new Proxy(builder, {
     get(target, prop) {
       if (typeof prop === "string" && DB_WRITE_METHODS.has(prop)) {

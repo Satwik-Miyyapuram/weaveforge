@@ -3,7 +3,7 @@ import { before, test } from "node:test";
 import { loadTestCore } from "@/lib/test/load-test-core";
 import { runWebExport } from "../application/run-web-export";
 import { conflictCopyPath } from "../domain/conflict-path";
-import { REPORT_PATH } from "../domain/report";
+import { REPORT_DIR } from "../domain/report";
 import type { FileCodec, Row, ServerSource } from "../domain/ports";
 import { createGroupBWriter } from "../infrastructure/kind-writer-group-b";
 import { MemorySink } from "../infrastructure/memory-sink";
@@ -94,7 +94,7 @@ test("kind writer guard: an identical file at a log entry's path is a no-op with
   assert.equal(await sink.readText(path), text);
   assert.deepEqual(result.run.conflicts ?? [], []);
   assert.deepEqual(
-    sink.paths().filter((p) => p !== REPORT_PATH),
+    sink.paths().filter((p) => !p.startsWith(`${REPORT_DIR}/`)),
     [path],
     "no copy is written for identical content",
   );

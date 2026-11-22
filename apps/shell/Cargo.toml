@@ -37,6 +37,8 @@ tauri-plugin-opener = "=2.7.2"
 process-wrap = { version = "=10.0.1", default-features = false, features = ["tokio1", "job-object", "kill-on-drop", "creation-flags", "process-group"] }
 # Rows keep column order and JSON keeps key order, as PGlite returned them.
 serde_json.workspace = true
+# Canonical paths without the Windows \\?\ prefix, so exported-to compares equal.
+dunce = "=1.0.5"
 # Editor MCP configs are often JSONC; the CST edit keeps the user's comments.
 jsonc-parser = { version = "=0.34.0", features = ["cst", "serde_json"] }
 tokio = { workspace = true, features = ["fs", "io-std", "io-util", "macros", "net", "process", "rt", "sync", "time"] }

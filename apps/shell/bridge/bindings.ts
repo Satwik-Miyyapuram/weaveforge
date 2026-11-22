@@ -32,6 +32,29 @@ export const commands = {
 	secretRead: (name: string) => typedError<string | null, ShellError_Serialize>(__TAURI_INVOKE("secret_read", { name })),
 	/**  Stores a secret the page may write. */
 	secretWrite: (name: string, value: string) => typedError<null, ShellError_Serialize>(__TAURI_INVOKE("secret_write", { name, value })),
+	/**
+	 *  Moves the old rows into the keychain and records the move. The workspace folder is the vault
+	 *  root on this side, never a value from the page. EXPORT calls it after the export is verified and
+	 *  before remove-old.
+	 * 
+	 *  Returns the names of write-only fields that were not moved, never their values. A rerun after a
+	 *  marker exists moves nothing and returns none.
+	 * 
+	 *  # Errors
+	 *  The keychain's reason when a field is not stored (for example `NoKeychain` on a machine without
+	 *  one), or the database's reason when the rows cannot be read. No marker is written on either.
+	 */
+	migrate097MoveSecrets: () => typedError<string[], ShellError_Serialize>(__TAURI_INVOKE("migrate_097_move_secrets")),
+	/**
+	 *  Whether the old database folder exists. Read only, metadata only: the database is never opened.
+	 *  The page asks this when a read of the old rows fails: a missing folder means no old secrets.
+	 */
+	legacyDbPresent: () => __TAURI_INVOKE<boolean>("legacy_db_present"),
+	/**
+	 *  The inverse of `legacy_db_present`: true when the old database folder is missing, so the page's
+	 *  legacy read can report "no old secrets" without an error.
+	 */
+	legacyDirMissing: () => __TAURI_INVOKE<boolean>("legacy_dir_missing"),
 	/**  Forgets a secret the page may write. */
 	secretClear: (name: string) => typedError<null, ShellError_Serialize>(__TAURI_INVOKE("secret_clear", { name })),
 	/**
