@@ -94,3 +94,26 @@ test("an empty folder and settings have no fields", async () => {
   assert.deepEqual(await fields.listDefs(), []);
   assert.deepEqual(await fields.listValuesForProject(), []);
 });
+
+test("saving a definition with an existing id updates it in place", async () => {
+  const { fields } = await setup();
+  const venue = def();
+  await fields.saveDef(venue);
+  await fields.saveDef({ ...venue, name: "Venue 2", options: ["ACL"] });
+  assert.deepEqual(await fields.listDefs(), [{ ...venue, name: "Venue 2", options: ["ACL"] }]);
+});
+
+test("a value write keeps the body and every other frontmatter line byte-equal", async () => {
+  const { fs, fields } = await setup();
+  const before = await fs.readText(A);
+  const d = def({ kind: "text", options: [] });
+  await fields.saveDef(d);
+  await fields.setValue({ paperId: "a", fieldId: d.id, value: "new" });
+  const after = await fs.readText(A);
+  const closing = (text: string) => text.indexOf("\n---", 4);
+  const beforeEnd = closing(before);
+  const afterEnd = closing(after);
+  assert.equal(after.slice(afterEnd), before.slice(beforeEnd), "body is byte-equal");
+  const otherLines = before.slice(0, beforeEnd).split("\n");
+  for (const line of otherLines) assert.ok(after.slice(0, afterEnd).split("\n").includes(line), `frontmatter line kept: ${line}`);
+});
