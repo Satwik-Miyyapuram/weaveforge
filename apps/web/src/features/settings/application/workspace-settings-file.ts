@@ -183,6 +183,7 @@ export class WorkspaceSettingsFile {
   async close(): Promise<void> {
     await this.flush();
     await this.park();
+    this.stopNoFolderReminder();
     if (!this.deps.fs() && this.pending.size > 0) {
       this.deps.warn(`Settings not saved, no workspace folder open: ${this.unsavedKeys()}.`);
     }
@@ -215,7 +216,7 @@ export class WorkspaceSettingsFile {
     this.reminder = this.schedule(() => {
       this.reminder = null;
       if (this.deps.fs() || !this.dirty()) return;
-      this.deps.warn("settings still not saved, no workspace folder open: \. Open a workspace to save them.");
+      this.deps.warn(`settings still not saved, no workspace folder open: ${this.unsavedKeys()}. Open a workspace to save them.`);
       this.remindNoFolder();
     }, NO_FOLDER_REMINDER_MS);
   }

@@ -169,7 +169,8 @@ test("the no-folder warning repeats while an edit waits, and stops once a folder
       live.delete(h as number);
     },
   });
-  const reminders = () => warnings.filter((m) => m.startsWith("settings still not saved")).length;
+  const reminders = () =>
+    warnings.filter((m) => m.startsWith("settings still not saved") && m.includes("ink.width")).length;
   const runDue = () => {
     const due = [...live.values()];
     live.clear();
@@ -188,4 +189,50 @@ test("the no-folder warning repeats while an edit waits, and stops once a folder
   runDue();
   assert.equal(reminders(), 2, "opening a folder stops the reminder");
   assert.equal(live.size, 0, "no reminder stays scheduled after a folder opens");
+});
+
+test("the no-folder reminder names the unsaved keys", () => {
+  const warnings: string[] = [];
+  const live = new Map<number, () => void>();
+  let nextId = 0;
+  const settings = new WorkspaceSettingsFile({
+    fs: () => null,
+    warn: (m: string) => warnings.push(m),
+    schedule: (fn: () => void) => {
+      const id = ++nextId;
+      live.set(id, fn);
+      return id;
+    },
+    cancel: (h: unknown) => {
+      live.delete(h as number);
+    },
+  });
+  settings.set(["ink", "width"], 3);
+  const due = [...live.values()];
+  live.clear();
+  for (const fn of due) fn();
+  const reminder = warnings.find((m) => m.startsWith("settings still not saved")) ?? "";
+  assert.ok(reminder.includes("ink.width"), `reminder names the key, got: ${reminder}`);
+  assert.ok(!reminder.includes("\\."), "no literal escape in the message");
+});
+
+test("close() stops the no-folder reminder", async () => {
+  const warnings: string[] = [];
+  const live = new Map<number, () => void>();
+  let nextId = 0;
+  const settings = new WorkspaceSettingsFile({
+    fs: () => null,
+    warn: (m: string) => warnings.push(m),
+    schedule: (fn: () => void) => {
+      const id = ++nextId;
+      live.set(id, fn);
+      return id;
+    },
+    cancel: (h: unknown) => {
+      live.delete(h as number);
+    },
+  });
+  settings.set(["ink", "width"], 3);
+  await settings.close();
+  assert.equal(live.size, 0, "no reminder stays scheduled after close()");
 });
