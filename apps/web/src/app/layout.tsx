@@ -14,6 +14,7 @@ import { ReactiveMotion } from "./reactive-motion";
 import { ServiceWorkerRegister } from "@/components/service-worker-register";
 import { ClientRuntimeRecovery } from "@/components/client-runtime-recovery";
 import { SyncLoop } from "@/features/offline-sync/ui/sync-loop-lazy";
+import { InstallGate } from "@/features/install-gate/ui/install-gate";
 
 export const metadata: Metadata = {
   title: "WeaveForge",
@@ -91,6 +92,7 @@ export default function RootLayout({
         <WindowScrollbar />
         <DesktopTitleBar />
         <DesktopWindowIcon />
+        <InstallGate />
         <PlanWidgetTheme />
         <AuthProvider>
           <BootSnapshot />

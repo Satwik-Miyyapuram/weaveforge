@@ -403,6 +403,8 @@ export interface DesktopBridge {
    */
   legacyDbPresent?(): Promise<boolean>;
   migrationReportVerified?(folder: string): Promise<boolean>;
+  /** Whether the "install 0.9.7 first" gate shows. Rejects when the device id is unreadable. */
+  installGateRequired?(): Promise<boolean>;
   pickFolder?(): Promise<string | null>;
 
   /**
