@@ -152,14 +152,36 @@ async function downloadAsset(release) {
   };
 }
 
-/** Parses the 0.9.7 bridge latest.json text. Unparseable text is a problem, not a throw. */
+/**
+ * Parses the bridge latest.json text. Unparseable text is a problem, not a throw; a
+ * parsed bridge must be the 0.9.7 manifest (its version and every URL name v0.9.7).
+ */
 export function parseBridge(text) {
   if (!text) return { bridge: undefined, problems: [] };
+  let bridge;
   try {
-    return { bridge: JSON.parse(text), problems: [] };
+    bridge = JSON.parse(text);
   } catch {
+    bridge = undefined;
+  }
+  if (!bridge || typeof bridge !== "object") {
     return { bridge: undefined, problems: [`bridge ${LEGACY_MANIFEST_NAME} does not parse`] };
   }
+  return { bridge, problems: bridgeProblems(bridge) };
+}
+
+function bridgeProblems(bridge) {
+  const problems = [];
+  if (bridge.version !== BRIDGE_VERSION) {
+    problems.push(`bridge ${LEGACY_MANIFEST_NAME} version is ${bridge.version}, expected ${BRIDGE_VERSION}`);
+  }
+  const prefix = releaseAssetUrl(`v${BRIDGE_VERSION}`, "");
+  for (const entry of Object.values(bridge.platforms ?? {})) {
+    if (typeof entry?.url !== "string" || !entry.url.startsWith(prefix)) {
+      problems.push(`bridge ${LEGACY_MANIFEST_NAME} url ${entry?.url} is not under ${prefix}`);
+    }
+  }
+  return problems;
 }
 
 async function main(argv) {

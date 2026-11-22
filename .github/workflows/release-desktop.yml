@@ -177,7 +177,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: gh release download v0.9.7 --pattern latest.json --dir bridge
 
-      # Fails if a .sig is missing, the tag differs from tauri.conf.json, or the fetched bridge is not the 0.9.7 latest.json byte for byte.
+      # The writer fails on a non-canonical tag, a missing .sig, a tauri.conf.json version other than the tag, or a bridge that is not the 0.9.7 latest.json. The bridge is fetched from v0.9.7, so the byte check holds.
       - name: Write latest-v2.json and latest.json
         run: |
           bridge=""
@@ -194,3 +194,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh release create "$TAG" --verify-tag --prerelease --title "WeaveForge $TAG" --notes-file notes.md dist/*
+
+      # Reads the published release back; the job fails if an installer, a .sig or a manifest is wrong.
+      - name: Check the published release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node apps/shell/scripts/check-release-assets.mjs "$TAG"

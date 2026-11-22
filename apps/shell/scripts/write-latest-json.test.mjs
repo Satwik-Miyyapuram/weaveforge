@@ -4,7 +4,7 @@ import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { buildFromFiles, writeManifests } from "./write-latest-json.mjs";
-import { compareVersions } from "./release-manifest.mjs";
+import { compareVersions, versionFromTag } from "./release-manifest.mjs";
 
 const SIG = Buffer.from(
   "untrusted comment: signature from tauri secret key\nRUQfake\ntrusted comment: timestamp\nAAAA\n",
@@ -264,4 +264,10 @@ test("compareVersions rejects anything that is not X.Y.Z, so a pre-release is ne
     assert.throws(() => compareVersions("0.9.7", bad), /not X\.Y\.Z/, bad);
   }
   assert.equal(compareVersions("0.9.8", "0.9.7") > 0, true);
+});
+
+test("a tag with a leading zero in a version part is not a desktop release tag", () => {
+  assert.equal(versionFromTag("v0.9.07"), null);
+  assert.equal(versionFromTag("v0.9.7"), "0.9.7");
+  assert.equal(versionFromTag("v0.10.0"), "0.10.0");
 });

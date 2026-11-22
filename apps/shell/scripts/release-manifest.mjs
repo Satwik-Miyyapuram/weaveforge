@@ -15,7 +15,7 @@ export const LEGACY_MANIFEST_NAME = "latest.json";
 /** The last release that keeps latest.json; 0.9.6 clients update to it first. */
 export const BRIDGE_VERSION = "0.9.7";
 
-const TAG = /^v(\d+\.\d+\.\d+)$/;
+const TAG = /^v((?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*))$/;
 
 /** `v0.9.1` -> `0.9.1`, or null when the tag is not a desktop release tag. */
 export function versionFromTag(tag) {

@@ -334,3 +334,13 @@ test("a release after 0.9.7 without latest.json is reported: 0.9.6 clients read 
   const problems = await checkRelease({ tag, release, readAsset: assetsFrom(files) });
   assert.ok(problems.some((p) => p.includes("latest.json") && p.includes("missing")), problems.join("\n"));
 });
+
+test("a bridge latest.json for another version is reported: the bridge must be 0.9.7", () => {
+  const { problems } = parseBridge(manifestFixture({ version: "0.9.6" }).replace('"version":"0.9.7"', '"version":"0.9.6"'));
+  assert.ok(problems.some((p) => p.includes("0.9.6") && p.includes("0.9.7")), problems.join("; "));
+});
+
+test("a bridge latest.json whose URLs point at another tag is reported", () => {
+  const { problems } = parseBridge(manifestFixture().replaceAll("/download/v0.9.7/", "/download/v0.9.8/"));
+  assert.ok(problems.some((p) => p.includes("v0.9.8")), problems.join("; "));
+});

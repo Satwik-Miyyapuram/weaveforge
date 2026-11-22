@@ -77,3 +77,10 @@ test("the tag pattern takes vX.Y.Z and refuses release candidates", () => {
   assert.ok(!vxyz.test("v0.9"));
   assert.ok(!vxyz.test("v0x9x7"));
 });
+
+test("the published release is checked against the gate after it is created", () => {
+  const create = workflow.indexOf('gh release create "$TAG"');
+  const check = workflow.indexOf('node apps/shell/scripts/check-release-assets.mjs "$TAG"');
+  assert.ok(create > 0, "the workflow creates the release");
+  assert.ok(check > create, "check-release-assets runs after gh release create");
+});
