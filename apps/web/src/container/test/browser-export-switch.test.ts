@@ -3,6 +3,7 @@ import { test } from "node:test";
 import { decideBrowserSwitch, type SwitchDeps } from "../browser-export-switch";
 import { MemorySink } from "../../features/migration-097/infrastructure/memory-sink";
 import { REPORT_PATH, readMigrationReport } from "../../features/migration-097/domain/report";
+import { readSwitchMarker } from "../../features/migration-097/domain/switch-marker";
 
 const WIRING = { wiring: true, close: async () => {} } as unknown as Awaited<ReturnType<SwitchDeps["openWiring"]>>;
 
@@ -283,4 +284,51 @@ test("(P2-3) a failed server mark leaves report.json incomplete with markers pen
   const out = await decideBrowserSwitch(h.deps);
   assert.deepEqual(out, { switch: false, reason: "error" });
   assert.equal((await readMigrationReport(sink))?.state, "incomplete");
+});
+
+const DEVICE_REPORT = JSON.stringify({
+  version: 1,
+  state: "incomplete",
+  target: "opfs",
+  runs: [
+    {
+      startedAt: "2026-11-22T00:00:00.000Z",
+      finishedAt: "2026-11-22T00:00:00.000Z",
+      deviceId: "dev-9",
+      sources: ["server"],
+      kinds: {},
+      blobs: { db: 0, verified: 0 },
+      missing: [{ kind: "marker", id: "*", reason: "markers pending" }],
+    },
+  ],
+});
+
+test("(item1) a successful switch writes the switched marker with the run's deviceId", async () => {
+  const sink = new MemorySink();
+  const h = harness({
+    openSink: async () => sink,
+    gate: async (opts) => {
+      await opts.sink.write(REPORT_PATH, DEVICE_REPORT);
+      return { switch: true };
+    },
+  });
+  const out = await decideBrowserSwitch(h.deps);
+  assert.equal(out.switch, true);
+  const marker = await readSwitchMarker(sink);
+  assert.equal(marker?.deviceId, "dev-9");
+  assert.ok(marker && !Number.isNaN(Date.parse(marker.switchedAt)));
+});
+
+test("(item1) a failed server mark writes no switched marker", async () => {
+  const sink = new MemorySink();
+  const h = harness({
+    openSink: async () => sink,
+    fetch: async () => new Response("boom", { status: 500 }),
+    gate: async (opts) => {
+      await opts.sink.write(REPORT_PATH, DEVICE_REPORT);
+      return { switch: true };
+    },
+  });
+  await decideBrowserSwitch(h.deps);
+  assert.equal(await readSwitchMarker(sink), null);
 });

@@ -3,6 +3,8 @@ import {
   type ExportOptions,
 } from "@/features/migration-097/application/run-web-export";
 import { PostgrestSource } from "@/features/migration-097/infrastructure/postgrest-source";
+import { readMigrationReport } from "@/features/migration-097/domain/report";
+import { writeSwitchMarker } from "@/features/migration-097/domain/switch-marker";
 import type { BrowserFileWiring } from "./browser-file-backend";
 
 /** The signed-in user the export reads for. Null means no session at startup. */
@@ -74,6 +76,14 @@ export async function decideBrowserSwitch(deps: SwitchDeps): Promise<SwitchDecis
       throw err;
     }
     await recordServerMarked(sink);
+    // Written last: a browser with this marker opens files directly on its next start.
+    try {
+      const deviceId = (await readMigrationReport(sink))?.runs[0]?.deviceId ?? null;
+      await writeSwitchMarker(sink, { switchedAt: deps.now(), deviceId });
+    } catch (err) {
+      await wiring.close();
+      throw err;
+    }
     return { switch: true, wiring };
   } catch {
     return { switch: false, reason: "error" };
