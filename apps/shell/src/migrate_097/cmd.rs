@@ -80,8 +80,13 @@ pub async fn migrate_097_remove_old(
         let mut secrets = || {
             local_rows.ok_or_else(|| "refused: local_secrets count was not read".to_owned())
         };
-        let mut stop = || crate::stop_local_db(&stop_app, false);
-        remove_old_data(&folder, &root, &now, &device, &mut secrets, &mut stop)
+        let mut stop = || crate::stop_postgres(&stop_app, false);
+        let removed = remove_old_data(&folder, &root, &now, &device, &mut secrets, &mut stop);
+        // The lock covers the whole removal; it is dropped only once the cluster is gone.
+        if removed.is_ok() {
+            crate::release_db_lock(&stop_app)?;
+        }
+        removed
     })
     .await
     .map_err(|e| ShellError::from(e.to_string()))?

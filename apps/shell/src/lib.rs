@@ -175,7 +175,14 @@ pub fn run() -> tauri::Result<()> {
     app.run(|handle, event| {
         if let tauri::RunEvent::Exit = event {
             stop_local_api(handle);
-            let _ = stop_local_db(handle, true);
+            // After a removal the cluster is gone, so there is nothing to back up on exit.
+            use tauri::Manager;
+            let removed = handle.path().app_data_dir().is_ok_and(|data| {
+                migrate_097::remove::old_db_removed(&native_root(&data))
+            });
+            if let Err(e) = stop_local_db(handle, !removed) {
+                local_api::warn(handle, &format!("postgres stop on exit failed: {e}"));
+            }
             stop_helpers(handle);
         }
     });
@@ -557,20 +564,33 @@ fn stop_local_api(app: &tauri::AppHandle) {
     }
 }
 
-/// Stops Postgres, then drops the database lock. Errs (keeping the lock) while the cluster's
-/// `postmaster.pid` is still there, so callers never delete a cluster a server is running in.
-fn stop_local_db(app: &tauri::AppHandle, backup: bool) -> Result<(), String> {
+/// Stops Postgres and refuses while a live postgres still names its cluster in `postmaster.pid`.
+/// A stale file left by a crash does not refuse. Keeps the database lock, so a caller that still
+/// needs the cluster down (the removal) can hold it until its work is done.
+pub(crate) fn stop_postgres(app: &tauri::AppHandle, backup: bool) -> Result<(), String> {
     use tauri::Manager;
     if let Some(db) = app.try_state::<commands::LocalDb>() {
         tauri::async_runtime::block_on(db.shutdown_with(backup));
     }
     let data = app.path().app_data_dir().map_err(|e| e.to_string())?;
-    if native_root(&data).join("data").join("postmaster.pid").exists() {
-        return Err("refused: postgres did not stop (data/postmaster.pid still present)".to_owned());
+    match migrate_097::remove::live_postmaster(&native_root(&data).join("data").join("postmaster.pid")) {
+        Some(running) => Err(format!("refused: postgres did not stop ({running})")),
+        None => Ok(()),
     }
-    // Drops only this process's lock, after Postgres stopped; a no-op when it never opened.
+}
+
+/// Drops only this process's database lock; a no-op when it never opened.
+pub(crate) fn release_db_lock(app: &tauri::AppHandle) -> Result<(), String> {
+    use tauri::Manager;
+    let data = app.path().app_data_dir().map_err(|e| e.to_string())?;
     db_lock::release(&native_root(&data));
     Ok(())
+}
+
+/// Stops Postgres, then drops the database lock. Used on exit.
+fn stop_local_db(app: &tauri::AppHandle, backup: bool) -> Result<(), String> {
+    stop_postgres(app, backup)?;
+    release_db_lock(app)
 }
 
 /// Makes the `app://` routes' folders and clients; the folders sit in app data, as in Electron.

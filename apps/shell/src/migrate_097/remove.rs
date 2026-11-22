@@ -248,7 +248,7 @@ fn update_report(report_path: &Path, change: impl Fn(&mut serde_json::Value)) ->
 
 /// The running postgres named by a `postmaster.pid` left in the cluster, described for the refusal.
 /// A stale file (its PID is gone) does not block; a file that cannot be parsed does.
-fn live_postmaster(pid_file: &Path) -> Option<String> {
+pub fn live_postmaster(pid_file: &Path) -> Option<String> {
     match fs::read_to_string(pid_file) {
         Ok(text) => match text.lines().next().and_then(|line| line.trim().parse::<u32>().ok()) {
             Some(pid) if process_alive(pid) => Some(format!("pid {pid} from data/postmaster.pid")),
