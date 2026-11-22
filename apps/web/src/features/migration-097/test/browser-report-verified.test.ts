@@ -162,7 +162,7 @@ for (const [label, over] of MALFORMED) {
 }
 
 test("readMigrationRuns: a sink whose read throws gives null, never throws", async () => {
-  const throwing = { readText: async () => { throw new Error("EIO"); } };
+  const throwing = { list: async () => [REPORT_PATH], readText: async () => { throw new Error("EIO"); } };
   assert.equal(await readMigrationRuns(throwing), null);
   assert.equal(await browserReportVerified(throwing), false);
 });
@@ -184,13 +184,13 @@ test("browserReportVerified: false when the blobs verified count is short of the
 
 test("browserReportVerified: a clean verified report with matching kinds and blobs is true", async () => {
   const clean = report({ runs: [{ ...RUN, blobs: { db: 2, verified: 2 } }] });
-  assert.equal(await browserReportVerified(await sinkWith(JSON.stringify(clean))), true);
+  assert.equal(await browserReportVerified(await sinkWith(JSON.stringify(clean)), OWN), true);
 });
 
 test("browserReportVerified: the latest run per device counts, so an older failed run from that device does not block", async () => {
   const oldFailed = { ...RUN, startedAt: "2026-11-01T00:00:00.000Z", deviceId: "dev-a", missing: [{ kind: "notes", id: "n1", reason: "x" }] };
   const newClean = { ...RUN, startedAt: "2026-11-02T00:00:00.000Z", deviceId: "dev-a" };
-  assert.equal(await browserReportVerified(await sinkWith(JSON.stringify(report({ runs: [oldFailed, newClean] })))), true);
+  assert.equal(await browserReportVerified(await sinkWith(JSON.stringify(report({ runs: [RUN, oldFailed, newClean] }))), OWN), true);
 });
 
 test("browserReportVerified: a failed latest run from another device still blocks", async () => {
