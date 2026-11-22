@@ -787,10 +787,23 @@ fn move_without_replace(src: &Path, dest: &Path) -> io::Result<()> {
 fn trash_file(src: &Path, dest: &Path) -> io::Result<()> {
     match move_without_replace(src, dest) {
         Err(err) if err.kind() != io::ErrorKind::AlreadyExists && !taken(dest) => {
-            fs::rename(src, dest)
+            rename_without_replace(src, dest)
         }
         moved => moved,
     }
+}
+
+/// Renames `src` to `dest` without replacing a file at `dest`, for filesystems without hard
+/// links. An empty placeholder claims the name first (`create_new`), so the rename can only
+/// replace our own placeholder, never a file that appeared after the check.
+fn rename_without_replace(src: &Path, dest: &Path) -> io::Result<()> {
+    let _placeholder = fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(dest)?;
+    fs::rename(src, dest).inspect_err(|_| {
+        let _ = fs::remove_file(dest);
+    })
 }
 
 fn is_same_file(a: &Path, b: &Path) -> bool {
@@ -929,7 +942,7 @@ mod proofs {
 
 #[cfg(test)]
 mod move_tests {
-    use super::move_without_replace;
+    use super::{move_without_replace, rename_without_replace};
     use std::fs;
 
     #[test]
@@ -962,6 +975,41 @@ mod move_tests {
         fs::write(&src, "moved").unwrap();
 
         move_without_replace(&src, &dest).unwrap();
+        assert!(!src.exists());
+        assert_eq!(fs::read_to_string(&dest).unwrap(), "moved");
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn rename_fallback_keeps_a_file_that_appears_at_the_destination() {
+        let dir = std::env::temp_dir().join(format!("wf-nr-fallback-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+        let src = dir.join("src.md");
+        let dest = dir.join("dest.md");
+        fs::write(&src, "moved").unwrap();
+        fs::write(&dest, "created in the race window").unwrap();
+
+        let err = rename_without_replace(&src, &dest).expect_err("must not replace");
+        assert_eq!(err.kind(), std::io::ErrorKind::AlreadyExists);
+        assert_eq!(
+            fs::read_to_string(&dest).unwrap(),
+            "created in the race window"
+        );
+        assert_eq!(fs::read_to_string(&src).unwrap(), "moved");
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn rename_fallback_moves_to_a_free_destination() {
+        let dir = std::env::temp_dir().join(format!("wf-nr-fallback-free-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+        let src = dir.join("src.md");
+        let dest = dir.join("dest.md");
+        fs::write(&src, "moved").unwrap();
+
+        rename_without_replace(&src, &dest).unwrap();
         assert!(!src.exists());
         assert_eq!(fs::read_to_string(&dest).unwrap(), "moved");
         let _ = fs::remove_dir_all(&dir);
