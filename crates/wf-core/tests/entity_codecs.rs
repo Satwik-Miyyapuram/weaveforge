@@ -98,6 +98,14 @@ fn absent_optional_fields_stay_absent() {
 }
 
 #[test]
+fn a_whitespace_only_text_field_round_trips() {
+    round_trip(
+        EntityKind::Experiment,
+        json!({"id": "exp-2", "name": " ", "hypothesis": "\t", "status": "planned"}),
+    );
+}
+
+#[test]
 fn save_keeps_unknown_keys_raw_and_in_place() {
     // A list file that also holds screening entries (block list) and a user property.
     let text = "---\nweaveforge-id: \"l1\"\nweaveforge-type: \"reading_list\"\nitems:\n  - {\"id\":\"d1\",\"item\":\"[[A]]\"}\nmine: hello\ntitle: \"Old\"\n---\nDesc\n";
@@ -159,6 +167,11 @@ fn refuses_other_kinds_newer_files_and_rows_without_id() {
     ));
     assert!(matches!(
         parse_entity_row(EntityKind::LogEntry, ""),
+        Err(CodecError::NotThisKind)
+    ));
+    let blank_id = "---\nweaveforge-id: \" \"\nweaveforge-type: experiment\n---\n";
+    assert!(matches!(
+        parse_entity_row(EntityKind::Experiment, blank_id),
         Err(CodecError::NotThisKind)
     ));
     let newer = "---\nweaveforge-id: e1\nweaveforge-type: experiment\nwf: 99\n---\n";

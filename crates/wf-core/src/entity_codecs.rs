@@ -196,13 +196,16 @@ impl Parsed {
     fn text(&self, key: &str) -> Option<String> {
         match self.value(key)? {
             Value::Null | Value::Array(_) | Value::Object(_) => None,
-            v => Some(value_text(&v)).filter(|t| !t.trim().is_empty()),
+            v => Some(value_text(&v)).filter(|t| !t.is_empty()),
         }
     }
 
     /// Checks the type and the format version; returns the id.
     fn check(&self, s: &Spec) -> Result<String, CodecError> {
-        let id = self.text(ID_KEY).ok_or(CodecError::NotThisKind)?;
+        let id = self
+            .text(ID_KEY)
+            .filter(|id| !id.trim().is_empty())
+            .ok_or(CodecError::NotThisKind)?;
         if self.text(TYPE_KEY).as_deref() != Some(s.entity.as_str()) {
             return Err(CodecError::NotThisKind);
         }
