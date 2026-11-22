@@ -19,11 +19,11 @@ test("readOnlyBackend wraps every personal key, alias and the settings use case,
   const out = readOnlyBackend(bag) as Record<string, Record<string, () => unknown>>;
   for (const key of READ_ONLY_KEYS) {
     if (key === "manageSettings") continue;
-    const repo = out[key];
+    const repo = out[key] as { save: () => unknown } & Record<string, () => unknown>;
     assert.throws(() => repo.save(), new RegExp(READ_ONLY_MESSAGE), key);
-    for (const read of READ_ONLY_METHODS[key] ?? []) assert.deepEqual(repo[read](), ["a"], `${key}.${read} reads pass`);
+    for (const read of READ_ONLY_METHODS[key] ?? []) assert.deepEqual((repo[read] as () => unknown)(), ["a"], `${key}.${read} reads pass`);
   }
-  assert.equal((out.shareRepository as unknown as Record<string, () => unknown>).save(), "live", "org keys are not in the explicit list");
+  assert.equal((out.shareRepository as unknown as { save: () => unknown }).save(), "live", "org keys are not in the explicit list");
   assert.equal(out.config, bag.config);
 });
 

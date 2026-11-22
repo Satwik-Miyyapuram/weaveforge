@@ -63,7 +63,7 @@ test("a method outside the allowlist is refused even when its name is not a writ
     getById: () => (calls.push("getById"), "one"),
     frobnicate: () => (calls.push("frobnicate"), "ran"),
   };
-  const wrapped = readOnlyRepository(repo, ["getById"]) as Record<string, () => unknown>;
+  const wrapped = readOnlyRepository(repo, ["getById"]);
   assert.equal(wrapped.getById(), "one");
   assert.throws(() => wrapped.frobnicate(), { message: READ_ONLY_MESSAGE });
   assert.deepEqual(calls, ["getById"]);

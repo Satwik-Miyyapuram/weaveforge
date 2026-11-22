@@ -13,7 +13,7 @@ before(loadTestCore);
 /** A local PostgREST stand-in that records every request it receives. */
 const received: { method: string; table: string }[] = [];
 const server: Server = createServer((req: IncomingMessage, res) => {
-  const path = (req.url ?? "").split("?")[0];
+  const path = (req.url ?? "").split("?")[0] ?? "";
   // An rpc call names a function, not a table; the guard judges rpcs by their own rule, so they are not counted here.
   const table = path.includes("/rpc/") ? "" : (path.split("/").filter(Boolean).pop() ?? "");
   received.push({ method: req.method ?? "", table });
@@ -41,7 +41,7 @@ test("the desktop read-only fallback sends no personal-table write to the server
     while (proto && proto !== Object.prototype) {
       for (const name of Object.getOwnPropertyNames(proto)) {
         if (name === "constructor") continue;
-        const fn = (repo as Record<string, unknown>)[name];
+        const fn: unknown = (repo as Record<string, unknown>)[name];
         if (typeof fn !== "function") continue;
         try {
           const out = (fn as (...a: unknown[]) => unknown).call(repo);
