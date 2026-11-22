@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { before, test } from "node:test";
 import { loadTestCore } from "@/lib/test/load-test-core";
-import type { ReportSection } from "@weaveforge/core";
+import { ConflictError, type ReportSection } from "@weaveforge/core";
 import { createGroupBWriter, sameExceptStamp } from "../infrastructure/kind-writer-group-b";
 import { MemorySink } from "../infrastructure/memory-sink";
 
@@ -230,7 +230,7 @@ test("metrics: a chunk already on disk with different text is a conflict, not a 
   await writer.write("metrics", METRIC_ROW);
   const chunk = sink.paths().find((p) => p.endsWith(".csv"))!;
   await sink.write(chunk, "run,step,metric,value\nedited,0,val_loss,9\n");
-  await assert.rejects(() => writer.write("metrics", METRIC_ROW), (err: Error) => err.message.startsWith("conflict:") && err.message.includes(chunk));
+  await assert.rejects(() => writer.write("metrics", METRIC_ROW), (err: Error) => err instanceof ConflictError && err.message.startsWith("conflict:") && err.message.includes(chunk));
 });
 const OWNER = { userId: "user-1", projectId: "proj-1" };
 
@@ -339,4 +339,25 @@ test("sameExceptStamp: nested objects compare by content, key order ignored (R2)
   const differs = { id: "s1", meta: { b: { y: 3, x: 1 }, a: 1 } } as unknown as ReportSection;
   assert.equal(sameExceptStamp(stored, sameKeysReordered), true);
   assert.equal(sameExceptStamp(stored, differs), false);
+  const nullKey = { id: "s1", meta: { a: 1, b: null } } as unknown as ReportSection;
+  const noKey = { id: "s1", meta: { a: 1 } } as unknown as ReportSection;
+  assert.equal(sameExceptStamp(nullKey, noKey), true);
+  assert.equal(sameExceptStamp(noKey, nullKey), true);
+  const arr12 = { id: "s1", meta: [1, 2] } as unknown as ReportSection;
+  const arr21 = { id: "s1", meta: [2, 1] } as unknown as ReportSection;
+  assert.equal(sameExceptStamp(arr12, arr21), false);
+});
+
+test("sameExceptStamp: a key only in the file with a non-null value is a difference (R2 P3)", () => {
+  const fileHasExtra = { id: "s1", meta: { a: 1, extra: 5 } } as unknown as ReportSection;
+  const rowOnly = { id: "s1", meta: { a: 1 } } as unknown as ReportSection;
+  assert.equal(sameExceptStamp(fileHasExtra, rowOnly), false);
+});
+
+test("sameExceptStamp: two different Dates differ, equal Dates match (R2 P3)", () => {
+  const stored = { id: "s1", meta: { at: new Date(1000) } } as unknown as ReportSection;
+  const sameDate = { id: "s1", meta: { at: new Date(1000) } } as unknown as ReportSection;
+  const otherDate = { id: "s1", meta: { at: new Date(2000) } } as unknown as ReportSection;
+  assert.equal(sameExceptStamp(stored, sameDate), true);
+  assert.equal(sameExceptStamp(stored, otherDate), false);
 });

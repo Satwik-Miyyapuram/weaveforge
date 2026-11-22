@@ -11,6 +11,7 @@
  * - A chunk that does not decode is skipped and reported, never fatal.
  */
 import {
+  ConflictError,
   NotFoundError,
   type Experiment,
   type IMetricRepository,
@@ -68,7 +69,7 @@ export class FileMetricRepository implements IMetricRepository {
       if (!(await this.fs.writeTextIf(path, text, null))) {
         // Same batch again: the chunk already holds these exact bytes. Different bytes under the name are a conflict.
         if ((await this.fs.readText(path)) !== text) {
-          throw new Error(`conflict: metric chunk ${path} differs from the file on disk; kept the file's version`);
+          throw new ConflictError(`conflict: metric chunk ${path} differs from the file on disk; kept the file's version`);
         }
       }
     }

@@ -5,7 +5,7 @@
  * Layout matches `asset_path` in `crates/wf-core/src/sync/folder_layout.rs`; the
  * `assets` prefix is hard-coded here (`ASSET_DIR`) so no wasm export is needed.
  */
-import { BlobNotFoundError, type IBlobFetcher, type IWorkspaceFs } from "@weaveforge/core";
+import { BlobNotFoundError, ConflictError, type IBlobFetcher, type IWorkspaceFs } from "@weaveforge/core";
 import { moveToTrash } from "@/lib/workspace-trash";
 import { conflictCopyPath } from "@/features/migration-097/domain/conflict-path";
 import { tempPathFor } from "@/lib/temp-path";
@@ -51,7 +51,7 @@ async function putSidecar(fs: IWorkspaceFs, sidecar: string, text: string, confl
     }
     if ((await fs.readText(target)) === text) break;
   }
-  throw new Error(`conflict: ${sidecar} differs`);
+  throw new ConflictError(`conflict: ${sidecar} differs`);
 }
 
 function assetFile(bucket: string, path: string): string {

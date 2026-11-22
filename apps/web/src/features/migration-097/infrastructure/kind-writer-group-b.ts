@@ -34,18 +34,16 @@ function withoutServerOnly(kind: string, row: Row): Row {
 }
 
 /**
- * True when the stored section already holds the DB row's content. Walks the DB row's keys only (not the
- * repo's read-back keys) and reads null and absent alike, because the file stores a null field as absent.
- * The repo's own updatedAt stamp is ignored.
- */
-/**
  * A stable text form of a value: object keys sorted at every depth, and null or absent object keys dropped,
- * so two values with the same content give the same text whatever their key order.
+ * so two values with the same content give the same text whatever their key order. A non-plain object (a
+ * Date, say) is serialised with JSON.stringify, so a Date gives its ISO string and two Dates differ.
  */
 function canonical(value: unknown): string {
   if (value === undefined || value === null) return "null";
   if (Array.isArray(value)) return `[${value.map(canonical).join(",")}]`;
   if (typeof value === "object") {
+    const proto = Object.getPrototypeOf(value);
+    if (proto !== Object.prototype && proto !== null) return JSON.stringify(value);
     const obj = value as Row;
     const keys = Object.keys(obj)
       .filter((k) => obj[k] !== undefined && obj[k] !== null)
@@ -55,11 +53,16 @@ function canonical(value: unknown): string {
   return JSON.stringify(value);
 }
 
+/**
+ * True when the stored section already holds the DB row's content. Walks the union of the row's and the
+ * stored section's keys, so a key only in the file with a non-null value is a difference. A null field and
+ * an absent one read alike, because the file stores a null field as absent. The repo's updatedAt stamp is ignored.
+ */
 export function sameExceptStamp(stored: ReportSection, row: ReportSection): boolean {
   const field = (s: ReportSection, k: string): string => canonical((s as unknown as Row)[k]);
-  return Object.keys(row)
-    .filter((k) => k !== "updatedAt")
-    .every((k) => field(stored, k) === field(row, k));
+  const keys = new Set([...Object.keys(row), ...Object.keys(stored)]);
+  keys.delete("updatedAt");
+  return [...keys].every((k) => field(stored, k) === field(row, k));
 }
 
 const KIND_NAMES = ["logEntries", "milestones", "experiments", "metrics", "reportSections", "aiProposals"] as const;

@@ -1,6 +1,7 @@
 import { before, test } from "node:test";
 import assert from "node:assert/strict";
 import { loadTestCore } from "@/lib/test/load-test-core";
+import { ConflictError } from "@weaveforge/core";
 import { MemoryWorkspaceFs } from "@core-test/memory-workspace-fs";
 import { FileBlobStore } from "../file-blob-store";
 
@@ -19,7 +20,10 @@ test("a differing sidecar: the copy goes outside assets/, the upload throws conf
   const kept = "deadbeef\nimage/png";
   await fs.writeFile("assets/notes/n1/x.png.sha256", kept);
 
-  await assert.rejects(store.upload("notes", "n1/x.png", png(7), "image/png"), /conflict: .*x\.png\.sha256 differs/);
+  await assert.rejects(
+    store.upload("notes", "n1/x.png", png(7), "image/png"),
+    (err: unknown) => err instanceof ConflictError && /conflict: .*x\.png\.sha256 differs/.test((err as Error).message),
+  );
 
   assert.equal(await fs.readText("assets/notes/n1/x.png.sha256"), kept);
   const copy = await fs.readText(`${SIDECAR_CONFLICTS}/notes/n1/x.png.sha256`);
