@@ -415,8 +415,20 @@ describe("no keychain on this machine (Linux without a Secret Service)", () => {
     const shown: string[] = [];
     await desktopMoveSecrets(bridge, (message) => shown.push(message))();
     assert.deepEqual(shown, [
-      "These keys were not moved to the keychain: overleafToken.extra, zoteroApiKey.x. Re-enter them in Settings.",
+      "These keys were not moved to the keychain: Overleaf git token, Zotero key. Re-enter them in Settings.",
     ]);
+  });
+
+  it("the notice names fields by their Settings label, never by the internal key name", async () => {
+    const bridge = {
+      migrate097MoveSecrets: async () => ["overleafToken.extra", "overleafToken.other"],
+    } as unknown as DesktopBridge;
+    const shown: string[] = [];
+    await desktopMoveSecrets(bridge, (message) => shown.push(message))();
+    assert.deepEqual(shown, [
+      "These keys were not moved to the keychain: Overleaf git token. Re-enter them in Settings.",
+    ]);
+    assert.doesNotMatch(shown[0]!, /overleafToken|\.extra|\.other/);
   });
 
   it("a move that moved every field shows no notice", async () => {
