@@ -13,8 +13,6 @@ import { sha256Hex } from "../domain/hash";
 import { PAPER_FIELD_KINDS, projectDefsMismatches } from "../domain/paper-fields-file";
 import { sanitizeBlobRefs } from "../domain/asset-path";
 
-/** Kinds whose values are secrets: their DB value is never copied into report.json's missing rows. */
-const SECRET_KINDS: ReadonlySet<string> = new Set(["secrets"]);
 import { toConflictCopyText } from "../domain/conflict-copy";
 import { createPaperFieldsWriter } from "../infrastructure/kind-writer-paper-fields";
 import { sameRows, verifyExport, type Verdict } from "./verify-export";
@@ -354,9 +352,9 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
               debugLog?.(`write ${kind} ${String(row.id)}: ${message}`);
               const conflict = message.startsWith("conflict:");
               if (conflict) (conflicts[kind] ??= []).push(String(row.id));
-              // Secret kinds never put their value in report.json, so the DB value is only carried for other kinds.
+              // Only paper field kinds carry their DB value into report.json; every other kind (secrets included) is an allowlist miss.
               const conflictValue = (err as { conflictValue?: unknown }).conflictValue;
-              const carry = conflict && conflictValue !== undefined && !SECRET_KINDS.has(kind);
+              const carry = conflict && conflictValue !== undefined && (PAPER_FIELD_KINDS as readonly string[]).includes(kind);
               missing.push({ kind, id: String(row.id), reason: conflict ? `conflict:${kind}` : `write-failed:${kind}`, ...(carry ? { value: conflictValue } : {}) });
             }
             onProgress?.({ kind, done: written[kind] ?? 0, total: rows.length });

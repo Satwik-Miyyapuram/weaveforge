@@ -345,6 +345,22 @@ test("secret kinds: a conflict in a secret kind never puts its value in the repo
   assert.ok(!JSON.stringify(result.run).includes("tok-secret-123"), "the secret never reaches the run report");
 });
 
+test("allowlist: a conflict in a kind that is not a paper field carries no value", async () => {
+  const sink = new MemorySink();
+  const widgetWriter = {
+    kinds: ["widgets"],
+    write: async () => {
+      throw Object.assign(new Error("conflict: widget differs"), { conflictValue: "widget-value-xyz" });
+    },
+    readBack: async () => [],
+  } as unknown as KindWriter;
+  const result = await runWebExport({ runDeviceId: "dev-test", kinds: ["widgets"], codec: NO_CODEC, now: NOW,
+    source: fakeSource({ widgets: [{ id: "w1", projectId: "proj-a" }] }), sink, writers: () => [widgetWriter] });
+  const row = result.run.missing.find((m) => m.kind === "widgets" && m.id === "w1") as { value?: unknown } | undefined;
+  assert.ok(row, "the conflict is still listed");
+  assert.equal("value" in (row ?? {}), false, "only paper field kinds carry their DB value");
+});
+
 test("e2e: a user's paper file survives two exports, body and keys unchanged", async () => {
   const core = typedCore();
   const userText = core.writePaperRow(null, { id: "p1", title: "A" }) + "My own notes.\n";
