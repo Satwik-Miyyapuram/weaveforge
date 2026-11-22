@@ -74,29 +74,75 @@ pub fn legacy_pg_dir(app_data: &Path) -> PathBuf {
 /// True when the old native Postgres folder holds any entry. A missing folder is absent. Any other
 /// read error is an error, so the gate fails closed. Never starts Postgres and never writes.
 pub fn legacy_pg_data_present(app_data: &Path) -> Result<bool, ShellError> {
-    let mut entries = match fs::read_dir(legacy_pg_dir(app_data)) {
+    dir_has_entries(&legacy_pg_dir(app_data))
+        .map_err(|e| legacy_unreadable("legacy_pg_unreadable", "the old local Postgres folder", &e))
+}
+
+fn legacy_unreadable(code: &str, what: &str, e: &std::io::Error) -> ShellError {
+    ShellError::coded(code, &format!("cannot read {what}: {e}"))
+}
+
+/// Whether `dir` may hold old data. A missing or empty folder is absent. A link of any kind (a
+/// symlink, or a junction on Windows, even a broken one) counts as present and is never followed.
+/// Any entry at all counts as present, so a moved-aside or failed folder still blocks. Any other
+/// read error is returned to the caller, which fails closed.
+fn dir_has_entries(dir: &Path) -> std::io::Result<bool> {
+    let meta = match fs::symlink_metadata(dir) {
+        Ok(meta) => meta,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(false),
+        Err(e) => return Err(e),
+    };
+    if is_link(&meta) {
+        return Ok(true);
+    }
+    let mut entries = match fs::read_dir(dir) {
         Ok(entries) => entries,
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(false),
-        Err(e) => return Err(legacy_pg_unreadable(&e)),
+        Err(e) => return Err(e),
     };
     match entries.next() {
         None => Ok(false),
         Some(Ok(_)) => Ok(true),
-        Some(Err(e)) => Err(legacy_pg_unreadable(&e)),
+        Some(Err(e)) => Err(e),
     }
 }
 
-fn legacy_pg_unreadable(e: &std::io::Error) -> ShellError {
-    ShellError::coded(
-        "legacy_pg_unreadable",
-        &format!("cannot read the old local Postgres folder: {e}"),
-    )
+fn is_link(meta: &fs::Metadata) -> bool {
+    if meta.file_type().is_symlink() {
+        return true;
+    }
+    #[cfg(windows)]
+    {
+        use std::os::windows::fs::MetadataExt as _;
+        const FILE_ATTRIBUTE_REPARSE_POINT: u32 = 0x400;
+        return meta.file_attributes() & FILE_ATTRIBUTE_REPARSE_POINT != 0;
+    }
+    #[cfg(not(windows))]
+    false
 }
 
 /// True when any old local database (native Postgres or PGlite) may be on disk under `app_data`.
-/// A missing or unplugged workspace counts: its database may be there, so the gate fails closed.
+/// Dumps in `local-db-backups` are left out: 0.9.7 cannot migrate from them. A missing or unplugged
+/// workspace counts: its database may be there, so the gate fails closed.
 pub fn legacy_db_in(app_data: &Path) -> Result<bool, ShellError> {
-    Ok(legacy_pg_data_present(app_data)? || !matches!(old_db_state(app_data), OldDb::None))
+    let db_err = |e: std::io::Error| {
+        legacy_unreadable("legacy_db_unreadable", "an old local database folder", &e)
+    };
+    if legacy_pg_data_present(app_data)? {
+        return Ok(true);
+    }
+    if dir_has_entries(&app_data.join("local-db")).map_err(db_err)? {
+        return Ok(true);
+    }
+    if let Some(root) = configured_root(app_data) {
+        if dir_has_entries(&root.join(WORKSPACE_META_DIR).join("db")).map_err(db_err)? {
+            return Ok(true);
+        }
+        if !root.is_dir() {
+            return Ok(true);
+        }
+    }
+    Ok(false)
 }
 
 /// Whether old local-database data is on this device. Fails closed: an Electron data dir counts as
@@ -414,6 +460,80 @@ mod tests {
     fn legacy_db_is_absent_when_nothing_is_there() {
         let (data, _) = temp("legacy-db-none");
         assert_eq!(legacy_db_in(&data), Ok(false));
+    }
+
+    #[test]
+    fn legacy_db_is_present_for_a_failed_app_db_folder() {
+        let (data, _) = data_with("legacy-db-failed", false, false);
+        fs::create_dir_all(data.join("local-db").join("data.failed-x")).unwrap();
+        assert_eq!(legacy_db_in(&data), Ok(true));
+    }
+
+    #[test]
+    fn legacy_db_is_present_for_a_moved_aside_workspace_db_folder() {
+        let (data, ws) = data_with("legacy-db-moved", false, false);
+        fs::create_dir_all(ws.join(WORKSPACE_META_DIR).join("db").join("moved-aside")).unwrap();
+        assert_eq!(legacy_db_in(&data), Ok(true));
+    }
+
+    #[test]
+    fn an_empty_workspace_db_folder_is_absent() {
+        let (data, ws) = data_with("legacy-db-empty-ws", false, false);
+        fs::create_dir_all(ws.join(WORKSPACE_META_DIR).join("db")).unwrap();
+        assert_eq!(legacy_db_in(&data), Ok(false));
+    }
+
+    #[test]
+    fn a_dump_in_local_db_backups_does_not_block_the_gate() {
+        let (data, _) = temp("legacy-db-backups-dump");
+        fs::create_dir_all(data.join("local-db-backups")).unwrap();
+        fs::write(data.join("local-db-backups").join("old.sql"), "-- dump").unwrap();
+        assert_eq!(legacy_db_in(&data), Ok(false));
+    }
+
+    #[test]
+    fn a_local_db_that_is_a_plain_file_fails_closed() {
+        let (data, _) = temp("legacy-db-file");
+        fs::write(data.join("local-db"), "not a folder").unwrap();
+        let err = legacy_db_in(&data).unwrap_err();
+        assert_eq!(err.code.as_deref(), Some("legacy_db_unreadable"));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_broken_symlink_at_local_pg_is_present_and_not_followed() {
+        let (data, _) = temp("legacy-pg-symlink");
+        std::os::unix::fs::symlink(data.join("missing-target"), legacy_pg_dir(&data)).unwrap();
+        assert_eq!(legacy_pg_data_present(&data), Ok(true));
+        assert!(fs::symlink_metadata(legacy_pg_dir(&data)).is_ok());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_broken_symlink_at_local_db_is_present() {
+        let (data, _) = temp("legacy-db-symlink");
+        std::os::unix::fs::symlink(data.join("missing-target"), data.join("local-db")).unwrap();
+        assert_eq!(legacy_db_in(&data), Ok(true));
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn a_broken_junction_at_local_pg_is_present_and_not_followed() {
+        use std::process::Command;
+        let (data, _) = temp("legacy-pg-junction");
+        let target = data.join("junction-target");
+        fs::create_dir_all(&target).unwrap();
+        let link = legacy_pg_dir(&data);
+        let made = Command::new("cmd")
+            .args(["/C", "mklink", "/J"])
+            .arg(&link)
+            .arg(&target)
+            .output()
+            .unwrap();
+        assert!(made.status.success(), "mklink /J failed");
+        fs::remove_dir(&target).unwrap();
+        assert_eq!(legacy_pg_data_present(&data), Ok(true));
+        let _ = Command::new("cmd").args(["/C", "rmdir"]).arg(&link).output();
     }
 
     /// A workspace folder whose 0.9.7 report holds `body`.
