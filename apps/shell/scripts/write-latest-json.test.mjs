@@ -222,6 +222,15 @@ test("a bridge that is not the 0.9.7 manifest is refused and writes nothing", ()
   }
 });
 
+test("a bridge that does not parse as JSON is refused with a message that names it", () => {
+  const { root, assets, options } = releaseAt("0.9.8");
+  try {
+    assert.throws(() => writeManifests({ ...options, bridgeText: "{ not json" }), /bridge latest\.json does not parse/);
+    assert.equal(existsSync(join(assets, "latest-v2.json")), false);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
 test("a bridge that differs from the 0.9.7 manifest by one byte is refused", () => {
   const first = releaseAt("0.9.7");
   let bridgeText;

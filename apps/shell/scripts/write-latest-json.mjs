@@ -97,11 +97,17 @@ export function writeManifests(options) {
   if (bridgeText === undefined) {
     throw new Error(`release ${manifest.version} needs the ${BRIDGE_VERSION} bridge (${LEGACY_MANIFEST_NAME}) to copy; none given`);
   }
-  const bridgeVersion = JSON.parse(bridgeText).version;
+  let parsedBridge;
+  try {
+    parsedBridge = JSON.parse(bridgeText);
+  } catch {
+    throw new Error(`bridge ${LEGACY_MANIFEST_NAME} does not parse as JSON; refusing to copy it`);
+  }
+  const bridgeVersion = parsedBridge.version;
   if (bridgeVersion !== BRIDGE_VERSION) {
     throw new Error(`bridge ${LEGACY_MANIFEST_NAME} is version ${bridgeVersion}, expected ${BRIDGE_VERSION}`);
   }
-  if (bridgeText !== text(JSON.parse(bridgeText))) {
+  if (bridgeText !== text(parsedBridge)) {
     throw new Error(`bridge ${LEGACY_MANIFEST_NAME} is not byte-identical to the writer's output; refusing to copy it`);
   }
   writeFileSync(v2Path, text(manifest));
