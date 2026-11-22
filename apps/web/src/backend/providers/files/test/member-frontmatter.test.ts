@@ -20,8 +20,33 @@ test("an unparseable lists value throws on read and on write; it never reads as 
   const broken = `---\nlists: ["${L}"\n---\nBody\n`;
   assert.throws(() => readMemberFields(broken), /lists/);
   assert.throws(() => addListMembership(broken, L));
-  const badItem = "---\nlists:\n  - nope\n---\nBody\n";
-  assert.throws(() => readMemberFields(badItem), /lists/);
+  const badQuote = `---\nlists:\n  - "${L}\n---\nBody\n`;
+  assert.throws(() => readMemberFields(badQuote), /lists/);
+  assert.throws(() => removeListMembership(badQuote, L));
+});
+
+test("plain scalars in block items read as their text: a bare word and an unquoted link", () => {
+  const text = `---\nlists:\n  - reading\n  - ${L}\n---\nBody\n`;
+  assert.deepEqual(readMemberFields(text).lists, ["reading", L]);
+});
+
+test("reads the block mapping Obsidian writes for list-notes, and keeps block style on rewrite", () => {
+  const N = "[[new--l3.list]]";
+  const obsidian = `---\nweaveforge-id: n1\nlists:\n  - "${L}"\n  - ${M}\nlist-notes:\n  "${L}": key\n  "${M}": "second, quoted"\n---\nBody line\n`;
+  assert.deepEqual(readMemberFields(obsidian), { lists: [L, M], listNotes: { [L]: "key", [M]: "second, quoted" } });
+  assert.equal(
+    removeListMembership(obsidian, L),
+    `---\nweaveforge-id: n1\nlists:\n  - ${M}\nlist-notes:\n  "${M}": "second, quoted"\n---\nBody line\n`,
+  );
+  assert.deepEqual(readMemberFields(addListMembership(obsidian, N)).lists, [L, M, N]);
+});
+
+test("an unparseable block is never rewritten: add and remove both throw", () => {
+  const openItem = `---\nlists:\n  - "${L}"\n  - "open\n---\nBody\n`;
+  assert.throws(() => addListMembership(openItem, M));
+  assert.throws(() => removeListMembership(openItem, L));
+  const nested = "---\nlists:\n  nested: thing\n---\nBody\n";
+  assert.throws(() => addListMembership(nested, M));
 });
 
 test("reads a YAML block sequence (indented or at the key's column) as well as a flow sequence", () => {
@@ -32,10 +57,10 @@ test("reads a YAML block sequence (indented or at the key's column) as well as a
   assert.deepEqual(readMemberFields(`---\nlists: ["${L}"]\n---\nBody\n`).lists, [L]);
 });
 
-test("rewriting a block-sequence list removes every item line, no orphan '- ' lines remain", () => {
+test("rewriting a block-sequence list keeps the block style, removes only the dropped item's line", () => {
   const text = `---\nlists:\n- "${L}"\n- "${M}"\ntitle: Kept\n---\nBody\n`;
   const without = removeListMembership(text, L);
-  assert.doesNotMatch(without, /^- /m);
+  assert.equal(without, `---\nlists:\n- "${M}"\ntitle: Kept\n---\nBody\n`);
   assert.deepEqual(readMemberFields(without).lists, [M]);
   assert.equal(removeListMembership(without, M), "---\ntitle: Kept\n---\nBody\n");
 });

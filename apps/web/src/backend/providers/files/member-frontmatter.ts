@@ -3,9 +3,10 @@
  * `lists: ["[[L]]"]` names each list the file is in, and `list-notes: {"[[L]]": "…"}`
  * holds the reader's note for that list. Both are one line of JSON (valid YAML flow).
  * Every other line of the file is kept byte for byte. A file with no frontmatter gets
- * a block in front of its body when it joins a list. `lists` also reads as a YAML block
- * sequence. A value that is not readable is never read as empty or overwritten: reads and
- * writes both throw.
+ * a block in front of its body when it joins a list. Both keys also read as YAML blocks (a
+ * sequence for `lists`, a mapping for `list-notes`, plain scalars allowed), and a rewrite keeps
+ * the style the key already has. A value that is not readable is never read as empty or
+ * overwritten: reads and writes both throw.
  */
 
 const FRONT = /^---\r?\n(?:([\s\S]*?)\r?\n)?---[ \t]*(?:\r?\n|$)/;
@@ -66,25 +67,118 @@ function parseJson(raw: string): unknown {
   }
 }
 
+/** A scalar: JSON when it parses; a quoted one that does not is unreadable; anything else is its own text (`- [[L]]`, `- reading`). */
+function scalarAt(raw: string): unknown {
+  const json = parseJson(raw);
+  if (json !== UNREADABLE) return json;
+  return raw.startsWith('"') ? UNREADABLE : raw;
+}
+
+const ITEM = /^\s*-\s+(.*)$/;
+const PAIR = /^\s+("(?:[^"\\]|\\.)*"|[^\s"'-][^:]*?)\s*:\s+(.*)$/;
+
+interface BlockItem {
+  line: string;
+  /** The item's string, or the mapping's key. */
+  id: string;
+  /** The item's string, or the mapping's value. */
+  value: string;
+}
+
+/** A YAML block: a sequence of strings (`- …`) or a mapping of strings (`key: value`, Obsidian's list-notes). */
+interface Block {
+  kind: "seq" | "map";
+  items: BlockItem[];
+}
+
+/** The block's items, or null when any line is neither a string item nor a string mapping pair. */
+function parseBlock(body: readonly string[]): Block | null {
+  if (body.every((line) => ITEM.test(line))) {
+    const items: BlockItem[] = [];
+    for (const line of body) {
+      const value = scalarAt(ITEM.exec(line)![1]!.trim());
+      if (typeof value !== "string") return null;
+      items.push({ line, id: value, value });
+    }
+    return { kind: "seq", items };
+  }
+  if (body.every((line) => PAIR.test(line))) {
+    const items: BlockItem[] = [];
+    for (const line of body) {
+      const [, rawKey, rawValue] = PAIR.exec(line)!;
+      const id = rawKey!.startsWith('"') ? parseJson(rawKey!) : rawKey!;
+      const value = scalarAt(rawValue!.trim());
+      if (typeof id !== "string" || typeof value !== "string") return null;
+      items.push({ line, id, value });
+    }
+    return { kind: "map", items };
+  }
+  return null;
+}
+
 /**
  * The key's value: undefined when absent, null for an empty `key:`, UNREADABLE when it is neither
- * one line of JSON (flow form) nor a YAML block sequence of JSON strings (`key:` then `  - "…"` lines).
+ * one line of JSON (flow form) nor a YAML block (see parseBlock).
  */
 function valueAt(lines: readonly string[], key: string): unknown {
   const at = keyExtent(lines, key);
   if (!at) return undefined;
   const first = lines[at.start]!.slice(key.length + 1).trim();
   if (first !== "") return parseJson(first);
-  const items = lines.slice(at.start + 1, at.end);
-  if (items.length === 0) return null;
-  const values: unknown[] = [];
-  for (const line of items) {
-    const item = /^\s*-\s+(.*)$/.exec(line);
-    const value = item ? parseJson(item[1]!.trim()) : UNREADABLE;
-    if (value === UNREADABLE) return UNREADABLE;
-    values.push(value);
+  const body = lines.slice(at.start + 1, at.end);
+  if (body.length === 0) return null;
+  const block = parseBlock(body);
+  if (!block) return UNREADABLE;
+  return block.kind === "seq"
+    ? block.items.map((item) => item.value)
+    : Object.fromEntries(block.items.map((item) => [item.id, item.value]));
+}
+
+/**
+ * The block with the next value written into it: items that stay keep their original line, a
+ * removed item's line goes, a new one is added under the same indent. Keeps the block's style.
+ */
+function rewriteBlock(block: Block, next: string[] | Record<string, string>, indent: string): string[] {
+  const out: string[] = [];
+  if (Array.isArray(next)) {
+    const kept = new Set<string>();
+    for (const item of block.items) {
+      if (next.includes(item.id) && !kept.has(item.id)) {
+        kept.add(item.id);
+        out.push(item.line);
+      }
+    }
+    for (const id of next) if (!kept.has(id)) out.push(`${indent}- ${JSON.stringify(id)}`);
+    return out;
   }
-  return values;
+  const seen = new Set<string>();
+  for (const item of block.items) {
+    if (!Object.hasOwn(next, item.id) || seen.has(item.id)) continue;
+    seen.add(item.id);
+    const value = next[item.id]!;
+    out.push(value === item.value ? item.line : `${indent}${JSON.stringify(item.id)}: ${JSON.stringify(value)}`);
+  }
+  for (const [id, value] of Object.entries(next)) {
+    if (!seen.has(id)) out.push(`${indent}${JSON.stringify(id)}: ${JSON.stringify(value)}`);
+  }
+  return out;
+}
+
+/** Writes a field in the style it already has: a block stays a block, anything else is one JSON line. An empty value removes the key. */
+function setField(lines: string[], key: string, value: string[] | Record<string, string>): void {
+  const empty = Array.isArray(value) ? value.length === 0 : Object.keys(value).length === 0;
+  const at = keyExtent(lines, key);
+  const isBlock = at !== null && lines[at.start]!.slice(key.length + 1).trim() === "" && at.end > at.start + 1;
+  if (at && isBlock && !empty) {
+    const body = lines.slice(at.start + 1, at.end);
+    const block = parseBlock(body);
+    if (!block || (block.kind === "seq") !== Array.isArray(value)) {
+      throw new Error(`The ${key} frontmatter is not readable; membership not changed.`);
+    }
+    lines.splice(at.start + 1, at.end - at.start - 1, ...rewriteBlock(block, value, /^\s*/.exec(body[0]!)![0]));
+    return;
+  }
+  setLine(lines, key, empty ? null : JSON.stringify(value));
 }
 
 function isStrings(v: unknown): v is string[] {
@@ -137,8 +231,8 @@ export function addListMembership(text: string, link: string, note?: string): st
   if (note) listNotes[link] = note;
   else delete listNotes[link];
   const lines = [...f.lines];
-  setLine(lines, "lists", JSON.stringify(lists));
-  setLine(lines, "list-notes", Object.keys(listNotes).length ? JSON.stringify(listNotes) : null);
+  setField(lines, "lists", lists);
+  setField(lines, "list-notes", listNotes);
   return render(f, lines);
 }
 
@@ -153,8 +247,8 @@ export function removeListMembership(text: string, link: string): string {
   const listNotes = { ...fields.listNotes };
   delete listNotes[link];
   const lines = [...f.lines];
-  setLine(lines, "lists", lists.length ? JSON.stringify(lists) : null);
-  setLine(lines, "list-notes", Object.keys(listNotes).length ? JSON.stringify(listNotes) : null);
+  setField(lines, "lists", lists);
+  setField(lines, "list-notes", listNotes);
   return render(f, lines);
 }
 
