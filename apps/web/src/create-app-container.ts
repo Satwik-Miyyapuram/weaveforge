@@ -120,8 +120,6 @@ import { WorkspaceSearch } from "@/features/search/application/workspace-search"
 import { clearActiveProvider } from "@/features/ai-assistant/application/parts";
 import { resolveMigrationChoice } from "@/container/resolve-migration-choice";
 import { wireDesktopFileBackend } from "@/container/desktop-file-backend";
-import { browserReportOk, openBrowserFileWiring } from "@/container/browser-file-backend";
-import { chooseBrowserBackend } from "@/container/browser-backend-098";
 import { workspaceSettings } from "@/features/settings/application/workspace-settings";
 
 export interface CreatedAppContainer {
@@ -170,12 +168,11 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
   // the folder's migration report, so the choice never races a late answer.
   const migration = await resolveMigrationChoice(desktop());
   const shell = desktop();
-  // Browser and Android open the OPFS folder only when the 0.9.8 chooser says files. Legacy
-  // detection is not wired yet ("unknown" fails closed to export-first), but the verified-report
-  // check is real: it reads the OPFS folder's migration report.
-  const reportOk = !shell && (await browserReportOk());
-  const browserFiles =
-    !shell && chooseBrowserBackend("unknown", () => reportOk) === "files" ? await openBrowserFileWiring() : undefined;
+  // Browser and Android do not open OPFS yet. Legacy detection is not wired, so the 0.9.8 chooser
+  // ("unknown") always answers export-first and the OPFS report read and open would be wasted work.
+  // Restore the chooser call here (chooseBrowserBackend plus browserReportOk and openBrowserFileWiring
+  // from browser-file-backend) once legacy detection exists.
+  const browserFiles = undefined;
   const backend = wireBackend(readBackendConfig(), projectContext, pid, {
     migration,
     onDesktop: Boolean(shell),
