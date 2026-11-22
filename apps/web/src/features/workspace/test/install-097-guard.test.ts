@@ -18,11 +18,11 @@ test("no desktop bridge (browser, Android): open", async () => {
   assert.deepEqual(await install097Check(null, null), { kind: "open" });
 });
 
-test("legacyDbPresent absent on a desktop shell: unknown, fail closed", async () => {
-  assert.deepEqual(await install097Check({}, "/ws"), { kind: "unknown", code: "LEGACY_CHECK_UNAVAILABLE" });
+test("legacyDbPresent absent on a desktop shell: unknown, open (fail open)", async () => {
+  assert.deepEqual(await install097Check({}, "/ws"), { kind: "open" });
 });
 
-test("legacyDbPresent throws: unknown, fail closed, report never asked", async () => {
+test("legacyDbPresent throws: unknown, open (fail open), report never asked", async () => {
   const verify = spyOf(async () => true);
   const bridge = {
     legacyDbPresent: async () => {
@@ -30,13 +30,13 @@ test("legacyDbPresent throws: unknown, fail closed, report never asked", async (
     },
     migrationReportVerified: verify.fn,
   };
-  assert.deepEqual(await install097Check(bridge, "/ws"), { kind: "unknown", code: "LEGACY_CHECK_FAILED" });
+  assert.deepEqual(await install097Check(bridge, "/ws"), { kind: "open" });
   assert.equal(verify.calls.length, 0);
 });
 
-test("legacyDbPresent answers a non-boolean: unknown, fail closed", async () => {
+test("legacyDbPresent answers a non-boolean: unknown, open (fail open)", async () => {
   const bridge = { legacyDbPresent: async () => null as unknown as boolean };
-  assert.deepEqual(await install097Check(bridge, "/ws"), { kind: "unknown", code: "LEGACY_CHECK_FAILED" });
+  assert.deepEqual(await install097Check(bridge, "/ws"), { kind: "open" });
 });
 
 test("legacy false: open, report never asked", async () => {
@@ -58,11 +58,8 @@ test("legacy true and no folder known: unverified (picker), report never asked",
   assert.equal(verify.calls.length, 0);
 });
 
-test("legacy true and report method absent: unknown, fail closed", async () => {
-  assert.deepEqual(await install097Check({ legacyDbPresent: legacyTrue }, "/ws"), {
-    kind: "unknown",
-    code: "REPORT_CHECK_UNAVAILABLE",
-  });
+test("legacy true and report method absent: unknown, open (fail open)", async () => {
+  assert.deepEqual(await install097Check({ legacyDbPresent: legacyTrue }, "/ws"), { kind: "open" });
 });
 
 test("legacy true and report verified: open, checked against the given folder", async () => {
@@ -98,22 +95,22 @@ test("the gate notice body is the exact 0.9.7 move instruction", () => {
   );
 });
 
-test("legacy true and report throws: unknown with its code, fail closed", async () => {
+test("legacy true and report throws: unknown with its code, open (fail open)", async () => {
   const bridge = {
     legacyDbPresent: legacyTrue,
     migrationReportVerified: async (_folder: string): Promise<boolean> => {
       throw new Error("bridge down");
     },
   };
-  assert.deepEqual(await install097Check(bridge, "/ws"), { kind: "unknown", code: "REPORT_CHECK_FAILED" });
+  assert.deepEqual(await install097Check(bridge, "/ws"), { kind: "open" });
 });
 
-test("legacy true and report answers a non-boolean: unknown, fail closed", async () => {
+test("legacy true and report answers a non-boolean: unknown, open (fail open)", async () => {
   const bridge = {
     legacyDbPresent: legacyTrue,
     migrationReportVerified: async (_folder: string) => undefined as unknown as boolean,
   };
-  assert.deepEqual(await install097Check(bridge, "/ws"), { kind: "unknown", code: "REPORT_CHECK_FAILED" });
+  assert.deepEqual(await install097Check(bridge, "/ws"), { kind: "open" });
 });
 
 /** A fake old-user port: the web reader answers these two questions. */
@@ -147,14 +144,14 @@ test("web old user with legacy rows and a verified export: open", async () => {
   assert.deepEqual(await install097Check(null, null, port), { kind: "open" });
 });
 
-test("web old-user port throws: unknown, fail closed (guard shows)", async () => {
+test("web old-user port throws: unknown, open (fail open) (guard shows)", async () => {
   const { port } = oldUserPort(
     async () => {
       throw new Error("reader down");
     },
     async () => true,
   );
-  assert.deepEqual(await install097Check(null, null, port), { kind: "unknown", code: "OLD_USER_CHECK_FAILED" });
+  assert.deepEqual(await install097Check(null, null, port), { kind: "open" });
 });
 
 test("desktop, no local DB, signed-in old user with server rows and no export: unverified web-export, not open", async () => {
@@ -174,17 +171,14 @@ test("desktop, no local DB, signed-in new account (no rows): open, export never 
   assert.equal(calls.ownRun, 0);
 });
 
-test("desktop, no local DB, old-user port throws: unknown, fail closed", async () => {
+test("desktop, no local DB, old-user port throws: unknown, open (fail open)", async () => {
   const { port } = oldUserPort(
     async () => {
       throw new Error("reader down");
     },
     async () => true,
   );
-  assert.deepEqual(await install097Check({ legacyDbPresent: async () => false }, "/ws", port), {
-    kind: "unknown",
-    code: "OLD_USER_CHECK_FAILED",
-  });
+  assert.deepEqual(await install097Check({ legacyDbPresent: async () => false }, "/ws", port), { kind: "open" });
 });
 
 test("desktop, no local DB, no signed-in account (no port): open", async () => {

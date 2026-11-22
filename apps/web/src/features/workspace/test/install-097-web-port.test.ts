@@ -148,9 +148,9 @@ test("P1: archived tables and the rpc says rows are pending: unverified with the
   assert.deepEqual(await install097Check(null, null, port), { kind: "unverified", action: "web-export" });
 });
 
-test("P1: archived tables and the rpc is missing: unknown, fail closed", async () => {
+test("P1: archived tables and the rpc is missing: unknown, open (fail open)", async () => {
   const port = createWebOldUserPort(supabaseReads(fakeSupabase({ archived: ALL_LEGACY })), "user-1");
-  assert.deepEqual(await install097Check(null, null, port), { kind: "unknown", code: "OLD_USER_CHECK_FAILED" });
+  assert.deepEqual(await install097Check(null, null, port), { kind: "open" });
 });
 
 test("P1: a new account with archived tables and rpc false: open, never gated", async () => {
@@ -169,25 +169,25 @@ test("mark column missing (42703) and every table empty: open, never gated", asy
   assert.deepEqual(await install097Check(null, null, port), { kind: "open" });
 });
 
-test("a count error: unknown, fail closed", async () => {
+test("a count error: unknown, open (fail open)", async () => {
   const port = createWebOldUserPort(
     supabaseReads(fakeSupabase({ failTables: ["papers"], failWith: { code: "42501", message: "denied" } })),
     "user-1",
   );
-  assert.deepEqual(await install097Check(null, null, port), { kind: "unknown", code: "OLD_USER_CHECK_FAILED" });
+  assert.deepEqual(await install097Check(null, null, port), { kind: "open" });
 });
 
-test("a count that is not a number: unknown, fail closed", async () => {
+test("a count that is not a number: unknown, open (fail open)", async () => {
   const port = createWebOldUserPort(supabaseReads(fakeSupabase({ countNull: true })), "user-1");
-  assert.deepEqual(await install097Check(null, null, port), { kind: "unknown", code: "OLD_USER_CHECK_FAILED" });
+  assert.deepEqual(await install097Check(null, null, port), { kind: "open" });
 });
 
-test("a mark read error that is not a missing column: unknown, fail closed", async () => {
+test("a mark read error that is not a missing column: unknown, open (fail open)", async () => {
   const port = createWebOldUserPort(
     supabaseReads(fakeSupabase({ profile: { data: null, error: { code: "08006", message: "connection lost" } } })),
     "user-1",
   );
-  assert.deepEqual(await install097Check(null, null, port), { kind: "unknown", code: "OLD_USER_CHECK_FAILED" });
+  assert.deepEqual(await install097Check(null, null, port), { kind: "open" });
 });
 
 test("a positive table gates even when another probe fails", async () => {
@@ -233,11 +233,11 @@ test("countRows: PGRST205 and 42P01 are TABLE_ARCHIVED, other codes throw", asyn
   await assert.rejects(denied.countRows(legacy("papers"), "user-1"));
 });
 
-test("a child whose parent 0165 archived (PGRST200) throws, so the check fails closed", async () => {
+test("a child whose parent 0165 archived (PGRST200) makes the reader throw, and the check fails open", async () => {
   const reads = supabaseReads(fakeSupabase({ archived: ["papers"] }));
   await assert.rejects(reads.countRows(legacy("paper_tags"), "user-1"), /PGRST200/);
   const port = createWebOldUserPort(supabaseReads(fakeSupabase({ archived: ["papers"] })), "user-1");
-  assert.deepEqual(await install097Check(null, null, port), { kind: "unknown", code: "OLD_USER_CHECK_FAILED" });
+  assert.deepEqual(await install097Check(null, null, port), { kind: "open" });
 });
 
 test("legacyRowsPending: the rpc boolean; an error or a non-boolean throws", async () => {
