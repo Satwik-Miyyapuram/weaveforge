@@ -6,7 +6,6 @@ covers:
   - apps/web/src/features/settings/ui/github-connect.tsx
   - apps/shell/src/github_connect.rs
   - apps/web/src/backend/parts.ts
-  - apps/web/src/backend/providers/postgrest/watch-writes.ts
   - crates/wf-core/src/sync
 checked: 2026-11-22
 ---
@@ -22,7 +21,7 @@ Your notes, papers, plans and logbook are files in the workspace folder you chos
 
 Sync goes through **your own private GitHub repository**, one per workspace folder.
 
-1. Connect GitHub from the app. It signs you in with GitHub's device flow, asks only for the `repo` scope, and creates a private repository named `weaveforge-<name>`. If a repository with that name already exists under your account, the app uses it.
+1. Connect GitHub from the desktop app. It signs you in with GitHub's device flow, asks only for the `repo` scope, and creates a private repository named `weaveforge-<name>`. If a private repository with that name already exists under your account, the app uses it. It refuses a public repository, and one owned by someone else.
 2. The app uploads the workspace and shows **Uploading your workspace…**, then **Synced**.
 3. The **Git remote** section of workspace settings shows **Backs up to** with the repository.
 
@@ -34,7 +33,22 @@ Once connected, the folder syncs by itself:
 - when the window regains focus,
 - when the network comes back.
 
-The status dot shows **Synced**, **Syncing…**, **Offline** (it syncs when you are back online) or **Sync failed**, with the time of the next try. After a failure the app waits 30 seconds, then 1 minute, then 5 minutes before it tries again.
+The status dot shows **Synced**, **Syncing…**, **Offline** (it syncs when you are back online) or **Sync failed**, with the time of the next try. After a failure the app waits 30 seconds, then 1 minute, then 5 minutes before it tries again. **Retry** on a **Sync failed** dot clears that wait and runs the sync at once.
+
+### Token and sign-in
+
+- The GitHub token stays in this machine's keychain. The page never sees it.
+- The app asks GitHub only for the `repo` scope, the narrowest scope that can create a private repository.
+- There is no client secret. Sign-in uses GitHub's device flow, which needs none.
+- The code expires after about 15 minutes, as GitHub sets it. If it expires, the app says **The GitHub code expired. Start again.** Click **Connect GitHub** again.
+
+### When GitHub refuses the token
+
+If the token stops working (for example, you revoked WeaveForge on GitHub), the next pull or push fails. Settings → Workspace folder → Git remote then shows **GitHub needs you to sign in again. Your repository stays the same.** Click **Reconnect**. The app syncs to the same repository. The message clears after a successful sign-in or a successful pull or push.
+
+### Advanced: any git host
+
+**Advanced: any git host, with your own URL and token** lets you paste the URL and token of any https git host instead of using GitHub.
 
 ## What is not there any more
 
