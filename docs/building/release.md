@@ -215,6 +215,11 @@ so a pre-release is invisible to updaters until it is promoted.
 pinned to the 0.9.7 manifest, because 0.9.6 and older builds can only read that name.
 Builds 0.9.6 and older read only `latest.json`, so they must update to 0.9.7 first, never straight to a newer release.
 
+The workflow step that fetches the 0.9.7 bridge (`gh release download v0.9.7 --pattern latest.json`
+in `release-desktop.yml`) fails while `v0.9.7` is unpublished or still a draft. That is deliberate
+(fail-safe): without the bridge the workflow refuses to write `latest.json`, so no 0.9.6 client is
+pointed at a newer release. Publish v0.9.7 first, then re-run the release.
+
 1. PR: set the release version in `version` in `apps/shell/tauri.conf.json`. The
    release scripts read that file. The shell crate's `apps/shell/Cargo.toml`
    inherits its version (`version.workspace = true`); if it ever sets its own
