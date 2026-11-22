@@ -87,7 +87,9 @@ export function ProjectsScreen() {
     await refresh();
     setProject(projectId);
   });
-  const demoButton = local ? (
+  // 0.9.8: hidden in no-account mode, whose local database is gone. The seeder
+  // moves to the File* repositories as a follow-up.
+  const demoButton = !local ? (
     <Button disabled={demoBusy} onClick={() => void loadDemo()}>
       {demoBusy ? "Loading demo…" : "Load demo workspace"}
     </Button>
