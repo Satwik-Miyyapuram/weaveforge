@@ -27,8 +27,8 @@ import {
 import { readyCore } from "@/lib/rust-core";
 import { FileEntityStore, type ProjectRoot, writeIfUnchanged } from "./file-entity-store";
 import { LinkIndex, type LinkTarget } from "./link-index";
-import { addListMembership, listLinkFor, readMemberFields, removeListMembership } from "./member-frontmatter";
-import { migrateLegacyLists } from "./legacy-list-members";
+import { addListMembership, type MemberFields, listLinkFor, readMemberFields, removeListMembership } from "./member-frontmatter";
+import { legacyMemberLinks, legacyNoteOf, migrateLegacyLists } from "./legacy-list-members";
 
 /** A list row as the codec reads it; `members` and `memberNotes` are the 0.9.6 keys, read only for the rewrite. */
 type ListRow = ReadingList & { members?: unknown; memberNotes?: unknown };
@@ -126,15 +126,20 @@ export class FileReadingListItemRepository implements IReadingListItemRepository
 
   async listItemsForLists(listIds: readonly string[]): Promise<ReadingListItem[]> {
     const wanted = new Set(listIds);
-    return (await this.memberships()).filter((i) => wanted.has(i.listId));
+    return (await this.memberships()).items.filter((i) => wanted.has(i.listId));
   }
 
   async listsForPaper(paperId: string): Promise<ReadingListItem[]> {
-    return (await this.memberships()).filter((i) => i.paperId === paperId);
+    return (await this.memberships()).items.filter((i) => i.paperId === paperId);
   }
 
   async listsForNote(vaultPageId: string): Promise<ReadingListItem[]> {
-    return (await this.memberships()).filter((i) => i.vaultPageId === vaultPageId);
+    return (await this.memberships()).items.filter((i) => i.vaultPageId === vaultPageId);
+  }
+
+  /** The workspace paths whose membership values could not be read; those papers and notes are left out of the lists. */
+  async unreadablePaths(): Promise<string[]> {
+    return (await this.memberships()).unreadable;
   }
 
   async find(listId: string, paperId: string): Promise<ReadingListItem | null> {
@@ -180,16 +185,29 @@ export class FileReadingListItemRepository implements IReadingListItemRepository
   }
 
   /**
-   * Every membership of a live list, each list's members ordered by workspace path.
-   * A member whose link names no live list is not listed; its frontmatter is kept.
+   * Every membership of a live list, each list's members ordered by workspace path, plus the
+   * paths that could not be read. A paper or note whose membership value is unreadable is left
+   * out and reported; its file is not touched. A member whose link names no live list is not
+   * listed; its frontmatter is kept. Legacy (0.9.6) members still in a list file are listed too:
+   * a member the paper holds a different note for is `conflict`; a link that names nothing is
+   * `unresolved` (no target, `legacyLink` set). Their notes stay in the list file.
    */
-  private async memberships(): Promise<ReadingListItem[]> {
+  private async memberships(): Promise<{ items: ReadingListItem[]; unreadable: string[] }> {
     await this.migrate();
-    const listIdByLink = new Map((await this.lists.readAll()).map((f) => [listLinkFor(f.path), f.row.id]));
+    const files = await this.lists.readAll();
+    const listIdByLink = new Map(files.map((f) => [listLinkFor(f.path), f.row.id]));
     const snapshot = await this.links.snapshot();
     const byList = new Map<string, ReadingListItem[]>();
+    const unreadable: string[] = [];
     for (const { target, path } of snapshot.all().sort(byPath)) {
-      const { lists, listNotes } = readMemberFields(await this.fs.readText(path));
+      let fields: MemberFields;
+      try {
+        fields = readMemberFields(await this.fs.readText(path));
+      } catch {
+        unreadable.push(path);
+        continue;
+      }
+      const { lists, listNotes } = fields;
       for (const link of lists) {
         const listId = listIdByLink.get(link);
         if (!listId) continue;
@@ -199,11 +217,28 @@ export class FileReadingListItemRepository implements IReadingListItemRepository
         byList.set(listId, [...(byList.get(listId) ?? []), item]);
       }
     }
+    for (const file of files) {
+      if (file.row.members === undefined && file.row.memberNotes === undefined) continue;
+      const listId = file.row.id;
+      for (const raw of legacyMemberLinks(file.row)) {
+        const target = snapshot.resolve(raw);
+        if (!target || !snapshot.pathFor(target)) {
+          byList.set(listId, [
+            ...(byList.get(listId) ?? []),
+            { id: `${listId}:legacy:${raw}`, listId, legacyState: "unresolved", legacyLink: raw, sortOrder: 0 },
+          ]);
+          continue;
+        }
+        const note = legacyNoteOf(file.row, target);
+        const item = (byList.get(listId) ?? []).find((i) => i.id === itemIdOf(listId, target));
+        if (item && note !== undefined && item.note !== note) item.legacyState = "conflict";
+      }
+    }
     const out: ReadingListItem[] = [];
     for (const items of byList.values()) {
       items.forEach((item, index) => (item.sortOrder = index));
       out.push(...items);
     }
-    return out;
+    return { items: out, unreadable };
   }
 }

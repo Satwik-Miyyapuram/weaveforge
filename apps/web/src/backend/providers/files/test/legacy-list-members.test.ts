@@ -7,8 +7,28 @@ import { loadTestCore } from "@/lib/test/load-test-core";
 import { readMemberFields } from "../member-frontmatter";
 import { migrateLegacyLists } from "../legacy-list-members";
 import { FileReadingListItemRepository } from "../file-reading-list-repo";
+import type { AppLogInput } from "@/lib/error-report/app-log";
+import { LinkIndex } from "../link-index";
 
 before(loadTestCore);
+
+/** A filesystem that counts the reads of one path. */
+function countingReads(fs: IWorkspaceFs, path: string): { fs: IWorkspaceFs; reads: () => number } {
+  let reads = 0;
+  const counted = new Proxy(fs, {
+    get(target, key) {
+      if (key === "readText") {
+        return async (p: string) => {
+          if (p === path) reads += 1;
+          return target.readText(p);
+        };
+      }
+      const v = Reflect.get(target, key, target);
+      return typeof v === "function" ? v.bind(target) : v;
+    },
+  });
+  return { fs: counted, reads: () => reads };
+}
 
 const ROOT = "thesis";
 const P1 = `${ROOT}/papers/paper-one.paper.md`;
@@ -64,7 +84,7 @@ test("an old list file is rewritten: members move to their frontmatter, the list
   assert.doesNotMatch(listText, /paper-one/);
   assert.doesNotMatch(listText, /^member-notes:/m);
   const items = await new FileReadingListItemRepository(fs, () => ROOT).listItems("l1");
-  assert.deepEqual(items.map((i) => i.id), ["l1:p1"]);
+  assert.deepEqual(items.map((i) => i.id), ["l1:p1", "l1:legacy:[[Ghost.paper]]"]);
 });
 
 test("an unresolved member stays in the list file, with its note", async () => {
@@ -90,13 +110,13 @@ test("a crash between the member writes and the list rewrite leaves both sides r
   assert.deepEqual(readMemberFields(await fs.readText(P1)).lists, [LINK]);
   assert.match(await fs.readText(LIST), /^members:/m);
   const beforeRerun = await new FileReadingListItemRepository(fs, () => ROOT).listItems("l1");
-  assert.deepEqual(beforeRerun.map((i) => i.id), ["l1:p1"]);
+  assert.deepEqual(beforeRerun.map((i) => i.id), ["l1:p1", "l1:legacy:[[Ghost.paper]]"]);
   await migrateLegacyLists(fs, () => ROOT);
   assert.deepEqual(readMemberFields(await fs.readText(P1)), { lists: [LINK], listNotes: { [LINK]: "key" } });
   assert.doesNotMatch(await fs.readText(LIST), /^members: \["\[\[paper-one/m);
   assert.deepEqual(
     (await new FileReadingListItemRepository(fs, () => ROOT).listItems("l1")).map((i) => i.id),
-    ["l1:p1"],
+    ["l1:p1", "l1:legacy:[[Ghost.paper]]"],
   );
 });
 
@@ -110,6 +130,46 @@ test("a list-note already on the member is kept; a conflicting legacy note is no
   const listText = await fs.readText(LIST);
   assert.match(listText, /paper-one/);
   assert.match(listText, /"paper:p1"/);
+});
+
+test("a conflicting leftover is listed as conflict with the paper's note; an unresolved one is listed as unresolved", async () => {
+  const fs = await setup();
+  const p1 = await fs.readText(P1);
+  await fs.writeFile(P1, p1.replace("---\n", `---\nlists: ["${LINK}"]\nlist-notes: {"${LINK}": "mine"}\n`));
+  await migrateLegacyLists(fs, () => ROOT);
+  const items = await new FileReadingListItemRepository(fs, () => ROOT).listItems("l1");
+  const conflict = items.find((i) => i.id === "l1:p1");
+  assert.equal(conflict?.legacyState, "conflict");
+  assert.equal(conflict?.note, "mine");
+  const unresolved = items.find((i) => i.legacyState === "unresolved");
+  assert.equal(unresolved?.legacyLink, "[[Ghost.paper]]");
+  assert.equal(unresolved?.note, undefined);
+  assert.match(await fs.readText(LIST), /Ghost/);
+});
+
+test("a list whose failure is reported goes to the app log, not the console", async () => {
+  const fs = await setup();
+  await fs.writeFile(P1, (await fs.readText(P1)).replace("---\n", "---\nlists: [oops\n"));
+  const reports: AppLogInput[] = [];
+  await migrateLegacyLists(fs, () => ROOT, (input) => reports.push(input));
+  assert.equal(reports.length, 1);
+  assert.equal(reports[0]!.level, "warn");
+  assert.match(reports[0]!.message, /review--l1\.list\.md/);
+});
+
+test("a list that stays legacy is not re-read on the next run while its text and members are unchanged", async () => {
+  const fs = await setup();
+  await fs.writeFile(P1, (await fs.readText(P1)).replace("---\n", "---\nlists: [oops\n"));
+  // The link index reads each paper once per snapshot; a skipped list adds no read of its own.
+  const probe = countingReads(fs, P1);
+  await new LinkIndex(probe.fs, () => ROOT).snapshot();
+  const perSnapshot = probe.reads();
+  const counted = countingReads(fs, P1);
+  await migrateLegacyLists(counted.fs, () => ROOT, () => {});
+  assert.ok(counted.reads() > perSnapshot, "the first run reads the member to try the move");
+  const afterFirst = counted.reads();
+  await migrateLegacyLists(counted.fs, () => ROOT, () => {});
+  assert.equal(counted.reads() - afterFirst, perSnapshot);
 });
 
 test("a list file changed on disk during the rewrite is not overwritten and stays legacy", async () => {

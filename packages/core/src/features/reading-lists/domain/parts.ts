@@ -18,7 +18,10 @@ export interface ReadingList extends Identifiable {
   createdAt: string;
 }
 
-/** A paper or note membership in a list (the join row). Exactly one of paperId / vaultPageId. */
+/**
+ * A paper or note membership in a list (the join row). Exactly one of paperId / vaultPageId,
+ * except an `unresolved` legacy leftover, which has neither.
+ */
 export interface ReadingListItem extends Identifiable {
   id: string;
   listId: string;
@@ -27,6 +30,10 @@ export interface ReadingListItem extends Identifiable {
   sortOrder: number;
   /** Why this item is in this list. */
   note?: string;
+  /** Set on a 0.9.6 leftover: `conflict` when the paper holds a different note, `unresolved` when its link names nothing. */
+  legacyState?: "conflict" | "unresolved";
+  /** The 0.9.6 link text of an `unresolved` leftover. */
+  legacyLink?: string;
   /** Set when membership was propagated from a descendant list. */
   inheritedFromListId?: string;
   /** Marked during screening as a duplicate of another record in this list. */

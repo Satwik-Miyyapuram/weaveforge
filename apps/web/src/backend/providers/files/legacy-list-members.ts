@@ -8,19 +8,40 @@
  * the list file still readable; the next run adds the same membership again (no duplicate).
  * A member link that does not resolve, a member whose paper already holds a different note
  * for this list, and any note with no moved member stay in the list file. Each list file is
- * migrated on its own: one that fails is skipped and left in the 0.9.6 shape.
+ * migrated on its own: one that fails is skipped and left in the 0.9.6 shape, and reported
+ * through the app log.
+ *
+ * Partial write: the member writes and the list write are two writes, not one transaction. If
+ * the process stops between them, the members already hold the membership and the list file
+ * still names them. Both stay readable, and the next run finishes the list; no duplicate is
+ * written because each add is idempotent.
+ *
+ * Settled lists: a list whose membership values cannot be read is remembered in memory with
+ * its text and its members' resolution. It is not tried again until one of those changes, so a
+ * fix to a member's frontmatter alone is picked up on the next run after the list or a member
+ * link changes, or after a restart. Other failures (a crash, a changed file) are retried.
  */
 import type { IWorkspaceFs } from "@weaveforge/core";
+import { type AppLogInput, logToApp } from "@/lib/error-report/app-log";
 import { FileEntityStore, type FoundEntity, type ProjectRoot, writeIfUnchanged } from "./file-entity-store";
 import { LinkIndex, type Links, type LinkTarget } from "./link-index";
-import { addListMembership, listLinkFor, readMemberFields, setFrontmatterKeys } from "./member-frontmatter";
+import {
+  addListMembership,
+  listLinkFor,
+  readMemberFields,
+  setFrontmatterKeys,
+  UnreadableFrontmatter,
+} from "./member-frontmatter";
 
 /** The 0.9.6 list row: the codec reads these only for this rewrite. */
-interface LegacyRow {
+export interface LegacyRow {
   id: string;
   members?: unknown;
   memberNotes?: unknown;
 }
+
+/** The lists that could not be read, per workspace: file path to the text and resolution they were last tried with. */
+const settled = new WeakMap<IWorkspaceFs, Map<string, string>>();
 
 function noteKeyOf(t: LinkTarget): string {
   return "paperId" in t ? `paper:${t.paperId}` : `note:${t.vaultPageId}`;
@@ -40,6 +61,27 @@ function noteOf(info: unknown): string | undefined {
 
 function recordOf(v: unknown): Record<string, unknown> {
   return v !== null && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : {};
+}
+
+/** The member links a legacy list still names (the ones that are strings or carry a `link`). */
+export function legacyMemberLinks(row: LegacyRow): string[] {
+  const members = Array.isArray(row.members) ? (row.members as unknown[]) : [];
+  return members.map(linkOfMember).filter((link): link is string => link !== null);
+}
+
+/** The note a legacy list holds for this target, if any. */
+export function legacyNoteOf(row: LegacyRow, target: LinkTarget): string | undefined {
+  return noteOf(recordOf(row.memberNotes)[noteKeyOf(target)]);
+}
+
+/** Where each member link resolves to: the path it names, or null when it names nothing. */
+function resolutionOf(row: LegacyRow, links: Links): string {
+  return JSON.stringify(
+    legacyMemberLinks(row).map((raw) => {
+      const target = links.resolve(raw);
+      return target ? links.pathFor(target) : null;
+    }),
+  );
 }
 
 /** Moves one list file's resolved members to their frontmatter, then rewrites the list file. */
@@ -82,17 +124,33 @@ async function migrateOne(fs: IWorkspaceFs, file: FoundEntity<LegacyRow>, links:
   await writeIfUnchanged(fs, file.path, next, file.text);
 }
 
-/** Rewrites every list file that still has `members` or `member-notes`. */
-export async function migrateLegacyLists(fs: IWorkspaceFs, root: ProjectRoot): Promise<void> {
+/** Rewrites every list file that still has `members` or `member-notes`; a failure is reported and that list is left as it is. */
+export async function migrateLegacyLists(
+  fs: IWorkspaceFs,
+  root: ProjectRoot,
+  report: (input: AppLogInput) => void = logToApp,
+): Promise<void> {
   const store = new FileEntityStore<LegacyRow>(fs, root, "reading_list");
   const legacy = (await store.readAll()).filter((f) => f.row.members !== undefined || f.row.memberNotes !== undefined);
   if (!legacy.length) return;
   const links = await new LinkIndex(fs, root).snapshot();
+  const known = settled.get(fs) ?? new Map<string, string>();
+  settled.set(fs, known);
   for (const file of legacy) {
+    const key = `${resolutionOf(file.row, links)}\n${file.text}`;
+    if (known.get(file.path) === key) continue;
     try {
       await migrateOne(fs, file, links);
+      known.delete(file.path);
     } catch (error) {
-      console.warn(`Skipped ${file.path}: left in the 0.9.6 shape.`, error);
+      if (error instanceof UnreadableFrontmatter) known.set(file.path, key);
+      else known.delete(file.path);
+      report({
+        level: "warn",
+        source: "reading-lists",
+        message: `Skipped ${file.path}: left in the 0.9.6 shape.`,
+        detail: error instanceof Error ? error.message : String(error),
+      });
     }
   }
 }

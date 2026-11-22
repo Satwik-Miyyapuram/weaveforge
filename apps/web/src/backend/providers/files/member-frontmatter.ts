@@ -11,6 +11,9 @@
 
 const FRONT = /^---\r?\n(?:([\s\S]*?)\r?\n)?---[ \t]*(?:\r?\n|$)/;
 
+/** A membership value that cannot be read; the file is left as it is. */
+export class UnreadableFrontmatter extends Error {}
+
 export interface MemberFields {
   lists: string[];
   listNotes: Record<string, string>;
@@ -173,7 +176,7 @@ function setField(lines: string[], key: string, value: string[] | Record<string,
     const body = lines.slice(at.start + 1, at.end);
     const block = parseBlock(body);
     if (!block || (block.kind === "seq") !== Array.isArray(value)) {
-      throw new Error(`The ${key} frontmatter is not readable; membership not changed.`);
+      throw new UnreadableFrontmatter(`The ${key} frontmatter is not readable; membership not changed.`);
     }
     lines.splice(at.start + 1, at.end - at.start - 1, ...rewriteBlock(block, value, /^\s*/.exec(body[0]!)![0]));
     return;
@@ -208,7 +211,7 @@ function readFields(lines: readonly string[]): { fields: MemberFields; unreadabl
 /** An unreadable value is never read as empty: reads and writes both throw, so nothing is lost. */
 function refuseIfUnreadable(unreadable: readonly string[]): void {
   if (unreadable.length) {
-    throw new Error(`The ${unreadable.join(" and ")} frontmatter is not readable; membership not changed.`);
+    throw new UnreadableFrontmatter(`The ${unreadable.join(" and ")} frontmatter is not readable; membership not changed.`);
   }
 }
 

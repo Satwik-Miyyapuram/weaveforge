@@ -168,6 +168,19 @@ test("adding a member to a missing paper or an unknown list is refused", async (
   await assert.rejects(items.add({ id: "b", listId: "missing", paperId: "p1", sortOrder: 0 }), NotFoundError);
 });
 
+test("one paper with an unreadable lists value is skipped and reported; the other papers still list", async () => {
+  const { fs, lists, items } = await setup();
+  const l = list();
+  await lists.save(l);
+  await items.add({ id: "a", listId: l.id, paperId: "p2", sortOrder: 0 });
+  await items.add({ id: "b", listId: l.id, vaultPageId: "n1", sortOrder: 0 });
+  await fs.writeFile(P1, (await fs.readText(P1)).replace("---\n", "---\nlists: [oops\n"));
+  const broken = await fs.readText(P1);
+  assert.deepEqual((await items.listItems(l.id)).map((i) => i.id), [`${l.id}:n1`, `${l.id}:p2`]);
+  assert.deepEqual(await items.unreadablePaths(), [P1]);
+  assert.equal(await fs.readText(P1), broken);
+});
+
 test("deleting a list hides its members; the list file goes to the trash", async () => {
   const { fs, lists, items } = await setup();
   const l = list();
