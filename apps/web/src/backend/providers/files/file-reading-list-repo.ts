@@ -256,12 +256,15 @@ export class FileReadingListItemRepository implements IReadingListItemRepository
     const links = await this.links.snapshot();
     const tagged = await readTagged(this.fs, links, files);
     const memberships: Membership[] = tagged.map((t) => ({ list: t.list, target: t.target, info: t.info, file: t.file }));
-    const tagKeys = new Set(tagged.map((t) => `${t.list.id}|${targetKey(t.target)}`));
+    // One membership per target in a list: a tag wins, then the first legacy entry for the target.
+    const seen = new Set(tagged.map((t) => `${t.list.id}|${targetKey(t.target)}`));
     for (const f of lists) {
       const list = listFileOf(f.path, f.row.id);
       legacyMembers(f.text).forEach((m, index) => {
         const target = links.resolve(m.link);
-        if (!target || tagKeys.has(`${list.id}|${targetKey(target)}`)) return;
+        const key = `${list.id}|${target ? targetKey(target) : ""}`;
+        if (!target || seen.has(key)) return;
+        seen.add(key);
         memberships.push({ list, target, info: m.info, index });
       });
     }

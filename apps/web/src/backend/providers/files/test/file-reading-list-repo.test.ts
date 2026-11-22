@@ -265,6 +265,21 @@ test("a legacy members entry reads as a membership, and removing it is refused",
   assert.equal(await fs.readText(path), legacy);
 });
 
+test("(P5a) a legacy members list naming one paper twice reads as one membership, the first entry", async () => {
+  const { fs, lists, items } = await setup();
+  const l = list();
+  await lists.save(l);
+  const path = (await listFile(fs))[0]!;
+  const before = await fs.readText(path);
+  await fs.writeFile(
+    path,
+    before.replace(/^---\n/, '---\nmembers: ["[[paper-one.paper]]", "[[paper-one.paper|again]]"]\n'),
+  );
+  const found = await items.listItems(l.id);
+  assert.deepEqual(found.map((i) => i.paperId), ["p1"], "one membership per target in a list");
+  assert.equal(found[0]!.sortOrder, 0, "the first legacy entry sets the place");
+});
+
 test("an empty list file reads as no members; delete moves the list to the trash", async () => {
   const { fs, lists, items } = await setup();
   const l = list();
