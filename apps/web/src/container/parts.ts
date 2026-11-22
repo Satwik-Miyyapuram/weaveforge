@@ -43,6 +43,8 @@ import { type BackendConfig, readBackendConfig } from "../backend/parts";
 import type { Migrate097Resolved } from "@/lib/desktop/migrate-097";
 import { chooseFileBackend } from "./file-backend-choice";
 import { readOnlyBackend, readOnlyDb } from "./read-only-repositories";
+import { guardOrgDb } from "./org-db-guard";
+import { serverOffDb } from "./server-off-db";
 import {
   type WiredPostgrestBackend,
   wirePostgrestBackend,
@@ -368,8 +370,8 @@ export interface PersonalFileWiring {
     pid: () => string | null,
   ) => WiredPostgrestBackend;
   /**
-   * 0.9.8 browser fallback: the switch is not proven, so the server backend is wired read-only
-   * (every write throws ReadOnlyError) and nothing reaches the server as a write.
+   * 0.9.8 browser start: the switch is not proven, so the server backend is wired read-only
+   * (every write throws ReadOnlyError) and org-only (a personal read throws before any request).
    */
   readOnlyServer?: boolean;
 }
@@ -389,7 +391,19 @@ export function wireBackend(
         ...readOnlyBackend(wirePostgrestBackend(config, projectContext, pid, undefined, undefined, readOnlyDb)),
         filesMode: false,
       });
-      if (files?.readOnlyServer) return readOnly();
+      // 0.9.8 browser start before the export verifies: org tables only (as in files mode), reads included,
+      // and the AI stores' personal client is org-guarded too, so no personal data is read from the server.
+      if (files?.readOnlyServer) {
+        return {
+          ...readOnlyBackend(
+            // DbGuard is typed over any object; the client it gets is the PostgREST one (from/rpc).
+            wirePostgrestBackend(config, projectContext, pid, undefined, { filesMode: true }, (db) =>
+              guardOrgDb(readOnlyDb(serverOffDb(db)) as never),
+            ),
+          ),
+          filesMode: true,
+        };
+      }
       // The desktop shell wires its own files; without that wiring it stays read-only.
       const wire = files?.onDesktop ? files.wireDesktopFileBackend : files?.wireBrowserFileBackend;
       return chooseFileBackend<WiredBackend>(

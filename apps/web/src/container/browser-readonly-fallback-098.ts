@@ -3,14 +3,9 @@ import type { MarkerProbe } from "./browser-switch-background";
 
 /**
  * How this browser starts. `files`: the switch marker says the switch ran and the files wiring opened.
- * `read-only`: the browser must not write to the server (the marker is present but the files did not
- * open, or a switch ran but its marker write failed). `server`: nothing has switched here yet, so the
- * server path runs the export as before.
+ * `read-only`: anything else; the export runs in the background and a verified run reloads into files.
  */
-export type BrowserStart =
-  | { mode: "files"; wiring: BrowserFileWiring }
-  | { mode: "read-only" }
-  | { mode: "server" };
+export type BrowserStart = { mode: "files"; wiring: BrowserFileWiring } | { mode: "read-only" };
 
 /**
  * P1 pending flag: set once markExported097 succeeds, cleared once the switch marker is written. If the
@@ -55,12 +50,12 @@ export function localSwitchPending(): SwitchPending {
 }
 
 /**
- * Chooses the start mode from the marker probe. A present marker whose files failed to open, and a
- * pending switch with no marker, both stay read-only: no user write reaches the server until the
- * files are proven.
+ * Chooses the start mode from the marker probe. 0.9.8: only an opened marker starts on files; every
+ * other start (no marker, a pending switch, a marker whose files failed to open) is read-only until
+ * the export verifies, so no personal read or write reaches the server. `pending` no longer changes
+ * the answer; it stays in the signature for the caller.
  */
-export function chooseBrowserStart(probe: MarkerProbe, pending: boolean): BrowserStart {
+export function chooseBrowserStart(probe: MarkerProbe, _pending: boolean): BrowserStart {
   if (probe.state === "opened") return { mode: "files", wiring: probe.wiring };
-  if (probe.state === "failed") return { mode: "read-only" };
-  return pending ? { mode: "read-only" } : { mode: "server" };
+  return { mode: "read-only" };
 }
