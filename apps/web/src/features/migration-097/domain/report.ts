@@ -24,7 +24,7 @@ export const MIGRATION_KINDS = [
 
 export const REPORT_PATH = ".weaveforge/migration-0.9.7/report.json";
 
-export type MigrationState = "verified" | "incomplete";
+export type MigrationState = "verified" | "incomplete" | "none";
 
 export type KindCount = { db: number; files: number; written: number; conflicts: string[] };
 
