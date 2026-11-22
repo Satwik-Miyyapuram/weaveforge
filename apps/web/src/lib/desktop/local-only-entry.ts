@@ -29,7 +29,10 @@ export interface LocalOnlyBridge extends Migrate097Bridge {
 export async function enterLocalOnly(bridge: LocalOnlyBridge): Promise<LocalOnlyOutcome> {
   const root = await bridge.chooseVaultRoot().catch(() => null);
   if (!root) return "cancelled";
-  if ((await migrate097Status(bridge, root.path)) === "verified") return "reload";
+  const state = await migrate097Status(bridge, root.path);
+  if (state === "verified") return "reload";
+  // Only a folder that has not been migrated (none, incomplete) may run the migration.
+  if (state === "unavailable") return "unavailable";
   if (!bridge.migrate097Run) return "unavailable";
   try {
     await bridge.migrate097Run(root.path);

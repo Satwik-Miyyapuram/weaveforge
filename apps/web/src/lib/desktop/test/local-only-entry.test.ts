@@ -76,6 +76,19 @@ test("an old shell without the migration run is unavailable, never a silent wiri
   assert.equal(await enterLocalOnly(bridge), "unavailable");
 });
 
+test("an unavailable folder status is never migrated: the run is skipped and unavailable returned", async () => {
+  const runs: string[] = [];
+  const { bridge } = fakeBridge({
+    state: "unavailable",
+    migrate097Run: async (folder: string) => {
+      runs.push(folder);
+      return { state: "verified" };
+    },
+  });
+  assert.equal(await enterLocalOnly(bridge), "unavailable");
+  assert.deepEqual(runs, []);
+});
+
 test("a migration run that throws is unavailable and does not reach the database", async () => {
   const { bridge, calls } = fakeBridge({
     state: "none",
