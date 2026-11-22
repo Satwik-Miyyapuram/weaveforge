@@ -472,7 +472,15 @@ export function WorkspaceScreen() {
         const tab = { kind: node.kind, id: node.id };
         const renamed: RenamedVaultPage = await getContainer().vault.manageVaultPage.update(node.id, { title });
         toastLinkRewriteFailed(renamed);
-        await handBackRenamedBody(renamed, handleFor(tab).current, (body) => save(tab, body));
+        const core = readyCore();
+        const oldTitle = node.title;
+        const renames = new Map(oldTitle === undefined ? [] : [[core.normalizeTitleKey(oldTitle), renamed.title]]);
+        await handBackRenamedBody(
+          renamed,
+          handleFor(tab).current,
+          (body) => save(tab, body),
+          (text) => core.rewriteWikilinksOutsideCode(text, renames),
+        );
       }
       await reload();
     },
