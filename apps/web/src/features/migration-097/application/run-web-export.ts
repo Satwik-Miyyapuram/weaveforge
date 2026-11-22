@@ -130,14 +130,33 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
   }
 
   let state: MigrationState = missing.length === 0 && verdict.state === "verified" ? "verified" : "incomplete";
-  if (state === "verified") {
-    try {
-      await source.markExported(now);
-    } catch (err) {
-      state = "incomplete";
-      missing.push({ kind: "marker", id: "*", reason: `markExported: ${(err as Error).message}` });
-    }
-  }
+  const finishedAt = new Date().toISOString();
+  const persist = async (): Promise<RunReport> => {
+    const run: RunReport = {
+      startedAt: now,
+      finishedAt,
+      sources: ["server"],
+      kinds: kindCounts,
+      blobs: { db: verdict.blobs.db, verified: verdict.blobs.verified },
+      missing,
+    };
+    const report: MigrationReport = {
+      version: 1,
+      state,
+      backup: null,
+      verifiedAt: state === "verified" ? finishedAt : undefined,
+      deviceId,
+      runs: [run],
+    };
+    const part = `${REPORT_PATH}.part`;
+    await sink.write(part, JSON.stringify(report, null, 2));
+    await sink.rename(part, REPORT_PATH);
+    return run;
+  };
+
+  // Order (0.9.7 contract): report.json says verified, then the desktop mark, then the server
+  // marker last. A failed mark rewrites report.json as incomplete and skips the server marker.
+  await persist();
   if (state === "verified" && desktop) {
     try {
       await desktop.bridge.markExported(desktop.folder);
@@ -146,26 +165,15 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
       missing.push({ kind: "desktop", id: "*", reason: `markExported: ${(err as Error).message}` });
     }
   }
-
-  const finishedAt = new Date().toISOString();
-  const run: RunReport = {
-    startedAt: now,
-    finishedAt,
-    sources: ["server"],
-    kinds: kindCounts,
-    blobs: { db: verdict.blobs.db, verified: verdict.blobs.verified },
-    missing,
-  };
-  const report: MigrationReport = {
-    version: 1,
-    state,
-    backup: null,
-    verifiedAt: state === "verified" ? finishedAt : undefined,
-    deviceId,
-    runs: [run],
-  };
-  const part = `${REPORT_PATH}.part`;
-  await sink.write(part, JSON.stringify(report, null, 2));
-  await sink.rename(part, REPORT_PATH);
+  if (state === "verified") {
+    try {
+      await source.markExported(now);
+    } catch (err) {
+      state = "incomplete";
+      missing.push({ kind: "marker", id: "*", reason: `markExported: ${(err as Error).message}` });
+    }
+  }
+  const run = await persist();
   return { state, run };
 }
+

@@ -465,3 +465,89 @@ test("verify: a null server contentType and application/octet-stream in the file
   const result = await runWebExport({ kinds: ["blobs"], codec, source, sink: new MemorySink(), now: NOW });
   assert.equal(result.state, "verified");
 });
+
+test("order: report.json says verified before the desktop mark, and the server marker comes last", async () => {
+  const order: string[] = [];
+  const sink = new MemorySink();
+  const { source } = fakeServer({ rows: FIXTURE });
+  const realMark = source.markExported;
+  source.markExported = async (at) => {
+    order.push("server-mark");
+    await realMark(at);
+  };
+  const result = await runWebExport({
+    kinds: KINDS,
+    codec: fakeCodec(SUPPORTED),
+    source,
+    sink,
+    now: NOW,
+    desktop: {
+      folder: "C:/ws",
+      bridge: {
+        backup: async () => ({ deviceId: "dev-1" }),
+        markExported: async () => {
+          const report = JSON.parse(await sink.readText(REPORT_PATH)) as { state: string };
+          order.push(`desktop-mark:report=${report.state}`);
+        },
+      },
+    },
+  });
+  assert.equal(result.state, "verified");
+  assert.deepEqual(order, ["desktop-mark:report=verified", "server-mark"]);
+});
+
+test("order: a failed desktop mark means no server marker and report.json stays incomplete", async () => {
+  const { source, calls } = fakeServer({ rows: FIXTURE });
+  const sink = new MemorySink();
+  const desktopCalls: string[] = [];
+  const result = await runWebExport({
+    kinds: KINDS,
+    codec: fakeCodec(SUPPORTED),
+    source,
+    sink,
+    now: NOW,
+    desktop: { folder: "C:/ws", bridge: fakeDesktop(desktopCalls, { markFails: true }) },
+  });
+  assert.equal(result.state, "incomplete");
+  assert.equal(calls.some((c) => c.startsWith("mark:")), false, "server marker not set");
+  const report = JSON.parse(await sink.readText(REPORT_PATH)) as { state: string; verifiedAt?: string };
+  assert.equal(report.state, "incomplete");
+  assert.equal("verifiedAt" in report, false);
+  assert.match(JSON.stringify(report), /markExported: shell refused/);
+});
+
+test("order: a failed server marker leaves report.json incomplete", async () => {
+  const { source } = fakeServer({ rows: FIXTURE });
+  source.markExported = async () => {
+    throw new Error("server down");
+  };
+  const sink = new MemorySink();
+  const result = await runWebExport({ kinds: KINDS, codec: fakeCodec(SUPPORTED), source, sink, now: NOW });
+  assert.equal(result.state, "incomplete");
+  const report = JSON.parse(await sink.readText(REPORT_PATH)) as { state: string };
+  assert.equal(report.state, "incomplete");
+});
+
+test("order: a failed report.json write means no desktop mark and no server marker", async () => {
+  const { source, calls } = fakeServer({ rows: FIXTURE });
+  const sink = new MemorySink();
+  const realRename = sink.rename.bind(sink);
+  sink.rename = async (from: string, to: string) => {
+    if (to === REPORT_PATH) throw new Error("disk full writing report");
+    return realRename(from, to);
+  };
+  const desktopCalls: string[] = [];
+  await assert.rejects(
+    runWebExport({
+      kinds: KINDS,
+      codec: fakeCodec(SUPPORTED),
+      source,
+      sink,
+      now: NOW,
+      desktop: { folder: "C:/ws", bridge: fakeDesktop(desktopCalls) },
+    }),
+    /disk full writing report/,
+  );
+  assert.deepEqual(desktopCalls, ["backup:C:/ws"]);
+  assert.equal(calls.some((c) => c.startsWith("mark:")), false, "server marker not set");
+});
