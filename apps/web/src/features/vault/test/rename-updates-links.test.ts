@@ -172,10 +172,10 @@ test("F97-P2-4: a note that links to its own old title has that link rewritten",
   assert.equal(rows.get("two")!.body, "Self: [[Renamed]] and [[Other]]");
 });
 
-test("F97-P2-4: the renamed note open in its editor gets no warning and keeps its own self-link", async () => {
+test("F97-P2-4: the renamed note open in its editor is reported like other open notes and keeps its own self-link", async () => {
   // The editor holds its own copy of the body, so its own [[Two]] is not rewritten
-  // (its next autosave would restore it). Other notes are still rewritten, and
-  // no warning is raised on every title rename.
+  // (its next autosave would restore it). It is reported, as any open note is.
+  // Other notes are still rewritten.
   const { rows, repo } = memoryPages([
     page("two", "Two", "Self: [[Two]]"),
     page("three", "Three", "[[Two]]"),
@@ -183,10 +183,13 @@ test("F97-P2-4: the renamed note open in its editor gets no warning and keeps it
   const release = holdOpenNotes(["two"]);
   try {
     const saved = (await repo.update("two", { title: "Renamed" })) as { linkRewriteFailed?: string[] };
-    assert.equal(saved.linkRewriteFailed, undefined);
+    // Named by its new title: the list is read after the save.
+    assert.deepEqual(saved.linkRewriteFailed, ["Renamed"]);
   } finally {
     release();
   }
+  assert.equal(rows.get("two")!.body, "Self: [[Two]]");
+  assert.equal(rows.get("three")!.body, "[[Renamed]]");
   assert.equal(rows.get("two")!.body, "Self: [[Two]]");
   assert.equal(rows.get("three")!.body, "[[Renamed]]");
 });

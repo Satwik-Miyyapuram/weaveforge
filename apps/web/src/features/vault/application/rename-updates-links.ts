@@ -42,13 +42,9 @@ export function withRenameLinkRewrite<T extends VaultPages>(pages: T): T {
       // as link lookup folds them) can link to it. The renamed note itself is
       // included: a note may link to its own old title.
       if (!core.normalizeTitleKey(page.body).includes(oldKey)) continue;
-      // The renamed note, while open in its editor, keeps its own self-links:
-      // there is no hook to hand the new text to the editor, and its next autosave
-      // would put them back anyway. Skipped silently, so renaming an open note
-      // does not warn every time. Other open notes are still reported.
-      if (page.id === id && isNoteOpen(id)) continue;
       // A note open in an editor keeps its own copy of the body, and its next
       // autosave would put [[Old]] back, so it is reported instead of rewritten.
+      // This includes the renamed note itself when it is open.
       if (isNoteOpen(page.id)) {
         failed.push(page.title);
         continue;
