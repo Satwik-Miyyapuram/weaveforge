@@ -56,6 +56,16 @@ test("createAppContainer awaits the migration choice before wireBackend", async 
   assert.ok(awaited > 0 && wired > awaited, "the await must come before wireBackend");
 });
 
+test("createAppContainer re-resolves an unavailable desktop choice on focus and reloads", async () => {
+  const { readFileSync } = await import("node:fs");
+  const { fileURLToPath } = await import("node:url");
+  const src = readFileSync(fileURLToPath(new URL("../../create-app-container.ts", import.meta.url)), "utf8");
+  const wiredFocus = src.indexOf("reresolveOnFocus(migration, shell");
+  assert.ok(wiredFocus > 0, "desktop must wire reresolveOnFocus with the shell");
+  assert.ok(src.indexOf("if (shell)", wiredFocus - 40) > 0, "the wiring is desktop only");
+  assert.ok(src.includes("window.location.reload()"), "a usable answer reloads the app");
+});
+
 test("a transient unavailable is retried and a later attempt can resolve", async () => {
   let calls = 0;
   const b = bridge(async () => {

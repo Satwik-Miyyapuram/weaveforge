@@ -123,7 +123,7 @@ import { ExperimentArtifactStore } from "@/features/experiments/infrastructure/p
 import { createCredentialReader } from "@/integrations/parts";
 import { WorkspaceSearch } from "@/features/search/application/workspace-search";
 import { clearActiveProvider } from "@/features/ai-assistant/application/parts";
-import { resolveMigrationChoice } from "@/container/resolve-migration-choice";
+import { reresolveOnFocus, resolveMigrationChoice } from "@/container/resolve-migration-choice";
 import { wireDesktopFileBackend } from "@/container/desktop-file-backend";
 import { workspaceSettings } from "@/features/settings/application/workspace-settings";
 
@@ -173,6 +173,8 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
   // the folder's migration report, so the choice never races a late answer.
   const migration = await resolveMigrationChoice(desktop());
   const shell = desktop();
+  // Desktop only: a folder still settling re-asks on focus, and the first usable answer reloads.
+  if (shell) reresolveOnFocus(migration, shell, window, () => window.location.reload());
   const backend = wireBackend(readBackendConfig(), projectContext, pid, {
     migration,
     onDesktop: Boolean(shell),
