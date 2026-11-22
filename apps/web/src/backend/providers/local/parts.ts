@@ -204,18 +204,11 @@ export class SecretsMovePendingError extends Error {
   readonly code = "secrets-move-pending";
 }
 
-/** The shell's one-time move (`migrate097MoveSecrets`); a no-op outside the desktop app. */
-export function desktopMoveSecrets(bridge: DesktopBridge | null = desktop()): () => Promise<void> {
-  return async () => {
-    await bridge?.migrate097MoveSecrets();
-  };
-}
-
 export class DeviceSecretsStore implements SecretsStore {
   constructor(
     private readonly run: LocalQuery = localRunnerQuery(),
     private readonly keychain: DeviceKeychain = desktopKeychain(),
-    private readonly moveSecrets: () => Promise<void> = desktopMoveSecrets(),
+    private readonly moveSecrets: () => Promise<void> = async () => {},
   ) {}
 
   /**

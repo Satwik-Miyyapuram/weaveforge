@@ -26,7 +26,7 @@ export interface VerifyResult {
 /** The TS verify, injected; WEB-EXPORT supplies it. */
 export type VerifyRunner = (folder: string) => Promise<VerifyResult>;
 
-/** Moves the secrets into the OS keychain (Tauri `migrate_097_move_secrets`), injected. */
+/** Moves the secrets into the OS keychain, injected. */
 export type SecretsMover = (folder: string) => Promise<void>;
 
 export interface RemoveOldDeps {

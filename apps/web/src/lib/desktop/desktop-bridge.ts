@@ -132,14 +132,6 @@ export interface DesktopBridge {
   clearSecret(name: DesktopSecretName): Promise<void>;
 
   /**
-   * One-time move of the old local database secrets row into the keychain, for the
-   * 0.9.7 upgrade. Reads the row read-only, stores each field, and records the move in
-   * `<folder>/.weaveforge/migration-0.9.7/secrets-moved.json`. Rejects when any part fails
-   * (no keychain, locked keychain, unreadable row), so the caller shows the move as not done.
-   */
-  migrate097MoveSecrets(): Promise<void>;
-
-  /**
    * Whether an old (pre-0.9.7) local database is on this computer. Read-only. Absent on a desktop
    * shell that predates the call is unknown, and the install gate blocks on unknown (fail closed).
    */
