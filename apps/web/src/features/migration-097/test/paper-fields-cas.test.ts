@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { before, test } from "node:test";
+import { ConflictError } from "@weaveforge/core";
 import { loadTestCore } from "@/lib/test/load-test-core";
 import { typedCore } from "@/lib/rust-core";
 import type { Row } from "../domain/ports";
@@ -78,7 +79,7 @@ test("paper field value: a differing value already in the file is kept and repor
   await writer.write("paperFieldValues", { id: "v1", projectId: "proj-a", paperId: "p1", fieldId: "fa", value: "user" });
   await assert.rejects(
     writer.write("paperFieldValues", { id: "v1", projectId: "proj-a", paperId: "p1", fieldId: "fa", value: "NeurIPS" }),
-    (err: Error) => err.message.startsWith("conflict:"),
+    (err: Error) => err instanceof ConflictError,
   );
   const text = await sink.readText(PAPER);
   assert.ok(text.includes("user"), "the file's value is kept");
@@ -112,7 +113,7 @@ test("paper field value: the conflict entry carries the DB value", async () => {
   await writer.write("paperFieldValues", { id: "v1", projectId: "proj-a", paperId: "p1", fieldId: "fa", value: "user" });
   await assert.rejects(
     writer.write("paperFieldValues", { id: "v1", projectId: "proj-a", paperId: "p1", fieldId: "fa", value: "NeurIPS" }),
-    (err: Error & { conflictValue?: unknown }) => err.message.startsWith("conflict:") && err.conflictValue === "NeurIPS",
+    (err: Error & { conflictValue?: unknown }) => err instanceof ConflictError && err.conflictValue === "NeurIPS",
   );
 });
 
@@ -162,7 +163,7 @@ test("CAS miss: the conflict check runs again on the re-read text, so a user val
   await writer.write("paperFields", DEF);
   await assert.rejects(
     writer.write("paperFieldValues", { id: "v1", projectId: "proj-a", paperId: "p1", fieldId: "fa", value: "NeurIPS" }),
-    (err: Error) => err.message.startsWith("conflict:"),
+    (err: Error) => err instanceof ConflictError,
   );
   assert.ok((await sink.readText(PAPER)).includes("user"), "the user's value is not overwritten by the retry");
 });
