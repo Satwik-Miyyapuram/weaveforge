@@ -41,10 +41,11 @@ const personalCalls: [string, (b: Wired) => Promise<unknown>][] = [
     "integrationsStore.save",
     (b) => call(b.integrationsStore.save, "p-1", { provider: "github", enabled: true, branch: "main", repo: "a/b" }),
   ],
-  ["projectBibliographyCollection.setCollection", (b) => call(b.projectBibliographyCollection.setCollection, "p-1", "Lib")],
+  // paper_tags is not in ORG_SERVER_TABLES, so both probes below must be refused in files mode.
+  ["paperTagRepository.listAll", (b) => call(b.paperTagRepository.listAll)],
+  ["paperTagRepository.listForTag", (b) => call(b.paperTagRepository.listForTag, "t-1")],
   ["screeningRepository.listForItems", (b) => call(b.screeningRepository.listForItems, ["i-1"])],
   ["sharedReader.read", (b) => call(b.sharedReader.read, "paper", ["i-1"], ["owner"])],
-  ["releaseNoticesRepository.unseen", (b) => call(b.releaseNoticesRepository.unseen)],
 ];
 
 for (const [name, run] of personalCalls) {
