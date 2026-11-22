@@ -64,7 +64,7 @@ export async function createFileStore(sink: FileSink, prior: Outputs): Promise<F
         const state = await stateAt(candidate);
         if (!state.present) {
           // A candidate is free only when its .sha256 sidecar name is free too: a stale sidecar would leave the blob without its own.
-          if (n > 0 && (await sidecarTaken(`${candidate}.sha256`))) continue;
+          if (await sidecarTaken(`${candidate}.sha256`)) continue;
           await sink.write(candidate, out.data);
         } else {
           // An unreadable file is never overwritten: skip to the next candidate.
