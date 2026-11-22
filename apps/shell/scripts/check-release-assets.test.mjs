@@ -192,23 +192,34 @@ const files8 = (legacyText) => ({
   "latest.json": legacyText,
 });
 const BRIDGE = JSON.parse(manifestFixture());
+const BRIDGE_TEXT = manifestFixture();
 
 test("a 0.9.8 release passes when latest.json is the 0.9.7 bridge it was given", async () => {
   const problems = await checkRelease({
     tag: TAG8,
     release: release8(),
     readAsset: assetsFrom(files8(manifestFixture())),
-    bridge: BRIDGE,
+    bridgeText: BRIDGE_TEXT,
   });
   assert.deepEqual(problems, []);
 });
 
+test("a 0.9.8 latest.json with the same keys in another order is reported: the bridge is compared byte for byte", async () => {
+  const reordered = JSON.stringify(Object.fromEntries(Object.entries(BRIDGE).reverse()), null, 2) + "\n";
+  const problems = await checkRelease({
+    tag: TAG8,
+    release: release8(),
+    readAsset: assetsFrom(files8(reordered)),
+    bridgeText: BRIDGE_TEXT,
+  });
+  assert.ok(problems.some((p) => p.includes("latest.json") && p.includes("byte")), problems.join("\n"));
+});
 test("a 0.9.8 release whose latest.json is not the 0.9.7 bridge is reported", async () => {
   const problems = await checkRelease({
     tag: TAG8,
     release: release8(),
     readAsset: assetsFrom(files8(manifest8)),
-    bridge: BRIDGE,
+    bridgeText: BRIDGE_TEXT,
   });
   assert.ok(problems.some((p) => p.includes("latest.json") && p.includes("0.9.7")));
 });
@@ -227,7 +238,7 @@ test("a 0.9.8 release missing latest.json is reported", async () => {
     tag: TAG8,
     release: release8(NAMES8.filter((n) => n !== "latest.json")),
     readAsset: assetsFrom(files8(manifestFixture())),
-    bridge: BRIDGE,
+    bridgeText: BRIDGE_TEXT,
   });
   assert.ok(problems.some((p) => p.includes("latest.json") && p.includes("missing")));
 });
@@ -237,7 +248,7 @@ test("a 0.9.8 release missing latest-v2.json is reported", async () => {
     tag: TAG8,
     release: release8(NAMES8.filter((n) => n !== "latest-v2.json")),
     readAsset: assetsFrom(files8(manifestFixture())),
-    bridge: BRIDGE,
+    bridgeText: BRIDGE_TEXT,
   });
   assert.ok(problems.some((p) => p.includes("latest-v2.json") && p.includes("missing")));
 });

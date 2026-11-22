@@ -28,9 +28,9 @@ const run = promisify(execFile);
  * Returns one line per problem; an empty list means the release passes.
  * `release` is the parsed `gh api releases/tags/<tag>` response. `readAsset(name)`
  * resolves the asset's text, or null when it cannot be downloaded. `bridge` is the
- * parsed 0.9.7 latest.json, needed to check latest.json on releases after 0.9.7.
+ * raw 0.9.7 latest.json text, needed to check latest.json on releases after 0.9.7.
  */
-export async function checkRelease({ tag, release, readAsset, bridge }) {
+export async function checkRelease({ tag, release, readAsset, bridgeText }) {
   const version = versionFromTag(tag);
   if (!version) return [`"${tag}" is not a desktop release tag (expected vX.Y.Z)`];
 
@@ -64,7 +64,7 @@ export async function checkRelease({ tag, release, readAsset, bridge }) {
       return null;
     }
     try {
-      return JSON.parse(text);
+      return { value: JSON.parse(text), text };
     } catch {
       problems.push(`${name} does not parse as JSON`);
       return null;
@@ -73,7 +73,7 @@ export async function checkRelease({ tag, release, readAsset, bridge }) {
 
   let current = null;
   if (has(MANIFEST_NAME)) {
-    current = await readJson(MANIFEST_NAME);
+    current = (await readJson(MANIFEST_NAME))?.value ?? null;
     if (current) {
       problems.push(...(await manifestProblems({ tag, version, manifest: current, readAsset, assets })));
     }
@@ -81,7 +81,9 @@ export async function checkRelease({ tag, release, readAsset, bridge }) {
 
   if (has(LEGACY_MANIFEST_NAME)) {
     const legacy = await readJson(LEGACY_MANIFEST_NAME);
-    if (legacy) problems.push(...legacyProblems({ version, legacy, current, bridge }));
+    if (legacy) {
+      problems.push(...legacyProblems({ version, legacy: legacy.value, legacyText: legacy.text, current, bridgeText }));
+    }
   }
   return problems;
 }
@@ -115,9 +117,9 @@ async function manifestProblems({ tag, version, manifest, readAsset, assets }) {
 
 /**
  * Checks the bridge latest.json. On 0.9.7 it is the same manifest as latest-v2.json;
- * on a later release it must be the 0.9.7 bridge itself.
+ * on a later release it must be the 0.9.7 bridge itself, byte for byte.
  */
-function legacyProblems({ version, legacy, current, bridge }) {
+function legacyProblems({ version, legacy, legacyText, current, bridgeText }) {
   const order = compareVersions(version, BRIDGE_VERSION);
   if (order < 0) return [`release ${version} is older than ${BRIDGE_VERSION}`];
   if (order === 0) {
@@ -126,11 +128,11 @@ function legacyProblems({ version, legacy, current, bridge }) {
     }
     return [];
   }
-  if (!bridge) {
+  if (!bridgeText) {
     return [`cannot check ${LEGACY_MANIFEST_NAME}: no ${BRIDGE_VERSION} bridge given to compare it with`];
   }
-  if (JSON.stringify(legacy) !== JSON.stringify(bridge)) {
-    return [`${LEGACY_MANIFEST_NAME} is not the ${BRIDGE_VERSION} bridge (it has version ${legacy.version}, expected ${BRIDGE_VERSION})`];
+  if (legacyText !== bridgeText) {
+    return [`${LEGACY_MANIFEST_NAME} is not the ${BRIDGE_VERSION} bridge, byte for byte (it reads version ${legacy.version})`];
   }
   return [];
 }
@@ -170,20 +172,22 @@ async function main(argv) {
     throw new Error(`no release for ${tag} (gh api failed: ${error.stderr ?? error.message})`);
   }
   const version = versionFromTag(tag);
-  let bridge;
+  let bridgeText;
   let problems = [];
   if (version && compareVersions(version, BRIDGE_VERSION) > 0) {
     try {
       const bridgeRelease = await fetchRelease(`v${BRIDGE_VERSION}`);
       const text = await (await downloadAsset(bridgeRelease))(LEGACY_MANIFEST_NAME);
-      ({ bridge, problems } = parseBridge(text));
+      const parsed = parseBridge(text);
+      problems = parsed.problems;
+      if (parsed.bridge) bridgeText = text;
     } catch (error) {
       problems = [`cannot fetch the ${BRIDGE_VERSION} bridge ${LEGACY_MANIFEST_NAME}: ${error.message}`];
     }
   }
   problems = [
     ...problems,
-    ...(await checkRelease({ tag, release, readAsset: await downloadAsset(release), bridge })),
+    ...(await checkRelease({ tag, release, readAsset: await downloadAsset(release), bridgeText })),
   ];
   if (problems.length > 0) {
     console.error(`check-release-assets: ${tag} fails the release gate:`);
