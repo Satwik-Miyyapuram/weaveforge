@@ -32,7 +32,7 @@ export function createGroupCWriter(sink: FileSink, projectRoot: string): KindWri
   const blobs = new FileBlobStore(fs);
   const ink = new FsInkChunkStore(() => fs, new FolderInkNotes(() => fs));
 
-  const blobRefs: Array<{ bucket: string; path: string; sha256: string }> = [];
+  const blobRefs: Array<{ bucket: string; path: string; sha256: string; contentType: string }> = [];
   const inkChunks: Array<{ note: string; chunkId: string }> = [];
 
   const handlers = new Map<string, KindHandler>([
@@ -93,17 +93,20 @@ export function createGroupCWriter(sink: FileSink, projectRoot: string): KindWri
           if ((await sha256Hex(bytes)) !== sha256) {
             throw new Error(`blobs: sha256 mismatch for ${bucket}/${path}`);
           }
-          await blobs.upload(bucket, path, new Blob([new Uint8Array(bytes)]));
-          blobRefs.push({ bucket, path, sha256 });
+          // The type goes into the existing `.sha256` sidecar (line 2) via upload's contentType.
+          const contentType = row.contentType ? String(row.contentType) : "application/octet-stream";
+          await blobs.upload(bucket, path, new Blob([new Uint8Array(bytes)]), contentType);
+          blobRefs.push({ bucket, path, sha256, contentType });
         },
         async readBack() {
           const out: Row[] = [];
           for (const ref of blobRefs) {
-            const bytes = await blobs.fetchBytes(ref.bucket, ref.path);
+            const blob = await blobs.fetchBlob(ref.bucket, ref.path);
+            const bytes = new Uint8Array(await blob.arrayBuffer());
             if ((await sha256Hex(bytes)) !== ref.sha256) {
               throw new Error(`blobs: read-back sha256 mismatch for ${ref.bucket}/${ref.path}`);
             }
-            out.push({ bucket: ref.bucket, path: ref.path, sha256: ref.sha256 });
+            out.push({ bucket: ref.bucket, path: ref.path, sha256: ref.sha256, contentType: blob.type });
           }
           return out;
         },

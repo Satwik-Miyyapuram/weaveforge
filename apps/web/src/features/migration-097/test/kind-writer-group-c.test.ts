@@ -98,6 +98,15 @@ test("blobs: a written blob is listed back with bucket, path and sha256", async 
   });
 });
 
+test("blobs: contentType is carried through the sidecar and read back", async () => {
+  const { writer } = fresh();
+  const bytes = new Uint8Array([7, 8, 9]);
+  const sha256 = await sha256Hex(bytes);
+  await writer.write("blobs", { bucket: "images", path: "w.webp", sha256, bytes, contentType: "image/webp" });
+  const back = await writer.readBack("blobs");
+  assert.equal(back[0]?.contentType, "image/webp");
+});
+
 test("blobs: a sha256 that does not match the bytes throws", async () => {
   const { writer } = fresh();
   const bytes = new Uint8Array([1, 2, 3]);
