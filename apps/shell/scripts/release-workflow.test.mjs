@@ -5,7 +5,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { PLATFORMS } from "./release-manifest.mjs";
+import { MANIFEST_NAME, PLATFORMS } from "./release-manifest.mjs";
 
 const root = fileURLToPath(new URL("../../../", import.meta.url));
 const workflow = readFileSync(`${root}.github/workflows/release-desktop.yml`, "utf8");
@@ -46,6 +46,12 @@ test("the updater reads latest-v2.json; 0.9.6 clients keep reading the latest.js
   const endpoints = conf.plugins.updater.endpoints;
   assert.equal(endpoints.length, 1);
   assert.match(endpoints[0], /\/releases\/latest\/download\/latest-v2\.json$/);
+});
+
+test("the updater endpoint is the manifest the release scripts write (MANIFEST_NAME)", () => {
+  const conf = JSON.parse(readFileSync(`${root}apps/shell/tauri.conf.json`, "utf8"));
+  const [endpoint] = conf.plugins.updater.endpoints;
+  assert.ok(endpoint.endsWith(`/${MANIFEST_NAME}`), `${endpoint} does not end with ${MANIFEST_NAME}`);
 });
 
 test("the workflow header names latest-v2.json as the manifest the updater reads", () => {
