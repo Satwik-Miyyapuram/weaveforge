@@ -15,7 +15,6 @@ import {
   rustPaperFieldRepository,
 } from "@/features/papers/infrastructure/parts-1";
 import { rustPaperRepository } from "@/features/papers/infrastructure/postgrest-paper-repository";
-import { type ShareMarks, withShareMarks } from "@/features/offline-sync/domain/shared-rows";
 import { rustMilestoneRepository } from "@/features/plan/infrastructure/milestone-rows";
 import { rustReaderAnnotationRepository } from "@/features/reader/infrastructure/parts-1";
 import {
@@ -227,8 +226,6 @@ export interface BackendParts {
   settingsRepository: ISettingsRepository & SettingsWrites;
   /** Offline copies have no release notices; the server supplies them otherwise. */
   releaseNotices?: IReleaseNoticesRepository;
-  /** Local-first only: keeps the sync marker of shared rows in step with grant and revoke. */
-  shareMarks?: ShareMarks;
 }
 
 export function wirePostgrestBackend(
@@ -446,7 +443,7 @@ export function wirePostgrestBackend(
     projectUserCtx(projectContext, session),
   );
   const shareRepository = cacheRepo(
-    parts?.shareMarks ? withShareMarks(shareWrites, parts.shareMarks) : shareWrites,
+    shareWrites,
     ["listForResource", "listSharedWithMe"],
     ["grant", "revoke"],
     pid,
