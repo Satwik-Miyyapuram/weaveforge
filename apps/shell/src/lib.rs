@@ -57,6 +57,7 @@ pub mod protocol;
 pub mod range;
 pub mod second_launch;
 pub mod secrets;
+pub mod secrets_moved;
 pub mod settings_secrets;
 pub mod shim;
 pub mod update_check;
@@ -140,6 +141,7 @@ pub fn run() -> tauri::Result<()> {
             start_stores(app.handle());
             start_ink(app.handle());
             start_vault_watch(app.handle());
+            start_resume_097(app.handle());
             start_routes(app.handle());
             start_local_api(app.handle());
             open_main_window(app.handle())?;
@@ -221,6 +223,10 @@ fn start_stores(app: &tauri::AppHandle) {
     ));
     let _ = app.manage(prefs);
     let _ = app.manage(vault);
+    // Without it the SQL commands and the local API stay off: fail closed, never guess the mode.
+    if let Ok(mode) = local_http::verified::ModeSource::from_app(app) {
+        let _ = app.manage(mode);
+    }
     let _ = app.manage(secrets);
     let _ = app.manage(app_log::AppLog::new(&logs, &home));
     let _ = app.manage(git::GitQueue::default());
@@ -324,6 +330,38 @@ fn start_vault_watch(app: &tauri::AppHandle) {
     let _ = app.manage(slot);
 }
 
+/// Finishes a 0.9.7 removal this device left in progress, off the setup thread. Only this device's
+/// own `removing` entry resumes; the gates live in `resume_on_launch`. A failure is logged, not fatal.
+fn start_resume_097(app: &tauri::AppHandle) {
+    use tauri::Manager as _;
+    let Some(root) = app
+        .try_state::<vault::VaultState>()
+        .and_then(|vault| vault.lock().root())
+    else {
+        return;
+    };
+    let Ok(data) = app.path().app_data_dir() else {
+        return;
+    };
+    let Ok(device) = device_id::get_or_create(&data) else {
+        return;
+    };
+    let folder = std::path::PathBuf::from(&root.path);
+    let pg_root = native_root(&data);
+    let now = vault::iso_utc(std::time::SystemTime::now());
+    // Synchronous on purpose: start_local_db runs next and must see the finished (or refused) resume.
+    let pid_file = pg_root.join("data").join("postmaster.pid");
+    let mut alive_check = || match migrate_097::remove::live_postmaster(&pid_file) {
+        Some(running) => Err(format!("refused: postgres still running ({running})")),
+        None => Ok(()),
+    };
+    if let Err(reason) =
+        migrate_097::remove::resume_on_launch(&folder, &pg_root, &device, &now, &mut alive_check)
+    {
+        local_api::warn(app, &format!("0.9.7 removal not resumed: {reason}"));
+    }
+}
+
 /// Stops the folder watch and the handwriting helper before the process exits.
 fn stop_helpers(app: &tauri::AppHandle) {
     use tauri::Manager;
@@ -369,6 +407,7 @@ fn local_api_deps(app: &tauri::AppHandle) -> Option<(local_http::control::LocalA
     let prefs = app.try_state::<prefs::Prefs>()?.inner().clone();
     let secrets = app.try_state::<secrets::Secrets>()?.inner().clone();
     let vault = app.try_state::<vault::VaultState>()?.inner().clone();
+    let mode = app.try_state::<local_http::verified::ModeSource>()?.inner().clone();
     let paths = app.path();
     let product = app.package_info().name.clone();
     // Without a resource dir the build is unknown, so it is treated as Dev: it must never
@@ -398,6 +437,7 @@ fn local_api_deps(app: &tauri::AppHandle) -> Option<(local_http::control::LocalA
     let artifacts = paths.app_data_dir().unwrap_or_default().join("artifacts");
     let deps = local_http::control::LocalApiDeps {
         vault,
+        mode,
         prefs: Arc::new(prefs),
         secrets: Arc::new(secrets),
         opener: Arc::new(local_api::TauriOpener(app.clone())),

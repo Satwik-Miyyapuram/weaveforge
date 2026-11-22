@@ -1,11 +1,15 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { before, test } from "node:test";
 
 import type { BackendConfig } from "../../backend/parts";
 import { DeviceSecretsStore, type DeviceKeychain } from "../../backend/device-secrets-store";
 import type { VaultFileBridge } from "../../features/workspace/infrastructure/parts";
+import { loadTestCore } from "@/lib/test/load-test-core";
 import { wireBackend } from "../parts";
 import { wireDesktopFileBackend } from "../desktop-file-backend";
+
+// The wiring reads the storage config from the Rust core, so the core loads before any test runs.
+before(loadTestCore);
 
 const config = {
   provider: "postgrest",

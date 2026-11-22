@@ -5,8 +5,10 @@
  * Layout matches `asset_path` in `crates/wf-core/src/sync/folder_layout.rs`; the
  * `assets` prefix is hard-coded here (`ASSET_DIR`) so no wasm export is needed.
  */
-import { BlobNotFoundError, type IBlobFetcher, type IWorkspaceFs } from "@weaveforge/core";
+import { BlobNotFoundError, ConflictError, type IBlobFetcher, type IWorkspaceFs } from "@weaveforge/core";
 import { moveToTrash } from "@/lib/workspace-trash";
+import { conflictCopyPath } from "@/features/migration-097/domain/conflict-path";
+import { tempPathFor } from "@/lib/temp-path";
 
 /** `ASSET_DIR` in crates/wf-core/src/sync/folder_layout.rs. */
 const ASSET_DIR = "assets";
@@ -24,8 +26,32 @@ function assertSafe(bucket: string, path: string): void {
 
 /** Writes through a `.part` file and a rename, so a crash never leaves a half-written asset. */
 async function writeAtomic(fs: IWorkspaceFs, file: string, data: Uint8Array | string): Promise<void> {
-  await fs.writeFile(`${file}.part`, data);
-  await fs.rename(`${file}.part`, file);
+  const part = tempPathFor(file);
+  await fs.writeFile(part, data);
+  await fs.rename(part, file);
+}
+
+/** Sidecar conflict copies live outside assets/, so they never collide with an asset's own name. */
+const SIDECAR_CONFLICT_DIR = ".weaveforge/migration-0.9.7/sidecar-conflicts";
+
+/**
+ * Writes a sidecar without ever renaming onto an existing one. The same text is already there: nothing to do.
+ * Different text keeps the existing sidecar, writes the new text to the first free copy under `conflictBase`,
+ * and throws so the row counts as a conflict.
+ */
+async function putSidecar(fs: IWorkspaceFs, sidecar: string, text: string, conflictBase: string): Promise<void> {
+  if (!(await fs.stat(sidecar))) return writeAtomic(fs, sidecar, text);
+  if ((await fs.readText(sidecar)) === text) return;
+  for (let n = 0; ; n++) {
+    const target = n === 0 ? conflictBase : conflictCopyPath(conflictBase, n);
+    if (!(await fs.stat(target))) {
+      await fs.mkdirp(target.slice(0, target.lastIndexOf("/")));
+      await writeAtomic(fs, target, text);
+      break;
+    }
+    if ((await fs.readText(target)) === text) break;
+  }
+  throw new ConflictError(`conflict: ${sidecar} differs`);
 }
 
 function assetFile(bucket: string, path: string): string {
@@ -55,7 +81,7 @@ export class FileBlobStore implements IBlobFetcher {
       await this.fs.mkdirp(file.slice(0, file.lastIndexOf("/")));
       await writeAtomic(this.fs, file, bytes);
     }
-    await writeAtomic(this.fs, `${file}.sha256`, `${digest}\n${type}`);
+    await putSidecar(this.fs, `${file}.sha256`, `${digest}\n${type}`, `${SIDECAR_CONFLICT_DIR}/${bucket}/${path}.sha256`);
   }
 
   /** Moves the bytes and sidecar to `.weaveforge/trash`; nothing is unlinked. */

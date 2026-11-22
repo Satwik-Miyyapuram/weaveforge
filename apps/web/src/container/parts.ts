@@ -44,7 +44,7 @@ import type { Migrate097Resolved } from "@/lib/desktop/migrate-097";
 import { chooseFileBackend } from "./file-backend-choice";
 import { wireNoAccountBackend } from "./no-account-file-backend";
 import { isLocalMode } from "@/features/auth/infrastructure/no-account-mode";
-import { readOnlyBackend } from "./read-only-repositories";
+import { readOnlyBackend, readOnlyDb } from "./read-only-repositories";
 import {
   type WiredPostgrestBackend,
   wirePostgrestBackend,
@@ -391,7 +391,10 @@ export function wireBackend(
         {
           files: wire ? () => ({ ...wire(config, projectContext, pid), filesMode: true }) : undefined,
           old: () => ({ ...wirePostgrestBackend(config, projectContext, pid), filesMode: false }),
-          readOnly: () => ({ ...readOnlyBackend(wirePostgrestBackend(config, projectContext, pid)), filesMode: false }),
+          readOnly: () => ({
+            ...readOnlyBackend(wirePostgrestBackend(config, projectContext, pid, undefined, undefined, readOnlyDb)),
+            filesMode: false,
+          }),
         },
         files?.onDesktop === true,
       );

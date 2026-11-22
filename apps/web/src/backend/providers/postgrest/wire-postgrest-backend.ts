@@ -88,6 +88,7 @@ import {
 } from "@weaveforge/core";
 import type { ISharedReader, SharedItem } from "../../../features/sharing/domain/shared-reader";
 import type { Integration, SyncProvider } from "../../../features/sync/domain/parts";
+import { guardOrgDb } from "@/container/org-db-guard";
 import { SupabaseAdminUserProvisioner, SupabaseSessionProvider } from "../supabase-auth/parts";
 import { createDataClient } from "./parts-1";
 import { projectUserCtx, rustAiStores, rustRepository, rustVaultPageRepository } from "./rust-repository";
@@ -151,6 +152,22 @@ function rustSharedReader(db: SupabaseClient): ISharedReader {
 }
 
 /**
+ * Files mode: the named methods reject before any request. The org allowlist keeps `projects`
+ * and `user_settings` live for other reads, so guardOrgDb cannot refuse these by table. The
+ * release-notice `unseen` read joins the personal seen marker, so files mode shows no banner.
+ */
+function refuseInFilesMode<T extends object>(repo: T, names: readonly (keyof T)[], filesMode: boolean): T {
+  if (!filesMode) return repo;
+  const refused = async () => {
+    throw new Error("Not available in files mode");
+  };
+  return new Proxy(repo, {
+    get: (target, key, receiver) =>
+      names.includes(key as keyof T) ? refused : Reflect.get(target, key, receiver),
+  });
+}
+
+/**
  * Per-project Zotero collection (`projects.zotero_collection`). The API key and
  * library are per user; only the target collection is per project.
  */
@@ -164,6 +181,11 @@ function rustProjectZoteroStore(db: SupabaseClient): IProjectBibliographyCollect
 }
 
 // --- wire-postgrest-backend ---
+export interface PostgrestWiringOptions {
+  /** Files mode: the container's personal repos wired here reach the org allowlist only. */
+  readonly filesMode?: boolean;
+}
+
 /**
  * A repository that re-tags its records when a project folder moves. Only the
  * file repositories have one; the overlay supplies it in files mode.
@@ -251,6 +273,7 @@ export function wirePostgrestBackend(
   projectContext: ProjectContext,
   pid: () => string | null,
   parts?: BackendParts,
+  options?: PostgrestWiringOptions,
   guardDb?: DbGuard,
 ): WiredPostgrestBackend {
   const url = config.supabaseUrl;
@@ -269,6 +292,9 @@ export function wirePostgrestBackend(
   // Guarded before the first repository below is built, so no repository holds the raw client.
   const db = guardDb ? guardDb(rawDb) : rawDb;
   // A session built here listens on the client; one passed in is its owner's.
+  // In files mode the repos below that the container still wires over this client may reach only
+  // the org server allowlist: a personal call throws before any request is sent.
+  const serverDb = options?.filesMode ? guardOrgDb(db) : db;
   const ownSession = parts?.session ? null : new SupabaseSessionProvider(db);
   const session = parts?.session ?? ownSession!;
   const auth = parts?.auth ?? new SupabaseAuthService(db);
@@ -281,9 +307,13 @@ export function wirePostgrestBackend(
     parts?.settingsRepository ?? new PostgrestSettingsRepository(db, session, secretsStoreFor(db));
   const releaseNoticesRepository =
     parts?.releaseNotices ??
-    rustRepository<IReleaseNoticesRepository>(db, "release_notices", ["unseen"], async () => ({
-      userId: (await session.getCurrentUserId()) ?? undefined,
-    }));
+    refuseInFilesMode(
+      rustRepository<IReleaseNoticesRepository>(serverDb, "release_notices", ["unseen"], async () => ({
+        userId: (await session.getCurrentUserId()) ?? undefined,
+      })),
+      ["unseen"],
+      options?.filesMode === true,
+    );
   const manageSettings = new ManageSettingsUseCaseClass({ repository: settingsRepository, clock: systemClock });
   const projectRepository = cacheRepo(
     rustProjectRepository(db, session),
@@ -306,7 +336,8 @@ export function wirePostgrestBackend(
     pid,
     { resourceType: "graph_settings" },
   );
-  const integrationsStore: IIntegrationsStore = rustIntegrationsStore(db);
+  const integrationsStore: IIntegrationsStore = rustIntegrationsStore(serverDb);
+  // AI tables are not on the org allowlist, so they take the personal db (guarded by guardDb).
   const ai = rustAiStores(db, projectContext, session);
   const paperRepository = cachePaperRepository(rustPaperRepository(db, projectContext), pid);
 
@@ -437,7 +468,7 @@ export function wirePostgrestBackend(
   );
   // Not cached: a decision another reviewer records is the point of the screen,
   // and a cache would show you your own half of it until something evicted.
-  const screeningRepository = rustRepository<IScreeningRepository>(db, "screening_decisions", [
+  const screeningRepository = rustRepository<IScreeningRepository>(serverDb, "screening_decisions", [
     "listForItems",
     "record",
     "remove",
@@ -480,7 +511,7 @@ export function wirePostgrestBackend(
   // What you can read depends on the grants, so a share change (yours or a
   // peer's broadcast) clears this memo with the share repository's.
   const sharedReader: ISharedReader = cacheRepo(
-    rustSharedReader(db),
+    rustSharedReader(serverDb),
     ["read"],
     [],
     pid,
@@ -506,7 +537,11 @@ export function wirePostgrestBackend(
     pid,
   );
   const supervisionRepository = rustSupervisionRepository(db);
-  const projectBibliographyCollection = rustProjectZoteroStore(db);
+  const projectBibliographyCollection = refuseInFilesMode(
+    rustProjectZoteroStore(serverDb),
+    ["setCollection"],
+    options?.filesMode === true,
+  );
   const rawBlobStore = parts?.blobStore ?? wireStorage({ supabaseDb: db });
   const libraryPinRepository: ILibraryPinRepository = cacheRepo(
     rustRepository<ILibraryPinRepository>(

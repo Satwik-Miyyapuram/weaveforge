@@ -62,7 +62,7 @@ test("wireFileBackend builds every personal repository without a database or net
   for (const [key, repo] of Object.entries(repos)) {
     assert.ok(repo, `${key} is constructed`);
   }
-  assert.equal(Object.keys(repos).length, 25);
+  assert.equal(Object.keys(repos).length, 27, "25 personal repos + aiProposalStore + aiAuditStore (df26f3992)");
   assert.equal(fetchCalls, 0, "no PostgREST or other fetch while wiring");
   assert.equal(localDbCalls, 0, "no queryLocalDb while wiring");
 });

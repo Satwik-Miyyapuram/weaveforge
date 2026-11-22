@@ -7,6 +7,8 @@ import type { UserSettings, UserIntegrationDescriptor } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { userSettingsFromCore, userSettingsToCore } from "@/features/settings/infrastructure/parts";
 import { Modal, ModalActions } from "@/components/modal";
+import { KeychainUnavailableError } from "@/backend/device-secrets-store";
+import { KeychainMissingDialog } from "./keychain-missing-dialog";
 import { ScreenHead } from "@/components/screen-head";
 import { ConnectionState } from "@/components/connection-state";
 import { ScreenLoader } from "@/components/weaveforge-loader";
@@ -173,6 +175,8 @@ export function SettingsScreen() {
   const [projectCollection, setProjectCollection] = useState<string>("");
   const [activeProvider, setActiveProvider] = useState<UserIntegrationDescriptor | null>(null);
   const [aiAccessOpen, setAiAccessOpen] = useState(false);
+  // Set when a save found no OS keychain; the dialog offers install help and a retry.
+  const [keychainMissing, setKeychainMissing] = useState(false);
   // Settings as they were when the AI modal opened; Cancel puts them back.
   const aiAccessSnapshot = useRef<UserSettings | null>(null);
   const [tab, setTab] = useState<SettingsTabId>("account");
@@ -211,7 +215,12 @@ export function SettingsScreen() {
 
   const { busy, error, setError, submit } = useSubmit(async () => {
     if (!loaded) throw new Error("Settings did not load; reload before saving.");
-    await getContainer().settings.manageSettings.save(settings);
+    try {
+      await getContainer().settings.manageSettings.save(settings);
+    } catch (err) {
+      if (err instanceof KeychainUnavailableError) setKeychainMissing(true);
+      throw err;
+    }
     // The ink engine is probed once per session and kept. Saving settings can
     // change what the *desktop shell* answers — the local API's switch is the
     // one — so the probe is dropped here rather than being trusted forever.
@@ -593,6 +602,15 @@ export function SettingsScreen() {
         </Modal>
       )}
 
+      {keychainMissing && (
+        <KeychainMissingDialog
+          onClose={() => setKeychainMissing(false)}
+          onRetry={() => {
+            setKeychainMissing(false);
+            void submit();
+          }}
+        />
+      )}
       {aiAccessOpen && (
         <Modal title="AI & MCP access" onClose={() => !busy && cancelAiAccess()}>
           <form className="add-form ai-access-modal" onSubmit={(event) => { void submit(event).then((ok) => { if (ok) setAiAccessOpen(false); }); }}>

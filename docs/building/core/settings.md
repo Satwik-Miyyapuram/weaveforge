@@ -92,6 +92,11 @@ and only if nobody changed it meanwhile. Without a keychain, or with a secret
 inside a list, the file is left as it is (`apps/shell/tests/settings_secrets.rs`,
 `legacy_secrets_split_out` in `settings_files.rs`).
 
+This device's integration credentials (`device-secrets`) are one keychain entry per
+field (`device-secrets/<key>`, listed by `device-secrets/_index`), because Windows caps a
+blob at 2560 bytes. The page can read and write them, so they are exposed to the page
+exactly as before; the keychain only keeps them out of workspace files and git.
+
 ## Laws
 
 Each law is a property test in `crates/wf-core/tests/settings_files.rs`.

@@ -65,14 +65,19 @@ export class FileAiProposalStore implements IAiProposalStore {
     return this.read(this.pathOf(id));
   }
 
-  async listPending(): Promise<AiWriteProposal[]> {
-    const pending: AiWriteProposal[] = [];
+  /** Every proposal, whatever its status, newest first. */
+  async listAll(): Promise<AiWriteProposal[]> {
+    const all: AiWriteProposal[] = [];
     for (const entry of await this.fs.list(DIR)) {
       if (entry.kind !== "file" || !entry.path.endsWith(".json")) continue;
       const proposal = await this.read(entry.path);
-      if (proposal?.status === "pending") pending.push(proposal);
+      if (proposal) all.push(proposal);
     }
-    return pending.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    return all.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  }
+
+  async listPending(): Promise<AiWriteProposal[]> {
+    return (await this.listAll()).filter((p) => p.status === "pending");
   }
 
   async claimPending(id: string): Promise<boolean> {

@@ -22,6 +22,8 @@ const ALLOWED = [
   "features/settings/ui/calendar-feed-panel.tsx",
   "features/settings/ui/local-api-panel.tsx",
   "features/settings/ui/mcp-tokens-panel.tsx",
+  // Confirms removing old local data after the 0.9.7 migration (cannot be undone), and shows the keychain-needed notice.
+  "lib/desktop/migrate-097-remove-old-button.tsx",
 ];
 
 function walk(dir: string, out: string[] = []): string[] {

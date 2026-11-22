@@ -77,9 +77,9 @@ export function RemoveOldDataButton({
       ) : null}
       {keychainMissing ? (
         <ConfirmDialog
-          title="Keychain needed"
+          title="Set up the keychain first"
           body={KEYCHAIN_INSTALL_BODY}
-          confirmLabel="OK"
+          confirmLabel="Set up later"
           onConfirm={() => setKeychainMissing(false)}
           onClose={() => setKeychainMissing(false)}
         />

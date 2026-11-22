@@ -105,7 +105,10 @@ fn an_old_list_file_still_reads_its_members_for_the_rewrite() {
     let old = "---\nweaveforge-id: l1\nweaveforge-type: reading_list\ntitle: Core\ncreated-at: 2026-11-01T00:00:00Z\nmembers: [\"[[Smith 2024.paper]]\"]\nmember-notes: {\"paper:p1\": {\"id\": \"i1\", \"order\": 1}}\n---\n";
     let r = parse_entity_row(EntityKind::ReadingList, old).expect("parses");
     assert_eq!(r.get("members"), Some(&json!(["[[Smith 2024.paper]]"])));
-    assert_eq!(r.get("memberNotes"), Some(&json!({"paper:p1": {"id": "i1", "order": 1}})));
+    assert_eq!(
+        r.get("memberNotes"),
+        Some(&json!({"paper:p1": {"id": "i1", "order": 1}}))
+    );
 }
 
 #[test]
@@ -244,7 +247,8 @@ fn paths_follow_the_folder_layout() {
 #[test]
 fn entity_id_from_text_reads_quoted_and_bare_ids_and_none_without_one() {
     assert_eq!(
-        entity_id_from_text("---\nweaveforge-id: 'abc-1'\nweaveforge-type: experiment\n---\n").as_deref(),
+        entity_id_from_text("---\nweaveforge-id: 'abc-1'\nweaveforge-type: experiment\n---\n")
+            .as_deref(),
         Some("abc-1"),
     );
     assert_eq!(
@@ -258,7 +262,10 @@ fn entity_id_from_text_reads_quoted_and_bare_ids_and_none_without_one() {
 #[test]
 fn entity_id_from_text_keeps_the_id_of_broken_frontmatter_and_trims_it() {
     assert_eq!(
-        entity_id_from_text("---\nweaveforge-id: kept-9\nweaveforge-type: experiment\ntitle: [unclosed\n").as_deref(),
+        entity_id_from_text(
+            "---\nweaveforge-id: kept-9\nweaveforge-type: experiment\ntitle: [unclosed\n"
+        )
+        .as_deref(),
         Some("kept-9"),
     );
     assert_eq!(

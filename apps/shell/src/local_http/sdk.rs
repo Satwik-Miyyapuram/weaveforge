@@ -123,7 +123,7 @@ fn number(x: f64) -> Value {
 }
 
 /// `searchParams.get(key)?.trim()`: the first value for `key`, or `""` when absent.
-fn trimmed_param(search: &str, key: &str) -> String {
+pub(super) fn trimmed_param(search: &str, key: &str) -> String {
     search
         .split('&')
         .filter(|pair| !pair.is_empty())

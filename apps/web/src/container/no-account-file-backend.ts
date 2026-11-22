@@ -19,7 +19,7 @@ export function wireNoAccountBackend(
   projectContext: { projectId: string | null },
   pid: () => string | null,
 ): WiredPostgrestBackend {
-  const postgrest = wirePostgrestBackend(config, projectContext, pid, undefined, readOnlyDb);
+  const postgrest = wirePostgrestBackend(config, projectContext, pid, undefined, { filesMode: true }, readOnlyDb);
   const files = wireFileBackend({
     fs: new NoAccountWorkspaceFs(),
     settings: workspaceSettings,

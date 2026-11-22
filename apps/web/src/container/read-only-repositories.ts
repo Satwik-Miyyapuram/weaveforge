@@ -1,26 +1,84 @@
 import { ManageSettingsUseCase, type ISettingsRepository } from "@weaveforge/core";
 import { RPC_WRITES } from "@/backend/providers/postgrest/watch-writes";
 import { systemClock } from "@/lib/parts";
-import { ORG_SERVER_BUCKETS, ORG_SERVER_RPCS, ORG_SERVER_TABLES } from "./org-server-allowlist";
+import { FILES_MODE_CRDT_TYPES } from "@/features/collab/infrastructure/files-mode-crdt-limit";
+import { ORG_SERVER_BUCKETS, ORG_SERVER_RPCS, ORG_SERVER_WRITE_TABLES } from "./org-server-allowlist";
 import { PERSONAL_ALIASES, PERSONAL_REPOSITORY_KEYS } from "./with-file-repositories";
 
 /**
  * The desktop fallback for 0.9.7: when this device's old local database has
- * not been exported, its repositories answer reads and refuse every write, so
- * nothing can change data that the export has not yet copied to files.
+ * not been exported, its repositories answer only the reads named in
+ * READ_ONLY_METHODS and refuse every other method. Default-deny: a method that
+ * is not on a repository's list (a write, a helper, or a name nobody listed)
+ * throws ReadOnlyError, so nothing can change data that the export has not yet
+ * copied to files.
  *
- * A method counts as a write when its name starts with a write verb. The
- * iteration test in container/test checks every method of every repository, so
- * a new write method with a verb name cannot slip past unwrapped.
+ * Each allowlisted name is a real read in the repository source (the wiring's
+ * read lists, or the file repository body checked by hand). No write method is
+ * on any list. The tests check that every listed name exists on its repository.
  */
 export const READ_ONLY_MESSAGE = "read-only until export verified";
 
-const WRITE_VERB =
-  /^(create|save|set|update|upsert|put|add|insert|delete|remove|move|rename|pin|unpin|track|untrack|clear|reset|import|append|write|link|unlink|mark|apply|submit|record|touch|reorder|replace|share|revoke|accept|reject|dismiss|store|sync|bind|register|enqueue|claim|release|lock|unlock|commit|flush|purge|trash|restore)/;
-
-export function isWriteMethod(name: string): boolean {
-  return WRITE_VERB.test(name);
+export class ReadOnlyError extends Error {
+  constructor() {
+    super(READ_ONLY_MESSAGE);
+    this.name = "ReadOnlyError";
+  }
 }
+
+/**
+ * The reads each read-only backend key may run, by method name. A key absent
+ * here allows no method. Settings and credential writes (saveAppearance,
+ * acceptDisclaimer, saveNoticeSeen, save) are deliberately absent.
+ */
+export const READ_ONLY_METHODS: Readonly<Record<string, readonly string[]>> = {
+  paperRepository: [
+    "getById",
+    "list",
+    "listSummaries",
+    "findByArxivId",
+    "findByDoi",
+    "findByTitleKey",
+    "findIdentityByArxivId",
+    "findIdentityByDoi",
+  ],
+  tagRepository: ["getById", "findByName", "list", "listAll", "listWithCounts", "listForPaper", "listPapersForTag", "listPaperTagLinks"],
+  paperTagRepository: ["listForPaper", "listForTag", "listAll"],
+  logEntryRepository: ["getById", "list"],
+  reportSectionRepository: ["getById", "list", "getTree"],
+  rawVaultPageRepository: ["getById", "list", "listStamps", "listByIds", "listSummaries", "getTree", "titleTaken"],
+  readingListRepository: ["getById", "listByIds", "list", "getTree"],
+  readingListItemRepository: [
+    "listItems",
+    "listItemsForLists",
+    "listsForPaper",
+    "listsForNote",
+    "find",
+    "findNote",
+    "unreadablePaths",
+    "legacyLeftovers",
+  ],
+  screeningRepository: ["listForItems"],
+  paperRelationRepository: ["getById", "list", "getGraph", "relationsFor", "findEdge"],
+  experimentRepository: ["getById", "list"],
+  milestoneRepository: ["getById", "list"],
+  projectRepository: ["getById", "list"],
+  dashboardLayoutRepository: ["get"],
+  graphSettingsRepository: ["get"],
+  integrationsStore: ["get"],
+  aiAuditStore: ["countAccepted"],
+  settingsRepository: ["get", "getMetadata"],
+  libraryPinRepository: ["listForProject", "isPinned"],
+  citationAlertTrackRepository: ["listForProject", "getByPaperId"],
+  annotationPinRepository: ["listForProject", "listForPaper", "listForSection"],
+  annotationQuotationTypeRepository: ["listForPaper"],
+  quotationTypeRepository: ["listForPaper"],
+  labSnapshotRepository: ["listMine", "listForMember", "getById"],
+  readerAnnotationRepository: ["list", "listForProject"],
+  paperFieldRepository: ["listDefs", "listValuesForPaper", "listValuesForProject"],
+  projectBibliographyCollection: ["getCollection"],
+  bibliographyCollectionStore: ["getCollection"],
+};
 
 /** Method names of a repository object, walking its prototype chain (no Object.prototype). */
 export function repositoryMethods(repo: object): string[] {
@@ -35,25 +93,28 @@ export function repositoryMethods(repo: object): string[] {
   return [...names];
 }
 
-/** Wraps one repository: write methods throw, every other method passes through. */
-export function readOnlyRepository<T extends object>(repo: T): T {
+/**
+ * Wraps one repository: the named reads pass through, every other method returns a
+ * rejected promise with ReadOnlyError. Repository methods are async, so a refusal
+ * is a rejection, the same shape an awaiting caller already handles.
+ */
+export function readOnlyRepository<T extends object>(repo: T, allowed: readonly string[] = []): T {
+  const reads = new Set(allowed);
   const wrapped: Record<string, unknown> = {};
   for (const name of repositoryMethods(repo)) {
     const original = (repo as Record<string, unknown>)[name] as (...args: unknown[]) => unknown;
-    wrapped[name] = isWriteMethod(name)
-      ? () => {
-          throw new Error(READ_ONLY_MESSAGE);
-        }
-      : (...args: unknown[]) => original.apply(repo, args);
+    wrapped[name] = reads.has(name)
+      ? (...args: unknown[]) => original.apply(repo, args)
+      : () => Promise.reject(new ReadOnlyError());
   }
   return wrapped as T;
 }
 
-/** Wraps every repository object of a backend bag; non-object fields pass through. */
+/** Wraps every repository object of a bag with its READ_ONLY_METHODS list; non-object fields pass through. */
 export function readOnlyRepositories<T extends object>(repos: T): T {
   const out: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(repos)) {
-    out[key] = value && typeof value === "object" ? readOnlyRepository(value) : value;
+    out[key] = value && typeof value === "object" ? readOnlyRepository(value, READ_ONLY_METHODS[key] ?? []) : value;
   }
   return out as T;
 }
@@ -69,7 +130,7 @@ export const READ_ONLY_KEYS: ReadonlySet<string> = new Set([
   "manageSettings",
 ]);
 
-const ORG_TABLES: ReadonlySet<string> = new Set(ORG_SERVER_TABLES);
+const ORG_WRITE_TABLES: ReadonlySet<string> = new Set(ORG_SERVER_WRITE_TABLES);
 const ORG_RPCS: ReadonlySet<string> = new Set(ORG_SERVER_RPCS);
 const DB_WRITE_METHODS: ReadonlySet<string> = new Set(["insert", "update", "upsert", "delete"]);
 const STORAGE_WRITE_METHODS: ReadonlySet<string> = new Set(["upload", "update", "remove", "move", "copy", "uploadToSignedUrl"]);
@@ -79,14 +140,46 @@ function rpcAllowed(name: string): boolean {
   return ORG_RPCS.has(name) || RPC_WRITES[name] === null;
 }
 
-/** A query builder for `table`: write methods throw unless the table is org-server. */
+/**
+ * The crdt_updates resource types a read-only desktop may append: the live-share
+ * documents the org server still holds (the files-mode set, FILES_MODE_CRDT_TYPES).
+ * Every other type is personal document data and stays in the folder.
+ */
+const LIVE_SHARE_CRDT_TYPES: ReadonlySet<string> = new Set(FILES_MODE_CRDT_TYPES);
+
+/** A crdt_updates write passes only as an insert whose every row is a live-share type. */
+function guardCrdtUpdates<B extends object>(builder: B): B {
+  return new Proxy(builder, {
+    get(target, prop) {
+      if (prop === "insert") {
+        return (rows: unknown, ...rest: unknown[]) => {
+          const list = Array.isArray(rows) ? rows : [rows];
+          const shared = list.every((r) => LIVE_SHARE_CRDT_TYPES.has(String((r as { resource_type?: unknown }).resource_type)));
+          if (!shared) throw new ReadOnlyError();
+          const insert = Reflect.get(target, "insert", target) as (...a: unknown[]) => unknown;
+          return insert.call(target, rows, ...rest);
+        };
+      }
+      if (typeof prop === "string" && DB_WRITE_METHODS.has(prop)) {
+        return () => {
+          throw new ReadOnlyError();
+        };
+      }
+      const value: unknown = Reflect.get(target, prop, target);
+      return typeof value === "function" ? value.bind(target) : value;
+    },
+  });
+}
+
+/** A query builder for `table`: write methods throw unless the table is an org-server write table. */
 function guardBuilder<B extends object>(builder: B, table: string): B {
-  if (ORG_TABLES.has(table)) return builder;
+  if (table === "crdt_updates") return guardCrdtUpdates(builder);
+  if (ORG_WRITE_TABLES.has(table)) return builder;
   return new Proxy(builder, {
     get(target, prop) {
       if (typeof prop === "string" && DB_WRITE_METHODS.has(prop)) {
         return () => {
-          throw new Error(READ_ONLY_MESSAGE);
+          throw new ReadOnlyError();
         };
       }
       const value: unknown = Reflect.get(target, prop, target);
@@ -102,7 +195,7 @@ function guardBucket<B extends object>(bucket: B, name: string, orgBuckets: Read
     get(target, prop) {
       if (typeof prop === "string" && STORAGE_WRITE_METHODS.has(prop)) {
         return () => {
-          throw new Error(READ_ONLY_MESSAGE);
+          throw new ReadOnlyError();
         };
       }
       const value: unknown = Reflect.get(target, prop, target);
@@ -143,7 +236,7 @@ export function readOnlyDb<T extends object>(db: T, orgBuckets: readonly string[
       }
       if (prop === "rpc") {
         return (name: string, ...args: unknown[]) => {
-          if (!rpcAllowed(name)) throw new Error(READ_ONLY_MESSAGE);
+          if (!rpcAllowed(name)) throw new ReadOnlyError();
           return value.call(target, name, ...args);
         };
       }
@@ -165,12 +258,12 @@ export function readOnlyBackend<T extends object>(backend: T): T {
   const out: Record<string, unknown> = { ...(backend as Record<string, unknown>) };
   for (const key of READ_ONLY_KEYS) {
     const value = out[key];
-    if (value && typeof value === "object") out[key] = readOnlyRepository(value);
+    if (value && typeof value === "object") out[key] = readOnlyRepository(value, READ_ONLY_METHODS[key] ?? []);
   }
   const settings = out.settingsRepository;
   if (settings && typeof settings === "object") {
     out.manageSettings = new ManageSettingsUseCase({
-      repository: readOnlyRepository(settings) as ISettingsRepository,
+      repository: readOnlyRepository(settings, READ_ONLY_METHODS.settingsRepository ?? []) as ISettingsRepository,
       clock: systemClock,
     });
   }
