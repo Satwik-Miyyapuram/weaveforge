@@ -223,8 +223,7 @@ asks again instead of saving the secret to disk.
 Update to 0.9.7 first. 0.9.8 does not move old database data itself, so an
 older version is offered 0.9.7 before 0.9.8.
 
-- **0.9.8** removes the bundled Postgres database and the 0.9.7 upgrade tools. The
-  installer is smaller. If old database data is found that 0.9.7 never moved,
+- **0.9.8** removes the bundled Postgres database and the 0.9.7 upgrade tools. If old database data is found that 0.9.7 never moved,
   the app shows an **Install 0.9.7 first** screen and leaves that data untouched.
 - **1.0.0** is the first stable release. Everything in 0.9.8 is included. The
   server no longer keeps your personal notes, papers or reading lists. Milestones,

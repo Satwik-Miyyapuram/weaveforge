@@ -37,7 +37,6 @@ This release removes the built-in database. Your data is already in your workspa
 
 ### Desktop
 - **Removed:** The app no longer bundles or starts Postgres, and the 0.9.7 upgrade tools are gone.
-- **Changed:** The installer is smaller: TBD MB, down from TBD MB.
 - **Changed:** Updates go through 0.9.7 first. An older version is offered 0.9.7 before 0.9.8.
 - **Changed:** If old database data is found and 0.9.7 never moved it, the app shows an "Install 0.9.7 first" screen and leaves that data untouched.
 
