@@ -13,7 +13,7 @@ use weaveforge_shell_lib::plan_widget::{
     PLAN_WIDGET_HEIGHT, PLAN_WIDGET_WIDTH, WIDGET_PALETTE_KEYS, WidgetBounds, WorkArea,
     clean_widget_palette, hwnd_from_handle, parse_bounds, parse_taskbar_created, pin_script,
     place_widget, powershell_args, rows_to_milestones, switch_plan_widget, theme_push_script,
-    widget_asset,
+    WIDGET_SCRIPT, widget_asset,
 };
 
 /// The palette object with every colour key set to `colour`.
@@ -551,4 +551,56 @@ fn theme_push_script_embeds_the_palette_as_escaped_json() {
         theme_push_script(&BTreeMap::new()),
         "window.__wfPlanWidgetTheme && window.__wfPlanWidgetTheme({});"
     );
+}
+
+/// 2026-11-22T00:00:00Z in epoch milliseconds.
+const NOW_MS: i64 = 20_779 * 86_400_000;
+
+const MILESTONE: &str = "---\nweaveforge-id: m1\nweaveforge-type: milestone\ntitle: Submit draft\ntarget-date: 2026-12-01\nstatus: planned\nproject: Thesis\n---\nNotes\n";
+
+#[test]
+fn plan_widget_data_reads_milestone_files_and_skips_other_notes() {
+    let dir = crate::common::TempDir::new();
+    let session = {
+        let mut s = weaveforge_shell_lib::vault::VaultSession::new();
+        let _ = s.adopt(Some(dir.path())).unwrap();
+        s
+    };
+    crate::common::put(&dir.path().join("Thesis/draft.milestone.md"), MILESTONE.as_bytes());
+    crate::common::put(&dir.path().join("Thesis/note.md"), b"---\nweaveforge-id: n1\nweaveforge-type: note\ntitle: Not a plan\n---\n");
+
+    let got = weaveforge_shell_lib::plan_widget::plan_widget_data_from_vault(&session, NOW_MS)
+        .expect("a readable folder gives a summary");
+
+    let items = got["items"].as_array().unwrap();
+    assert_eq!(items.len(), 1);
+    assert_eq!(items[0]["id"], "m1");
+    assert_eq!(items[0]["title"], "Submit draft");
+    assert_eq!(items[0]["project"], "Thesis");
+    assert_eq!(items[0]["daysLeft"], 9);
+}
+
+#[test]
+fn plan_widget_data_without_a_folder_is_none() {
+    let session = weaveforge_shell_lib::vault::VaultSession::new();
+    assert!(weaveforge_shell_lib::plan_widget::plan_widget_data_from_vault(&session, NOW_MS).is_none());
+}
+
+#[test]
+fn plan_widget_data_for_a_folder_that_went_missing_is_none() {
+    let dir = crate::common::TempDir::new();
+    let gone = dir.path().join("moved");
+    std::fs::create_dir_all(&gone).unwrap();
+    let mut session = weaveforge_shell_lib::vault::VaultSession::new();
+    let _ = session.adopt(Some(&gone)).unwrap();
+    std::fs::remove_dir_all(&gone).unwrap();
+    assert!(weaveforge_shell_lib::plan_widget::plan_widget_data_from_vault(&session, NOW_MS).is_none());
+}
+
+#[test]
+fn widget_page_shows_an_explicit_empty_state_without_a_folder() {
+    let html = include_str!("../widget/plan-widget.html");
+    assert!(html.contains("Open WeaveForge to load your plan"));
+    assert!(WIDGET_SCRIPT.contains(r#"invoke("plan_widget_data")"#));
+    assert!(WIDGET_SCRIPT.contains("cb(null)"));
 }

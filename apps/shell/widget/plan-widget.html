@@ -210,6 +210,12 @@
       day: "numeric",
       month: "short",
     });
+    if (data === null) {
+      document.getElementById("late").hidden = true;
+      document.getElementById("undated").textContent = "";
+      document.getElementById("list").replaceChildren(el("li", "empty", "Open WeaveForge to load your plan"));
+      return;
+    }
     const items = data.items.map((item) => ({ ...item, days: daysUntil(item.date) }));
     const late = items.filter((item) => item.days < 0 && item.status !== "done").length;
     const lateBadge = document.getElementById("late");

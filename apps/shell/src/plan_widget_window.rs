@@ -4,8 +4,11 @@
 use std::collections::BTreeMap;
 
 use crate::commands::{Json, ShellError};
-use crate::plan_widget::{clean_widget_palette, switch_plan_widget};
+use std::time::{SystemTime, UNIX_EPOCH};
+
+use crate::plan_widget::{clean_widget_palette, plan_widget_data_from_vault, switch_plan_widget};
 use crate::prefs::{PrefValue, Prefs};
+use crate::vault::VaultState;
 
 /// The widget window's label.
 pub const WIDGET_WINDOW: &str = "plan-widget";
@@ -49,6 +52,34 @@ pub async fn plan_widget_state(
     prefs: tauri::State<'_, Prefs>,
 ) -> Result<PlanWidgetStatePayload, ShellError> {
     Ok(state_of(&prefs))
+}
+
+fn now_ms() -> i64 {
+    let millis = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_or(0, |elapsed| elapsed.as_millis());
+    i64::try_from(millis).unwrap_or(i64::MAX)
+}
+
+/// The widget's deadlines from the chosen folder's milestone files. `None` when no folder is
+/// chosen or it cannot be read; the page then asks the owner to open WeaveForge.
+///
+/// # Errors
+/// Returns an error when the background read fails or the summary cannot be sent.
+#[tauri::command]
+#[specta::specta]
+pub async fn plan_widget_data(vault: tauri::State<'_, VaultState>) -> Result<Option<Json>, ShellError> {
+    let state = vault.inner().clone();
+    let now = now_ms();
+    let summary = tokio::task::spawn_blocking(move || {
+        let session = state.lock();
+        plan_widget_data_from_vault(&session, now)
+    })
+    .await
+    .map_err(|_| ShellError::from("plan widget: background read failed".to_owned()))?;
+    summary
+        .map(|value| serde_json::from_value(value).map_err(|e| ShellError::from(e.to_string())))
+        .transpose()
 }
 
 /// Turns the widget on or off: saves the choice, then opens or closes its window.

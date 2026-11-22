@@ -199,7 +199,8 @@ pub fn specta_builder() -> tauri_specta::Builder<tauri::Wry> {
         crate::plan_widget_window::plan_widget_set,
         crate::plan_widget_window::plan_widget_theme,
         crate::plan_widget_window::plan_widget_palette,
-        crate::plan_widget_window::plan_widget_open
+        crate::plan_widget_window::plan_widget_open,
+        crate::plan_widget_window::plan_widget_data
     ])
 }
 
