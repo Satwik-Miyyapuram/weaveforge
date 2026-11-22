@@ -307,9 +307,11 @@ export const LEGACY_SECRET_KEYS: readonly string[] = ["zoteroApiKey", "overleafT
 
 /** Settings field text for each legacy secret's top-level name. A key with no field gets no entry. */
 const SETTINGS_LABELS: Readonly<Record<string, string>> = {
-  zoteroApiKey: "Zotero key",
+  zoteroApiKey: "Zotero API key",
   overleafToken: "Overleaf git token",
   gitSyncToken: "Access token",
+  "overleaf-token": "Overleaf git token",
+  "git-sync-token": "Access token",
 };
 
 /** The name a user sees in Settings for an internal secret key, e.g. `overleafToken.extra` → "Overleaf git token". */
