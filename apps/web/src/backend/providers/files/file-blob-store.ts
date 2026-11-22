@@ -6,16 +6,26 @@
  * `assets` prefix is hard-coded here (`ASSET_DIR`) so no wasm export is needed.
  */
 import { BlobNotFoundError, type IBlobFetcher, type IWorkspaceFs } from "@weaveforge/core";
+import { moveToTrash } from "@/lib/workspace-trash";
 
 /** `ASSET_DIR` in crates/wf-core/src/sync/folder_layout.rs. */
 const ASSET_DIR = "assets";
 
+/** Every bucket and path is one relative name; `.sha256` is reserved for sidecars. */
 function assertSafe(bucket: string, path: string): void {
-  for (const part of [bucket, path]) {
-    if (part.includes("..") || part.startsWith("/") || part.includes("\\")) {
-      throw new Error(`Unsafe asset path: ${bucket}/${path}`);
-    }
-  }
+  const unsafe =
+    !bucket ||
+    !path ||
+    bucket.includes("/") ||
+    [bucket, path].some((part) => part.includes("..") || part.startsWith("/") || part.includes("\\")) ||
+    path.endsWith(".sha256");
+  if (unsafe) throw new Error(`Unsafe asset path: ${bucket}/${path}`);
+}
+
+/** Writes through a `.part` file and a rename, so a crash never leaves a half-written asset. */
+async function writeAtomic(fs: IWorkspaceFs, file: string, data: Uint8Array | string): Promise<void> {
+  await fs.writeFile(`${file}.part`, data);
+  await fs.rename(`${file}.part`, file);
 }
 
 function assetFile(bucket: string, path: string): string {
@@ -43,16 +53,17 @@ export class FileBlobStore implements IBlobFetcher {
       }
     } else {
       await this.fs.mkdirp(file.slice(0, file.lastIndexOf("/")));
-      await this.fs.writeFile(file, bytes);
+      await writeAtomic(this.fs, file, bytes);
     }
-    await this.fs.writeFile(`${file}.sha256`, `${digest}\n${type}`);
+    await writeAtomic(this.fs, `${file}.sha256`, `${digest}\n${type}`);
   }
 
+  /** Moves the bytes and sidecar to `.weaveforge/trash`; nothing is unlinked. */
   async remove(bucket: string, path: string): Promise<void> {
     assertSafe(bucket, path);
     const file = assetFile(bucket, path);
     for (const target of [file, `${file}.sha256`]) {
-      if (await this.fs.stat(target)) await this.fs.remove(target);
+      if (await this.fs.stat(target)) await moveToTrash(this.fs, target, Date.now());
     }
   }
 

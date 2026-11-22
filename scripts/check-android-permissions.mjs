@@ -185,6 +185,15 @@ for (const [, kind, attrs] of components) {
   }
 }
 
+// The WebView's storage holds the session tokens; a cloud or adb backup would copy them off the phone.
+if (!/<application\b[^>]*android:allowBackup\s*=\s*"false"/.test(manifest)) {
+  fail('AndroidManifest.xml must set android:allowBackup="false" on <application>: backups would carry the WebView session tokens.');
+}
+// Android 12+ still copies app data in a device-to-device transfer unless these rules exclude it.
+if (!/<application\b[^>]*android:dataExtractionRules\s*=\s*"@xml\/data_extraction_rules"/.test(manifest)) {
+  fail('AndroidManifest.xml must set android:dataExtractionRules="@xml/data_extraction_rules" on <application>.');
+}
+
 for (const token of FORBIDDEN_SOURCE_TOKENS) {
   if (manifest.includes(token)) {
     fail(`AndroidManifest.xml mentions "${token}".`);

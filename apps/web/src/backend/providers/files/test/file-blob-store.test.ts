@@ -55,11 +55,11 @@ test("re-uploading different bytes to the same path throws and keeps the old byt
   assert.deepEqual([...(await store.fetchBytes("notes", "n1/a.png"))], [4, 5]);
 });
 
-test("remove deletes both files and a second remove does not throw", async () => {
+test("remove leaves no asset file behind and a second remove does not throw", async () => {
   const { fs, store } = setup();
   await store.upload("notes", "n1/a.png", png(8), "image/png");
   await store.remove("notes", "n1/a.png");
-  assert.deepEqual(Object.keys(fs.toRecord()), []);
+  assert.equal(Object.keys(fs.toRecord()).some((k) => k.startsWith("assets/")), false);
   await store.remove("notes", "n1/a.png");
 });
 
@@ -73,4 +73,54 @@ test("a path with .. is rejected", async () => {
 test("signedUrls returns a null for each path", async () => {
   const { store } = setup();
   assert.deepEqual(await store.signedUrls("notes", ["a.png", "b.png"], 60), [null, null]);
+});
+
+test("remove moves the bytes and sidecar to .weaveforge/trash, so nothing is lost", async () => {
+  const { fs, store } = setup();
+  await store.upload("notes", "n1/a.png", png(8, 9), "image/png");
+  await store.remove("notes", "n1/a.png");
+  const keys = Object.keys(fs.toRecord());
+  assert.equal(keys.some((k) => k.startsWith("assets/")), false);
+  const trashed = keys.filter((k) => k.startsWith(".weaveforge/trash/") && k.includes("n1/a.png"));
+  assert.equal(trashed.length, 2, keys.join(", "));
+  assert.deepEqual([...(await fs.readFile(trashed.find((k) => !k.endsWith(".sha256"))!))], [8, 9]);
+});
+
+test("writes go to a .part file and are renamed into place, never written directly", async () => {
+  const { fs, store } = setup();
+  const written: string[] = [];
+  const realWrite = fs.writeFile.bind(fs);
+  const realRename = fs.rename.bind(fs);
+  let inRename = false;
+  // The memory fs writes the target inside rename; only the store's own writes count.
+  fs.writeFile = (path, data) => {
+    if (!inRename) written.push(path);
+    return realWrite(path, data);
+  };
+  fs.rename = async (from, to) => {
+    inRename = true;
+    try {
+      return await realRename(from, to);
+    } finally {
+      inRename = false;
+    }
+  };
+  await store.upload("notes", "n1/a.png", png(1, 2), "image/png");
+  assert.equal(written.includes("assets/notes/n1/a.png"), false);
+  assert.ok(written.includes("assets/notes/n1/a.png.part"));
+  assert.equal(Object.keys(fs.toRecord()).some((k) => k.endsWith(".part")), false);
+});
+
+test("an empty bucket or path is rejected", async () => {
+  const { store } = setup();
+  await assert.rejects(store.upload("", "a.png", png(1), "image/png"), /Unsafe asset path/);
+  await assert.rejects(store.upload("notes", "", png(1), "image/png"), /Unsafe asset path/);
+  await assert.rejects(store.fetchBytes("notes", ""), /Unsafe asset path/);
+});
+
+test("a user path ending in .sha256 is rejected, so it cannot reach a sidecar", async () => {
+  const { store } = setup();
+  await assert.rejects(store.upload("notes", "a.png.sha256", png(1), "image/png"), /Unsafe asset path/);
+  await assert.rejects(store.fetchBytes("notes", "a.png.sha256"), /Unsafe asset path/);
+  await assert.rejects(store.remove("notes", "a.png.sha256"), /Unsafe asset path/);
 });

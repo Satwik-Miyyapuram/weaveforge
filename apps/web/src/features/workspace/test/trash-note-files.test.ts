@@ -89,3 +89,15 @@ test("a failed trash leaves the manifest as it was and throws", async () => {
   assert.ok(fs.toRecord()[gone], "the file stays");
   assert.ok((await readMirrorBase(fs, root))[gone], "its base stays, so the import still sees it as deleted in the app");
 });
+
+test("a folder with a subfolder goes to the trash whole, nothing left behind", async () => {
+  const fs = new MemoryWorkspaceFs(() => AT);
+  await fs.writeFile("x/foo.ink/01J.inkb", new Uint8Array([1]));
+  await fs.writeFile("x/foo.ink/old/01K.inkb", new Uint8Array([2]));
+
+  await folderTrash(fs, Date.parse(AT))("x/foo.ink");
+
+  const files = Object.keys(fs.toRecord());
+  assert.deepEqual(files.filter((p) => p.startsWith("x/")), [], `left behind: ${files.join(", ")}`);
+  assert.equal(files.filter((p) => p.startsWith(".weaveforge/trash/") && p.endsWith(".inkb")).length, 2);
+});

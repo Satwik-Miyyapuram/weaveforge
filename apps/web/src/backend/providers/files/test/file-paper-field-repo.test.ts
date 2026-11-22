@@ -34,7 +34,7 @@ test("T4: definitions round-trip through settings, ordered by sortOrder then nam
   await fields.saveDef(venue);
   await fields.saveDef(note);
   assert.deepEqual(await fields.listDefs(), [note, venue]);
-  assert.deepEqual(settings.get(["paperFields", venue.id]), { name: "Venue", kind: "select", options: ["NeurIPS", "ICML"], sortOrder: 2 });
+  assert.deepEqual(settings.get(["paperFields", venue.id]), { projectId: ROOT, name: "Venue", kind: "select", options: ["NeurIPS", "ICML"], sortOrder: 2 });
   await fields.deleteDef(venue.id);
   assert.deepEqual(await fields.listDefs(), [note]);
 });
@@ -93,4 +93,43 @@ test("an empty folder and settings have no fields", async () => {
   const fields = new FilePaperFieldRepository(new FilePaperRepository(fs, ROOT), new MemorySettings(), fs, () => ROOT);
   assert.deepEqual(await fields.listDefs(), []);
   assert.deepEqual(await fields.listValuesForProject(), []);
+});
+
+test("saving a definition with an existing id updates it in place", async () => {
+  const { fields } = await setup();
+  const venue = def();
+  await fields.saveDef(venue);
+  await fields.saveDef({ ...venue, name: "Venue 2", options: ["ACL"] });
+  assert.deepEqual(await fields.listDefs(), [{ ...venue, name: "Venue 2", options: ["ACL"] }]);
+});
+
+test("a value write keeps the body and every other frontmatter line byte-equal", async () => {
+  const { fs, fields } = await setup();
+  const before = await fs.readText(A);
+  const d = def({ kind: "text", options: [] });
+  await fields.saveDef(d);
+  await fields.setValue({ paperId: "a", fieldId: d.id, value: "new" });
+  const after = await fs.readText(A);
+  const closing = (text: string) => text.indexOf("\n---", 4);
+  const beforeEnd = closing(before);
+  const afterEnd = closing(after);
+  assert.equal(after.slice(afterEnd), before.slice(beforeEnd), "body is byte-equal");
+  const otherLines = before.slice(0, beforeEnd).split("\n");
+  for (const line of otherLines) assert.ok(after.slice(0, afterEnd).split("\n").includes(line), `frontmatter line kept: ${line}`);
+});
+
+test("defs carry their project, so two projects' same-named fields stay separate", async () => {
+  const fs = new MemoryWorkspaceFs();
+  const settings = new MemorySettings();
+  const papers = new FilePaperRepository(fs, ROOT);
+  const mine = new FilePaperFieldRepository(papers, settings, fs, () => ROOT);
+  const other = new FilePaperFieldRepository(papers, settings, fs, () => `${ROOT}/other`);
+  const a = def({ name: "Venue" });
+  const b = def({ name: "Venue" });
+  await mine.saveDef(a);
+  await other.saveDef(b);
+  assert.deepEqual(await mine.listDefs(), [a]);
+  assert.deepEqual(await other.listDefs(), [b]);
+  assert.equal(settings.get(["paperFields", a.id, "projectId"]), ROOT);
+  await assert.rejects(mine.setValue({ paperId: "a", fieldId: b.id, value: "x" }), NotFoundError);
 });

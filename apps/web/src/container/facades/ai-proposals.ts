@@ -6,11 +6,27 @@ import {
   type IAiAuditStore,
   type IAiProposalStore,
 } from "@weaveforge/core";
+import { rowRevision } from "@/features/ai-assistant/application/parts";
 import { singleFlight } from "@/lib/cache/parts";
 import { readyCore } from "@/lib/rust-core";
 
 /** How long the pending-proposal count is reused across the shell's badges. */
 const PENDING_PROPOSALS_MEMO_MS = 15_000;
+
+type RevisionSource = { getById(id: string): Promise<{ id: string; updatedAt?: string } | null> };
+type RevisionSources = Record<"papers" | "vaultPages" | "reportSections" | "milestones" | "experiments", RevisionSource>;
+
+/** Edit kinds and the rows their executors check; create kinds have no row to check. */
+const REVISION_SOURCE: Partial<Record<AiProposalKind, keyof RevisionSources>> = {
+  append_paper_note: "papers",
+  paper_update: "papers",
+  paper_field_value: "papers",
+  edit_vault_note: "vaultPages",
+  append_vault_note: "vaultPages",
+  report_edit: "reportSections",
+  milestone_status: "milestones",
+  experiment_update: "experiments",
+};
 
 /** Browser-only review boundary. MCP tools may draft proposals but cannot reach this facade. */
 export class AiProposalFacade {
@@ -19,6 +35,8 @@ export class AiProposalFacade {
   constructor(private readonly deps: {
     proposals: IAiProposalStore; audit: IAiAuditStore; executors: AiProposalExecutorRegistry;
     newId: () => string; now: () => string;
+    /** The rows edit drafts are stamped from, so approving after a change conflicts. */
+    revisionSources?: RevisionSources;
   }) {
     this.executeProposal = new ExecuteAiProposalUseCase({
       proposals: deps.proposals, audit: deps.audit, executors: deps.executors,
@@ -66,7 +84,8 @@ export class AiProposalFacade {
    * queue work the user explicitly requested.
    *
    * The write gate is unchanged: this only produces a pending row, and nothing
-   * reaches a repository until it is approved in the review queue.
+   * reaches a repository until it is approved in the review queue. An edit
+   * draft without a revision is stamped with its row's current one.
    */
   async draftLocal(input: {
     kind: AiProposalKind;
@@ -76,6 +95,9 @@ export class AiProposalFacade {
     sourceLinks?: readonly string[];
     expectedRevision?: string;
   }): Promise<AiWriteProposal> {
+    const source = REVISION_SOURCE[input.kind];
+    const row = !input.expectedRevision && source ? await this.deps.revisionSources?.[source].getById(input.resourceId) : null;
+    const expectedRevision = input.expectedRevision ?? (row ? rowRevision(row) : undefined);
     const shaped = readyCore().shapeAiProposalDraft({
       id: this.deps.newId(),
       kind: input.kind,
@@ -85,7 +107,7 @@ export class AiProposalFacade {
       payload: input.payload ?? null,
       createdAt: this.deps.now(),
       sourceLinks: input.sourceLinks ? [...input.sourceLinks] : undefined,
-      expectedRevision: input.expectedRevision,
+      expectedRevision,
     }) as AiWriteProposal;
     const proposal: AiWriteProposal = { ...shaped, payload: input.payload };
     await this.deps.proposals.save(proposal);

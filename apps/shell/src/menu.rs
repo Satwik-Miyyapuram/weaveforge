@@ -737,7 +737,10 @@ impl<R: Runtime> MenuHost for TauriMenuHost<R> {
             MenuRole::Close => {
                 let _ = self.window.close();
             }
-            MenuRole::Quit => self.window.app_handle().exit(0),
+            MenuRole::Quit => {
+                let exiting = self.window.app_handle().clone();
+                crate::close_flush::flush_then(self.window.app_handle(), move || exiting.exit(0));
+            }
         }
     }
 

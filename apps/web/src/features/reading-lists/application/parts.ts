@@ -3,6 +3,7 @@ import {
   type AiWriteProposal,
   type ILibraryPinRepository,
   type IPaperRepository,
+  type IReadingListItemRepository,
   type IReadingListRepository,
   type IShareRepository,
   type IVaultPageRepository,
@@ -13,6 +14,7 @@ import {
   type PaperFieldValueData,
   type ReadingList,
   type ReadingListItem,
+  type ReadingListLegacyLeftover,
   type ReadingListTreeNode,
   type VaultPage,
 } from "@weaveforge/core";
@@ -141,6 +143,10 @@ export interface ReadingListsScreenData {
   notes: VaultPage[];
   pinnedSharedBy: Map<string, string>;
   listCanComment: Map<string, boolean>;
+  /** Workspace paths whose list membership could not be read; the screen says so. */
+  unreadablePaths: string[];
+  /** 0.9.6 members that are not items (conflicting, unresolved or pending); the screen lists them. */
+  legacyLeftovers: ReadingListLegacyLeftover[];
 }
 
 export class LoadReadingListsScreenUseCase {
@@ -149,16 +155,19 @@ export class LoadReadingListsScreenUseCase {
       lists: IReadingListRepository;
       papers: IPaperRepository;
       notes: IVaultPageRepository;
+      listItems?: IReadingListItemRepository;
       pins?: ILibraryPinRepository;
       shares?: IShareRepository;
     },
   ) {}
 
   async execute(): Promise<ReadingListsScreenData> {
-    const [owned, papers, notes] = await Promise.all([
+    const [owned, papers, notes, unreadablePaths, legacyLeftovers] = await Promise.all([
       this.deps.lists.list(),
       this.deps.papers.list(),
       this.deps.notes.list(),
+      this.deps.listItems?.unreadablePaths?.() ?? Promise.resolve<string[]>([]),
+      this.deps.listItems?.legacyLeftovers?.() ?? Promise.resolve<ReadingListLegacyLeftover[]>([]),
     ]);
 
     const merged = await loadPinnedScreenData(this.deps, {
@@ -177,6 +186,8 @@ export class LoadReadingListsScreenUseCase {
       notes,
       pinnedSharedBy: merged.pinnedSharedBy,
       listCanComment: merged.canComment,
+      unreadablePaths,
+      legacyLeftovers,
     };
   }
 }

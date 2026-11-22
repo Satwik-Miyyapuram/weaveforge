@@ -14,6 +14,7 @@ import {
   type ReactNode,
 } from "react";
 import { readyCore } from "@/lib/rust-core";
+import { holdCloseWhile } from "@/lib/desktop/close-flush";
 import { formatError } from "@/lib/format-error";
 import { downloadBlob } from "@/lib/parts";
 import { isTextEntry, useSpaceHeld } from "./use-space-held";
@@ -237,7 +238,10 @@ export default function CanvasEditor({ body, onSave, filePaths, onOpenFile, imag
     const save = () => saver.flush(readText);
     window.addEventListener("pagehide", save, { passive: true });
     window.addEventListener("beforeunload", save, { passive: true });
+    // The desktop close waits until that write has landed.
+    const stopHold = holdCloseWhile(() => saver.busy());
     return () => {
+      stopHold();
       window.removeEventListener("pagehide", save);
       window.removeEventListener("beforeunload", save);
       // The last change gets one write; no retry or banner outlives the editor.

@@ -6,6 +6,7 @@ import type {
   Paper,
   ReadingList,
   ReadingListItem,
+  ReadingListLegacyLeftover,
   ReadingListTreeNode,
   VaultPage,
 } from "@weaveforge/core";
@@ -79,6 +80,8 @@ export function ListsScreen() {
   }, [allTree, allFlat, hiddenKeys]);
   const papers = data?.papers ?? emptyArray<Paper>();
   const notes = data?.notes ?? emptyArray<VaultPage>();
+  const unreadable = data?.unreadablePaths ?? emptyArray<string>();
+  const leftovers = data?.legacyLeftovers ?? emptyArray<ReadingListLegacyLeftover>();
   const pinnedSharedBy = data?.pinnedSharedBy ?? emptyMap<string, string>();
   const listCanComment = data?.listCanComment ?? emptyMap<string, boolean>();
   const ownerNames = data?.ownerNames ?? emptyMap<string, string>();
@@ -231,6 +234,20 @@ export function ListsScreen() {
       )}
 
       {error && <FormError>{error}</FormError>}
+      {unreadable.length > 0 && (
+        <p role="status" className="lists-screen__notice">
+          {unreadable.length === 1 ? "One paper or note has" : `${unreadable.length} papers or notes have`} a list
+          membership this app cannot read, so {unreadable.length === 1 ? "it is" : "they are"} left out of its lists:{" "}
+          {unreadable.map((p) => p.slice(p.lastIndexOf("/") + 1)).join(", ")}.
+        </p>
+      )}
+      {leftovers.length > 0 && (
+        <p role="status" className="lists-screen__notice">
+          {leftovers.length === 1 ? "One member" : `${leftovers.length} members`} from an older list file{" "}
+          {leftovers.length === 1 ? "is" : "are"} not shown as {leftovers.length === 1 ? "an item" : "items"} yet:{" "}
+          {leftovers.map((l) => `${l.legacyLink ?? l.paperId ?? l.vaultPageId ?? "?"} (list ${l.listId})`).join(", ")}.
+        </p>
+      )}
       {!loadError && tree.length === 0 && pinnedLists.length === 0 && (
         <EmptyState
           variant="first-run"

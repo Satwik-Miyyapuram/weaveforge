@@ -121,11 +121,23 @@ const LIST: Spec = Spec {
         ("sortOrder", "order", Shape::Number),
         ("color", "color", Shape::Text),
         ("createdAt", "created-at", Shape::Text),
-        ("members", "members", Shape::Json),
-        ("memberNotes", "member-notes", Shape::Json),
     ],
     body: ("description", false),
 };
+
+/// Fields an older app wrote that the spec no longer owns. They are read, never written,
+/// so the one-time rewrite can move them into the members' frontmatter.
+const LEGACY_LIST_FIELDS: &[(&str, &str, Shape)] = &[
+    ("members", "members", Shape::Json),
+    ("memberNotes", "member-notes", Shape::Json),
+];
+
+fn legacy_fields(kind: EntityKind) -> &'static [(&'static str, &'static str, Shape)] {
+    match kind {
+        EntityKind::ReadingList => LEGACY_LIST_FIELDS,
+        _ => &[],
+    }
+}
 
 const fn spec(kind: EntityKind) -> &'static Spec {
     match kind {
@@ -299,7 +311,7 @@ pub fn parse_entity_row(kind: EntityKind, text: &str) -> Result<Map<String, Valu
     let id = file.check(s)?;
     let mut row = Map::new();
     let _ = row.insert("id".into(), Value::String(id));
-    for (row_key, file_key, shape) in s.fields {
+    for (row_key, file_key, shape) in s.fields.iter().chain(legacy_fields(kind)) {
         if let Some(v) = read_field(&file, file_key, *shape) {
             let _ = row.insert((*row_key).into(), v);
         }

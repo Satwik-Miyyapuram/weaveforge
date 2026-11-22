@@ -2,8 +2,8 @@
  * Custom paper fields from files (0.9.7 L3). Same contract as the `paper_fields`
  * repo; laws in test/file-paper-field-repo.test.ts.
  *
- * - Definitions live in `.weaveforge/settings.json` under `paperFields`:
- *   `{ "<field id>": { "name", "kind", "options", "sortOrder" } }`.
+ * - Definitions live in `.weaveforge/settings.json` under `paperFields`, each tagged with its `projectId` (the project folder); a project lists only its own:
+ *   `{ "<field id>": { "projectId", "name", "kind", "options", "sortOrder" } }`.
  * - A paper's values live in its `fields` frontmatter, keyed by field id:
  *   `fields: {"f1": "text", "f2": 4.5, "f3": ["nlp"]}`. A `relation` field names
  *   its papers by `[[link]]`, never by id.
@@ -44,7 +44,7 @@ export class FilePaperFieldRepository implements IPaperFieldRepository {
     private readonly papers: FieldedPapers,
     private readonly settings: SettingsSection,
     fs: IWorkspaceFs,
-    root: ProjectRoot,
+    private readonly root: ProjectRoot,
   ) {
     this.links = new LinkIndex(fs, root);
   }
@@ -56,7 +56,7 @@ export class FilePaperFieldRepository implements IPaperFieldRepository {
   }
 
   saveDef({ id, name, kind, options, sortOrder }: PaperFieldDef): Promise<void> {
-    this.settings.set([DEFS, id], { name, kind, options: [...options], sortOrder });
+    this.settings.set([DEFS, id], { projectId: this.root(), name, kind, options: [...options], sortOrder });
     return Promise.resolve();
   }
 
@@ -106,8 +106,11 @@ export class FilePaperFieldRepository implements IPaperFieldRepository {
     const raw = this.settings.get([DEFS]);
     const out = new Map<string, PaperFieldDef>();
     if (!raw || typeof raw !== "object" || Array.isArray(raw)) return out;
+    const project = this.root();
     for (const [id, d] of Object.entries(raw as Record<string, Record<string, unknown>>)) {
       if (!d || typeof d !== "object" || typeof d.name !== "string" || typeof d.kind !== "string") continue;
+      // A definition without a projectId belongs to the workspace root ("").
+      if ((typeof d.projectId === "string" ? d.projectId : "") !== project) continue;
       out.set(id, {
         id,
         name: d.name,

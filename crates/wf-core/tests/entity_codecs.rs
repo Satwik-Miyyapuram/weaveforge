@@ -81,11 +81,31 @@ fn report_section_and_reading_list_round_trip() {
         EntityKind::ReadingList,
         json!({
             "id": "l1", "name": "Core", "description": "Must read", "parentId": "l0",
-            "sortOrder": 1, "color": "#ff0000", "createdAt": "2026-11-01T00:00:00Z",
-            "members": ["[[Smith 2024.paper]]", "[[My note]]"],
-            "memberNotes": {"[[Smith 2024.paper]]": "key paper"}
+            "sortOrder": 1, "color": "#ff0000", "createdAt": "2026-11-01T00:00:00Z"
         }),
     );
+}
+
+#[test]
+fn reading_list_file_holds_no_members() {
+    // Membership lives on each member (lists / list-notes frontmatter), not on the list.
+    let input = row(json!({
+        "id": "l1", "name": "Core", "createdAt": "2026-11-01T00:00:00Z",
+        "members": ["[[Smith 2024.paper]]"],
+        "memberNotes": {"[[Smith 2024.paper]]": "key paper"}
+    }));
+    let text = render_entity_row(EntityKind::ReadingList, None, &input).expect("renders");
+    assert!(!text.contains("members"), "{text}");
+    assert!(!text.contains("member-notes"), "{text}");
+}
+
+#[test]
+fn an_old_list_file_still_reads_its_members_for_the_rewrite() {
+    // A 0.9.6 list file: members and member-notes are read so the rewrite can move them.
+    let old = "---\nweaveforge-id: l1\nweaveforge-type: reading_list\ntitle: Core\ncreated-at: 2026-11-01T00:00:00Z\nmembers: [\"[[Smith 2024.paper]]\"]\nmember-notes: {\"paper:p1\": {\"id\": \"i1\", \"order\": 1}}\n---\n";
+    let r = parse_entity_row(EntityKind::ReadingList, old).expect("parses");
+    assert_eq!(r.get("members"), Some(&json!(["[[Smith 2024.paper]]"])));
+    assert_eq!(r.get("memberNotes"), Some(&json!({"paper:p1": {"id": "i1", "order": 1}})));
 }
 
 #[test]

@@ -3,8 +3,8 @@
 //! Ported from `PostgrestExperimentRepository` in
 //! `apps/web/src/features/experiments/infrastructure/parts.ts`. Rows map with
 //! [`to_domain`] and [`to_row`] from `experiment_rows`. `ExperimentArtifactStore` (blob
-//! upload and signing) stays in TS. `nameContains` has no server filter: names are
-//! encrypted at rest, so the match runs here after the read.
+//! upload and signing) stays in TS. `nameContains` has no server filter: the match runs
+//! here after the read.
 
 use std::collections::HashSet;
 
