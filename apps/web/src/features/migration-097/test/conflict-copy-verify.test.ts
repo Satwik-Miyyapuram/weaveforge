@@ -39,7 +39,7 @@ test("conflict copies: a copy left by an earlier run is listed but never decoded
   // Left behind by an earlier run of this device: it carries an id, as the pre-conflictOf copies did.
   await sink.write(OLD_COPY, JSON.stringify({ id: "x1", v: "old" }));
 
-  const result = await runWebExport({ kinds: ["logEntries"], codec, source: server(), sink, now: NOW, runDeviceId: "dev-a" });
+  const result = await runWebExport({ kinds: ["logEntries"], codec, source: server(), sink, now: NOW, runDeviceId: "dev-alpha" });
 
   assert.deepEqual(result.run.missing, [], "verify passes with the copy present");
   assert.equal(result.state, "incomplete", "a run with a conflict copy is never verified");
@@ -51,7 +51,7 @@ test("conflict copies: this run's copy carries conflictOf instead of id, and ver
   const sink = new MemorySink();
   await sink.write(ORIGINAL, JSON.stringify({ id: "x1", v: "user" }));
 
-  const result = await runWebExport({ kinds: ["logEntries"], codec, source: server(), sink, now: NOW, runDeviceId: "dev-a" });
+  const result = await runWebExport({ kinds: ["logEntries"], codec, source: server(), sink, now: NOW, runDeviceId: "dev-alpha" });
 
   assert.deepEqual(result.run.missing, [], "verify passes with the copy present");
   assert.equal(result.state, "incomplete", "a run with a conflict copy is never verified");

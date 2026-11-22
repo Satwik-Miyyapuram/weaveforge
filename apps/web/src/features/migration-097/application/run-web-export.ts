@@ -50,8 +50,6 @@ export type ExportOptions = {
   desktop?: { folder: string; bridge: DesktopMigration };
   /** KEYS hook: runs only after a verified run, before the markers. A throw leaves the run incomplete. */
   moveSecrets?: () => Promise<void>;
-  /** True when the source holds secrets: with no moveSecrets hook they stay on the server and are named for reconnect. */
-  secretsPresent?: boolean;
   /** Web only: the stable per-browser id (OPFS settings). Desktop takes its id from the backup. */
   runDeviceId?: string;
   /** Receives the raw error text of each failure. It never reaches report.json, which carries fixed codes only. */
@@ -241,7 +239,7 @@ async function priorOutputs(sink: FileSink, deviceId: string | undefined): Promi
 }
 
 export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
-  const { kinds, codec, source, sink, now, onProgress, desktop, writers: givenWriters, projectFolders, moveSecrets, secretsPresent, runDeviceId, debugLog } = opts;
+  const { kinds, codec, source, sink, now, onProgress, desktop, writers: givenWriters, projectFolders, moveSecrets, runDeviceId, debugLog } = opts;
   if (projectFolders) checkProjectFolders(projectFolders);
   const target: MigrationTarget = desktop ? "folder" : "opfs";
 
@@ -268,17 +266,16 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
   const written: Record<string, number> = {};
   const missing: MissingRow[] = [];
 
-  // Secrets are never deleted or cleared on this path. With no KEYS mover (moveSecrets) they stay where they are:
-  // each provider that holds one is named for reconnect and the run still verifies. Only a source that cannot say
-  // which providers hold secrets refuses the run. With a mover, the secrets are moved as before.
-  let reconnectProviders: string[] = [];
-  if (secretsPresent && !moveSecrets) {
-    try {
-      reconnectProviders = await source.secretProviders();
-    } catch {
-      return refused(sink, now, "keys: unreadable", target, { deviceId });
-    }
+  // Secrets are never deleted or cleared on this path. Every run reads which providers hold a secret. A source that
+  // cannot say so refuses the run (fail closed: never verified). With no KEYS mover (moveSecrets) each named provider
+  // stays on the server for reconnect; with a mover, the secrets are moved as before and nothing is named.
+  let providersWithSecrets: string[];
+  try {
+    providersWithSecrets = await source.secretProviders();
+  } catch {
+    return refused(sink, now, "keys: unreadable", target, { deviceId });
   }
+  const reconnectProviders: string[] = desktop && moveSecrets ? [] : providersWithSecrets;
 
   // The pre-migration dump comes first: nothing is read or written without it.
   // Web always has a device id: the caller's stable one (refused above when absent).

@@ -429,6 +429,29 @@ test("runs: a web run with no runDeviceId is refused with a fixed reason, never 
   assert.equal(result.run.deviceId, undefined);
 });
 
+test("runs: a web run with a malformed runDeviceId is refused, writes no data and no server mark", async () => {
+  for (const bad of ["short", "has space!", "x".repeat(65)]) {
+    const { source, calls } = fakeServer({ rows: FIXTURE });
+    const sink = new MemorySink();
+    const result = await runWebExport({ runDeviceId: bad, kinds: KINDS, codec: fakeCodec(SUPPORTED), source, sink, now: NOW });
+    assert.equal(result.state, "incomplete", bad);
+    assert.deepEqual(result.run.missing.map((m) => m.reason), ["no device id: the browser install id is missing or malformed"], bad);
+    assert.equal(result.run.deviceId, undefined, bad);
+    assert.equal((await sink.list()).some((p) => p.startsWith("logEntries/")), false, `${bad}: no log entries written`);
+    assert.equal(calls.includes("mark:097"), false, `${bad}: no server mark written`);
+  }
+});
+
+test("runs: a web run accepts an 8-char and a 64-char runDeviceId at the shape boundaries", async () => {
+  for (const good of ["abcdefgh", "x".repeat(64)]) {
+    const { source } = fakeServer({ rows: FIXTURE });
+    const result = await runWebExport({ runDeviceId: good, kinds: KINDS, codec: fakeCodec(SUPPORTED), source, sink: new MemorySink(), now: NOW });
+    assert.equal(result.state, "verified", good);
+    assert.equal(result.run.deviceId, good, good);
+    assert.equal(result.run.missing.some((m) => m.reason.startsWith("no device id")), false, good);
+  }
+});
+
 test("runs: a device's run replaces only its own older runs; another device's failed run stays and is named", async () => {
   const other: RunReport = {
     startedAt: "2026-11-01T00:00:00.000Z",
