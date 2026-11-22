@@ -129,7 +129,8 @@ fn no_store_write_read_clear_behave_as_no_keychain() {
 fn page_cannot_read_back_the_camel_case_device_tokens() {
     let store = mock();
     let s = secrets(&store);
-    s.write("device-secrets/overleafToken", "tok").expect("write");
+    s.write("device-secrets/overleafToken", "tok")
+        .expect("write");
     s.write("device-secrets/gitSyncToken", "g").expect("write");
     assert_eq!(
         s.page_read("device-secrets/overleafToken"),
@@ -140,7 +141,8 @@ fn page_cannot_read_back_the_camel_case_device_tokens() {
         Err(SecretError::UnknownName)
     );
     // The page can still write them and clear them.
-    s.page_write("device-secrets/overleafToken", "new").expect("page write");
+    s.page_write("device-secrets/overleafToken", "new")
+        .expect("page write");
     assert_eq!(s.page_clear("device-secrets/gitSyncToken"), Ok(()));
 }
 
@@ -228,8 +230,10 @@ fn read_with_no_default_store_is_no_keychain_not_none() {
 fn device_field_entries_are_page_readable_and_writable_by_key() {
     let store = mock();
     let s = secrets(&store);
-    s.page_write("device-secrets/zoteroApiKey", "k").expect("write");
-    s.page_write("device-secrets/integrations.overleaf", "{}").expect("write");
+    s.page_write("device-secrets/zoteroApiKey", "k")
+        .expect("write");
+    s.page_write("device-secrets/integrations.overleaf", "{}")
+        .expect("write");
     assert_eq!(
         s.page_read("device-secrets/zoteroApiKey"),
         Ok(Some("k".to_owned()))
@@ -252,7 +256,11 @@ fn device_field_names_are_checked_and_other_prefixes_are_refused() {
         "local-api-token/x",
     ] {
         assert_eq!(s.page_read(name), Err(SecretError::UnknownName), "{name}");
-        assert_eq!(s.page_write(name, "v"), Err(SecretError::UnknownName), "{name}");
+        assert_eq!(
+            s.page_write(name, "v"),
+            Err(SecretError::UnknownName),
+            "{name}"
+        );
     }
 }
 
@@ -266,9 +274,17 @@ fn the_index_entry_is_page_readable_and_writable_but_other_underscore_keys_are_r
         s.page_read("device-secrets/_index"),
         Ok(Some(r#"{"source":"save","keys":[]}"#.to_owned()))
     );
-    for name in ["device-secrets/_hidden", "device-secrets/_", "device-secrets/_x.sub"] {
+    for name in [
+        "device-secrets/_hidden",
+        "device-secrets/_",
+        "device-secrets/_x.sub",
+    ] {
         assert_eq!(s.page_read(name), Err(SecretError::UnknownName), "{name}");
-        assert_eq!(s.page_write(name, "v"), Err(SecretError::UnknownName), "{name}");
+        assert_eq!(
+            s.page_write(name, "v"),
+            Err(SecretError::UnknownName),
+            "{name}"
+        );
     }
     assert!(is_device_field("device-secrets/_index"));
     assert!(!is_device_field("device-secrets/_other"));
@@ -337,17 +353,26 @@ fn page_read_returns_ai_provider_and_refuses_other_names_even_when_stored() {
 fn write_only_tokens_are_never_page_readable_even_as_device_fields() {
     let store = mock();
     let s = secrets(&store);
-    s.page_write("device-secrets/overleaf-token", "ov").expect("page_write");
-    s.page_write("device-secrets/git-sync-token.host", "git").expect("page_write");
-    assert_eq!(s.read("device-secrets/overleaf-token"), Ok(Some("ov".to_owned())));
+    s.page_write("device-secrets/overleaf-token", "ov")
+        .expect("page_write");
+    s.page_write("device-secrets/git-sync-token.host", "git")
+        .expect("page_write");
+    assert_eq!(
+        s.read("device-secrets/overleaf-token"),
+        Ok(Some("ov".to_owned()))
+    );
     for name in [
         "device-secrets/overleaf-token",
         "device-secrets/git-sync-token.host",
     ] {
         assert_eq!(s.page_read(name), Err(SecretError::UnknownName), "{name}");
     }
-    s.page_write("device-secrets/github.user", "{}").expect("page_write");
-    assert_eq!(s.page_read("device-secrets/github.user"), Ok(Some("{}".to_owned())));
+    s.page_write("device-secrets/github.user", "{}")
+        .expect("page_write");
+    assert_eq!(
+        s.page_read("device-secrets/github.user"),
+        Ok(Some("{}".to_owned()))
+    );
 }
 
 #[test]

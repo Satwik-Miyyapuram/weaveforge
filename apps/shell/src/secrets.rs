@@ -22,7 +22,12 @@ pub const SECRET_NAMES: [&str; 7] = [
 pub const PAGE_READABLE: [&str; 2] = ["ai-provider", "device-secrets"];
 /// Secrets the page may write and clear but never read back, even as a device field. The camelCase
 /// names are the device-field keys the migration writes (`device-secrets/overleafToken`).
-pub const WRITE_ONLY: [&str; 4] = ["overleaf-token", "git-sync-token", "overleafToken", "gitSyncToken"];
+pub const WRITE_ONLY: [&str; 4] = [
+    "overleaf-token",
+    "git-sync-token",
+    "overleafToken",
+    "gitSyncToken",
+];
 /// Secrets the page may write and clear.
 pub const PAGE_WRITABLE: [&str; 4] = [
     "ai-provider",
@@ -55,17 +60,23 @@ pub enum SecretError {
     #[error("This device has more than one saved secrets row, so nothing was moved.")]
     SeveralRows,
     /// Every secret is in the keychain, but the record of the move could not be written.
-    #[error("The secrets are in the keychain, but the move could not be recorded, so it will run again.")]
+    #[error(
+        "The secrets are in the keychain, but the move could not be recorded, so it will run again."
+    )]
     MarkerFailed,
     /// The keychain is locked, so the saved credentials cannot be read. Nothing was changed.
-    #[error("The keychain is locked, so the saved credentials cannot be read. Unlock it and try again. Nothing was changed.")]
+    #[error(
+        "The keychain is locked, so the saved credentials cannot be read. Unlock it and try again. Nothing was changed."
+    )]
     Locked,
     /// The old device row is not the expected JSON.
     #[error("The saved credentials on this device could not be read, so nothing was moved.")]
     BadRow,
     /// The keychain's index of saved fields is damaged. Resetting it (clearing `device-secrets/_index`)
     /// lets the move run again.
-    #[error("The saved credentials index on this device is damaged, so nothing was moved. Reset it to continue.")]
+    #[error(
+        "The saved credentials index on this device is damaged, so nothing was moved. Reset it to continue."
+    )]
     CorruptIndex,
 }
 
