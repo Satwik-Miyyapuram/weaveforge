@@ -13,6 +13,7 @@ import { sha256Hex } from "../domain/hash";
 import { PAPER_FIELD_KINDS, projectDefsMismatches } from "../domain/paper-fields-file";
 import { isUnsafeAssetPath } from "../domain/asset-path";
 import { sameRows, verifyExport, type Verdict } from "./verify-export";
+import { ID_SHAPE } from "../domain/install-id-shape";
 
 export type ExportProgress = { kind: string; done: number; total: number };
 
@@ -50,8 +51,12 @@ export type DesktopMigration = {
 /**
  * Writes report.json via a .part file and rename, so a half-written report is never seen.
  * The runs of other devices already in report.json are kept; this device's entry is replaced.
+ * A run with no device id is never written: without an id it cannot be told apart from another
+ * browser's run, so it could replace that run or be taken for this device's own.
  */
 async function writeReport(sink: FileSink, report: MigrationReport): Promise<void> {
+  const device = report.runs[0]?.deviceId;
+  if (device === undefined) return;
   let existing: RunReport[] = [];
   try {
     const parsed = JSON.parse(await sink.readText(REPORT_PATH)) as Partial<MigrationReport>;
@@ -59,7 +64,6 @@ async function writeReport(sink: FileSink, report: MigrationReport): Promise<voi
   } catch {
     existing = [];
   }
-  const device = report.runs[0]?.deviceId;
   const kept = existing.filter((r) => r.deviceId !== device);
   const merged: MigrationReport = { ...report, runs: [...kept, ...report.runs] };
   const part = `${REPORT_PATH}.part`;
@@ -83,6 +87,8 @@ async function refused(
     blobs: { db: 0, verified: 0 },
     missing: [{ kind: "*", id: "*", reason }],
     deviceId: extra.deviceId,
+    state: "incomplete",
+    target,
   };
   await writeReport(sink, { version: 1, state: "incomplete", backup: extra.backup ?? null, deviceId: extra.deviceId, target, runs: [run] });
   return { state: "incomplete", run };
@@ -139,6 +145,11 @@ async function exportTrash(kind: string, rows: Row[], sink: FileSink, codec: Fil
 export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
   const { kinds, codec, source, sink, now, onProgress, desktop, writers = [], moveSecrets, secretsPresent, runDeviceId, debugLog } = opts;
   const target: MigrationTarget = desktop ? "folder" : "opfs";
+
+  // A browser run must name a well-formed install id; without one the run cannot be matched or verified later.
+  if (!desktop && !ID_SHAPE.test(runDeviceId ?? "")) {
+    return refused(sink, now, "no device id: the browser install id is missing or malformed", target);
+  }
   const writerFor = (kind: string) => writers.find((w) => w.kinds.includes(kind));
   const dbCount: Record<string, number> = {};
   const backCount: Record<string, number> = {};
@@ -148,7 +159,7 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
 
   // A source that holds secrets cannot be exported without the KEYS mover that moves them.
   if (secretsPresent && !moveSecrets) {
-    return refused(sink, now, "keys: no mover", target);
+    return refused(sink, now, "keys: no mover", target, { deviceId: desktop ? undefined : runDeviceId });
   }
 
   // The pre-migration dump comes first: nothing is read or written without it.
@@ -181,6 +192,8 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
       blobs: { db: 0, verified: 0 },
       missing: [{ kind: "outbox", id: "*", reason }],
       deviceId,
+      state: "incomplete",
+      target,
     };
     await writeReport(sink, { version: 1, state: "incomplete", backup: dumpName, deviceId, target, runs: [run] });
     return { state: "incomplete", run };
@@ -205,6 +218,8 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
         blobs: { db: 0, verified: 0 },
         missing: [{ kind: "*", id: "*", reason: "export in progress" }],
         deviceId,
+        state: "incomplete",
+        target,
       },
     ],
   });
@@ -348,6 +363,8 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
       blobs: { db: verdict.blobs.db, verified: verdict.blobs.verified },
       missing,
       deviceId,
+      state,
+      target,
     };
     const report: MigrationReport = {
       version: 1,

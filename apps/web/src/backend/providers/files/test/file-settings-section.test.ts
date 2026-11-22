@@ -16,6 +16,51 @@ class FailingPartFs extends MemoryWorkspaceFs {
   }
 }
 
+/** Writes the `.part` file in full, then fails, as a full disk on the flush after the write would. */
+class TornPartFs extends MemoryWorkspaceFs {
+  override async writeFile(path: string, data: Uint8Array | string): Promise<void> {
+    await super.writeFile(path, data);
+    if (path === PART) throw new Error("disk full after write");
+  }
+}
+
+/** Changes settings.json on every `.part` write, so every try loses the race with another writer. */
+class ChurnPartFs extends MemoryWorkspaceFs {
+  override async writeFile(path: string, data: Uint8Array | string): Promise<void> {
+    if (path === PART) await super.writeFile(PATH, JSON.stringify({ churn: Math.random() }));
+    return super.writeFile(path, data);
+  }
+}
+
+/** Fails only the first write to the `.part` file, so an earlier queued set fails and a later one lands. */
+class FailFirstPartFs extends MemoryWorkspaceFs {
+  failures = 1;
+  override async writeFile(path: string, data: Uint8Array | string): Promise<void> {
+    if (path === PART && this.failures > 0) {
+      this.failures -= 1;
+      throw new Error("disk full");
+    }
+    return super.writeFile(path, data);
+  }
+}
+
+/** Returns a corrupt settings.json on the first read after `corruptReads` is set, as if another writer had not finished its rename. */
+class FlakyReadFs extends MemoryWorkspaceFs {
+  corruptReads = 0;
+  renamed: string[] = [];
+  override async readText(path: string): Promise<string> {
+    if (path === PATH && this.corruptReads > 0) {
+      this.corruptReads -= 1;
+      return "{not json";
+    }
+    return super.readText(path);
+  }
+  override async rename(from: string, to: string): Promise<void> {
+    this.renamed.push(from);
+    return super.rename(from, to);
+  }
+}
+
 describe("file settings section: crash recovery of settings.json.part", () => {
   it("drops a half-written .part and keeps the last good settings.json", async () => {
     const fs = new MemoryWorkspaceFs();
@@ -39,6 +84,26 @@ describe("file settings section: crash recovery of settings.json.part", () => {
   });
 });
 
+describe("file settings section: concurrent writers", () => {
+  it("two concurrent saves of different keys from separate handles both survive", async () => {
+    const fs = new MemoryWorkspaceFs();
+    const a = await openFileSettingsSection(fs, ROOT);
+    const b = await openFileSettingsSection(fs, ROOT);
+    await Promise.all([a.set(["zoteroLibrary"], "users/1"), b.set(["appearance"], { mode: "dark" })]);
+    const reopened = await openFileSettingsSection(fs, ROOT);
+    assert.equal(reopened.get(["zoteroLibrary"]), "users/1");
+    assert.deepEqual(reopened.get(["appearance"]), { mode: "dark" });
+  });
+
+  it("a failed write rejects the set that caused it", async () => {
+    const fs = new FailingPartFs();
+    await fs.mkdirp(`${ROOT}/.weaveforge`);
+    const s = await openFileSettingsSection(fs, ROOT);
+    fs.failPart = true;
+    await assert.rejects(s.set(["theme"], "dark"), /disk full/);
+  });
+});
+
 describe("file settings section: corrupt settings.json", () => {
   it("moves a corrupt file aside, starts empty and reports a notice", async () => {
     const fs = new MemoryWorkspaceFs();
@@ -49,6 +114,19 @@ describe("file settings section: corrupt settings.json", () => {
     assert.ok(s.notice && s.notice.includes("settings.json.bad-"), String(s.notice));
     const moved = s.notice!.match(/settings\.json\.bad-\S+/)![0];
     assert.equal(await fs.readText(`${ROOT}/.weaveforge/${moved}`), "{ not json");
+  });
+
+  it("a settings.json that reads corrupt once but is valid on the re-read is not moved aside", async () => {
+    const fs = new FlakyReadFs();
+    await fs.mkdirp(`${ROOT}/.weaveforge`);
+    await fs.writeFile(PATH, JSON.stringify({ other: 1 }));
+    const s = await openFileSettingsSection(fs, ROOT);
+    fs.corruptReads = 1;
+    await s.set(["mine"], "x");
+    assert.equal(fs.renamed.includes(PATH), false, "the valid file must not be moved aside");
+    const disk = JSON.parse(await fs.readText(PATH));
+    assert.equal(disk.other, 1);
+    assert.equal(disk.mine, "x");
   });
 });
 
@@ -68,8 +146,9 @@ describe("file settings section: persist errors", () => {
     const fs = new FailingPartFs();
     const s = await openFileSettingsSection(fs, ROOT);
     fs.failPart = true;
-    s.set(["appearance", "theme"], "super-secret-value-123");
+    const write = s.set(["appearance", "theme"], "super-secret-value-123").catch(() => undefined);
     await assert.rejects(() => s.flush(), /disk full/);
+    await write;
     assert.ok(errors.length > 0, "failed write must be logged");
     const logged = JSON.stringify(errors);
     assert.ok(logged.includes("appearance.theme"));
@@ -95,5 +174,94 @@ describe("file settings section: browser root", () => {
     assert.equal(await fs.stat(".weaveforge/settings.json") !== null, true);
     const again = await openFileSettingsSection(fs, "");
     assert.equal(again.get(["theme"]), "dark");
+  });
+});
+
+describe("file settings section: P2/P3 write ordering, cross-writer, rollback", () => {
+  it("a queued set is not lost when an earlier set finishes first", async () => {
+    const fs = new MemoryWorkspaceFs();
+    const s = await openFileSettingsSection(fs, ROOT);
+    const a = s.set(["a"], 1);
+    const b = s.set(["b"], 2);
+    await a;
+    assert.equal(s.get(["b"]), 2);
+    await b;
+    assert.equal(s.get(["b"]), 2);
+    assert.equal(JSON.parse(await fs.readText(PATH)).b, 2);
+  });
+
+  it("a change another writer makes between read and rename is re-applied, not overwritten", async () => {
+    class OtherWriterFs extends MemoryWorkspaceFs {
+      inject = true;
+      override async writeFile(path: string, data: Uint8Array | string): Promise<void> {
+        if (this.inject && path === PART) {
+          this.inject = false;
+          await super.writeFile(PATH, JSON.stringify({ other: 1 }));
+        }
+        return super.writeFile(path, data);
+      }
+    }
+    const fs = new OtherWriterFs();
+    const s = await openFileSettingsSection(fs, ROOT);
+    await s.set(["mine"], "x");
+    const disk = JSON.parse(await fs.readText(PATH));
+    assert.equal(disk.other, 1);
+    assert.equal(disk.mine, "x");
+  });
+
+  it("gives up after three tries when the file keeps changing, and rejects", async () => {
+    class ChurningFs extends MemoryWorkspaceFs {
+      override async writeFile(path: string, data: Uint8Array | string): Promise<void> {
+        if (path === PART) await super.writeFile(PATH, JSON.stringify({ churn: Math.random() }));
+        return super.writeFile(path, data);
+      }
+    }
+    const s = await openFileSettingsSection(new ChurningFs(), ROOT);
+    await assert.rejects(s.set(["mine"], "x"), /another writer|tries/);
+  });
+
+  it("a failed write rolls the in-memory value back to what was committed", async () => {
+    const fs = new FailingPartFs();
+    const s = await openFileSettingsSection(fs, ROOT);
+    await s.set(["theme"], "old");
+    fs.failPart = true;
+    await assert.rejects(s.set(["theme"], "new"));
+    assert.equal(s.get(["theme"]), "old");
+  });
+
+  it("a .part written before a failed flush is removed, not left behind", async () => {
+    const fs = new TornPartFs();
+    const s = await openFileSettingsSection(fs, ROOT);
+    await assert.rejects(s.set(["theme"], "new"));
+    assert.equal(await fs.stat(PART), null);
+  });
+
+  it("when every try loses the race to another writer, the .part is removed before the error", async () => {
+    const fs = new ChurnPartFs();
+    const s = await openFileSettingsSection(fs, ROOT);
+    await assert.rejects(s.set(["theme"], "new"), /another writer/);
+    assert.equal(await fs.stat(PART), null);
+  });
+
+  it("set v1, set v2, v1 fails: get() stays v2 and v2 reaches disk", async () => {
+    const fs = new FailFirstPartFs();
+    const s = await openFileSettingsSection(fs, ROOT);
+    const v1 = s.set(["theme"], "v1");
+    const v2 = s.set(["theme"], "v2");
+    await assert.rejects(v1);
+    await v2;
+    assert.equal(s.get(["theme"]), "v2");
+    assert.equal(JSON.parse(await fs.readText(PATH)).theme, "v2");
+  });
+
+  it("an unreadable settings.json written by someone else is moved aside, and the in-session value is kept", async () => {
+    const fs = new MemoryWorkspaceFs();
+    const s = await openFileSettingsSection(fs, ROOT);
+    await s.set(["kept"], "yes");
+    await fs.writeFile(PATH, "{not json");
+    await s.set(["after"], 1);
+    const disk = JSON.parse(await fs.readText(PATH));
+    assert.equal(disk.kept, "yes");
+    assert.equal(disk.after, 1);
   });
 });

@@ -37,4 +37,20 @@ describe("refusing secrets store (browser build, no keychain)", () => {
     );
     assert.equal(fetchCalls, 0);
   });
+
+  it("save with no secret value to store resolves: nothing is kept, so nothing is refused", async () => {
+    spyFetch();
+    const store = new RefusingSecretsStore();
+    await store.save({});
+    await store.save({ zoteroApiKey: "", semanticScholarKey: "" });
+    await store.save({ integrations: { zotero: { apiKey: "" } } });
+    assert.equal(fetchCalls, 0);
+  });
+
+  it("save still refuses when a key sits inside integrations", async () => {
+    spyFetch();
+    const store = new RefusingSecretsStore();
+    await assert.rejects(() => store.save({ integrations: { zotero: { apiKey: "zk-123" } } }), ApiKeysNotInBrowserError);
+    assert.equal(fetchCalls, 0);
+  });
 });

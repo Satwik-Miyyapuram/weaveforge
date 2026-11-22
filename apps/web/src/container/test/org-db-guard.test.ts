@@ -43,6 +43,30 @@ describe("org db guard", () => {
     assert.deepEqual(calls, []);
   });
 
+  it("reaches every table 0165 keeps live, including the share and integration reads", () => {
+    const { db, calls } = spyDb();
+    const guarded = guardOrgDb(db);
+    const live = [
+      "experiments", "experiment_metric_points", "experiment_metric_chunks", "experiment_metric_names",
+      "lab_snapshots", "crdt_updates", "profiles", "organizations", "org_memberships", "org_invite_codes",
+      "shares", "share_links", "share_link_rate_limits", "blob_objects", "shared_docs", "api_tokens",
+      "sdk_inbox", "release_notices", "project_keys", "sync_tables", "sync_tombstones", "user_settings",
+      "overleaf_connections", "overleaf_linked_reports", "overleaf_workshop_sessions", "milestones", "projects",
+      "comments",
+    ];
+    for (const t of live) assert.doesNotThrow(() => guarded.from(t), t);
+    assert.equal(calls.length, live.length);
+  });
+
+  it("blocks the personal tables 0165 archives", () => {
+    const { db, calls } = spyDb();
+    const guarded = guardOrgDb(db);
+    for (const t of ["papers", "notes", "tags", "relations", "pins", "reading_lists", "citation_alerts"]) {
+      assert.throws(() => guarded.from(t), /not allowed on the org server/, t);
+    }
+    assert.deepEqual(calls, []);
+  });
+
   it("leaves other members of the db untouched", () => {
     const { db } = spyDb();
     assert.equal(guardOrgDb(db).other, 1);

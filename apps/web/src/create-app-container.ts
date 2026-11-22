@@ -126,6 +126,7 @@ import { clearActiveProvider } from "@/features/ai-assistant/application/parts";
 import { reresolveOnFocus, resolveMigrationChoice } from "@/container/resolve-migration-choice";
 import { wireDesktopFileBackend } from "@/container/desktop-file-backend";
 import { workspaceSettings } from "@/features/settings/application/workspace-settings";
+import { watchProjectChannel } from "@/container/project-watch";
 
 export interface CreatedAppContainer {
   container: AppContainer;
@@ -186,9 +187,7 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
     wireDesktopFileBackend: shell ? wireDesktopFileBackend(shell, workspaceSettings) : undefined,
     wireBrowserFileBackend: browserFiles,
   });
-  if ("db" in backend) {
-    projectLww.watch(backend.db, pid());
-  }
+  watchProjectChannel(projectLww, backend, pid());
 
   // Files mode: the server CRDT log keeps only the non-personal types (files-mode-crdt-limit).
   const filesMode = backend.filesMode;
@@ -803,7 +802,7 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
       manageProject,
       context: projectContext,
       watchLww: (id) => {
-        if ("db" in backend) projectLww.watch(backend.db, id);
+        watchProjectChannel(projectLww, backend, id);
       },
     }),
     auth: new AuthFacade({ auth: backend.auth }),
