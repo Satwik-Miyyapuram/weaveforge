@@ -13,19 +13,30 @@ tracks at once.
 
 ## [Unreleased]
 
-### Desktop
-- **Fixed:** Deleting a note moves its `.md` and its `.inkb` ink file to the workspace trash folder, and a deleted note is no longer offered again on import. 0.9.6 listed this fix, but in 0.9.6 a deleted note's file stayed in place; it is fixed now.
-- **Fixed:** Ink cannot be drawn until the workspace has a folder, so strokes are never kept only in memory.
-- **Fixed:** Renaming a note rewrites the `[[links]]` that point to it, leaving links inside code alone; any note it could not update is named in a message.
-- **Added:** Settings shows which repository the workspace backs up to, with a link to it.
-- **Fixed:** The privacy notice now says where your data really goes: on your device and in your workspace folder, on GitHub when GitHub sync is on, and on the server only without GitHub sync or when you share. It no longer claims encryption WeaveForge does not do, and says that the text of a PDF you opened can reach the AI when papers are an allowed source.
-
 ### Python SDK
 - **Added:** The SDK reads the token file the desktop app's Connect panel writes under `~/.weaveforge`, so it reaches the local API without a pasted token.
 
 ### Android
 
 ### iOS
+
+## [0.9.7] - 2026-11-23
+
+Desktop (`v0.9.7`). Python SDK stays on 0.7.1; Android stays on 0.8.2; iOS stays on 0.8.0.
+Your notes, papers, ink and other work now live as normal files in your workspace folder, not in the app's internal database. Nothing is deleted in this upgrade.
+
+### Desktop
+- **Changed:** Your data moves from the app's internal database into your workspace folder as ordinary files. You can open, back up and sync them yourself.
+- **Changed:** A workspace folder is now required. On first start, choose "Open folder" or "New workspace" (the default is `Documents/WeaveForge`).
+- **Changed:** The first time you open 0.9.7, a one-time upgrade screen shows progress, then a report: how many items moved for each kind, any conflict copies, and where the backup is. If the move does not finish, you can retry or keep using your old data.
+- **Safe:** Nothing is deleted. Your old data stays where it is, and a backup is saved in `.weaveforge/migration-0.9.7/` in your workspace.
+- **Changed:** Sharing and organisations stay on the WeaveForge server. Everything else stays in your folder. Signed out, the app works fully and sharing is off.
+- **Changed:** Passwords and tokens are kept in your operating system's keychain, never in a file. On Linux, install a keychain service first: `sudo apt install gnome-keyring libsecret-1-0`. If no keychain is available, WeaveForge asks again instead of saving the secret to disk.
+- **Fixed:** Deleting a note moves its `.md` and its `.inkb` ink file to the workspace trash folder, and a deleted note is no longer offered again on import.
+- **Fixed:** Ink cannot be drawn until the workspace has a folder, so strokes are never kept only in memory.
+- **Fixed:** Renaming a note rewrites the `[[links]]` that point to it, leaving links inside code alone; any note it could not update is named in a message.
+- **Added:** Settings shows which repository the workspace backs up to, with a link to it.
+- **Fixed:** The privacy notice now says where your data really goes: on your device and in your workspace folder, on GitHub when GitHub sync is on, and on the server only without GitHub sync or when you share. It no longer claims encryption WeaveForge does not do, and says that the text of a PDF you opened can reach the AI when papers are an allowed source.
 
 ## [0.9.6] - 2026-11-21
 
