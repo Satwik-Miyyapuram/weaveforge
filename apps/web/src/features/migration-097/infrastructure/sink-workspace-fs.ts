@@ -81,10 +81,11 @@ export function sinkAsWorkspaceFs(sink: FileSink, options: { compareAndSet?: boo
       }
       if (options.compareAndSet) return sink.writeIf(clean, text, expected);
       // Entity saves: the file must still read `expected`. The new text then goes through the sink's write, so a
-      // differing user edit is kept and the DB version lands in a conflict copy.
+      // differing user edit is kept and the DB version lands in a conflict copy. Reports true only when the text reads
+      // back at this path, so a save that became a conflict copy reports false.
       if ((await sink.readText(clean).catch(() => null)) !== expected) return false;
       await sink.write(clean, text);
-      return true;
+      return (await sink.readText(clean).catch(() => null)) === text;
     },
 
     async remove(path, options) {

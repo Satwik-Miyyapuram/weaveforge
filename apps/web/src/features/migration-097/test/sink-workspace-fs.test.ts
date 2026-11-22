@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { createFileStore, guardedSink } from "../application/file-store";
+import { conflictCopyPath } from "../domain/conflict-path";
 import { MemorySink } from "../infrastructure/memory-sink";
 import { sinkAsWorkspaceFs } from "../infrastructure/sink-workspace-fs";
 
@@ -88,4 +89,13 @@ test("stat, rename and remove", async () => {
   assert.equal(await fs.readText("x/b.md"), "abc");
   await fs.remove("x/b.md");
   assert.equal(await fs.stat("x/b.md"), null);
+});
+
+test("an entity save whose text lands in a conflict copy reports false, not true", async () => {
+  const sink = new MemorySink();
+  await sink.write("notes/x.md", "old");
+  const fs = sinkAsWorkspaceFs(guardedSink(sink, await createFileStore(sink, {})));
+  assert.equal(await fs.writeTextIf("notes/x.md", "new", "old"), false, "the file does not hold the text");
+  assert.equal(await sink.readText("notes/x.md"), "old");
+  assert.equal(await sink.readText(conflictCopyPath("notes/x.md", 1)), "new");
 });
