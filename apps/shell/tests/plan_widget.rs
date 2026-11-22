@@ -12,7 +12,7 @@ use serde_json::{Value, json};
 use weaveforge_shell_lib::plan_widget::{
     PLAN_WIDGET_HEIGHT, PLAN_WIDGET_WIDTH, WIDGET_PALETTE_KEYS, WidgetBounds, WorkArea,
     clean_widget_palette, hwnd_from_handle, parse_bounds, parse_taskbar_created, pin_script,
-    place_widget, powershell_args, rows_to_milestones, switch_plan_widget, theme_push_script,
+    place_widget, powershell_args, switch_plan_widget, theme_push_script,
     WIDGET_SCRIPT, widget_asset,
 };
 
@@ -510,31 +510,6 @@ fn widget_asset_refuses_unknown_and_outside_paths() {
     assert!(widget_asset("/plan-widget").is_none());
     assert!(widget_asset("/index.html").is_none());
     assert!(widget_asset("/x/plan-widget/").is_none());
-}
-
-#[test]
-fn rows_to_milestones_drops_rows_without_an_id_and_keeps_nulls() {
-    let rows = vec![
-        json!({"title": "no id"}),
-        json!({"id": null, "title": "null id"}),
-        json!({"id": "m1", "title": null, "description": null, "status": null, "target_date": null, "project_name": null}),
-        json!({"id": "m2", "title": "T", "description": "D", "status": "done", "target_date": "2026-11-06", "project_name": "P"}),
-    ];
-    let got = rows_to_milestones(&rows);
-    assert_eq!(got.len(), 2);
-    assert_eq!(got[0].id, "m1");
-    assert_eq!(got[0].title, "");
-    assert_eq!(got[0].status, "");
-    assert!(
-        got[0].description.is_none()
-            && got[0].target_date.is_none()
-            && got[0].project_name.is_none()
-    );
-    assert_eq!(got[1].title, "T");
-    assert_eq!(got[1].description.as_deref(), Some("D"));
-    assert_eq!(got[1].status, "done");
-    assert_eq!(got[1].target_date.as_deref(), Some("2026-11-06"));
-    assert_eq!(got[1].project_name.as_deref(), Some("P"));
 }
 
 #[test]

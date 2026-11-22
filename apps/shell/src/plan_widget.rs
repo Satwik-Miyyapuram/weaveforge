@@ -13,17 +13,6 @@ use wf_core::sync::entity_file::parse_entity_file;
 use crate::vault::VaultSession;
 use crate::vault_search::walk_vault;
 
-/// The owner's open milestones and their project names, from the local database.
-pub const PLAN_WIDGET_SQL: &str = r#"
-select m.id, m.title, m.description, m.status, m.target_date, m.dependencies, m.compute, m.created_at,
-       p.name as project_name
-from milestones m
-left join projects p on p.id = m.project_id and p.deleted_at is null
-where m.deleted_at is null
-  and m.user_id = auth.uid()
-  and (m.project_id is null or p.id is not null)
-"#;
-
 /// How many deadlines the widget has room for.
 pub const PLAN_WIDGET_LIMIT: usize = 6;
 
@@ -243,28 +232,6 @@ pub fn widget_asset(path: &str) -> Option<(&'static str, &'static [u8])> {
         .iter()
         .find(|(name, _, _)| *name == rest)
         .map(|(_, kind, bytes)| (*kind, *bytes))
-}
-
-/// Milestone rows from `PLAN_WIDGET_SQL` as the core's feed input. Rows without an id are dropped.
-#[must_use]
-pub fn rows_to_milestones(rows: &[serde_json::Value]) -> Vec<wf_core::plan::feed::FeedMilestone> {
-    let text = |row: &serde_json::Value, key: &str| {
-        row.get(key)
-            .and_then(serde_json::Value::as_str)
-            .map(str::to_owned)
-    };
-    rows.iter()
-        .filter_map(|row| {
-            Some(wf_core::plan::feed::FeedMilestone {
-                id: text(row, "id")?,
-                title: text(row, "title").unwrap_or_default(),
-                description: text(row, "description"),
-                status: text(row, "status").unwrap_or_default(),
-                target_date: text(row, "target_date"),
-                project_name: text(row, "project_name"),
-            })
-        })
-        .collect()
 }
 
 /// The widget's summary from the milestone files in the chosen folder, read only.
