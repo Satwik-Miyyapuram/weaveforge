@@ -143,6 +143,7 @@ pub fn run() -> tauri::Result<()> {
             start_stores(app.handle());
             start_ink(app.handle());
             start_vault_watch(app.handle());
+            start_resume_097(app.handle());
             start_routes(app.handle());
             start_local_db(app.handle());
             start_local_api(app.handle());
@@ -334,6 +335,40 @@ fn start_vault_watch(app: &tauri::AppHandle) {
         log_vault_warning(app, &reason, &root.path);
     }
     let _ = app.manage(slot);
+}
+
+/// Finishes a 0.9.7 removal this device left in progress, off the setup thread. Only this device's
+/// own `removing` entry resumes; the gates live in `resume_on_launch`. A failure is logged, not fatal.
+fn start_resume_097(app: &tauri::AppHandle) {
+    use tauri::Manager as _;
+    let Some(root) = app
+        .try_state::<vault::VaultState>()
+        .and_then(|vault| vault.lock().root())
+    else {
+        return;
+    };
+    let Ok(data) = app.path().app_data_dir() else {
+        return;
+    };
+    let Ok(device) = device_id::get_or_create(&data) else {
+        return;
+    };
+    let folder = std::path::PathBuf::from(&root.path);
+    let pg_root = native_root(&data);
+    let now = vault::iso_utc(std::time::SystemTime::now());
+    let log = app.clone();
+    let _resume = tauri::async_runtime::spawn_blocking(move || {
+        let pid_file = pg_root.join("data").join("postmaster.pid");
+        let mut alive_check = || match migrate_097::remove::live_postmaster(&pid_file) {
+            Some(running) => Err(format!("refused: postgres still running ({running})")),
+            None => Ok(()),
+        };
+        if let Err(reason) =
+            migrate_097::remove::resume_on_launch(&folder, &pg_root, &device, &now, &mut alive_check)
+        {
+            local_api::warn(&log, &format!("0.9.7 removal not resumed: {reason}"));
+        }
+    });
 }
 
 /// Stops the folder watch and the handwriting helper before the process exits.

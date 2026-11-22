@@ -7,7 +7,7 @@ use std::path::{Path, PathBuf};
 
 use weaveforge_shell_lib::migrate_097::remove::{
     backup_name, old_db_removed, record_exported_to, record_verified_export, remove_old_data,
-    start_refusal,
+    resume_on_launch, start_refusal,
 };
 
 const DIR: &str = ".weaveforge/migration-0.9.7";
@@ -513,6 +513,21 @@ fn a_removed_cluster_is_marked_so_a_relaunch_never_restores_it() {
     f.run(&mut || Ok(())).expect("run removes");
     assert!(!f.pg_root.exists(), "cluster dir is gone");
     assert!(old_db_removed(&f.pg_root), "marker stops the relaunch restore");
+}
+
+#[test]
+fn a_crash_after_the_marker_resumes_and_finishes_the_delete() {
+    let f = Fixture::new("crash-resume", Some("verified"), Some(good_dump().as_slice()));
+    // The crash point: the marker is written and the report says removing, but the delete did not run.
+    fs::write(f.base.join("old-db-removed"), "").unwrap();
+    let removing = format!(
+        r#"{{"version":1,"state":"removing","removingDeviceId":"{DEVICE}","backup":"{BACKUP_NAME}","verifiedAt":"{NOW}","runs":[{RUN_CLEAN}]}}"#
+    );
+    f.set_report(&removing);
+    assert!(old_db_removed(&f.pg_root), "relaunch sees the marker and skips start");
+    f.run(&mut || Ok(())).expect("resume finishes the delete");
+    assert!(!f.pg_root.exists(), "the cluster is deleted on resume");
+    assert_eq!(f.report()["state"], "removed");
 }
 
 #[test]
@@ -1309,6 +1324,47 @@ fn an_unverified_export_records_no_exported_to() {
     let err = record_verified_export(&f.pg_root, &f.folder, DEVICE)
         .expect_err("an incomplete run must not record an export");
     assert!(!f.pg_root.join("exported-to.json").exists(), "{err}");
+}
+
+// ---- item 11: a launch finishes a removal this device left in progress ----
+
+fn removing_report(device: &str) -> String {
+    format!(
+        r#"{{"version":1,"state":"removing","removingDeviceId":"{device}","backup":"{BACKUP_NAME}","verifiedAt":"{NOW}","runs":[{RUN_CLEAN}]}}"#
+    )
+}
+
+#[test]
+fn a_launch_finishes_the_removal_this_device_left_in_progress() {
+    let f = Fixture::new("resume-launch", Some("verified"), Some(good_dump().as_slice()));
+    f.set_report(&removing_report(DEVICE));
+    let mut stop = || Ok(());
+    let resumed = resume_on_launch(&f.folder, &f.pg_root, DEVICE, NOW, &mut stop)
+        .expect("a launch must resume its own removal");
+    assert!(resumed, "this device's removing report is resumed");
+    assert!(!f.pg_root.exists(), "the cluster is deleted on launch");
+    assert_eq!(f.report()["state"], "removed");
+}
+
+#[test]
+fn a_launch_leaves_a_verified_migration_alone() {
+    let f = Fixture::new("resume-verified", Some("verified"), Some(good_dump().as_slice()));
+    let mut stop = || Ok(());
+    let resumed = resume_on_launch(&f.folder, &f.pg_root, DEVICE, NOW, &mut stop)
+        .expect("a verified report is not an error at launch");
+    assert!(!resumed, "nothing is in progress");
+    assert!(f.pg_root.exists(), "a verified migration keeps its cluster");
+}
+
+#[test]
+fn a_launch_does_not_finish_another_devices_removal() {
+    let f = Fixture::new("resume-other", Some("verified"), Some(good_dump().as_slice()));
+    f.set_report(&removing_report("dev-b"));
+    let mut stop = || Ok(());
+    let resumed = resume_on_launch(&f.folder, &f.pg_root, DEVICE, NOW, &mut stop)
+        .expect("another device's removal is not an error at launch");
+    assert!(!resumed, "only the device that started the removal resumes it");
+    assert!(f.pg_root.exists(), "the cluster stays");
 }
 
 // ---- item 7: a removal marker refuses start, so start never restores from local-db-backups ----

@@ -228,6 +228,35 @@ pub fn remove_old_data(
     })
 }
 
+/// Launch hook: finishes a removal this device started and did not finish (a crash or power cut
+/// between `removing` and `removed`). Returns `Ok(false)` when the folder has no report, or this
+/// device has no removal in progress; other devices' removals are never resumed here. A resume runs
+/// the same gates as `remove_old_data`, minus the checks a resume skips, and stops Postgres first.
+pub fn resume_on_launch(
+    folder: &Path,
+    pg_root: &Path,
+    device_id: &str,
+    now: &str,
+    stop_pg: &mut dyn FnMut() -> Result<(), String>,
+) -> Result<bool, String> {
+    let report_path = folder.join(REPORT_REL);
+    if !report_path.exists() {
+        return Ok(false);
+    }
+    let report = read_report(&report_path)?;
+    let state = report["state"].as_str().unwrap_or("");
+    let own_entry = report["removals"][device_id]["state"].as_str().unwrap_or("");
+    let in_progress = own_entry == "removing"
+        || (state == "removing" && report["removingDeviceId"].as_str() == Some(device_id));
+    if !in_progress {
+        return Ok(false);
+    }
+    // A resume never reads the secrets count (Postgres is already down); the closure refuses if asked.
+    let mut no_count = || Err("refused: local_secrets count is not read on resume".to_owned());
+    remove_old_data(folder, pg_root, now, device_id, &mut no_count, stop_pg)?;
+    Ok(true)
+}
+
 /// Whether the top-level state is one a removal may move on from. Another device's "incomplete"
 /// or "exporting" is left alone; this device's own removals entry is what it reads back.
 fn is_removal_state(report: &serde_json::Value) -> bool {
