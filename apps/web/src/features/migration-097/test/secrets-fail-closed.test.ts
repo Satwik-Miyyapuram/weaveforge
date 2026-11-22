@@ -39,7 +39,7 @@ test("secrets: a source that cannot say which providers hold secrets refuses, an
   const source = server(async () => {
     throw new Error("count failed");
   }, marks);
-  const result = await runWebExport({ runDeviceId: "dev-test", kinds: KINDS, codec, source, sink, now: NOW, secretsPresent: true });
+  const result = await runWebExport({ runDeviceId: "dev-test", kinds: KINDS, codec, source, sink, now: NOW });
 
   assert.equal(result.state, "incomplete");
   assert.ok(result.run.missing.some((m) => m.reason === "keys: unreadable"));
@@ -53,7 +53,6 @@ test("secrets: no providers with secrets runs without a mover and verifies, reco
   const result = await runWebExport({
     runDeviceId: "dev-test",
     kinds: KINDS,
-    secretsPresent: true,
     codec,
     source: server(async () => [], marks),
     sink: new MemorySink(),
@@ -64,13 +63,47 @@ test("secrets: no providers with secrets runs without a mover and verifies, reco
   assert.deepEqual(marks, ["mark"]);
 });
 
+test("secrets: the run still names every provider that holds a secret for reconnect", async () => {
+  const marks: string[] = [];
+  const sink = new MemorySink();
+  const result = await runWebExport({
+    runDeviceId: "dev-test",
+    kinds: KINDS,
+    codec,
+    source: server(async () => ["zotero"], marks),
+    sink,
+    now: NOW,
+  });
+  assert.equal(result.state, "verified");
+  assert.deepEqual(result.reconnectProviders, ["zotero"]);
+  assert.deepEqual(JSON.parse(await sink.readText(await onlyReportPath(sink))).reconnectProviders, ["zotero"]);
+  assert.deepEqual(marks, ["mark"]);
+});
+
+test("secrets: a failing secret check refuses the run and writes no server marker (fail closed)", async () => {
+  const marks: string[] = [];
+  const sink = new MemorySink();
+  const result = await runWebExport({
+    runDeviceId: "dev-test",
+    kinds: KINDS,
+    codec,
+    source: server(async () => {
+      throw new Error("secret check failed");
+    }, marks),
+    sink,
+    now: NOW,
+  });
+  assert.notEqual(result.state, "verified", "a run whose secrets cannot be read is never verified");
+  assert.ok(result.run.missing.some((m) => m.reason === "keys: unreadable"));
+  assert.deepEqual(marks, [], "no server marker when the secrets cannot be read");
+});
+
 test("secrets: a provider with a secret does not block the export; it is named for reconnect and the run verifies", async () => {
   const marks: string[] = [];
   const sink = new MemorySink();
   const result = await runWebExport({
     runDeviceId: "dev-test",
     kinds: KINDS,
-    secretsPresent: true,
     codec,
     source: server(async () => ["zotero", "overleaf"], marks),
     sink,
@@ -82,13 +115,12 @@ test("secrets: a provider with a secret does not block the export; it is named f
   assert.deepEqual(JSON.parse(await sink.readText(await onlyReportPath(sink))).reconnectProviders, ["zotero", "overleaf"]);
 });
 
-test("secrets: a provider with a secret and a mover runs the mover once after verify, reconnecting nothing", async () => {
+test("secrets: a web run with a mover runs it once after verify and still names the provider with a secret", async () => {
   const marks: string[] = [];
   let moved = 0;
   const result = await runWebExport({
     runDeviceId: "dev-test",
     kinds: KINDS,
-    secretsPresent: true,
     codec,
     source: server(async () => ["zotero"], marks),
     sink: new MemorySink(),
@@ -99,7 +131,7 @@ test("secrets: a provider with a secret and a mover runs the mover once after ve
   });
   assert.equal(result.state, "verified");
   assert.equal(moved, 1);
-  assert.deepEqual(result.reconnectProviders, []);
+  assert.deepEqual(result.reconnectProviders, ["zotero"]);
 });
 
 test("secrets: PostgrestSource names each provider whose table has a secret row", async () => {
@@ -124,7 +156,6 @@ test("keys: with secrets and no mover, the result and report carry provider name
   const result = await runWebExport({
     runDeviceId: "dev-test",
     kinds: KINDS,
-    secretsPresent: true,
     codec,
     source: server(async () => ["zotero"], marks),
     sink,
