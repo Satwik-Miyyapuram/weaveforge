@@ -114,6 +114,18 @@ test("blobs: contentType is carried through the sidecar and read back", async ()
   assert.equal(back[0]?.contentType, "image/webp");
 });
 
+test("blobs: a contentType that the extension does not imply reads back as written", async () => {
+  const { writer } = fresh();
+  const bin = new Uint8Array([1, 2, 3]);
+  const scan = new Uint8Array([4, 5, 6]);
+  await writer.write("blobs", { bucket: "files", path: "dump.bin", sha256: await sha256Hex(bin), bytes: bin, contentType: "application/x-custom-dump" });
+  await writer.write("blobs", { bucket: "images", path: "scan", sha256: await sha256Hex(scan), bytes: scan, contentType: "image/png" });
+  const back = await writer.readBack("blobs");
+  const type = (path: string) => back.find((r) => r.path === path)?.contentType;
+  assert.equal(type("dump.bin"), "application/x-custom-dump", "a .bin keeps its stored type, not octet-stream");
+  assert.equal(type("scan"), "image/png", "an extensionless file keeps its stored type");
+});
+
 test("blobs: a sha256 that does not match the bytes throws", async () => {
   const { writer } = fresh();
   const bytes = new Uint8Array([1, 2, 3]);
