@@ -107,14 +107,16 @@ function isRunReport(run: unknown): run is RunReport {
 
 /**
  * True only when the OPFS repos hold a clean verified export: state verified, target opfs, and in
- * every run no row is missing, every kind's files match its db rows with no conflicts, and every
- * blob is verified. Anything else (absent, corrupt, incomplete, folder, zip) is false.
+ * every run every MIGRATION_KINDS key is present, no row is missing, every kind's files match its
+ * db rows with no conflicts, and every blob is verified. A run that covers only some kinds is not
+ * a full export, so it is false. Anything else (absent, corrupt, incomplete, folder, zip) is false.
  */
 export async function browserReportVerified(fs: Pick<FileSink, "readText">): Promise<boolean> {
   const report = await readMigrationReport(fs);
   if (!report || report.state !== "verified" || report.target !== "opfs") return false;
   return report.runs.every(
     (run) =>
+      MIGRATION_KINDS.every((kind) => Object.prototype.hasOwnProperty.call(run.kinds, kind)) &&
       run.missing.length === 0 &&
       run.blobs.db === run.blobs.verified &&
       Object.values(run.kinds).every((k) => k.db === k.files && k.conflicts.length === 0),

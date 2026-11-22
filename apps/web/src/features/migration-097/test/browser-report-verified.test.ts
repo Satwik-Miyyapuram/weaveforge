@@ -1,14 +1,19 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { MemorySink } from "../infrastructure/memory-sink";
-import { REPORT_PATH, type MigrationReport, type RunReport } from "../domain/report";
+import { MIGRATION_KINDS, REPORT_PATH, type MigrationReport, type RunReport } from "../domain/report";
 import { browserReportVerified, readMigrationReport } from "../domain/report";
+
+const KIND_OK = { db: 2, files: 2, written: 2, conflicts: [], trash: 0 };
+
+/** Every MIGRATION_KINDS key present and clean: the shape a full verified run writes. */
+const ALL_KINDS = Object.fromEntries(MIGRATION_KINDS.map((k) => [k, KIND_OK]));
 
 const RUN: RunReport = {
   startedAt: "2026-11-22T00:00:00.000Z",
   finishedAt: "2026-11-22T00:01:00.000Z",
   sources: ["postgrest"],
-  kinds: {},
+  kinds: ALL_KINDS,
   blobs: { db: 0, verified: 0 },
   missing: [],
 };
@@ -90,15 +95,13 @@ test("readMigrationReport: a sink whose read throws gives null, never throws", a
   assert.equal(await browserReportVerified(throwing), false);
 });
 
-const KIND_OK = { db: 2, files: 2, written: 2, conflicts: [], trash: 0 };
-
 test("browserReportVerified: false when a kind's files do not match its db rows", async () => {
-  const dirty = report({ runs: [{ ...RUN, kinds: { notes: { ...KIND_OK, files: 1 } } }] });
+  const dirty = report({ runs: [{ ...RUN, kinds: { ...ALL_KINDS, notes: { ...KIND_OK, files: 1 } } }] });
   assert.equal(await browserReportVerified(await sinkWith(JSON.stringify(dirty))), false);
 });
 
 test("browserReportVerified: false when a kind lists conflicts", async () => {
-  const dirty = report({ runs: [{ ...RUN, kinds: { notes: { ...KIND_OK, conflicts: ["n1"] } } }] });
+  const dirty = report({ runs: [{ ...RUN, kinds: { ...ALL_KINDS, notes: { ...KIND_OK, conflicts: ["n1"] } } }] });
   assert.equal(await browserReportVerified(await sinkWith(JSON.stringify(dirty))), false);
 });
 
@@ -108,8 +111,19 @@ test("browserReportVerified: false when the blobs verified count is short of the
 });
 
 test("browserReportVerified: a clean verified report with matching kinds and blobs is true", async () => {
-  const clean = report({ runs: [{ ...RUN, kinds: { notes: KIND_OK }, blobs: { db: 2, verified: 2 } }] });
+  const clean = report({ runs: [{ ...RUN, blobs: { db: 2, verified: 2 } }] });
   assert.equal(await browserReportVerified(await sinkWith(JSON.stringify(clean))), true);
+});
+
+test("browserReportVerified: false when a run's kinds is empty (every MIGRATION_KINDS key must be present)", async () => {
+  const empty = report({ runs: [{ ...RUN, kinds: {} }] });
+  assert.equal(await browserReportVerified(await sinkWith(JSON.stringify(empty))), false);
+});
+
+test("browserReportVerified: false when a run's kinds covers only a subset of MIGRATION_KINDS", async () => {
+  const kinds = Object.fromEntries(MIGRATION_KINDS.filter((k) => k !== "ink").map((k) => [k, KIND_OK]));
+  const subset = report({ runs: [{ ...RUN, kinds, blobs: { db: 2, verified: 2 } }] });
+  assert.equal(await browserReportVerified(await sinkWith(JSON.stringify(subset))), false);
 });
 
 const BAD_SHAPE: [string, Partial<RunReport>][] = [
