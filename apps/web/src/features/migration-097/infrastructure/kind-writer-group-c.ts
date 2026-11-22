@@ -127,12 +127,15 @@ export function createGroupCWriter(sink: FileSink, projectRoot: string): KindWri
           await blobs.upload(bucket, path, new Blob([new Uint8Array(bytes)]), contentType);
         },
         // Scans assets/ on disk, so a blob written by an earlier run is listed too. Each file is
-        // checked against its own sidecar: sha256 on line 1, content type on line 2.
+        // checked against its own sidecar: sha256 on line 1, content type on line 2. A .part file is
+        // an interrupted write, and an asset with no sidecar is left out: its entry then reads as
+        // missing, and the other blobs still read back.
         async readBack() {
           const out: Row[] = [];
           if (!(await fs.stat("assets"))) return out;
           for await (const entry of fs.walk("assets")) {
-            if (entry.path.endsWith(".sha256")) continue;
+            if (entry.path.endsWith(".sha256") || entry.path.endsWith(".part")) continue;
+            if (!(await fs.stat(`${entry.path}.sha256`))) continue;
             const rel = entry.path.slice("assets/".length);
             const slash = rel.indexOf("/");
             const bucket = rel.slice(0, slash);

@@ -265,6 +265,24 @@ test("blobs: readBack throws when an asset's bytes no longer match its sidecar",
   await assert.rejects(later.readBack("blobs"), /sha256/);
 });
 
+test("blobs: readBack skips a stale .part file and lists nothing for it", async () => {
+  const { sink, writer } = fresh();
+  const bytes = new Uint8Array([4, 5, 6]);
+  await writer.write("blobs", { bucket: "images", path: "ok.webp", sha256: await sha256Hex(bytes), bytes });
+  await sink.write("assets/images/ok.webp.part", "half written");
+  const back = await createGroupCWriter(sink, "proj").readBack("blobs");
+  assert.deepEqual(back.map((r) => r.path), ["ok.webp"]);
+});
+
+test("blobs: an asset with no sidecar is left out of read-back and does not fail the others", async () => {
+  const { sink, writer } = fresh();
+  const bytes = new Uint8Array([7, 8, 9]);
+  await writer.write("blobs", { bucket: "images", path: "ok.webp", sha256: await sha256Hex(bytes), bytes });
+  await sink.write("assets/images/bare.webp", "no sidecar here");
+  const back = await createGroupCWriter(sink, "proj").readBack("blobs");
+  assert.deepEqual(back.map((r) => r.path), ["ok.webp"]);
+});
+
 test("ink: readBack lists the chunks on disk, including one written by an earlier run", async () => {
   const { sink, writer: first } = fresh();
   await sink.write("notes/a.note.md", "---\nweaveforge-id: n1\n---\n");
