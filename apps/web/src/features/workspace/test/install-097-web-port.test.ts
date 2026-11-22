@@ -31,15 +31,22 @@ function fakeSupabase(opts: FakeOpts = {}): SupabaseClient {
   const from = (table: string) => ({
     select(_cols: string, _options?: { count?: string; head?: boolean }) {
       if (table === "profiles") {
+        // profiles is keyed by user_id; any other column is unknown to PostgREST.
         return {
-          eq: () => ({
-            maybeSingle: async () => opts.profile ?? { data: null, error: null },
+          eq: (column: string) => ({
+            maybeSingle: async () =>
+              column === "user_id"
+                ? (opts.profile ?? { data: null, error: null })
+                : { data: null, error: { code: "42703", message: `column profiles.${column} does not exist` } },
           }),
         };
       }
       let filter: [string, string] | undefined;
       const run = () => {
         if (opts.archived?.includes(table)) return { count: null, data: null, error: { code: "PGRST205", message: "not found" } };
+        // An embedded parent that 0165 archived: PostgREST has no relationship to embed (PGRST200).
+        const parent = filter?.[0].includes(".") ? filter[0].split(".")[0] : undefined;
+        if (parent && opts.archived?.includes(parent)) return { count: null, data: null, error: { code: "PGRST200", message: "no relationship" } };
         if (opts.failTables?.includes(table)) return { count: null, data: null, error: opts.failWith ?? { code: "42501", message: "denied" } };
         if (opts.countNull) return { count: null, data: null, error: null };
         const [column, value] = filter ?? ["", ""];
@@ -214,6 +221,13 @@ test("countRows: PGRST205 and 42P01 are TABLE_ARCHIVED, other codes throw", asyn
   assert.equal(await pg.countRows(legacy("papers"), "user-1"), TABLE_ARCHIVED);
   const denied = supabaseReads(fakeSupabase({ failTables: ["papers"], failWith: { code: "42501", message: "" } }));
   await assert.rejects(denied.countRows(legacy("papers"), "user-1"));
+});
+
+test("a child whose parent 0165 archived (PGRST200) throws, so the check fails closed", async () => {
+  const reads = supabaseReads(fakeSupabase({ archived: ["papers"] }));
+  await assert.rejects(reads.countRows(legacy("paper_tags"), "user-1"), /PGRST200/);
+  const port = createWebOldUserPort(supabaseReads(fakeSupabase({ archived: ["papers"] })), "user-1");
+  assert.deepEqual(await install097Check(null, null, port), { kind: "unknown", code: "OLD_USER_CHECK_FAILED" });
 });
 
 test("legacyRowsPending: the rpc boolean; an error or a non-boolean throws", async () => {

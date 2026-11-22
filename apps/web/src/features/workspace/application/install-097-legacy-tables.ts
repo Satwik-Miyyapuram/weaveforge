@@ -11,6 +11,7 @@ export interface LegacyTable {
 }
 
 const direct = (table: string, column = "user_id"): LegacyTable => ({ table, select: "*", filter: column });
+// Fails closed: if the parent is archived (0165) and the child is not, PostgREST returns PGRST200 for the !inner join and the check throws rather than reading 0.
 const viaParent = (table: string, fk: string, parent: string): LegacyTable => ({
   table,
   select: `${fk}, ${parent}!inner(user_id)`,

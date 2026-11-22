@@ -14,7 +14,7 @@ const MISSING_TABLE_CODES = new Set(["PGRST205", "42P01"]);
 export function supabaseReads(client: SupabaseClient): Install097Reads {
   return {
     async exportedAt(userId) {
-      const { data, error } = await client.from("profiles").select("exported_097_at").eq("id", userId).maybeSingle();
+      const { data, error } = await client.from("profiles").select("exported_097_at").eq("user_id", userId).maybeSingle();
       if (error) {
         if (MISSING_COLUMN_CODES.has(error.code)) return null;
         throw new Error(`profiles mark read failed: ${error.code}`);
