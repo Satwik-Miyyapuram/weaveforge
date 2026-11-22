@@ -14,7 +14,7 @@ import { MemorySink } from "../infrastructure/memory-sink";
 before(loadTestCore);
 
 const NOW = "2026-11-22T00:00:00.000Z";
-const DEVICE = { runDeviceId: "dev-e2e" };
+const DEVICE = { runDeviceId: "dev-e2e-run" };
 
 // Rows for the kinds that have a codec (logEntries, experiments), a writer (paperFields, via projectFolders)
 // and a blob. Every other MIGRATION kind has no rows, so it is counted and clean.

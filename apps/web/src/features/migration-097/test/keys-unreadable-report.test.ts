@@ -40,7 +40,6 @@ test("keys unreadable: the refused run is still written to report.json under thi
     sink,
     now: NOW,
     runDeviceId: "dev-keys-1",
-    secretsPresent: true,
   });
 
   assert.equal(result.state, "incomplete");

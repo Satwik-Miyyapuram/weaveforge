@@ -7,7 +7,7 @@ import { MemorySink } from "../infrastructure/memory-sink";
 
 const NOW = "2026-11-22T00:00:00.000Z";
 const KINDS = ["logEntries"];
-const OWN_B = ownReportPath("dev-b");
+const OWN_B = ownReportPath("dev-bravo");
 
 const codec: FileCodec = {
   supports: (kind) => kind === "logEntries",
@@ -30,12 +30,12 @@ function server(rows: Row[]): ServerSource {
 }
 
 const L1 = { id: "l1", text: "from the database" };
-const TRUNCATED = '{"version":1,"state":"verified","runs":[{"deviceId":"dev-a"';
+const TRUNCATED = '{"version":1,"state":"verified","runs":[{"deviceId":"dev-alpha"';
 
 test("legacy report unreadable: the run is refused, the legacy file is left as it is, and no data is written", async () => {
   const sink = new MemorySink();
   await sink.write(REPORT_PATH, TRUNCATED);
-  const result = await runWebExport({ kinds: KINDS, codec, source: server([L1]), sink, now: NOW, runDeviceId: "dev-b" });
+  const result = await runWebExport({ kinds: KINDS, codec, source: server([L1]), sink, now: NOW, runDeviceId: "dev-bravo" });
 
   assert.equal(result.state, "incomplete");
   assert.ok(result.run.missing.some((m) => m.reason === "report.json is unreadable; restore it from your backup or run the export again"));
@@ -49,7 +49,7 @@ test("legacy report unreadable: the run is refused, the legacy file is left as i
   assert.equal(written.state, "incomplete");
   assert.deepEqual(
     written.runs.map((r: { deviceId?: string }) => r.deviceId),
-    ["dev-b"],
+    ["dev-bravo"],
     "only this device's refused run is written, to its own file",
   );
 });
@@ -57,11 +57,11 @@ test("legacy report unreadable: the run is refused, the legacy file is left as i
 test("own report unreadable: the run is refused by file name, the file stays in place, and no .bad file is made", async () => {
   const sink = new MemorySink();
   await sink.write(OWN_B, "{ not json");
-  const result = await runWebExport({ kinds: KINDS, codec, source: server([L1]), sink, now: NOW, runDeviceId: "dev-b" });
+  const result = await runWebExport({ kinds: KINDS, codec, source: server([L1]), sink, now: NOW, runDeviceId: "dev-bravo" });
 
   assert.equal(result.state, "incomplete");
   assert.ok(
-    result.run.missing.some((m) => m.reason === "report-dev-b.json is unreadable; restore it from your backup or run the export again"),
+    result.run.missing.some((m) => m.reason === "report-dev-bravo.json is unreadable; restore it from your backup or run the export again"),
     JSON.stringify(result.run.missing),
   );
   assert.equal(await sink.readText(OWN_B), "{ not json", "the unreadable own file is never renamed or replaced");
@@ -76,7 +76,7 @@ test("legacy report whose runs is not an array is unreadable too, and is left un
   const sink = new MemorySink();
   const legacy = JSON.stringify({ version: 1, state: "verified", runs: "nope" });
   await sink.write(REPORT_PATH, legacy);
-  const result = await runWebExport({ kinds: KINDS, codec, source: server([L1]), sink, now: NOW, runDeviceId: "dev-b" });
+  const result = await runWebExport({ kinds: KINDS, codec, source: server([L1]), sink, now: NOW, runDeviceId: "dev-bravo" });
 
   assert.equal(result.state, "incomplete");
   assert.ok(result.run.missing.some((m) => m.reason.startsWith("report.json is unreadable")));
