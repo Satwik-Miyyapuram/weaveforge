@@ -107,7 +107,7 @@ test("writes go to a .part file and are renamed into place, never written direct
   };
   await store.upload("notes", "n1/a.png", png(1, 2), "image/png");
   assert.equal(written.includes("assets/notes/n1/a.png"), false);
-  assert.ok(written.includes("assets/notes/n1/a.png.part"));
+  assert.ok(written.some((p) => /^assets\/notes\/n1\/a\.png\.[0-9a-f]{8}\.part$/.test(p)), "a unique .part temp file");
   assert.equal(Object.keys(fs.toRecord()).some((k) => k.endsWith(".part")), false);
 });
 
@@ -123,4 +123,45 @@ test("a user path ending in .sha256 is rejected, so it cannot reach a sidecar", 
   await assert.rejects(store.upload("notes", "a.png.sha256", png(1), "image/png"), /Unsafe asset path/);
   await assert.rejects(store.fetchBytes("notes", "a.png.sha256"), /Unsafe asset path/);
   await assert.rejects(store.remove("notes", "a.png.sha256"), /Unsafe asset path/);
+});
+
+/** A workspace fs whose rename refuses to replace an existing file, as the export's guarded sink does. */
+function refusingRename(fs: MemoryWorkspaceFs): MemoryWorkspaceFs {
+  const rename = fs.rename.bind(fs);
+  fs.rename = async (from: string, to: string) => {
+    if (await fs.stat(to)) throw new Error(`refusing to replace an existing file: ${to}`);
+    return rename(from, to);
+  };
+  return fs;
+}
+
+test("a second run of an already-exported blob is clean: no rename onto the existing sidecar", async () => {
+  const fs = refusingRename(new MemoryWorkspaceFs());
+  const store = new FileBlobStore(fs);
+  await store.upload("notes", "n1/diagram.png", png(1, 2, 3), "image/png");
+  await store.upload("notes", "n1/diagram.png", png(1, 2, 3), "image/png");
+  assert.deepEqual(Object.keys(fs.toRecord()).sort(), [
+    "assets/notes/n1/diagram.png",
+    "assets/notes/n1/diagram.png.sha256",
+  ]);
+});
+
+test("a re-upload whose sidecar differs keeps the sidecar, throws a conflict, and writes the new one outside assets/", async () => {
+  const fs = refusingRename(new MemoryWorkspaceFs());
+  const store = new FileBlobStore(fs);
+  await store.upload("notes", "n1/diagram.png", png(1, 2, 3), "image/png");
+  await assert.rejects(store.upload("notes", "n1/diagram.png", png(1, 2, 3), "image/jpeg"), /conflict: .*differs/);
+  assert.match(await fs.readText("assets/notes/n1/diagram.png.sha256"), /image\/png$/, "the existing sidecar is kept");
+  assert.match(
+    await fs.readText(".weaveforge/migration-0.9.7/sidecar-conflicts/notes/n1/diagram.png.sha256"),
+    /image\/jpeg$/,
+    "the new sidecar is in a conflict copy outside assets/",
+  );
+});
+test("an upload never overwrites a user's own <asset>.part file", async () => {
+  const { fs, store } = setup();
+  await fs.writeFile("assets/notes/n1/diagram.png.part", "USER");
+  await store.upload("notes", "n1/diagram.png", png(1, 2, 3), "image/png");
+  assert.equal(await fs.readText("assets/notes/n1/diagram.png.part"), "USER", "the user's .part file is kept");
+  assert.deepEqual([...(await store.fetchBytes("notes", "n1/diagram.png"))], [1, 2, 3]);
 });
