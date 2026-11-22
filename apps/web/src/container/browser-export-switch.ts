@@ -6,6 +6,8 @@ import type { BrowserFileWiring } from "./browser-file-backend";
 export type SwitchSession = { userId: string; accessToken: string };
 
 export type SwitchDeps = {
+  /** True inside the desktop app. The browser switch never runs there. */
+  desktop: boolean;
   session: () => Promise<SwitchSession | null>;
   dataUrl: string;
   anonKey: string;
@@ -20,7 +22,7 @@ export type SwitchDeps = {
 
 export type SwitchDecision =
   | { switch: true; wiring: BrowserFileWiring }
-  | { switch: false; reason: "no-session" | "not-verified" | "error" };
+  | { switch: false; reason: "desktop" | "no-session" | "not-verified" | "error" };
 
 /**
  * Decides, on every startup, whether this device uses OPFS files mode. The
@@ -28,6 +30,7 @@ export type SwitchDecision =
  * Any failure keeps the caller on the Retry path.
  */
 export async function decideBrowserSwitch(deps: SwitchDeps): Promise<SwitchDecision> {
+  if (deps.desktop) return { switch: false, reason: "desktop" };
   try {
     const session = await deps.session();
     if (!session) return { switch: false, reason: "no-session" };

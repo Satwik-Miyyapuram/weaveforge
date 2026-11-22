@@ -8,6 +8,7 @@ function harness(over: Partial<SwitchDeps> = {}) {
   const gateCalls: unknown[] = [];
   let opened = 0;
   const deps: SwitchDeps = {
+    desktop: false,
     session: async () => ({ userId: "u1", accessToken: "t0k" }),
     dataUrl: "https://data.example",
     anonKey: "anon",
@@ -69,5 +70,21 @@ test("a gate that throws never switches", async () => {
   });
   const out = await decideBrowserSwitch(h.deps);
   assert.deepEqual(out, { switch: false, reason: "error" });
+  assert.equal(h.opened(), 0);
+});
+
+test("(P1-3) on desktop the browser switch never runs: no session read, no gate, no mark", async () => {
+  let sessionCalls = 0;
+  const h = harness({
+    desktop: true,
+    session: async () => {
+      sessionCalls += 1;
+      return { userId: "u1", accessToken: "t0k" };
+    },
+  } as Partial<SwitchDeps>);
+  const out = await decideBrowserSwitch(h.deps);
+  assert.deepEqual(out, { switch: false, reason: "desktop" });
+  assert.equal(sessionCalls, 0);
+  assert.equal(h.gateCalls.length, 0);
   assert.equal(h.opened(), 0);
 });

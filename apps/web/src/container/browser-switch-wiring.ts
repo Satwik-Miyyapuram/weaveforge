@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { coreIfReady } from "@/lib/rust-core";
+import { desktop } from "@/lib/desktop/desktop-bridge";
 import type { BackendConfig } from "@/backend/parts";
 import { gateOpfsSwitch } from "@/features/migration-097/application/opfs-switch-gate";
 import { TABLE_BY_KIND } from "@/features/migration-097/infrastructure/postgrest-source";
@@ -24,11 +25,14 @@ function authSession(config: BackendConfig): () => Promise<SwitchSession | null>
  * (wasm core, data URL, auth config) reads as "error", which keeps the server backend.
  */
 export async function decideBrowserSwitchFromConfig(config: BackendConfig): Promise<SwitchDecision> {
+  const onDesktop = desktop() !== null;
+  if (onDesktop) return { switch: false, reason: "desktop" };
   const core = coreIfReady();
   if (!core || !config.dataUrl || !config.supabaseUrl || !config.supabaseAnonKey) {
     return { switch: false, reason: "error" };
   }
   return decideBrowserSwitch({
+    desktop: onDesktop,
     session: authSession(config),
     dataUrl: config.dataUrl,
     anonKey: config.supabaseAnonKey,
