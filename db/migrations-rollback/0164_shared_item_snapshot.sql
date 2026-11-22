@@ -8,6 +8,8 @@
 --
 -- Never applied automatically. Run it deliberately, against a database with a backup.
 
+begin;
+
 drop trigger if exists profiles_guard_export_marker on profiles;
 drop function if exists profiles_guard_export_marker();
 drop function if exists mark_exported_097();
@@ -21,3 +23,5 @@ alter table shared_docs
   check (kind in ('annotations', 'canvas', 'feed', 'note'));
 
 notify pgrst, 'reload schema';
+
+commit;

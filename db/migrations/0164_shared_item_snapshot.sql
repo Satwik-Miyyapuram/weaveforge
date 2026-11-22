@@ -33,7 +33,8 @@ language plpgsql
 set search_path = public, pg_temp
 as $$
 begin
-  if (tg_op = 'insert' or new.exported_097_at is distinct from old.exported_097_at)
+  if ((tg_op = 'INSERT' and new.exported_097_at is not null)
+      or (tg_op = 'UPDATE' and new.exported_097_at is distinct from old.exported_097_at))
      and coalesce(current_setting('weaveforge.export_marker', true), '') <> 'on' then
     raise exception 'exported_097_at is set only by mark_exported_097()';
   end if;
@@ -46,7 +47,7 @@ create trigger profiles_guard_export_marker
   before insert or update on profiles
   for each row execute function profiles_guard_export_marker();
 
--- Stamps the caller's own profile and returns the stamp. Idempotent per call.
+-- Stamps the caller's own profile with now() and returns the stamp. Each call moves it forward.
 -- Trust-based: call only after the export report has verified locally (see the
 -- header). Raises when the signed-in user has no profiles row.
 create or replace function mark_exported_097()
