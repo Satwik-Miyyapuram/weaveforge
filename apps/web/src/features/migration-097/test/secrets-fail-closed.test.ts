@@ -93,29 +93,77 @@ test("secrets: a count above zero with a mover runs the mover once after verify"
 });
 
 test("secrets: PostgrestSource counts integration rows with a token, through the owning project", async () => {
-  const seen: { url: string; method: string }[] = [];
+  const seen: string[] = [];
   const source = new PostgrestSource({
     baseUrl: "https://api.example.test",
     userId: "u1",
     headers: {},
-    fetch: (async (url: string, init: { method: string }) => {
-      seen.push({ url, method: init.method });
-      return new Response(null, { status: 200, headers: { "content-range": "0-0/3" } });
-    }) as unknown as typeof fetch,
+    fetch: countingFetch({ project_integrations: 3, user_settings: 0, overleaf_connections: 0 }, seen),
   });
   assert.equal(await source.secretCount(), 3);
-  assert.equal(seen[0]?.method, "HEAD");
-  assert.match(seen[0]?.url ?? "", /\/project_integrations\?/);
-  assert.match(seen[0]?.url ?? "", /token=not\.is\.null/);
-  assert.match(seen[0]?.url ?? "", /projects\.user_id=eq\.u1/);
+  assert.match(seen[0] ?? "", /\/project_integrations\?/);
+  assert.match(seen[0] ?? "", /token=not\.is\.null/);
+  assert.match(seen[0] ?? "", /projects\.user_id=eq\.u1/);
 });
 
-test("secrets: PostgrestSource throws when the count has no total, so the count reads as unknown", async () => {
+/** A fake PostgREST: each table's HEAD count comes from `totals`; `fail` names a table that answers 500. */
+function countingFetch(totals: Record<string, number>, seen: string[], fail?: string): typeof fetch {
+  return (async (url: string) => {
+    seen.push(url);
+    const table = new URL(url).pathname.split("/").pop() ?? "";
+    if (table === fail) return new Response(null, { status: 500 });
+    const total = totals[table];
+    return new Response(null, {
+      status: 200,
+      headers: total === undefined ? {} : { "content-range": `0-0/${total}` },
+    });
+  }) as unknown as typeof fetch;
+}
+
+test("secrets: PostgrestSource sums the token rows of all three secret tables", async () => {
+  const seen: string[] = [];
+  const source = new PostgrestSource({
+    baseUrl: "https://api.example.test",
+    userId: "u1",
+    headers: {},
+    fetch: countingFetch({ project_integrations: 3, user_settings: 1, overleaf_connections: 2 }, seen),
+  });
+  assert.equal(await source.secretCount(), 6);
+  assert.equal(seen.length, 3);
+  assert.ok(seen.some((u) => /\/user_settings\?/.test(u) && /zotero_api_key=not\.is\.null/.test(u) && /user_id=eq\.u1/.test(u)));
+  assert.ok(seen.some((u) => /\/overleaf_connections\?/.test(u) && /token_ciphertext=not\.is\.null/.test(u) && /user_id=eq\.u1/.test(u)));
+});
+
+test("secrets: PostgrestSource encodes the user id in every secret-table URL", async () => {
+  const seen: string[] = [];
+  const source = new PostgrestSource({
+    baseUrl: "https://api.example.test",
+    userId: "u 1",
+    headers: {},
+    fetch: countingFetch({ project_integrations: 0, user_settings: 0, overleaf_connections: 0 }, seen),
+  });
+  await source.secretCount();
+  assert.equal(seen.length, 3);
+  for (const url of seen) assert.doesNotMatch(url, / /, url);
+  assert.ok(seen.every((u) => /u%201/.test(u)), seen.join("\n"));
+});
+
+test("secrets: PostgrestSource reads a count with no total as unknown (Infinity), so the export refuses", async () => {
   const source = new PostgrestSource({
     baseUrl: "https://api.example.test",
     userId: "u1",
     headers: {},
     fetch: (async () => new Response(null, { status: 200 })) as unknown as typeof fetch,
   });
-  await assert.rejects(() => source.secretCount(), /no total/);
+  assert.equal(await source.secretCount(), Number.POSITIVE_INFINITY);
+});
+
+test("secrets: PostgrestSource reads a failing secret-table count as unknown (Infinity)", async () => {
+  const source = new PostgrestSource({
+    baseUrl: "https://api.example.test",
+    userId: "u1",
+    headers: {},
+    fetch: countingFetch({ project_integrations: 0, user_settings: 0, overleaf_connections: 0 }, [], "user_settings"),
+  });
+  assert.equal(await source.secretCount(), Number.POSITIVE_INFINITY);
 });

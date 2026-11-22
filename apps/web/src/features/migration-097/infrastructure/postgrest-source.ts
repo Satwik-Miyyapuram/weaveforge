@@ -25,6 +25,17 @@ export const TABLE_BY_KIND = {
   blobs: "blob_objects",
 } as const;
 
+/**
+ * Tables that hold secrets (integration tokens, Zotero key, Overleaf token). `secret` is the column
+ * that must be set; `owner` scopes the rows to the user (project_integrations goes through projects).
+ * Shared with the move-secrets scope so the count and the move cover the same rows.
+ */
+export const SECRET_TABLES = [
+  { table: "project_integrations", select: "id,projects!inner(user_id)", owner: "projects.user_id", secret: "token" },
+  { table: "user_settings", select: "user_id", owner: "user_id", secret: "zotero_api_key" },
+  { table: "overleaf_connections", select: "user_id", owner: "user_id", secret: "token_ciphertext" },
+] as const;
+
 /** Kinds with no server table: their rows are files only, so the server side lists none. */
 const FILE_ONLY_KINDS: readonly string[] = ["ink"];
 
@@ -142,14 +153,23 @@ export class PostgrestSource implements ServerSource {
     return totalOf(res, table);
   }
 
-  /** Integration rows holding a token, counted through the owning project (projects.user_id). */
+  /**
+   * Owner-scoped rows that hold a secret, summed over SECRET_TABLES. A count that fails or has no
+   * total reads as unknown (Infinity), so the export refuses rather than treating it as zero.
+   */
   async secretCount(): Promise<number> {
-    const table = "project_integrations";
-    const url =
-      `${this.opts.baseUrl}/${table}?select=id,projects!inner(user_id)` +
-      `&projects.user_id=eq.${this.opts.userId}&token=not.is.null`;
-    const res = await this.request(url, { method: "HEAD", extra: { Prefer: "count=exact" } }, table);
-    return totalOf(res, table);
+    const uid = encodeURIComponent(this.opts.userId);
+    let total = 0;
+    for (const { table, select, owner, secret } of SECRET_TABLES) {
+      const url = `${this.opts.baseUrl}/${table}?select=${select}&${owner}=eq.${uid}&${secret}=not.is.null`;
+      try {
+        const res = await this.request(url, { method: "HEAD", extra: { Prefer: "count=exact" } }, table);
+        total += totalOf(res, table);
+      } catch {
+        return Number.POSITIVE_INFINITY;
+      }
+    }
+    return total;
   }
 
   async pendingOutbox(): Promise<number> {
