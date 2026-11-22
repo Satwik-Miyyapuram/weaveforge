@@ -44,6 +44,7 @@ const personalCalls: [string, (b: Wired) => Promise<unknown>][] = [
   // paper_tags is not in ORG_SERVER_TABLES, so both probes below must be refused in files mode.
   ["paperTagRepository.listAll", (b) => call(b.paperTagRepository.listAll)],
   ["paperTagRepository.listForTag", (b) => call(b.paperTagRepository.listForTag, "t-1")],
+  ["paperTagRepository.link", (b) => call(b.paperTagRepository.link, { paperId: "p-1", tagId: "t-1", source: "manual" })],
   ["screeningRepository.listForItems", (b) => call(b.screeningRepository.listForItems, ["i-1"])],
   ["sharedReader.read", (b) => call(b.sharedReader.read, "paper", ["i-1"], ["owner"])],
 ];
