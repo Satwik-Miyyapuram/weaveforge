@@ -16,6 +16,22 @@ class FailingPartFs extends MemoryWorkspaceFs {
   }
 }
 
+/** Writes the `.part` file in full, then fails, as a full disk on the flush after the write would. */
+class TornPartFs extends MemoryWorkspaceFs {
+  override async writeFile(path: string, data: Uint8Array | string): Promise<void> {
+    await super.writeFile(path, data);
+    if (path === PART) throw new Error("disk full after write");
+  }
+}
+
+/** Changes settings.json on every `.part` write, so every try loses the race with another writer. */
+class ChurnPartFs extends MemoryWorkspaceFs {
+  override async writeFile(path: string, data: Uint8Array | string): Promise<void> {
+    if (path === PART) await super.writeFile(PATH, JSON.stringify({ churn: Math.random() }));
+    return super.writeFile(path, data);
+  }
+}
+
 /** Fails only the first write to the `.part` file, so an earlier queued set fails and a later one lands. */
 class FailFirstPartFs extends MemoryWorkspaceFs {
   failures = 1;
@@ -181,6 +197,20 @@ describe("file settings section: P2/P3 write ordering, cross-writer, rollback", 
     fs.failPart = true;
     await assert.rejects(s.set(["theme"], "new"));
     assert.equal(s.get(["theme"]), "old");
+  });
+
+  it("a .part written before a failed flush is removed, not left behind", async () => {
+    const fs = new TornPartFs();
+    const s = await openFileSettingsSection(fs, ROOT);
+    await assert.rejects(s.set(["theme"], "new"));
+    assert.equal(await fs.stat(PART), null);
+  });
+
+  it("when every try loses the race to another writer, the .part is removed before the error", async () => {
+    const fs = new ChurnPartFs();
+    const s = await openFileSettingsSection(fs, ROOT);
+    await assert.rejects(s.set(["theme"], "new"), /another writer/);
+    assert.equal(await fs.stat(PART), null);
   });
 
   it("set v1, set v2, v1 fails: get() stays v2 and v2 reaches disk", async () => {

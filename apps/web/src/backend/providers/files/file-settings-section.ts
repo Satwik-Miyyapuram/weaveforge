@@ -118,10 +118,17 @@ export async function openFileSettingsSection(fs: IWorkspaceFs, root: string): P
       const { raw, doc } = await load();
       apply(doc);
       await fs.mkdirp(dir);
-      await fs.writeFile(partPath, `${JSON.stringify(doc, null, 2)}\n`);
-      if ((await readRaw()) !== raw) continue;
-      await fs.rename(partPath, path);
-      return;
+      let committedNow = false;
+      try {
+        await fs.writeFile(partPath, `${JSON.stringify(doc, null, 2)}\n`);
+        if ((await readRaw()) !== raw) continue;
+        await fs.rename(partPath, path);
+        committedNow = true;
+        return;
+      } finally {
+        // Anything not renamed into place is not a commit: drop it. Never mask the error that is in flight.
+        if (!committedNow) await discardPart(fs, partPath);
+      }
     }
     throw new Error(`settings.json was changed by another writer on every try (gave up after ${MAX_WRITE_TRIES})`);
   };
@@ -187,6 +194,15 @@ export async function openFileSettingsSection(fs: IWorkspaceFs, root: string): P
 
 /** Tries per write before giving up when another writer keeps changing settings.json. */
 const MAX_WRITE_TRIES = 3;
+
+/** Removes an uncommitted `.part`, if any. A failure here is ignored so the write's own error is what the caller sees. */
+async function discardPart(fs: IWorkspaceFs, partPath: string): Promise<void> {
+  try {
+    if (await fs.stat(partPath)) await fs.remove(partPath);
+  } catch {
+    // Leftover .part is discarded on the next open.
+  }
+}
 
 /** Renames a corrupt settings.json to `settings.json.bad-<ts>` and returns the new name. */
 async function moveAside(fs: IWorkspaceFs, dir: string, path: string): Promise<string> {
