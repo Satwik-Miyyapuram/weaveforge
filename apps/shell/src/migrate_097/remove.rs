@@ -44,11 +44,13 @@ pub fn record_exported_to(pg_root: &Path, folder: &Path) -> Result<(), String> {
     )
 }
 
-/// The dump file the report names (`backup`), as a plain name inside the migration folder. A
-/// report without the field predates it and uses `pre-migration.dump`. A null field has nothing to
-/// remove. A name with a path separator or `..` is refused.
-pub fn backup_name(report: &serde_json::Value) -> Result<String, String> {
-    let value = match report.get("backup") {
+/// The dump file this device's run names (`runs[].backup`, else the report's `backup`), as a plain
+/// name inside the migration folder. A report without either field predates it and uses
+/// `pre-migration.dump`. A null field has nothing to remove. A name with a path separator or `..`
+/// is refused.
+pub fn backup_name(report: &serde_json::Value, device_id: &str) -> Result<String, String> {
+    let own = own_run(report, device_id).ok().and_then(|run| run.get("backup"));
+    let value = match own.or_else(|| report.get("backup")) {
         None => return Ok(DEFAULT_BACKUP.to_owned()),
         Some(value) if value.is_null() => return Err(NOTHING_TO_REMOVE.to_owned()),
         Some(value) => value,
@@ -100,7 +102,7 @@ pub fn remove_old_data(
         Some(runs) if !runs.is_empty() => {}
         _ => return Err(NOTHING_TO_REMOVE.to_owned()),
     }
-    let backup = backup_name(&report)?;
+    let backup = backup_name(&report, device_id)?;
     check_backup(folder, &backup)?;
     if !own_run_missing(&report, device_id)?.is_empty() {
         return Err("refused: report lists missing items".to_owned());

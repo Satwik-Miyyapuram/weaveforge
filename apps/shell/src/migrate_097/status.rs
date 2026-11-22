@@ -77,7 +77,7 @@ pub fn migration_status(folder: &Path, pg_root: &Path, device_id: &str) -> Migra
     let state = report["state"].as_str().unwrap_or("none").to_owned();
     let own_run_verified = super::remove::own_run(&report, device_id)
         .is_ok_and(|run| run["state"].as_str() == Some("verified"));
-    let backup = super::remove::backup_name(&report)
+    let backup = super::remove::backup_name(&report, device_id)
         .ok()
         .map(|name| folder.join(super::remove::MIGRATION_DIR).join(name));
     let mut kinds = super::remove::own_run_missing(&report, device_id).unwrap_or_default();

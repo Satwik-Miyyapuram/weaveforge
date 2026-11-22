@@ -483,6 +483,18 @@ fn another_devices_removal_in_progress_is_refused_and_keeps_the_backups() {
 }
 
 #[test]
+fn the_backup_name_comes_from_this_devices_own_run() {
+    let f = Fixture::new("run-backup", Some("verified"), None);
+    fs::write(f.folder.join(DIR).join("custom.dump"), good_dump()).unwrap();
+    let run = RUN_CLEAN.replace(r#""deviceId":"dev-a""#, r#""deviceId":"dev-a","backup":"custom.dump""#);
+    f.set_report(&format!(
+        r#"{{"version":1,"state":"verified","backup":"{BACKUP_NAME}","verifiedAt":"{NOW}","runs":[{run}]}}"#
+    ));
+    f.run(&mut || Ok(())).expect("the dump this device's run names is the one checked");
+    assert!(f.folder.join(DIR).join("custom.dump").exists(), "migration dump kept");
+}
+
+#[test]
 fn a_resume_with_the_cluster_gone_finishes_the_backup_delete() {
     let f = Fixture::new("resume-gone", Some("verified"), Some(good_dump().as_slice()));
     fs::write(f.base.join("old-db-removed"), "").unwrap();
