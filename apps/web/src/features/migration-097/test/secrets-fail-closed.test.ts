@@ -64,6 +64,26 @@ test("secrets: no providers with secrets runs without a mover and verifies, reco
   assert.deepEqual(marks, ["mark"]);
 });
 
+test("secrets: with secretsPresent unset the provider list is never read, so a failing secret check cannot refuse the run", async () => {
+  const marks: string[] = [];
+  let read = 0;
+  const result = await runWebExport({
+    runDeviceId: "dev-test",
+    kinds: KINDS,
+    codec,
+    source: server(async () => {
+      read++;
+      throw new Error("secret check failed");
+    }, marks),
+    sink: new MemorySink(),
+    now: NOW,
+  });
+  assert.equal(read, 0, "secretProviders is not called when secretsPresent is unset");
+  assert.equal(result.state, "verified");
+  assert.deepEqual(result.reconnectProviders, []);
+  assert.deepEqual(marks, ["mark"]);
+});
+
 test("secrets: a provider with a secret does not block the export; it is named for reconnect and the run verifies", async () => {
   const marks: string[] = [];
   const sink = new MemorySink();
