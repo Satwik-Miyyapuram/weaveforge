@@ -57,16 +57,19 @@ export async function runUpgrade(
   }
 }
 
-/** Path of the shell's report for a folder, shown as selectable text. */
-export function upgradeReportPath(folder: string): string {
+/**
+ * The migration folder that holds the 0.9.7 reports, shown as selectable text. Each device's own
+ * report file is inside it, so this screen does not name one (it does not know this device's id).
+ */
+export function upgradeReportFolder(folder: string): string {
   const sep = folder.includes("\\") ? "\\" : "/";
-  return [folder.replace(/[\\/]+$/, ""), ".weaveforge", "migration-0.9.7", "report.json"].join(sep);
+  return [folder.replace(/[\\/]+$/, ""), ".weaveforge", "migration-0.9.7"].join(sep);
 }
 
 export type UpgradeBodyProps = {
   phase: UpgradePhase;
   progress: Record<string, UpgradeKindProgress>;
-  reportPath: string;
+  reportFolder: string;
   /** Kind names the exporter could not move; listed when the run stopped. */
   missing?: string[];
   /** Web: provider names the user reconnects to finish the upgrade. */
@@ -89,7 +92,7 @@ export type UpgradeBodyProps = {
 export function Migrate097UpgradeBody({
   phase,
   progress,
-  reportPath,
+  reportFolder,
   missing = [],
   reconnectProviders = [],
   undecryptable = 0,
@@ -152,16 +155,12 @@ export function Migrate097UpgradeBody({
       {undecryptable > 0 ? (
         <p>{`${undecryptable} items cannot be read here. Open the desktop app to export these ${undecryptable} items.`}</p>
       ) : null}
-      {reportPath ? (
-        <>
-          <p>
-            Report: <code style={{ userSelect: "text", WebkitUserSelect: "text" }}>{reportPath}</code>
-          </p>
-          <Button variant="secondary" onClick={onCopy}>
-            {copied ? "Copied" : "Copy report path"}
-          </Button>
-        </>
-      ) : null}
+      <p>
+        Report folder: <code style={{ userSelect: "text", WebkitUserSelect: "text" }}>{reportFolder}</code>
+      </p>
+      <Button variant="secondary" onClick={onCopy}>
+        {copied ? "Copied" : "Copy report folder"}
+      </Button>
       <ModalActions>
         <Button variant="secondary" onClick={onKeepOld}>
           Keep using old data
@@ -236,7 +235,7 @@ export function Migrate097Upgrade({
 
   async function copyPath() {
     try {
-      await navigator.clipboard.writeText(upgradeReportPath(folder));
+      await navigator.clipboard.writeText(upgradeReportFolder(folder));
       setCopied(true);
     } catch {
       setCopied(false);
@@ -247,7 +246,7 @@ export function Migrate097Upgrade({
     <Migrate097UpgradeView
       phase={phase}
       progress={progress}
-      reportPath={folder ? upgradeReportPath(folder) : ""}
+      reportFolder={upgradeReportFolder(folder)}
       missing={missing}
       reconnectProviders={reply.reconnectProviders}
       undecryptable={reply.undecryptable}
