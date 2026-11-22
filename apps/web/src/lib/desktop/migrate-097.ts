@@ -11,9 +11,10 @@ export type Migrate097State = "none" | "verified" | "incomplete" | "removing" | 
 
 /**
  * What the page can conclude. `unavailable` is any read that did not answer;
- * `removing-other` is a removal another device started, so this device stays fail-closed.
+ * `removing-other` is a removal another device started, so this device stays fail-closed;
+ * `unexported` is a folder another device removed while this device never exported its own data.
  */
-export type Migrate097Resolved = Migrate097State | "unavailable" | "removing-other";
+export type Migrate097Resolved = Migrate097State | "unavailable" | "removing-other" | "unexported";
 
 /** The slice of the bridge this module reads. Optional: an old shell lacks it. */
 export interface Migrate097Bridge {
@@ -23,6 +24,8 @@ export interface Migrate097Bridge {
     removingDeviceId?: unknown;
     /** This device's id, so a removal can be told apart from another device's. */
     deviceId?: unknown;
+    /** True when this device's own export verified (EXPORT-2 adds it; missing means false). */
+    ownRunVerified?: unknown;
   }>;
 }
 
@@ -61,9 +64,13 @@ async function read(bridge: Migrate097Bridge, folder: string): Promise<Migrate09
       const own = typeof report?.deviceId === "string" && report.removingDeviceId === report.deviceId;
       return own ? "removing" : "removing-other";
     }
-    return state === "verified" || state === "incomplete" || state === "none" || state === "removed"
-      ? state
-      : "unavailable";
+    if (state === "removed") {
+      // A removal is folder-wide. Only this device's own verified export, or its own removal, may wire files.
+      const ownRun = report?.ownRunVerified === true;
+      const remover = typeof report?.deviceId === "string" && report.removingDeviceId === report.deviceId;
+      return ownRun || remover ? "removed" : "unexported";
+    }
+    return state === "verified" || state === "incomplete" || state === "none" ? state : "unavailable";
   } catch {
     return "unavailable";
   }

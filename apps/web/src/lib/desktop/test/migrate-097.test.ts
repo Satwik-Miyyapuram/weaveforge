@@ -65,10 +65,43 @@ test("no folder means there is nothing to migrate and nothing to wire", async ()
   assert.equal(called, false);
 });
 
-test("a removed migration wires the file backend: the old data is gone, so the old backend would be empty", async () => {
-  const bridge = { migrate097Status: async () => ({ state: "removed" }) };
-  assert.equal(await migrate097Status(bridge, FOLDER), "removed");
+test("a removed migration wires files only on a device that verified its own run or ran the removal", async () => {
+  const ownRun = { migrate097Status: async () => ({ state: "removed", ownRunVerified: true, deviceId: "dev-a" }) };
+  assert.equal(await migrate097Status(ownRun, FOLDER), "removed");
   assert.equal(usesFileBackend("removed"), true);
+
+  const remover = {
+    migrate097Status: async () => ({ state: "removed", removingDeviceId: "dev-a", deviceId: "dev-a", ownRunVerified: false }),
+  };
+  assert.equal(await migrate097Status(remover, FOLDER), "removed");
+
+  // Folder-wide "removed" from another device's removal: this device never exported its own data.
+  const other = {
+    migrate097Status: async () => ({ state: "removed", removingDeviceId: "dev-b", deviceId: "dev-a", ownRunVerified: false }),
+  };
+  const resolved = await migrate097Status(other, FOLDER);
+  assert.equal(resolved, "unexported");
+  assert.equal(usesFileBackend(resolved), false);
+});
+
+test("a removed report that cannot name this device or its own run stays fail-closed", async () => {
+  const bridge = { migrate097Status: async () => ({ state: "removed" }) };
+  const resolved = await migrate097Status(bridge, FOLDER);
+  assert.notEqual(resolved, "removed");
+  assert.equal(usesFileBackend(resolved), false);
+});
+
+test("an unreadable report never wires the database-free backend, whatever the reason", async () => {
+  const shells = [
+    null,
+    { migrate097Status: async () => undefined },
+    { migrate097Status: async () => "verified" as never },
+    { migrate097Status: async () => ({ state: "removed", ownRunVerified: "yes" }) as never },
+  ];
+  for (const bridge of shells) {
+    const resolved = await migrate097Status(bridge as never, FOLDER);
+    assert.equal(usesFileBackend(resolved), false, `${JSON.stringify(bridge)} must not wire files`);
+  }
 });
 
 test("a removing migration on this device wires files; a removing migration on another device stays fail-closed", async () => {
