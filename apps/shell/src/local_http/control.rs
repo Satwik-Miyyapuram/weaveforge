@@ -23,6 +23,7 @@ use super::connect::{
 use super::rewrite::kept_backup;
 use super::route::{RouteDeps, route_local_request};
 use super::server::{Handler, bind, serve};
+use super::verified::ModeSource;
 use super::token::{
     MAX_LOCAL_API_TOKENS, hash_local_api_token, make_local_api_token, parse_local_api_tokens,
 };
@@ -164,6 +165,8 @@ fn read_rank_answer(
 pub struct LocalApiDeps {
     /// The workspace the door opens onto.
     pub vault: VaultState,
+    /// The local cluster root and device id that decide the storage path.
+    pub mode: ModeSource,
     /// Where the switch is remembered.
     pub prefs: Arc<dyn PrefAccess>,
     /// Where the token list lives.
@@ -206,6 +209,7 @@ struct State {
 /// What each request needs, owned so the server task can hold it.
 struct Serving {
     vault: VaultState,
+    mode: ModeSource,
     query: Option<Arc<dyn SdkQuery>>,
     save_artifact: Option<Arc<dyn SaveArtifact>>,
     mcp: Option<Arc<dyn McpRouter>>,
@@ -217,6 +221,7 @@ impl Serving {
         let mut expected = Expected::Grants(lock(&self.grants).clone());
         let deps = RouteDeps {
             vault: &self.vault,
+            mode: &self.mode,
             query: self.query.as_deref(),
             save_artifact: self.save_artifact.as_deref(),
             mcp: self.mcp.as_deref(),
@@ -352,6 +357,7 @@ impl LocalApiControl {
     fn handler(&self) -> Handler {
         let serving = Arc::new(Serving {
             vault: self.deps.vault.clone(),
+            mode: self.deps.mode.clone(),
             query: self.deps.query.clone(),
             save_artifact: self.deps.save_artifact.clone(),
             mcp: self.deps.mcp.clone(),
@@ -891,6 +897,7 @@ mod tests {
         let ranker = Arc::new(WindowRanker::new(window.clone(), warn));
         let control = LocalApiControl::new(LocalApiDeps {
             vault: VaultState::new(),
+            mode: ModeSource::new(PathBuf::from("pg"), "device-a".to_owned()),
             prefs: Arc::new(FakePrefs::default()),
             secrets: secrets.clone(),
             opener: opener.clone(),

@@ -13,7 +13,7 @@ use crate::migrate_097::remove::{record_verified_export, remove_old_data};
 use crate::migrate_097::status::{MigrationStatus, migration_status};
 
 /// The app's local cluster root (the dir "remove old data" deletes).
-fn pg_root(app: &tauri::AppHandle) -> Result<PathBuf, ShellError> {
+pub(crate) fn pg_root(app: &tauri::AppHandle) -> Result<PathBuf, ShellError> {
     let data = app
         .path()
         .app_data_dir()
@@ -22,7 +22,7 @@ fn pg_root(app: &tauri::AppHandle) -> Result<PathBuf, ShellError> {
 }
 
 /// This machine's id (`device-id` in app data), created on first use.
-fn device_id(app: &tauri::AppHandle) -> Result<String, ShellError> {
+pub(crate) fn device_id(app: &tauri::AppHandle) -> Result<String, ShellError> {
     let data = app
         .path()
         .app_data_dir()

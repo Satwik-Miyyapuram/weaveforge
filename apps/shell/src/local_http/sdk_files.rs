@@ -12,8 +12,8 @@ use wf_store::files::metrics_csv::{
     ChunkWrite, experiment_dirs, local_batch_id, store_metric_points,
 };
 
-use super::sdk::{SDK_PREFIX, trimmed_param};
-use super::verified::{FolderMode, folder_mode};
+use super::sdk::{LOCAL_USER_ID, SDK_PREFIX, trimmed_param};
+use super::verified::Mode;
 use super::{LocalApiRequest, LocalApiResponse};
 use crate::vault::VaultState;
 
@@ -23,8 +23,13 @@ const MAX_POINTS: usize = 5000;
 const WORKSPACE_JSON: &str = ".weaveforge/workspace.json";
 /// Said when the blocking write task panicked.
 const TASK_FAILED: &str = "The metrics could not be written.";
-/// Said by every SDK route while an export is running or finished.
-pub(super) const MIGRATING: &str = "migration in progress";
+/// Said by every SDK route when the folder's migration status cannot be trusted.
+pub(super) const UNAVAILABLE: &str = "folder status unavailable";
+/// Said by a read-only database folder for a write on an SDK route.
+pub(super) const READ_ONLY: &str = "read-only: this folder's database takes no writes in its migration state";
+/// Said by a files-mode folder for experiments and artifacts, which return in 0.9.8.
+pub(super) const EXPERIMENTS_LATER: &str =
+    "experiment tracking is unavailable in files mode in 0.9.7; it returns in 0.9.8";
 /// Said by a files-mode folder for an SDK route that is not file-backed yet. Never SQL.
 pub(super) const NOT_FILED: &str = "not available in files mode yet";
 
@@ -34,35 +39,47 @@ pub fn enabled() -> bool {
     std::env::var("WF_METRICS_FILES").is_ok_and(|value| value == "1")
 }
 
-/// Answers SDK requests for the files-backed folder. While the folder is
-/// migrating every SDK route gets 503. A verified folder answers `GET projects`
-/// from `workspace.json` and writes metrics to files (`WF_METRICS_FILES=1` also
-/// enables metrics without a report). Any other SDK route in a files folder gets
-/// 503 `NOT_FILED`, never SQL. `None` (database folders only) leaves the request to the database routes.
+/// Answers SDK requests by the folder's storage mode. `None` leaves the request to the
+/// database routes, which only `Database` and `DatabaseReadOnly` reach (reads only in read-only).
+///
+/// - `Database`: metrics may go to files when `WF_METRICS_FILES=1`; the rest is the database's.
+/// - `DatabaseReadOnly`: every non-GET is refused 423; GET goes to the database.
+/// - `Files`: `GET projects` from `workspace.json`, `GET whoami` locally, metrics as chunks.
+///   Experiments and artifacts say they return in 0.9.8; any other route is 503. Never SQL.
+/// - `Unavailable`: every SDK route is 503. Never SQL.
 pub async fn route(
+    mode: Mode,
     vault: &VaultState,
     request: &LocalApiRequest,
     path: &str,
     search: &str,
 ) -> Option<LocalApiResponse> {
     let rest = path.strip_prefix(SDK_PREFIX)?;
-    let mode = folder_mode(vault);
-    if mode == FolderMode::Migrating {
-        return Some(bad(503, MIGRATING));
-    }
     let route = rest.trim_end_matches('/');
-    if mode != FolderMode::Files {
-        let metrics = request.method == "POST" && route == "metrics";
-        if !metrics || !enabled() {
-            return None;
+    match mode {
+        Mode::Unavailable => Some(bad(503, UNAVAILABLE)),
+        Mode::DatabaseReadOnly if request.method != "GET" => Some(bad(423, READ_ONLY)),
+        Mode::DatabaseReadOnly => None,
+        Mode::Database => {
+            let metrics = request.method == "POST" && route == "metrics";
+            if !metrics || !enabled() {
+                return None;
+            }
+            Some(append_metrics_to_files(vault, &request.body).await)
         }
-        return Some(append_metrics_to_files(vault, &request.body).await);
+        Mode::Files => Some(match (request.method.as_str(), route) {
+            ("GET", "projects") => project_from_files(vault, search).await,
+            ("GET", "whoami") => LocalApiResponse::json(
+                200,
+                &json!({ "userId": LOCAL_USER_ID, "email": null, "fullName": null }),
+            ),
+            ("POST", "metrics") => append_metrics_to_files(vault, &request.body).await,
+            _ if matches!(route.split('/').next(), Some("experiments" | "artifacts")) => {
+                bad(503, EXPERIMENTS_LATER)
+            }
+            _ => bad(503, NOT_FILED),
+        }),
     }
-    Some(match (request.method.as_str(), route) {
-        ("GET", "projects") => project_from_files(vault, search).await,
-        ("POST", "metrics") => append_metrics_to_files(vault, &request.body).await,
-        _ => bad(503, NOT_FILED),
-    })
 }
 
 /// The SDK routes' error shape: `{"error": message}`.
@@ -143,13 +160,21 @@ mod tests {
     use std::path::PathBuf;
 
     use super::*;
+    use crate::local_http::verified::{ModeSource, folder_mode};
 
     const EXP: &str = "experiments/lr-sweep";
+    const DEVICE: &str = "device-a";
 
     /// A workspace with one experiment file, adopted as the chosen folder.
     struct Fixture {
         root: PathBuf,
         vault: VaultState,
+        mode: ModeSource,
+    }
+
+    /// The storage mode the request path would compute for this fixture.
+    fn mode_of(fixture: &Fixture) -> Mode {
+        folder_mode(&fixture.vault, &fixture.mode)
     }
 
     impl Fixture {
@@ -172,19 +197,36 @@ mod tests {
                     .expect("adopt workspace")
                     .is_some()
             );
-            Self { root, vault }
+            let mode = ModeSource::new(root.join("pg"), DEVICE.to_owned());
+            Self { root, vault, mode }
         }
 
-        /// Writes the 0.9.7 migration report with this `state`.
+        /// Writes a 0.9.7 migration report: top-level `state`, this device's own verified
+        /// run, and the removal markers `state` implies (`removing` by this device, `removed`).
         fn report(self, state: &str) -> Self {
+            let mut report = json!({
+                "version": 1,
+                "state": state,
+                "runs": [{ "deviceId": DEVICE, "state": "verified", "finishedAt": "2026-11-01T00:00:00Z" }],
+            });
+            if state == "removing" {
+                report["removingDeviceId"] = json!(DEVICE);
+            }
+            if state == "removed" {
+                report["removals"][DEVICE] = json!({ "state": "removed", "removedAt": "2026-11-02T00:00:00Z" });
+            }
+            self.write_report(&report)
+        }
+
+        /// Writes `report` as the folder's migration report.
+        fn write_report(self, report: &Value) -> Self {
             let dir = self.root.join(".weaveforge").join("migration-0.9.7");
             fs::create_dir_all(&dir).expect("create migration dir");
-            let text = json!({ "version": 1, "state": state }).to_string();
-            fs::write(dir.join("report.json"), text).expect("write report");
+            fs::write(dir.join("report.json"), report.to_string()).expect("write report");
             self
         }
 
-        /// Marks the folder as migrated to 0.9.7 (`report.json` says `verified`).
+        /// Marks the folder as migrated to 0.9.7 (this device's own run is `verified`).
         fn verified(self) -> Self {
             self.report("verified")
         }
@@ -229,7 +271,7 @@ mod tests {
             .enable_all()
             .build()
             .expect("runtime")
-            .block_on(route(&fixture.vault, &request, "/api/sdk/metrics", ""))
+            .block_on(route(mode_of(fixture), &fixture.vault, &request, "/api/sdk/metrics", ""))
     }
 
     fn route_get(fixture: &Fixture, path: &str, search: &str) -> Option<LocalApiResponse> {
@@ -243,7 +285,7 @@ mod tests {
             .enable_all()
             .build()
             .expect("runtime")
-            .block_on(route(&fixture.vault, &request, path, search))
+            .block_on(route(mode_of(fixture), &fixture.vault, &request, path, search))
     }
 
     #[test]
@@ -295,40 +337,84 @@ mod tests {
     }
 
     #[test]
-    fn exporting_and_exported_folders_answer_503_on_every_sdk_route() {
-        for state in ["exporting", "exported"] {
-            let fixture = Fixture::new(&format!("migrating-{state}")).report(state);
+    fn an_unknown_migration_state_answers_503_on_every_sdk_route() {
+        for state in ["exporting", "something-else"] {
+            let fixture = Fixture::new(&format!("unknown-{state}")).report(state);
+            assert_eq!(mode_of(&fixture), Mode::Unavailable, "state {state}");
             let answer = route_once(&fixture, &points(0..2)).expect("answered 503");
             assert_eq!(answer.status, 503, "state {state}");
             let reply: Value = serde_json::from_str(&answer.body).expect("json body");
-            assert_eq!(reply["error"], MIGRATING);
+            assert_eq!(reply["error"], UNAVAILABLE);
             assert_eq!(fixture.chunks(), 0, "state {state}");
+            assert!(route_get(&fixture, "/api/sdk/projects", "name=Lab").is_some());
         }
     }
 
     #[test]
-    fn a_report_that_is_not_json_keeps_the_database_path() {
+    fn a_report_that_is_not_json_answers_503_and_never_falls_back() {
         let fixture = Fixture::new("garbage-report");
         let dir = fixture.root.join(".weaveforge").join("migration-0.9.7");
         fs::create_dir_all(&dir).expect("create migration dir");
         fs::write(dir.join("report.json"), "not json").expect("write report");
-        assert!(route_once(&fixture, &points(0..2)).is_none());
+        let answer = route_once(&fixture, &points(0..2)).expect("answered 503");
+        assert_eq!(answer.status, 503);
+        assert_eq!(fixture.chunks(), 0);
     }
 
     #[test]
     fn a_verified_folder_answers_unfiled_sdk_routes_503_and_never_falls_back() {
         let fixture = Fixture::new("unfiled-503").verified();
         for (path, search) in [
-            ("/api/sdk/whoami", ""),
             ("/api/sdk/experiments", "id=e1"),
             ("/api/sdk/artifacts", ""),
-            ("/api/sdk/metrics", "experiment_id=e1"),
         ] {
             let answer = route_get(&fixture, path, search).expect("answered, not left to SQL");
             assert_eq!(answer.status, 503, "{path}");
             let reply: Value = serde_json::from_str(&answer.body).expect("json");
-            assert_eq!(reply["error"], json!("not available in files mode yet"), "{path}");
+            assert_eq!(reply["error"], json!(EXPERIMENTS_LATER), "{path}");
         }
+        let answer = route_get(&fixture, "/api/sdk/metrics", "experiment_id=e1")
+            .expect("answered, not left to SQL");
+        assert_eq!(answer.status, 503);
+        let reply: Value = serde_json::from_str(&answer.body).expect("json");
+        assert_eq!(reply["error"], json!(NOT_FILED));
+    }
+
+    #[test]
+    fn a_files_folder_answers_whoami_locally_without_sql() {
+        let fixture = Fixture::new("whoami-files").verified();
+        let answer = route_get(&fixture, "/api/sdk/whoami", "").expect("answered locally");
+        assert_eq!(answer.status, 200);
+        let reply: Value = serde_json::from_str(&answer.body).expect("json");
+        assert_eq!(reply["userId"], json!(LOCAL_USER_ID));
+    }
+
+    #[test]
+    fn a_read_only_folder_refuses_writes_and_leaves_reads_to_the_database() {
+        let fixture = Fixture::new("read-only").write_report(&json!({
+            "version": 1,
+            "state": "incomplete",
+            "runs": [{ "deviceId": DEVICE, "state": "incomplete" }],
+        }));
+        assert_eq!(mode_of(&fixture), Mode::DatabaseReadOnly);
+        assert!(route_get(&fixture, "/api/sdk/projects", "name=Lab").is_none());
+        let answer = route_once(&fixture, &points(0..2)).expect("refused");
+        assert_eq!(answer.status, 423);
+        assert_eq!(fixture.chunks(), 0);
+    }
+
+    #[test]
+    fn a_removing_folder_from_another_device_fails_closed_to_read_only() {
+        let fixture = Fixture::new("removing-other").write_report(&json!({
+            "version": 1,
+            "state": "removing",
+            "removingDeviceId": "device-b",
+            "runs": [{ "deviceId": DEVICE, "state": "verified" }],
+        }));
+        assert_eq!(mode_of(&fixture), Mode::DatabaseReadOnly);
+        let answer = route_once(&fixture, &points(0..2)).expect("refused");
+        assert_eq!(answer.status, 423);
+        assert_eq!(fixture.chunks(), 0);
     }
 
     #[test]

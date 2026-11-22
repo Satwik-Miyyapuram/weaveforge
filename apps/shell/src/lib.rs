@@ -235,6 +235,10 @@ fn start_stores(app: &tauri::AppHandle) {
     ));
     let _ = app.manage(prefs);
     let _ = app.manage(vault);
+    // Without it the SQL commands and the local API stay off: fail closed, never guess the mode.
+    if let Ok(mode) = local_http::verified::ModeSource::from_app(app) {
+        let _ = app.manage(mode);
+    }
     let _ = app.manage(secrets);
     let _ = app.manage(app_log::AppLog::new(&logs, &home));
     let _ = app.manage(git::GitQueue::default());
@@ -506,6 +510,7 @@ fn local_api_deps(app: &tauri::AppHandle) -> Option<(local_http::control::LocalA
     let prefs = app.try_state::<prefs::Prefs>()?.inner().clone();
     let secrets = app.try_state::<secrets::Secrets>()?.inner().clone();
     let vault = app.try_state::<vault::VaultState>()?.inner().clone();
+    let mode = app.try_state::<local_http::verified::ModeSource>()?.inner().clone();
     let paths = app.path();
     let product = app.package_info().name.clone();
     // Without a resource dir the build is unknown, so it is treated as Dev: it must never
@@ -526,6 +531,7 @@ fn local_api_deps(app: &tauri::AppHandle) -> Option<(local_http::control::LocalA
     let query: Arc<dyn local_http::SdkQuery> = Arc::new(local_api::AppQuery(app.clone()));
     let mcp = local_http::mcp::LocalMcp::new(
         vault.clone(),
+        mode.clone(),
         Some(query.clone()),
         Some(ranker.clone()),
         Some(local_http::McpHome {
@@ -536,6 +542,7 @@ fn local_api_deps(app: &tauri::AppHandle) -> Option<(local_http::control::LocalA
     let artifacts = paths.app_data_dir().unwrap_or_default().join("artifacts");
     let deps = local_http::control::LocalApiDeps {
         vault,
+        mode,
         prefs: Arc::new(prefs),
         secrets: Arc::new(secrets),
         opener: Arc::new(local_api::TauriOpener(app.clone())),
