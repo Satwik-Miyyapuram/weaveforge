@@ -43,12 +43,16 @@ const CHOICES: Record<Choice, [idle: string, busy: string, help: string]> = {
  * the URL does not parse.
  */
 export function backupTarget(url: string): { label: string; href: string } | null {
+  // scp-style `git@host:owner/repo` becomes the https page of the same repository.
+  const scp = /^[\w.-]+@([\w.-]+):(.+)$/.exec(url.trim());
   let parsed: URL;
   try {
-    parsed = new URL(url);
+    parsed = new URL(scp ? `https://${scp[1]}/${scp[2]}` : url);
   } catch {
     return null;
   }
+  // Only web remotes make a link; a javascript: or file: remote never reaches an href.
+  if (parsed.protocol !== "https:" && parsed.protocol !== "http:") return null;
   const path = parsed.pathname.replace(/\.git$/, "").replace(/\/+$/, "");
   const href = `${parsed.protocol}//${parsed.host}${path}`;
   const github = parsed.hostname === "github.com";
