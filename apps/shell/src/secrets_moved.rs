@@ -147,7 +147,7 @@ pub fn move_into_keychain(
         .filter(|key| routed_name(key).is_none())
         .collect();
     check_index_fits(&keys)?;
-    store_fields(secrets, &fields)?;
+    store_move_fields(secrets, &fields)?;
     write_index(secrets, "move", &keys)?;
     marker()?;
     Ok(skipped)
@@ -314,6 +314,18 @@ fn entry_name(key: &str) -> String {
 /// partial failure leaves no readable index and a retry rewrites every field.
 fn store_fields(secrets: &Secrets, fields: &[(String, String)]) -> Result<(), SecretError> {
     for (key, text) in fields {
+        secrets.write(&entry_name(key), text)?;
+    }
+    Ok(())
+}
+
+/// The move's keychain writes. A routed token whose native entry already exists is newer than the
+/// old row (the native shell wrote it since), so it is left as it is.
+fn store_move_fields(secrets: &Secrets, fields: &[(String, String)]) -> Result<(), SecretError> {
+    for (key, text) in fields {
+        if routed_name(key).is_some() && secrets.read(&entry_name(key))?.is_some() {
+            continue;
+        }
         secrets.write(&entry_name(key), text)?;
     }
     Ok(())
@@ -994,5 +1006,16 @@ mod tests {
         assert_eq!(index["source"], "move");
         assert_eq!(index["keys"].as_array().expect("keys").len(), 2);
         assert_eq!(read_marker(&dir.0), serde_json::json!({ "count": 1, "deviceId": DEVICE }));
+    }
+
+    #[test]
+    fn a_newer_native_token_survives_an_old_db_token_on_the_move() {
+        let dir = Scratch::new("newer-native");
+        let secrets = fake_keychain(&store());
+        // github_connect.rs wrote a fresh git-sync token after the old row was saved.
+        secrets.write("git-sync-token", "newer").expect("native token");
+        let row = old_row(r#"{"gitSyncToken":"old"}"#);
+        move_now(&secrets, &dir.0, &[row]).expect("moves");
+        assert_eq!(secrets.read("git-sync-token").expect("read"), Some("newer".to_owned()));
     }
 }
