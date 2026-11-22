@@ -69,7 +69,8 @@ test("unknown legacy state fails closed to export first, even with a verified re
 /** A clean run in the shape the export writes: every kind a known migration kind, no missing rows. */
 const cleanRun = {
   deviceId: OWN,
-  kinds: { notes: { db: 2, files: 2, written: 2, conflicts: [], trash: 0 } },
+  kinds: Object.fromEntries(MIGRATION_KINDS.map((k) => [k, { db: 0, files: 0, written: 0, conflicts: [], trash: 0 }])),
+  blobs: { db: 0, verified: 0 },
   missing: [],
   state: "verified",
   target: "opfs",
