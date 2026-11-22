@@ -612,3 +612,21 @@ fn rename_case_only_keeps_the_file() {
     v.rename("Notes.md", "notes.md").unwrap();
     assert_eq!(v.read_text("notes.md").unwrap(), "same file");
 }
+
+#[test]
+fn remove_without_recursive_deletes_only_an_empty_folder() {
+    let dir = TempDir::new();
+    let v = vault_in(&dir);
+
+    fs::create_dir(dir.path().join("empty")).unwrap();
+    v.remove("empty", false).unwrap();
+    assert!(!dir.path().join("empty").exists());
+
+    v.write_file("full/a.md", b"keep").unwrap();
+    assert!(v.remove("full", false).is_err());
+    assert_eq!(fs::read(dir.path().join("full/a.md")).unwrap(), b"keep");
+
+    v.write_file("b.md", b"x").unwrap();
+    v.remove("b.md", false).unwrap();
+    assert!(!dir.path().join("b.md").exists());
+}
