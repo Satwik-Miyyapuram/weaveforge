@@ -33,13 +33,21 @@ function folder(initial: Record<string, string> = {}, otherTabWritesAfterRename?
   };
 }
 
+/** A lock manager that grants every request at once, as navigator.locks does with no contention. */
+const grantedLocks = { request: <T>(_name: string, callback: () => Promise<T>) => callback() };
+
+/** Runs readOrCreateInstallId as a tab that holds the install-id lock. */
+function createId(fs: ReturnType<typeof folder>, newId: () => string): Promise<string> {
+  return withLocks(grantedLocks, () => readOrCreateInstallId(fs, newId));
+}
+
 test("the install id lives under the gitignored .weaveforge/local/ folder", () => {
   assert.equal(INSTALL_ID_PATH, ".weaveforge/local/install-id");
 });
 
 test("first use creates an id and stores it", async () => {
   const fs = folder();
-  const id = await readOrCreateInstallId(fs, () => "web-first-id");
+  const id = await createId(fs, () => "web-first-id");
   assert.equal(id, "web-first-id");
   assert.equal(fs.files.get(INSTALL_ID_PATH), "web-first-id");
 });
@@ -47,7 +55,7 @@ test("first use creates an id and stores it", async () => {
 test("later uses return the same stored id and do not create a new one", async () => {
   const fs = folder({ [INSTALL_ID_PATH]: "web-stored-id\n" });
   let created = 0;
-  const id = await readOrCreateInstallId(fs, () => {
+  const id = await createId(fs, () => {
     created += 1;
     return "web-new-id";
   });
@@ -57,8 +65,18 @@ test("later uses return the same stored id and do not create a new one", async (
 
 test("a stored id that is not a plain token is replaced", async () => {
   const fs = folder({ [INSTALL_ID_PATH]: "../../etc" });
-  assert.equal(await readOrCreateInstallId(fs, () => "web-clean-id"), "web-clean-id");
+  assert.equal(await createId(fs, () => "web-clean-id"), "web-clean-id");
   assert.equal(fs.files.get(INSTALL_ID_PATH), "web-clean-id");
+});
+
+test("a read error other than not-found refuses and does not replace the stored id", async () => {
+  const fs = folder({ [INSTALL_ID_PATH]: "web-kept-id" });
+  fs.readText = async () => {
+    throw Object.assign(new Error("I/O error"), { code: "EIO" });
+  };
+  await assert.rejects(createId(fs, () => "web-rotated-id"), /I\/O error/);
+  assert.equal(fs.renames.length, 0);
+  assert.equal(fs.files.get(INSTALL_ID_PATH), "web-kept-id");
 });
 
 test("a failed write rejects, so the caller can fail closed", async () => {
@@ -66,15 +84,26 @@ test("a failed write rejects, so the caller can fail closed", async () => {
   fs.writeFile = async () => {
     throw new Error("quota");
   };
-  await assert.rejects(readOrCreateInstallId(fs, () => "web-x"), /quota/);
+  await assert.rejects(createId(fs, () => "web-x"), /quota/);
 });
 
 test("the id is written to a temp file and renamed into place", async () => {
   const fs = folder();
-  await readOrCreateInstallId(fs, () => "web-atomic-id");
-  assert.deepEqual(fs.renames, [[`${INSTALL_ID_PATH}.part`, INSTALL_ID_PATH]]);
+  await createId(fs, () => "web-atomic-id");
+  assert.equal(fs.renames.length, 1);
+  const [from, to] = fs.renames[0] as [string, string];
+  assert.equal(to, INSTALL_ID_PATH);
   assert.equal(fs.files.get(INSTALL_ID_PATH), "web-atomic-id");
-  assert.equal(fs.files.has(`${INSTALL_ID_PATH}.part`), false);
+  assert.equal(fs.files.has(from), false);
+});
+
+test("each create uses its own temp file name, so two creates never share one", async () => {
+  const fs = folder();
+  await createId(fs, () => "web-same-id");
+  fs.files.delete(INSTALL_ID_PATH);
+  await createId(fs, () => "web-same-id");
+  assert.equal(fs.renames.length, 2);
+  assert.notEqual(fs.renames[0]?.[0], fs.renames[1]?.[0]);
 });
 
 /** A lock manager that runs each request after the previous one finishes, as navigator.locks does. */
@@ -128,12 +157,24 @@ function rejectingLocks(error: unknown) {
   };
 }
 
-test("a SecurityError from navigator.locks falls back to the unlocked path and still returns an id", async () => {
+test("without navigator.locks the id is refused, not created unlocked", async () => {
+  const fs = folder({ [INSTALL_ID_PATH]: "web-stored-id" });
+  await assert.rejects(
+    withLocks(undefined, () => readOrCreateInstallId(fs, () => "web-unlocked-id")),
+    /navigator\.locks/,
+  );
+  assert.equal(fs.files.get(INSTALL_ID_PATH), "web-stored-id");
+  assert.equal(fs.renames.length, 0);
+});
+
+test("a SecurityError from navigator.locks that was never granted refuses and writes no id", async () => {
   const denied = Object.assign(new Error("lock denied"), { name: "SecurityError" });
   const fs = folder();
-  const id = await withLocks(rejectingLocks(denied), () => readOrCreateInstallId(fs, () => "web-fallback-id"));
-  assert.equal(id, "web-fallback-id");
-  assert.equal(fs.files.get(INSTALL_ID_PATH), "web-fallback-id");
+  await assert.rejects(
+    withLocks(rejectingLocks(denied), () => readOrCreateInstallId(fs, () => "web-fallback-id")),
+    /lock denied/,
+  );
+  assert.equal(fs.files.size, 0);
 });
 
 test("a SecurityError raised by the file work after the lock is granted fails closed and writes no id", async () => {
@@ -166,7 +207,7 @@ test("any other navigator.locks rejection still fails closed and writes no id", 
 
 test("two tabs creating an id at once both return the id that ended up stored", async () => {
   const fs = folder({}, "web-other-tab-id");
-  const id = await readOrCreateInstallId(fs, () => "web-this-tab-id");
+  const id = await createId(fs, () => "web-this-tab-id");
   assert.equal(id, "web-other-tab-id");
   assert.equal(fs.files.get(INSTALL_ID_PATH), "web-other-tab-id");
 });
