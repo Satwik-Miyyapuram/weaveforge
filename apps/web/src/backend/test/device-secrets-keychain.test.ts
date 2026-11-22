@@ -10,9 +10,12 @@ import {
   DeviceSecretsStore,
   desktopKeychain,
   KEYCHAIN_HELP,
+  KeychainIndexCorruptError,
   KeychainUnavailableError,
   desktopMoveSecrets,
+  keychainHelp,
   LegacySecretsReadError,
+  PartialSaveError,
   type DeviceKeychain,
 } from "../providers/local/parts";
 
@@ -208,7 +211,7 @@ describe("device credentials in the keychain", () => {
       (err: unknown) => {
         assert.ok(err instanceof KeychainUnavailableError);
         assert.equal(err.message, KEYCHAIN_HELP);
-        assert.match(err.message, /sudo apt install gnome-keyring libsecret-1-0/);
+        assert.match(err.message, /Install/);
         return true;
       },
     );
@@ -440,5 +443,112 @@ describe("a field the index lists but the keychain lacks", () => {
       assert.doesNotMatch(err.message, /SECRETVALUE/);
       return true;
     });
+  });
+});
+
+const noMove = async () => undefined;
+const noLegacy = async () => false;
+
+describe("the save queue, mid-save failure and the index", () => {
+  it("runs two concurrent saves one after the other, never interleaved", async () => {
+    const log: string[] = [];
+    const entries = new Map<string, string>();
+    const keychain: DeviceKeychain = {
+      read: async (key) => entries.get(key) ?? null,
+      write: async (key, text) => {
+        await new Promise((resolve) => setTimeout(resolve, 1));
+        log.push(`${key}=${text}`);
+        entries.set(key, text);
+      },
+      clear: async (key) => {
+        entries.delete(key);
+      },
+    };
+    const store = new DeviceSecretsStore(fakeRun([]).run, keychain, noMove, noLegacy);
+    await Promise.all([store.save(flat({ zoteroApiKey: "one" })), store.save(flat({ zoteroApiKey: "two" }))]);
+    const index = indexOf(["zoteroApiKey"], "save");
+    assert.deepEqual(log, ["zoteroApiKey=one", `_index=${index}`, "zoteroApiKey=two", `_index=${index}`]);
+    assert.equal(entries.get("zoteroApiKey"), "two");
+  });
+
+  it("puts the earlier fields back when a write fails part way, and names the field that failed", async () => {
+    const { entries, keychain } = fakeKeychain({ "_index": indexOf(["a"]), a: "old" });
+    const failing: DeviceKeychain = {
+      ...keychain,
+      write: async (key, text) => {
+        if (key === "b") throw new Error("keychain write refused");
+        return keychain.write(key, text);
+      },
+    };
+    const store = new DeviceSecretsStore(fakeRun([]).run, failing, noMove, noLegacy);
+    await assert.rejects(() => store.save(flat({ a: "new", b: "x" })), (err: unknown) => {
+      assert.ok(err instanceof PartialSaveError);
+      assert.match(err.message, /: b \(/);
+      return true;
+    });
+    assert.equal(entries.get("a"), "old");
+    assert.equal(entries.get("_index"), indexOf(["a"]));
+  });
+
+  it("names the entries it could not put back when the restore also fails", async () => {
+    const { entries, keychain } = fakeKeychain({ "_index": indexOf(["a"]), a: "old" });
+    let aWrites = 0;
+    const failing: DeviceKeychain = {
+      ...keychain,
+      write: async (key, text) => {
+        if (key === "b") throw new Error("refused");
+        if (key === "a" && ++aWrites > 1) throw new Error("restore refused");
+        return keychain.write(key, text);
+      },
+    };
+    const store = new DeviceSecretsStore(fakeRun([]).run, failing, noMove, noLegacy);
+    await assert.rejects(() => store.save(flat({ a: "new", b: "x" })), (err: unknown) => {
+      assert.ok(err instanceof PartialSaveError);
+      assert.match(err.message, /: a \(/);
+      return true;
+    });
+    assert.equal(entries.get("a"), "new");
+  });
+
+  it("refuses to save over a corrupt index, and writes nothing", async () => {
+    const { entries, writes, keychain } = fakeKeychain({ "_index": "not json" });
+    const store = new DeviceSecretsStore(fakeRun([]).run, keychain, noMove, noLegacy);
+    await assert.rejects(() => store.save(flat({ zoteroApiKey: "k" })), KeychainIndexCorruptError);
+    assert.deepEqual(writes, []);
+    assert.equal(entries.get("_index"), "not json");
+  });
+
+  it("reports a corrupt index on load as well", async () => {
+    const { keychain } = fakeKeychain({ "_index": "{\"keys\":\"nope\"}" });
+    const store = new DeviceSecretsStore(fakeRun([]).run, keychain, noMove, noLegacy);
+    await assert.rejects(() => store.load(), KeychainIndexCorruptError);
+  });
+
+  it("clears an unreadable index on reset, so a save can run again", async () => {
+    const { entries, keychain } = fakeKeychain({ "_index": "not json" });
+    const store = new DeviceSecretsStore(fakeRun([]).run, keychain, noMove, noLegacy);
+    assert.equal(await store.resetCorruptIndex(), true);
+    assert.equal(entries.has("_index"), false);
+    await store.save(flat({ zoteroApiKey: "k" }));
+    assert.equal(entries.get("zoteroApiKey"), "k");
+  });
+
+  it("leaves a readable index alone on reset", async () => {
+    const { entries, keychain } = fakeKeychain({ "_index": indexOf(["zoteroApiKey"]), zoteroApiKey: "k" });
+    const store = new DeviceSecretsStore(fakeRun([]).run, keychain, noMove, noLegacy);
+    assert.equal(await store.resetCorruptIndex(), false);
+    assert.equal(entries.get("_index"), indexOf(["zoteroApiKey"]));
+  });
+});
+
+describe("the keychain help by platform", () => {
+  it("gives Linux the package commands, and macOS and Windows their own steps with no apt", () => {
+    assert.match(keychainHelp("Mozilla/5.0 (X11; Linux x86_64)"), /sudo apt install gnome-keyring libsecret-1-0/);
+    const mac = keychainHelp("Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0)");
+    const windows = keychainHelp("Mozilla/5.0 (Windows NT 10.0; Win64; x64)");
+    assert.match(mac, /Keychain Access/);
+    assert.match(windows, /Credential Manager/);
+    assert.doesNotMatch(mac, /apt/);
+    assert.doesNotMatch(windows, /apt/);
   });
 });

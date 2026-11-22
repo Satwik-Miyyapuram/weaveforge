@@ -104,15 +104,53 @@ export interface DeviceKeychain {
   clear(key: string): Promise<void>;
 }
 
-/** The text a reader can act on: what to install, then try again. */
-export const KEYCHAIN_HELP =
-  "This computer has no keychain to keep your credentials in, so nothing was saved. On Linux, install gnome-keyring or KWallet (libsecret), then unlock it and try again. Debian/Ubuntu: sudo apt install gnome-keyring libsecret-1-0. Fedora: sudo dnf install gnome-keyring libsecret. Arch: sudo pacman -S gnome-keyring libsecret.";
+/** The help for a keychain that is missing or unusable, worded for the platform in `userAgent`. */
+export function keychainHelp(userAgent: string): string {
+  if (/Windows/i.test(userAgent)) {
+    return "Windows Credential Manager could not be used, so nothing was saved. Sign in to Windows, check that Credential Manager opens, then try again.";
+  }
+  if (/Mac OS X|Macintosh/i.test(userAgent)) {
+    return "The macOS keychain could not be used, so nothing was saved. Unlock the login keychain in Keychain Access, then try again.";
+  }
+  if (/Linux/i.test(userAgent) && !/Android/i.test(userAgent)) {
+    return "This computer has no keychain to keep your credentials in, so nothing was saved. Install gnome-keyring or KWallet (libsecret), then unlock it and try again. Debian/Ubuntu: sudo apt install gnome-keyring libsecret-1-0. Fedora: sudo dnf install gnome-keyring libsecret. Arch: sudo pacman -S gnome-keyring libsecret.";
+  }
+  return "This computer has no keychain to keep your credentials in, so nothing was saved. Install a keychain service, unlock it, and try again.";
+}
+
+/** The text a reader can act on for this machine: what to install or unlock, then try again. */
+export const KEYCHAIN_HELP = keychainHelp(typeof navigator !== "undefined" ? navigator.userAgent : "");
 
 /** Thrown when the keychain cannot take a save. Nothing is written anywhere else. */
 export class KeychainUnavailableError extends Error {
   constructor() {
     super(KEYCHAIN_HELP);
     this.name = "KeychainUnavailableError";
+  }
+}
+
+/** Thrown when `_index` is not the JSON the store wrote. The index is never overwritten by a save. */
+export class KeychainIndexCorruptError extends Error {
+  constructor() {
+    super("The saved credentials index on this device is damaged, so nothing was saved. Reset it to continue.");
+    this.name = "KeychainIndexCorruptError";
+  }
+}
+
+/** Thrown when a save fails part way. `fields` names the entries left in an unknown state (restore failed) or the one that failed. */
+export class PartialSaveError extends Error {
+  constructor(readonly fields: string[], cause: unknown) {
+    const reason = cause instanceof Error ? cause.message : String(cause);
+    super(`The credentials were only partly saved; these entries may be out of date: ${fields.join(", ")} (${reason}).`);
+    this.name = "PartialSaveError";
+  }
+}
+
+/** Thrown for a top-level name the keychain cannot hold. */
+export class InvalidSecretNameError extends Error {
+  constructor(name: string, reason: string) {
+    super(`${name} ${reason} Nothing was saved.`);
+    this.name = "InvalidSecretNameError";
   }
 }
 
@@ -191,13 +229,26 @@ export function decodeSubKey(part: string): string {
 /** The top-level names the keychain accepts; a dot would be read as a sub-key separator. */
 const KEYCHAIN_NAME = /^[A-Za-z0-9_-]+$/;
 
+/** The keys an `_index` entry lists. Anything that is not the JSON the store writes is corrupt. */
+function parseIndex(text: string): string[] {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    throw new KeychainIndexCorruptError();
+  }
+  const keys = (parsed as { keys?: unknown } | null)?.keys;
+  if (!Array.isArray(keys) || !keys.every((key) => typeof key === "string")) throw new KeychainIndexCorruptError();
+  return keys as string[];
+}
+
 function toFields(secrets: Secrets): Map<string, string> {
   const fields = new Map<string, string>();
   for (const [name, value] of Object.entries(secrets as Record<string, unknown>)) {
     // A dot separates a name from its sub-key, so a top-level name may not hold one.
-    if (!KEYCHAIN_NAME.test(name)) throw new Error(`${name} is not a name the keychain can store (letters, digits, _ and - only). Nothing was saved.`);
+    if (!KEYCHAIN_NAME.test(name)) throw new InvalidSecretNameError(name, "is not a name the keychain can store (letters, digits, _ and - only).");
     // `_index` is the keychain's own index entry; a credential under that name would overwrite it.
-    if (name === INDEX_KEY) throw new Error(`${name} is reserved for the keychain index. Nothing was saved.`);
+    if (name === INDEX_KEY) throw new InvalidSecretNameError(name, "is reserved for the keychain index.");
     if (typeof value === "string") {
       if (value !== "") fields.set(name, value);
     } else if (value !== null && typeof value === "object") {
@@ -288,8 +339,21 @@ export class DeviceSecretsStore implements SecretsStore {
     return parseSecrets(legacy);
   }
 
-  /** Saves into the keychain only: no file, and no database statement. */
-  async save(secrets: Secrets): Promise<void> {
+  /** Saves into the keychain only: no file, and no database statement. Saves and resets run one at a time, in the order asked. */
+  save(secrets: Secrets): Promise<void> {
+    return this.serial(() => this.saveNow(secrets));
+  }
+
+  /** Runs `work` after every earlier save or reset has settled, so two saves never interleave their writes. */
+  private serial<T>(work: () => Promise<T>): Promise<T> {
+    const turn = this.queue.then(work);
+    this.queue = turn.catch(() => undefined);
+    return turn;
+  }
+
+  private queue: Promise<unknown> = Promise.resolve();
+
+  private async saveNow(secrets: Secrets): Promise<void> {
     const fields = toFields(secrets);
     for (const [key, text] of fields) {
       const bytes = fieldBytes(text);
@@ -310,22 +374,67 @@ export class DeviceSecretsStore implements SecretsStore {
       }
       previous = (await this.readIndex()) ?? [];
     }
-    for (const [key, text] of fields) await this.keychain.write(key, text);
-    for (const key of previous) {
-      if (!fields.has(key)) await this.keychain.clear(key);
+    // Snapshot every entry this save may touch, so a failure part way can put them back.
+    const touched = [...new Set([...fields.keys(), ...previous])];
+    const before = new Map<string, string | null>();
+    for (const key of touched) before.set(key, await this.keychain.read(key));
+    const changed: string[] = [];
+    let current = "";
+    try {
+      for (const [key, text] of fields) {
+        current = key;
+        await this.keychain.write(key, text);
+        changed.push(key);
+      }
+      for (const key of previous) {
+        if (fields.has(key)) continue;
+        current = key;
+        await this.keychain.clear(key);
+        changed.push(key);
+      }
+      // The index is written last, so a failed save leaves the previous index in place.
+      current = INDEX_KEY;
+      await this.keychain.write(INDEX_KEY, JSON.stringify({ source: "save", keys: [...fields.keys()] }));
+    } catch (err) {
+      // Nothing changed yet: the failure is the first write's own, so it keeps its type (for the dialog).
+      if (changed.length === 0) throw err;
+      const stuck: string[] = [];
+      for (const key of [...changed].reverse()) {
+        try {
+          const old = before.get(key) ?? null;
+          if (old === null) await this.keychain.clear(key);
+          else await this.keychain.write(key, old);
+        } catch {
+          stuck.push(key);
+        }
+      }
+      throw new PartialSaveError(stuck.length > 0 ? stuck : [current], err);
     }
-    // The index is written last, so a failed save leaves the previous index in place.
-    // A crash between the field writes and this index leaves a mix: some fields new, the old index
-    // still listing the previous keys. The next load reads the old index's keys; the next save
-    // rewrites every field and the index, so a successful save repairs the mix.
-    await this.keychain.write(INDEX_KEY, JSON.stringify({ source: "save", keys: [...fields.keys()] }));
   }
 
-  /** The keys listed by `_index`, or `null` when there is no index. */
+  /** The keys listed by `_index`, or `null` when there is no index. An unparseable index throws `KeychainIndexCorruptError`. */
   private async readIndex(): Promise<string[] | null> {
     const text = await this.keychain.read(INDEX_KEY);
     if (text === null) return null;
-    return (JSON.parse(text) as { keys: string[] }).keys;
+    return parseIndex(text);
+  }
+
+  /**
+   * Clears `_index` only when it cannot be parsed, so the next save or move can run again. A readable
+   * index is left alone. Returns whether it was cleared. A failed keychain read throws.
+   */
+  resetCorruptIndex(): Promise<boolean> {
+    return this.serial(async () => {
+      const text = await this.keychain.read(INDEX_KEY);
+      if (text === null) return false;
+      try {
+        parseIndex(text);
+        return false;
+      } catch {
+        await this.keychain.clear(INDEX_KEY);
+        return true;
+      }
+    });
   }
 
   /** Rebuilds the credentials from the listed fields. A listed field the keychain lacks throws, naming only its key. */
