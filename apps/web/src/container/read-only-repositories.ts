@@ -1,5 +1,8 @@
+import { ManageSettingsUseCase, type ISettingsRepository } from "@weaveforge/core";
 import { RPC_WRITES } from "@/backend/providers/postgrest/watch-writes";
+import { systemClock } from "@/lib/parts";
 import { ORG_SERVER_RPCS, ORG_SERVER_TABLES } from "./org-server-allowlist";
+import { PERSONAL_ALIASES, PERSONAL_REPOSITORY_KEYS } from "./with-file-repositories";
 
 /**
  * The desktop fallback for 0.9.7: when this device's old local database has
@@ -55,8 +58,16 @@ export function readOnlyRepositories<T extends object>(repos: T): T {
   return out as T;
 }
 
-/** Backend bag fields that hold repositories or stores. */
-const REPOSITORY_FIELD = /(Repository|Store)$/;
+/**
+ * The backend keys a read-only backend wraps: every personal repository, its alias
+ * keys (the Zotero collection and quotation types), and the settings use case. Named
+ * explicitly, so a key is never guessed from its name; the org and sharing keys stay live.
+ */
+export const READ_ONLY_KEYS: ReadonlySet<string> = new Set([
+  ...Object.keys(PERSONAL_REPOSITORY_KEYS),
+  ...Object.keys(PERSONAL_ALIASES),
+  "manageSettings",
+]);
 
 const ORG_TABLES: ReadonlySet<string> = new Set(ORG_SERVER_TABLES);
 const ORG_RPCS: ReadonlySet<string> = new Set(ORG_SERVER_RPCS);
@@ -108,14 +119,24 @@ export function readOnlyDb<T extends object>(db: T): T {
 }
 
 /**
- * Wraps the repository and store fields of a wired backend, and guards its
- * database client. Use cases and config are left as they are.
+ * Wraps the explicitly listed repository keys of a wired backend and guards its
+ * database client. The settings use case is rebuilt over the wrapped settings
+ * repository, so settings and credential writes reach no live repository. Other
+ * keys (org, sharing, use cases, config) are left as wired.
  */
 export function readOnlyBackend<T extends object>(backend: T): T {
   const out: Record<string, unknown> = { ...(backend as Record<string, unknown>) };
-  for (const [key, value] of Object.entries(backend)) {
-    if (REPOSITORY_FIELD.test(key) && value && typeof value === "object") out[key] = readOnlyRepository(value);
-    if (key === "db" && value && typeof value === "object") out[key] = readOnlyDb(value);
+  for (const key of READ_ONLY_KEYS) {
+    const value = out[key];
+    if (value && typeof value === "object") out[key] = readOnlyRepository(value);
   }
+  const settings = out.settingsRepository;
+  if (settings && typeof settings === "object") {
+    out.manageSettings = new ManageSettingsUseCase({
+      repository: readOnlyRepository(settings) as ISettingsRepository,
+      clock: systemClock,
+    });
+  }
+  if (out.db && typeof out.db === "object") out.db = readOnlyDb(out.db);
   return out as T;
 }
