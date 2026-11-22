@@ -53,8 +53,9 @@ export const commands = {
 	/**  Bridge: whether old local-database data is on this device (`legacyDbPresent`). */
 	legacyDbPresent: () => typedError<boolean, ShellError_Serialize>(__TAURI_INVOKE("legacy_db_present")),
 	/**
-	 *  Bridge: whether the workspace at `folder` has a verified 0.9.7 migration report
-	 *  (`migrationReportVerified`). Read-only; an unreadable file is a typed error.
+	 *  Bridge: whether this device's own run in the 0.9.7 report of the workspace at `folder` is
+	 *  verified (`migrationReportVerified`). Reads this device's id from app data, never creates it.
+	 *  An unreadable report or id file is a typed error.
 	 */
 	migrationReportVerified: (folder: string) => typedError<boolean, ShellError_Serialize>(__TAURI_INVOKE("migration_report_verified", { folder })),
 	/**
@@ -579,6 +580,14 @@ export const commands = {
 	 *  Returns an error when the main window cannot be opened.
 	 */
 	planWidgetOpen: () => typedError<null, ShellError_Serialize>(__TAURI_INVOKE("plan_widget_open")),
+	/**
+	 *  The widget's deadlines from the chosen folder's milestone files. `None` when no folder is
+	 *  chosen or it cannot be read; the page then asks the owner to open WeaveForge.
+	 * 
+	 *  # Errors
+	 *  Returns an error when the background read fails or the summary cannot be sent.
+	 */
+	planWidgetData: () => typedError<unknown | null, ShellError_Serialize>(__TAURI_INVOKE("plan_widget_data")),
 };
 
 /* Types */
