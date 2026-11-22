@@ -83,7 +83,20 @@ export class PostgrestSource implements ServerSource {
     return `${base}&deleted_at=${trashed ? "not.is.null" : "is.null"}`;
   }
 
+  /** The read path: the export only lists, so any other method is refused before a request. */
   private async request(
+    url: string,
+    init: { method: string; body?: string; extra?: Record<string, string> },
+    table: string,
+  ): Promise<Response> {
+    if (init.method !== "GET" && init.method !== "HEAD") {
+      throw new Error(`read-only export source refused ${init.method} ${table}`);
+    }
+    return this.send(url, init, table);
+  }
+
+  /** Sends one request. Only markExported097 uses it directly, for its single allowlisted rpc. */
+  private async send(
     url: string,
     init: { method: string; body?: string; extra?: Record<string, string> },
     table: string,
@@ -171,7 +184,7 @@ export class PostgrestSource implements ServerSource {
 
   /** The server function (0164) takes no args and sets the marker for auth.uid(); body is {}. */
   async markExported097(): Promise<void> {
-    await this.request(
+    await this.send(
       `${this.opts.baseUrl}/rpc/mark_exported_097`,
       { method: "POST", body: "{}", extra: { "content-type": "application/json" } },
       "rpc/mark_exported_097",

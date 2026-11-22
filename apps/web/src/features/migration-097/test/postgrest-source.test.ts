@@ -257,3 +257,13 @@ test("listTrashed on a table without deleted_at makes no request and returns not
   assert.deepEqual(await sourceWith(fetch).listTrashed("metrics"), []);
   assert.equal(calls.length, 0);
 });
+
+test("the export source is read-only: a write through the read path is refused before any request", async () => {
+  const net = fakeFetch(() => new Response("[]", { status: 200, headers: { "content-type": "application/json" } }));
+  const source = sourceWith(net.fetch);
+  const raw = source as unknown as { request(url: string, init: { method: string }, table: string): Promise<Response> };
+  await assert.rejects(raw.request(`${BASE}/papers`, { method: "POST" }, "papers"), /read-only/);
+  await assert.rejects(raw.request(`${BASE}/papers`, { method: "DELETE" }, "papers"), /read-only/);
+  assert.equal(net.calls.length, 0, "a refused write must not reach the network");
+  assert.deepEqual(await source.listRows("papers"), [], "a list read still works");
+});
