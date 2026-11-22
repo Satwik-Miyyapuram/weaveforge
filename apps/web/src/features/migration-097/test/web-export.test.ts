@@ -8,6 +8,7 @@ import { verifyExport } from "../application/verify-export";
 import { MemorySink } from "../infrastructure/memory-sink";
 import { unzipFiles, zipFiles } from "../infrastructure/zip";
 import { listAllPages } from "../infrastructure/paging";
+import { buildDownloadZip } from "../application/download-export";
 
 const NOW = "2026-11-22T00:00:00.000Z";
 const sha = (bytes: Uint8Array | string) => createHash("sha256").update(bytes).digest("hex");
@@ -268,4 +269,19 @@ test("listAllPages reads past the 1000-row PostgREST cap until an empty page", a
   const all = await listAllPages(fetchPage);
   assert.equal(all.length, 2500);
   assert.deepEqual(all, total);
+});
+
+test("download-your-data zip is built from the sink only, never marks the server, and keeps an incomplete report", async () => {
+  const { source, calls } = fakeServer({ rows: FIXTURE, failKind: "experiments" });
+  const sink = new MemorySink();
+  await runWebExport({ kinds: KINDS, codec: fakeCodec(SUPPORTED), source, sink, now: NOW });
+  const callsBefore = calls.length;
+
+  const zip = await buildDownloadZip(sink);
+  const back = unzipFiles(zip);
+
+  assert.ok(back.has(REPORT_PATH));
+  assert.equal(JSON.parse(new TextDecoder().decode(back.get(REPORT_PATH))).state, "incomplete");
+  assert.equal(calls.length, callsBefore);
+  assert.equal(calls.some((c) => c.startsWith("mark:")), false);
 });
