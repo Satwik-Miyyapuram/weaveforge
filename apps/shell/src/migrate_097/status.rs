@@ -34,7 +34,7 @@ pub struct MigrationStatus {
 
 /// Reads report.json, exported-to.json and the backup. Never writes and never fails: anything
 /// unreadable is reported as absent (state `none` when the report itself is missing or bad).
-pub fn migration_status(folder: &Path, pg_root: &Path) -> MigrationStatus {
+pub fn migration_status(folder: &Path, pg_root: &Path, device_id: &str) -> MigrationStatus {
     let report: Option<serde_json::Value> = fs::read_to_string(folder.join(REPORT_REL))
         .ok()
         .and_then(|text| serde_json::from_str(&text).ok());
@@ -50,7 +50,7 @@ pub fn migration_status(folder: &Path, pg_root: &Path) -> MigrationStatus {
     };
     let state = report["state"].as_str().unwrap_or("none").to_owned();
     let backup = folder.join(BACKUP_REL);
-    let mut kinds = super::remove::newest_missing(&report).unwrap_or_default();
+    let mut kinds = super::remove::own_run_missing(&report, device_id).unwrap_or_default();
     kinds.sort();
     kinds.dedup();
     MigrationStatus {

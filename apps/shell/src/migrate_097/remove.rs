@@ -81,7 +81,7 @@ pub fn remove_old_data(
         }
     }
     check_backup(folder)?;
-    if !newest_missing(&report)?.is_empty() {
+    if !own_run_missing(&report, device_id)?.is_empty() {
         return Err("refused: report lists missing items".to_owned());
     }
     if state == "verified" {
@@ -127,16 +127,21 @@ pub fn remove_old_data(
     write_json_atomic(&report_path, &report)
 }
 
-/// The `missing` list of the newest run, as the TS writer puts it (`runs[last].missing`).
-/// A report with no run has not been verified by a run, so it refuses.
-pub fn newest_missing(report: &serde_json::Value) -> Result<Vec<String>, String> {
+/// The `missing` kinds of this device's newest run: the last entry of `runs` whose `deviceId`
+/// is `device_id`. A run from another device never counts; no run from this device refuses.
+pub fn own_run_missing(
+    report: &serde_json::Value,
+    device_id: &str,
+) -> Result<Vec<String>, String> {
     let runs = report["runs"]
         .as_array()
         .ok_or("refused: report has no runs; verify again")?;
-    let last = runs
-        .last()
-        .ok_or("refused: report has no run; verify again")?;
-    Ok(last["missing"]
+    let own = runs
+        .iter()
+        .rev()
+        .find(|run| run["deviceId"].as_str() == Some(device_id))
+        .ok_or("refused: no verify run from this device; verify again")?;
+    Ok(own["missing"]
         .as_array()
         .map(|items| {
             items

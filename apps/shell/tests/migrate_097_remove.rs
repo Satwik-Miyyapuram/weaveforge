@@ -17,10 +17,10 @@ const NOW: &str = "2026-11-23T08:00:00Z";
 const DEVICE: &str = "dev-a";
 
 /// One run exactly as the TS web writer emits it (`run-web-export.ts`), with `missing` inside it.
-const RUN_CLEAN: &str = r#"{"startedAt":"2026-11-23T07:00:00Z","finishedAt":"2026-11-23T07:30:00Z","sources":[],"kinds":{},"blobs":{"db":0,"verified":0},"missing":[]}"#;
+const RUN_CLEAN: &str = r#"{"startedAt":"2026-11-23T07:00:00Z","finishedAt":"2026-11-23T07:30:00Z","sources":[],"kinds":{},"blobs":{"db":0,"verified":0},"deviceId":"dev-a","missing":[]}"#;
 
 fn run_missing(missing: &str) -> String {
-    format!(r#"{{"startedAt":"{NOW}","finishedAt":"{NOW}","sources":[],"kinds":{{}},"blobs":{{"db":0,"verified":0}},"missing":[{missing}]}}"#)
+    format!(r#"{{"startedAt":"{NOW}","finishedAt":"{NOW}","sources":[],"kinds":{{}},"blobs":{{"db":0,"verified":0}},"deviceId":"dev-a","missing":[{missing}]}}"#)
 }
 
 fn secrets_json(count: u64) -> String {
@@ -230,7 +230,7 @@ fn only_the_newest_run_counts_for_missing_items() {
         r#"{{"version":1,"state":"verified","backup":"{BACKUP}","verifiedAt":"{NOW}","runs":[{}, {RUN_CLEAN}]}}"#,
         run_missing(r#"{"kind":"notes","id":"old","reason":"x"}"#)
     ));
-    let mut stop = || Ok(());
+    let mut stop = || -> Result<(), String> { Ok(()) };
     f.run(&mut stop).expect("newest run has nothing missing");
     assert!(!f.pg_root.exists(), "old run's missing item must not block");
 }
@@ -246,6 +246,31 @@ fn refuses_when_the_report_lists_missing_items() {
         .run(&mut never_stop())
         .expect_err("missing items must refuse");
     assert!(err.contains("missing"), "{err}");
+    f.assert_untouched();
+}
+
+#[test]
+fn refuses_when_no_run_is_from_this_device() {
+    let f = Fixture::new("no-own-run", Some("verified"), Some(b"PGDMP"));
+    let other = RUN_CLEAN.replace("dev-a", "dev-b");
+    f.set_report(&format!(
+        r#"{{"version":1,"state":"verified","backup":"{BACKUP}","verifiedAt":"{NOW}","runs":[{other}]}}"#
+    ));
+    let mut stop = || -> Result<(), String> { Ok(()) };
+    assert!(f.run(&mut stop).is_err(), "another device's clean run must not count");
+    f.assert_untouched();
+}
+
+#[test]
+fn only_this_devices_run_counts_for_missing_items() {
+    let f = Fixture::new("own-run", Some("verified"), Some(b"PGDMP"));
+    let mine_missing = run_missing(r#"{"kind":"notes","id":"n1","reason":"x"}"#);
+    let other_clean = RUN_CLEAN.replace("dev-a", "dev-b");
+    f.set_report(&format!(
+        r#"{{"version":1,"state":"verified","backup":"{BACKUP}","verifiedAt":"{NOW}","runs":[{mine_missing},{other_clean}]}}"#
+    ));
+    let mut stop = || -> Result<(), String> { Ok(()) };
+    assert!(f.run(&mut stop).is_err(), "this device's own run lists missing items");
     f.assert_untouched();
 }
 
@@ -592,7 +617,7 @@ use weaveforge_shell_lib::migrate_097::status::migration_status;
 #[test]
 fn status_for_a_verified_migration_has_camel_case_keys() {
     let f = Fixture::new("status-verified", Some("verified"), Some(b"PGDMP"));
-    let value = serde_json::to_value(migration_status(&f.folder, &f.pg_root)).unwrap();
+    let value = serde_json::to_value(migration_status(&f.folder, &f.pg_root, DEVICE)).unwrap();
     assert_eq!(
         value,
         serde_json::json!({
@@ -614,7 +639,7 @@ fn status_lists_missing_kinds_once_and_sorted() {
         r#"{{"version":1,"state":"incomplete","backup":"x","runs":[{}]}}"#,
         run_missing(missing)
     ));
-    let value = serde_json::to_value(migration_status(&f.folder, &f.pg_root)).unwrap();
+    let value = serde_json::to_value(migration_status(&f.folder, &f.pg_root, DEVICE)).unwrap();
     assert_eq!(value["missing"], serde_json::json!(["ink", "notes"]));
     assert!(
         value.get("removedAt").is_none(),
@@ -626,7 +651,7 @@ fn status_lists_missing_kinds_once_and_sorted() {
 fn status_reports_removed_at_and_none_without_a_report() {
     let f = Fixture::new("status-removed", Some("removed"), None);
     f.set_report(r#"{"version":1,"state":"removed","runs":[],"removedAt":"2026-11-23T08:00:00Z"}"#);
-    let value = serde_json::to_value(migration_status(&f.folder, &f.pg_root)).unwrap();
+    let value = serde_json::to_value(migration_status(&f.folder, &f.pg_root, DEVICE)).unwrap();
     assert_eq!(value["removedAt"], "2026-11-23T08:00:00Z");
     assert!(
         value.get("backupPath").is_none(),
@@ -634,7 +659,7 @@ fn status_reports_removed_at_and_none_without_a_report() {
     );
 
     fs::remove_file(f.folder.join(REPORT)).unwrap();
-    let none = serde_json::to_value(migration_status(&f.folder, &f.pg_root)).unwrap();
+    let none = serde_json::to_value(migration_status(&f.folder, &f.pg_root, DEVICE)).unwrap();
     assert_eq!(none["state"], "none");
     assert!(none.get("missing").is_none());
     assert_eq!(none["exportedTo"], canonical(&f.folder));
