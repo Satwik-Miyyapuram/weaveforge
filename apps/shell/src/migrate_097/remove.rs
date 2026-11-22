@@ -300,6 +300,13 @@ pub fn old_db_removed(pg_root: &Path) -> bool {
     marker_path(pg_root).exists()
 }
 
+/// Why start must not open the local cluster, or `None` to start it. A removed cluster stays gone:
+/// starting it would restore it from `local-db-backups`.
+#[must_use]
+pub fn start_refusal(removed: bool) -> Option<&'static str> {
+    removed.then_some("the local database was removed in 0.9.7; the files are the source of truth")
+}
+
 fn marker_path(pg_root: &Path) -> std::path::PathBuf {
     pg_root.parent().unwrap_or(pg_root).join(MARKER)
 }

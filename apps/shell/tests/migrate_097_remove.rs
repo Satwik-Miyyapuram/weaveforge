@@ -6,7 +6,7 @@ use std::io;
 use std::path::{Path, PathBuf};
 
 use weaveforge_shell_lib::migrate_097::remove::{
-    backup_name, old_db_removed, record_exported_to, remove_old_data,
+    backup_name, old_db_removed, record_exported_to, remove_old_data, start_refusal,
 };
 
 const DIR: &str = ".weaveforge/migration-0.9.7";
@@ -1284,6 +1284,17 @@ fn another_devices_incomplete_or_exporting_top_level_state_is_left_alone() {
         assert_eq!(report["state"], other_state, "another device's top-level state must stay");
         assert!(report["removals"].get(DEVICE).is_none(), "no removal entry may be written");
     }
+}
+
+// ---- item 7: a removal marker refuses start, so start never restores from local-db-backups ----
+
+#[test]
+fn a_removal_marker_refuses_start_with_the_reason() {
+    let f = Fixture::new("start-marker", None, None);
+    assert_eq!(start_refusal(old_db_removed(&f.pg_root)), None, "no marker, start proceeds");
+    fs::write(f.base.join("old-db-removed"), "").unwrap();
+    let reason = start_refusal(old_db_removed(&f.pg_root)).expect("a marker must refuse start");
+    assert!(reason.contains("removed in 0.9.7"), "{reason}");
 }
 
 #[cfg(windows)]
