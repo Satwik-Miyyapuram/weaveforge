@@ -116,10 +116,11 @@ function isRunReport(run: unknown): run is RunReport {
 }
 
 /** A run is clean when it covers every MIGRATION_KINDS key and nothing in it is missing, conflicting or unverified. */
-function runIsClean(run: RunReport): boolean {
+export function runIsClean(run: RunReport): boolean {
   return (
     MIGRATION_KINDS.every((kind) => Object.prototype.hasOwnProperty.call(run.kinds, kind)) &&
     run.missing.length === 0 &&
+    (run.conflicts ?? []).length === 0 &&
     run.blobs.db === run.blobs.verified &&
     Object.values(run.kinds).every((k) => k.db === k.files && k.conflicts.length === 0)
   );
