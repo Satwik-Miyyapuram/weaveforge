@@ -1,6 +1,7 @@
 import { ManageSettingsUseCase, type ISettingsRepository } from "@weaveforge/core";
 import { RPC_WRITES } from "@/backend/providers/postgrest/watch-writes";
 import { systemClock } from "@/lib/parts";
+import { FILES_MODE_CRDT_TYPES } from "@/features/collab/infrastructure/files-mode-crdt-limit";
 import { ORG_SERVER_BUCKETS, ORG_SERVER_RPCS, ORG_SERVER_WRITE_TABLES } from "./org-server-allowlist";
 import { PERSONAL_ALIASES, PERSONAL_REPOSITORY_KEYS } from "./with-file-repositories";
 
@@ -144,7 +145,7 @@ function rpcAllowed(name: string): boolean {
  * documents the org server still holds (the files-mode set, FILES_MODE_CRDT_TYPES).
  * Every other type is personal document data and stays in the folder.
  */
-const LIVE_SHARE_CRDT_TYPES: ReadonlySet<string> = new Set(["experiment", "lab_snapshot"]);
+const LIVE_SHARE_CRDT_TYPES: ReadonlySet<string> = new Set(FILES_MODE_CRDT_TYPES);
 
 /** A crdt_updates write passes only as an insert whose every row is a live-share type. */
 function guardCrdtUpdates<B extends object>(builder: B): B {
