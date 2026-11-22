@@ -100,7 +100,10 @@ export async function loadWebInputs(sources: WebInputSources = defaultWebInputSo
  * Mounts the migration gate for the web app. The web export runs only in a browser
  * with a signed-in session and no completion marker, and never inside the desktop shell.
  */
-export function Migrate097Web({ children }: { children: React.ReactNode }) {
+type WebUpgradeLoader = () => Promise<WebUpgradeInputs | null>;
+const defaultWebUpgradeLoader: WebUpgradeLoader = () => loadWebInputs();
+
+export function Migrate097Web({ children, load = defaultWebUpgradeLoader }: { children: React.ReactNode; load?: WebUpgradeLoader }) {
   const [webUpgrade, setWebUpgrade] = useState<WebUpgradeRunnerOptions | null>(null);
   // Read from the auth provider so a user who signs in after first paint gets a runner.
   const { user, loading } = useAuth();
@@ -113,7 +116,7 @@ export function Migrate097Web({ children }: { children: React.ReactNode }) {
       return;
     }
     let alive = true;
-    void loadWebInputs()
+    void load()
       .then((inputs) => {
         if (alive) setWebUpgrade(webUpgradeFor(false, inputs));
       })
@@ -124,7 +127,7 @@ export function Migrate097Web({ children }: { children: React.ReactNode }) {
     return () => {
       alive = false;
     };
-  }, [userId, loading]);
+  }, [userId, loading, load]);
 
   return <Migrate097Gate webUpgrade={webUpgrade}>{children}</Migrate097Gate>;
 }
