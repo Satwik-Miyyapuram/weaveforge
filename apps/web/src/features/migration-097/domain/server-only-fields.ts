@@ -5,13 +5,16 @@
  */
 const OWNER_COLUMNS = ["userId", "projectId"] as const;
 
+/** Server stamps that the log, milestone, experiment and metric files do not keep. */
+const STAMP_COLUMNS = ["updatedAt", "deletedAt"] as const;
+
 export const SERVER_ONLY_FIELDS: Readonly<Record<string, readonly string[]>> = {
-  logEntries: OWNER_COLUMNS,
-  milestones: OWNER_COLUMNS,
-  experiments: OWNER_COLUMNS,
-  metrics: OWNER_COLUMNS,
-  reportSections: OWNER_COLUMNS,
-  aiProposals: OWNER_COLUMNS,
+  logEntries: [...OWNER_COLUMNS, ...STAMP_COLUMNS],
+  milestones: [...OWNER_COLUMNS, ...STAMP_COLUMNS],
+  experiments: [...OWNER_COLUMNS, ...STAMP_COLUMNS],
+  metrics: [...OWNER_COLUMNS, ...STAMP_COLUMNS],
+  reportSections: [...OWNER_COLUMNS, "deletedAt"],
+  aiProposals: [...OWNER_COLUMNS, "deletedAt"],
   annotations: OWNER_COLUMNS,
   annotationPins: OWNER_COLUMNS,
   blobs: OWNER_COLUMNS,

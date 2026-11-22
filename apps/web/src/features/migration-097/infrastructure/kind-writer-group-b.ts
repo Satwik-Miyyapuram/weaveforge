@@ -33,12 +33,10 @@ function withoutServerOnly(kind: string, row: Row): Row {
   return Object.fromEntries(Object.entries(row).filter(([key]) => !skip.has(key)));
 }
 
-/**
- * Group (b) kinds over the FILES repos. `projectRoot` is the folder the repos
- * sit in ("" = workspace root). Vault pages are handled elsewhere.
- */
-export function createGroupBWriter(sink: FileSink, projectRoot: string): KindWriter {
-  const fs = sinkAsWorkspaceFs(sink);
+const KIND_NAMES = ["logEntries", "milestones", "experiments", "metrics", "reportSections", "aiProposals"] as const;
+
+/** The FILES repos of one project folder ("" = workspace root). */
+function buildRepos(fs: ReturnType<typeof sinkAsWorkspaceFs>, projectRoot: string): Record<string, KindRepo> {
   const root = () => projectRoot;
   const logs = new FileLogEntryRepository(fs, root);
   const milestones = new FileMilestoneRepository(fs, projectRoot);
@@ -47,7 +45,7 @@ export function createGroupBWriter(sink: FileSink, projectRoot: string): KindWri
   const sections = new FileReportSectionRepository(fs, root);
   const proposals = new FileAiProposalStore(fs);
 
-  const repos: Record<string, KindRepo> = {
+  return {
     logEntries: {
       write: (row) => logs.save(withoutServerOnly("logEntries", row) as unknown as LogEntry),
       readBack: async () =>
@@ -100,16 +98,50 @@ export function createGroupBWriter(sink: FileSink, projectRoot: string): KindWri
         (await proposals.listAll()).map((p) => defined({ ...p })),
     },
   };
+}
 
-  const repoFor = (kind: string): KindRepo => {
-    const repo = Object.prototype.hasOwnProperty.call(repos, kind) ? repos[kind] : undefined;
-    if (!repo) throw new Error(`unknown kind: ${kind}`);
-    return repo;
+/**
+ * Group (b) kinds over the FILES repos, grouped by projectId. `roots` maps each
+ * projectId to the folder its repos sit in ("" = workspace root); two projects
+ * may not share a folder. A row whose project has no folder is refused.
+ * Vault pages are handled elsewhere.
+ */
+export function createGroupBWriter(sink: FileSink, roots: ReadonlyMap<string, string>): KindWriter {
+  const fs = sinkAsWorkspaceFs(sink);
+  const seenFolders = new Map<string, string>();
+  for (const [projectId, folder] of roots) {
+    const other = seenFolders.get(folder);
+    if (other !== undefined) throw new Error(`group b: projects ${other} and ${projectId} share folder '${folder}'`);
+    seenFolders.set(folder, projectId);
+  }
+  const reposByFolder = new Map<string, Record<string, KindRepo>>();
+  const reposFor = (folder: string): Record<string, KindRepo> => {
+    let repos = reposByFolder.get(folder);
+    if (!repos) {
+      repos = buildRepos(fs, folder);
+      reposByFolder.set(folder, repos);
+    }
+    return repos;
+  };
+  const checkKind = (kind: string): void => {
+    if (!(KIND_NAMES as readonly string[]).includes(kind)) throw new Error(`unknown kind: ${kind}`);
   };
 
   return {
-    kinds: Object.keys(repos),
-    write: async (kind, row) => repoFor(kind).write(row),
-    readBack: async (kind) => repoFor(kind).readBack(),
+    kinds: [...KIND_NAMES],
+    write: async (kind, row) => {
+      checkKind(kind);
+      const folder = roots.get(String(row.projectId));
+      if (folder === undefined) throw new Error(`group b: no folder for project ${String(row.projectId)}`);
+      return reposFor(folder)[kind]!.write(row);
+    },
+    readBack: async (kind) => {
+      checkKind(kind);
+      const out: Row[] = [];
+      for (const folder of new Set(roots.values())) {
+        out.push(...(await reposFor(folder)[kind]!.readBack()));
+      }
+      return out;
+    },
   };
 }
