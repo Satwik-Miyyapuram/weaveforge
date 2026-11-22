@@ -2,7 +2,7 @@ import { NotFoundError } from "@weaveforge/core";
 import { FilePaperFieldRepository } from "@/backend/providers/files/file-paper-field-repo";
 import { FilePaperRepository } from "@/features/papers/infrastructure/file-paper-repository";
 import type { KindWriter } from "../domain/kind-writer";
-import { defsToSettings, PAPER_FIELD_KINDS, type FileFieldValue } from "../domain/paper-fields-file";
+import { defsToSettings, PAPER_FIELD_KINDS, projectKey, type FileFieldValue } from "../domain/paper-fields-file";
 import type { FileSink, Row } from "../domain/ports";
 import { loadSettingsDoc, saveSettingsDoc, settingsSection } from "./settings-json-doc";
 import { sinkAsWorkspaceFs } from "./sink-workspace-fs";
@@ -35,8 +35,9 @@ export function createPaperFieldsWriter(sink: FileSink, folders: ReadonlyMap<str
 
   /** A missing project id is the workspace root, as is an empty one. Any other unmapped id is an error. */
   function folderOf(projectId: unknown): string {
-    if (projectId === null || projectId === undefined || projectId === "") return "";
-    const folder = folders.get(String(projectId));
+    const key = projectKey(projectId);
+    if (key === "") return "";
+    const folder = folders.get(key);
     if (folder === undefined) throw new Error("paper field: project has no folder");
     return folder;
   }
@@ -84,7 +85,11 @@ export function createPaperFieldsWriter(sink: FileSink, folders: ReadonlyMap<str
     async readBack(kind: string): Promise<Row[]> {
       const doc = await loadSettingsDoc(sink, "paper fields");
       const out: Row[] = [];
-      for (const [projectId, folder] of folders) {
+      // Each folder is read once, tagged with the first project that maps to it. The root is always read,
+      // so defs and values at the root come back even when no project maps to it.
+      const tags = new Map<string, string>([["", ""]]);
+      for (const [projectId, folder] of folders) if (!tags.has(folder) || tags.get(folder) === "") tags.set(folder, projectId);
+      for (const [folder, projectId] of tags) {
         const repo = repoAt(folder, doc);
         if (kind === "paperFields") {
           for (const def of await repo.listDefs()) out.push({ ...def, projectId });

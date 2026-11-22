@@ -153,6 +153,27 @@ test("paper fields: with no writer wired, the paper fields are listed missing wi
   assert.ok(result.run.missing.some((m) => m.kind === "paperFields"));
 });
 
+test("paper fields: a null projectId def and its values land at the root and verify, with no project mapped to root", async () => {
+  // No project maps to the root here, so the root's defs and values are read back only if readBack includes it.
+  const core = typedCore();
+  const sink = new MemorySink();
+  await sink.write("papers/b.paper.md", core.writePaperRow(null, { id: "p2", title: "B" }) + "Body.\n");
+  const rootDef: Row = { id: "fr", projectId: null, name: "Root", kind: "text", options: [], sortOrder: 0 };
+  const rootValue: Row = { id: "p2:fr", projectId: null, paperId: "p2", fieldId: "fr", value: "x" };
+  const result = await runWebExport({
+    kinds: ["paperFields", "paperFieldValues"],
+    codec: NO_CODEC,
+    now: NOW,
+    source: fakeSource({ paperFields: [rootDef], paperFieldValues: [rootValue] }),
+    sink,
+    writers: [createPaperFieldsWriter(sink, new Map([["proj-a", "Thesis"]]))],
+  });
+  assert.deepEqual(result.run.missing, []);
+  assert.equal(result.state, "verified");
+  const defs = (await readSettings(sink)).paperFields as Record<string, { projectId: string }>;
+  assert.equal(defs.fr?.projectId, "");
+});
+
 test("projectDefsMismatches: an extra project in readBack is listed as differing", () => {
   const extra = [...DEFS, { id: "fz", projectId: "proj-z", name: "Z", kind: "text", options: [], sortOrder: 0 }];
   assert.deepEqual(projectDefsMismatches(DEFS, extra), [{ kind: "paperFields", id: "proj-z", reason: "project defs differ" }]);
