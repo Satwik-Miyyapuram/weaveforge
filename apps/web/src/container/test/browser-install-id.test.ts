@@ -136,6 +136,25 @@ test("a SecurityError from navigator.locks falls back to the unlocked path and s
   assert.equal(fs.files.get(INSTALL_ID_PATH), "web-fallback-id");
 });
 
+test("a SecurityError raised by the file work after the lock is granted fails closed and writes no id", async () => {
+  const fs = folder();
+  const realWrite = fs.writeFile;
+  let writes = 0;
+  fs.writeFile = async (path: string, data: Uint8Array | string) => {
+    writes += 1;
+    // Only the first write is denied, so a wrong fallback would retry and succeed.
+    if (writes === 1) throw Object.assign(new Error("file denied"), { name: "SecurityError" });
+    return realWrite(path, data);
+  };
+  const lockGranted = { request: <T>(_name: string, callback: () => Promise<T>) => callback() };
+  await assert.rejects(
+    withLocks(lockGranted, () => readOrCreateInstallId(fs, () => "web-granted")),
+    (error: unknown) => (error as { name?: unknown }).name === "SecurityError",
+  );
+  assert.equal(fs.files.has(INSTALL_ID_PATH), false);
+  assert.equal(writes, 1, "no retry through the unlocked path after the lock was granted");
+});
+
 test("any other navigator.locks rejection still fails closed and writes no id", async () => {
   const fs = folder();
   await assert.rejects(

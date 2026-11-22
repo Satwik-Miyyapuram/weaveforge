@@ -491,7 +491,7 @@ test("web: a browser run with no runDeviceId is refused with 'no device id' befo
   const { source, calls } = fakeServer({ rows: FIXTURE });
   const result = await runWebExport({ kinds: KINDS, codec: fakeCodec(SUPPORTED), source, sink, now: NOW });
   assert.equal(result.state, "incomplete");
-  assert.match(result.run.missing[0]?.reason ?? "", /no device id/);
+  assert.equal(result.run.missing[0]?.reason, "no device id: the browser install id is missing or malformed");
   assert.deepEqual(calls, [], "the server is not read without an install id");
   assert.deepEqual(await sink.list(), [], "a run without an id writes no file, report included");
 });
