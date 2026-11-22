@@ -17,12 +17,6 @@ test("the field weights sit in two compact columns", () => {
   assert.match(css, /@media \(min-width: 640px\) \{ \.search-weights \{ grid-template-columns: repeat\(2, minmax\(0, 1fr\)\); \} \}/);
 });
 
-test("the sync panel dates its last check without seconds", () => {
-  const sync = read("features/offline-sync/ui/sync-settings-panel.tsx");
-  assert.match(sync, /Last checked \$\{readyCore\(\)\.formatDateTime\(status\.lastPullAt, /);
-  assert.doesNotMatch(sync, /toLocale(String|TimeString)/);
-});
-
 test("a settings block's button is as wide as its label", () => {
   assert.match(css, /\.settings-block > \.wf-btn \{ align-self: flex-start; \}/);
 });

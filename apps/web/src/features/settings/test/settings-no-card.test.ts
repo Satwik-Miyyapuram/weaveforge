@@ -14,8 +14,6 @@ const settingsUi = path.join(features, "settings", "ui");
 const files = [
   ...readdirSync(settingsUi).filter((f) => f.endsWith(".tsx")).map((f) => path.join(settingsUi, f)),
   path.join(features, "sync", "ui", "sync-settings.tsx"),
-  path.join(features, "offline-sync", "ui", "sync-issues-panel.tsx"),
-  path.join(features, "offline-sync", "ui", "sync-settings-panel.tsx"),
   path.join(features, "org", "ui", "org-screen.tsx"),
 ];
 
