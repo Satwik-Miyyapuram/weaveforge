@@ -25,18 +25,23 @@ function authSession(config: BackendConfig): () => Promise<SwitchSession | null>
 }
 
 /**
- * Runs the fresh 0.9.8 switch decision from the live config. Anything missing
- * (wasm core, data URL, auth config) reads as "error", which keeps the server backend.
+ * Runs the fresh 0.9.8 switch decision from the live config. The Tauri shell is
+ * desktop even when its bridge is missing, so the `__TAURI_INTERNALS__` global counts too.
+ * Anything missing (wasm core, data URL, auth config) reads as "error", which keeps the server backend.
  */
-export async function decideBrowserSwitchFromConfig(config: BackendConfig): Promise<SwitchDecision> {
-  const onDesktop = desktop() !== null;
-  if (onDesktop) return { switch: false, reason: "desktop" };
+export async function decideBrowserSwitchFromConfig(
+  config: BackendConfig,
+  shell: ReturnType<typeof desktop>,
+): Promise<SwitchDecision> {
+  const inTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+  if (shell !== null || inTauri) return { switch: false, reason: "desktop" };
   const core = coreIfReady();
   if (!core || !config.dataUrl || !config.supabaseUrl || !config.supabaseAnonKey) {
     return { switch: false, reason: "error" };
   }
   return decideBrowserSwitch({
-    desktop: onDesktop,
+    // Desktop returned above, so the switch's own desktop guard is always off here.
+    desktop: false,
     session: authSession(config),
     dataUrl: config.dataUrl,
     anonKey: config.supabaseAnonKey,

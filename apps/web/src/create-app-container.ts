@@ -172,7 +172,7 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
   const shell = desktop();
   // Browser and Android: every startup re-runs the 0.9.7 export and switches to OPFS files mode only
   // when that fresh run verifies. A missing session or failed run keeps the server backend (Retry UI open).
-  const browserSwitch = await decideBrowserSwitchFromConfig(readBackendConfig());
+  const browserSwitch = await decideBrowserSwitchFromConfig(readBackendConfig(), shell);
   const browserFiles = browserSwitch.switch ? browserSwitch.wiring : undefined;
   const backend = wireBackend(readBackendConfig(), projectContext, pid, {
     migration,
