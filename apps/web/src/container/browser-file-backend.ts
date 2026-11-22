@@ -5,6 +5,7 @@ import { openFileSettingsSection } from "@/backend/providers/files/file-settings
 import { wireFileBackend } from "@/backend/providers/files/wire-file-backend";
 import { wirePostgrestBackend } from "@/backend/providers/postgrest/wire-postgrest-backend";
 import { BrowserWorkspaceFs } from "@/features/workspace/infrastructure/parts";
+import { browserReportVerified } from "@/features/migration-097/domain/report";
 import type { WiredBackend } from "./parts";
 import { overlayFileRepositories } from "./with-file-repositories";
 
@@ -31,4 +32,13 @@ export async function wireBrowserFiles(fs: IWorkspaceFs): Promise<BrowserFileWir
 /** The OPFS folder for the browser and Android WebView. Opened only when the migration allows files. */
 export async function openBrowserFileWiring(): Promise<BrowserFileWiring> {
   return wireBrowserFiles(await BrowserWorkspaceFs.openOpfs());
+}
+
+/** True only when the OPFS folder holds a clean verified 0.9.7 export. Any failure reads as false. */
+export async function browserReportOk(): Promise<boolean> {
+  try {
+    return await browserReportVerified(await BrowserWorkspaceFs.openOpfs());
+  } catch {
+    return false;
+  }
 }
