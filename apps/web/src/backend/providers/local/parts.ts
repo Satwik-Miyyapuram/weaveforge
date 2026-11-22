@@ -407,7 +407,9 @@ export class DeviceSecretsStore implements SecretsStore {
       }
       // The index is written last, so a failed save leaves the previous index in place.
       current = INDEX_KEY;
-      await this.keychain.write(INDEX_KEY, JSON.stringify({ source: "save", keys: [...fields.keys()] }));
+      // Write-only names are written but not listed: the index lists only what this page reads back.
+      const keys = [...fields.keys()].filter((key) => !isWriteOnlyKey(key));
+      await this.keychain.write(INDEX_KEY, JSON.stringify({ source: "save", keys }));
     } catch (err) {
       // Nothing changed yet: the failure is the first write's own, so it keeps its type (for the dialog).
       if (changed.length === 0) throw err;

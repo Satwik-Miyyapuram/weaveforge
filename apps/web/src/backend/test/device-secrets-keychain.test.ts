@@ -468,6 +468,15 @@ describe("write-only names in the index", () => {
     assert.equal(reads.includes("gitSyncToken"), false);
     assert.deepEqual(JSON.parse(entries.get("_index") ?? "{}").keys, ["zoteroApiKey"]);
   });
+
+  it("save writes a write-only entry but never lists it in the index", async () => {
+    const { entries, keychain } = fakeKeychain({});
+    const store = new DeviceSecretsStore(fakeRun([]).run, keychain);
+    const secrets = { zoteroApiKey: "k", overleafToken: "t" } as unknown as Parameters<typeof store.save>[0];
+    await store.save(secrets);
+    assert.equal(entries.get("overleafToken"), "t");
+    assert.deepEqual(JSON.parse(entries.get("_index") ?? "{}").keys, ["zoteroApiKey"]);
+  });
 });
 
 const noMove = async () => undefined;
