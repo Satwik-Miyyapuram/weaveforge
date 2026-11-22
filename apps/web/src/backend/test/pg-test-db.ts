@@ -24,7 +24,6 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { PGlite } from "@electric-sql/pglite";
 import { pgcrypto } from "@electric-sql/pglite/contrib/pgcrypto";
-import { applyMigrations } from "@weaveforge/core";
 import { LOCAL_BOOTSTRAP_SQL } from "./local-bootstrap-sql";
 import { readyCore } from "@/lib/rust-core";
 
@@ -82,7 +81,7 @@ async function build(): Promise<TestDb> {
       .sort()
       .map((name) => ({ name: `${path.basename(dir)}/${name}`, sql: readFileSync(path.join(dir, name), "utf8") })),
   );
-  await applyMigrations(migrations, (sql) => db.exec(sql));
+  for (const migration of migrations) await db.exec(migration.sql);
 
   const sql = async <T = Record<string, unknown>>(query: string, params: unknown[] = []): Promise<T[]> =>
     (await db.query<T>(query, params)).rows;

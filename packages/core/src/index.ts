@@ -289,4 +289,3 @@ export type { ICurrentUserProvider } from "./backend/parts.js";
 export type { IAdminUserProvisioner, ProvisionUserInput } from "./backend/parts.js";
 // database
 export * from "./local-user.js";
-export * from "./database/migrations.js";

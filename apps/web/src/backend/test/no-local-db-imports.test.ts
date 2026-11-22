@@ -75,6 +75,11 @@ test("ratchet ignores a mention inside a comment", () => {
   assert.equal(importsLocalDb(`// was: import { LocalRunner } from "./parts";\n/* PGlite removed */\nexport const x = 1;`), false);
 });
 
+test("the core runtime barrel does not export applyMigrations (the local migrator)", () => {
+  const barrel = readFileSync(join(ROOT, "packages", "core", "src", "index.ts"), "utf8");
+  assert.doesNotMatch(barrel, /database\/migrations/);
+});
+
 test("no non-test source under apps/web/src or packages/ imports the removed local database", () => {
   const offenders = SCAN_ROOTS.flatMap(sourceFiles)
     .filter((file) => importsLocalDb(readFileSync(file, "utf8")))
