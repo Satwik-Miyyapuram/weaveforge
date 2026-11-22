@@ -64,24 +64,39 @@ test("secrets: no providers with secrets runs without a mover and verifies, reco
   assert.deepEqual(marks, ["mark"]);
 });
 
-test("secrets: with secretsPresent unset the provider list is never read, so a failing secret check cannot refuse the run", async () => {
+test("secrets: with secretsPresent unset the run still names every provider that holds a secret for reconnect", async () => {
   const marks: string[] = [];
-  let read = 0;
+  const sink = new MemorySink();
+  const result = await runWebExport({
+    runDeviceId: "dev-test",
+    kinds: KINDS,
+    codec,
+    source: server(async () => ["zotero"], marks),
+    sink,
+    now: NOW,
+  });
+  assert.equal(result.state, "verified");
+  assert.deepEqual(result.reconnectProviders, ["zotero"]);
+  assert.deepEqual(JSON.parse(await sink.readText(await onlyReportPath(sink))).reconnectProviders, ["zotero"]);
+  assert.deepEqual(marks, ["mark"]);
+});
+
+test("secrets: with secretsPresent unset a failing secret check refuses the run and writes no server marker (fail closed)", async () => {
+  const marks: string[] = [];
+  const sink = new MemorySink();
   const result = await runWebExport({
     runDeviceId: "dev-test",
     kinds: KINDS,
     codec,
     source: server(async () => {
-      read++;
       throw new Error("secret check failed");
     }, marks),
-    sink: new MemorySink(),
+    sink,
     now: NOW,
   });
-  assert.equal(read, 0, "secretProviders is not called when secretsPresent is unset");
-  assert.equal(result.state, "verified");
-  assert.deepEqual(result.reconnectProviders, []);
-  assert.deepEqual(marks, ["mark"]);
+  assert.notEqual(result.state, "verified", "a run whose secrets cannot be read is never verified");
+  assert.ok(result.run.missing.some((m) => m.reason === "keys: unreadable"));
+  assert.deepEqual(marks, [], "no server marker when the secrets cannot be read");
 });
 
 test("secrets: a provider with a secret does not block the export; it is named for reconnect and the run verifies", async () => {
