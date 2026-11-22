@@ -108,6 +108,21 @@ impl Client {
         take_token(&mut self.resync_spent_to, now, RESYNC_BURST, 1_000)
     }
 
+    /// True when a deferred SyncStep1 or resync is waiting, so the retry tick must run.
+    fn retry_needed(&self) -> bool {
+        self.resync_pending || self.deferred_sv.is_some()
+    }
+
+    /// Whether a SyncStep1 token is free now, without taking it.
+    fn sync_slot_ready(&self, now: i64) -> bool {
+        token_ready(self.sync_spent_to, now, SYNC_STEP1_BURST, 1_000)
+    }
+
+    /// Whether a resync token is free now, without taking it.
+    fn resync_slot_ready(&self, now: i64) -> bool {
+        token_ready(self.resync_spent_to, now, RESYNC_BURST, 1_000)
+    }
+
     /// Counts one relayed frame against this client's per-second budget.
     fn take_relay_slot(&mut self, now: i64) -> bool {
         if now.saturating_sub(self.relay_window) >= 1_000 {
@@ -137,6 +152,12 @@ fn take_token(spent_to: &mut i64, now: i64, burst: i64, period_ms: i64) -> bool 
     }
     *spent_to = spent + period_ms;
     true
+}
+
+/// Whether `take_token` would succeed now, leaving the bucket as it is.
+fn token_ready(spent_to: i64, now: i64, burst: i64, period_ms: i64) -> bool {
+    let mut spent = spent_to;
+    take_token(&mut spent, now, burst, period_ms)
 }
 
 /// Read-only when the caller may not write, or is on an older format than the doc.
@@ -294,14 +315,17 @@ async fn pump(
     let mut grant_timer = tokio::time::interval(period);
     // The first tick is immediate, and the grant was just checked at join: skip it.
     let _ = grant_timer.tick().await;
+    // The retry tick runs only while a held-back reply waits (`retry_needed`); a tick that
+    // came due while idle is skipped rather than fired in a burst when the wait starts.
     let mut retry_timer = tokio::time::interval(RETRY_EVERY);
+    retry_timer.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
     let _ = retry_timer.tick().await;
     loop {
         let next = tokio::select! {
             frame = socket.recv() => Next::Frame(frame),
             event = rx.recv() => Next::Event(event),
             _ = grant_timer.tick() => Next::GrantCheck,
-            _ = retry_timer.tick() => Next::Retry,
+            _ = retry_timer.tick(), if client.retry_needed() => Next::Retry,
         };
         let keep_going = match next {
             Next::Frame(Some(Ok(message))) => {
@@ -364,6 +388,8 @@ async fn on_binary(
                 client.deferred_sv = Some(sv);
                 return true;
             }
+            // This reply answers the newest state vector, so an older deferred one is stale.
+            client.deferred_sv = None;
             let diff = diff_for(room, &sv).await;
             send(socket, Message::Binary(protocol::sync_step2(diff).into())).await
         }
@@ -391,13 +417,23 @@ async fn flush_deferred(
     socket: &mut WebSocket,
 ) -> bool {
     let now = state.clock.now_ms();
-    if client.resync_pending && client.take_resync_slot(now) {
+    let resync_due = client.resync_pending && client.resync_slot_ready(now);
+    let step1_due = client.deferred_sv.is_some() && client.sync_slot_ready(now);
+    if !resync_due && !step1_due {
+        return true;
+    }
+    // Access may have been revoked while the reply was held back; re-check before sending.
+    if !recheck(state, room, client, socket).await {
+        return false;
+    }
+    let now = state.clock.now_ms();
+    if resync_due && client.take_resync_slot(now) {
         client.resync_pending = false;
         if !resync(room, socket).await {
             return false;
         }
     }
-    if client.deferred_sv.is_some() && client.take_sync_slot(now) {
+    if step1_due && client.take_sync_slot(now) {
         if let Some(sv) = client.deferred_sv.take() {
             let diff = diff_for(room, &sv).await;
             return send(socket, Message::Binary(protocol::sync_step2(diff).into())).await;
@@ -745,5 +781,30 @@ mod budget_tests {
         assert!(client.take_sync_slot(10_000));
         assert!(!client.take_sync_slot(10_000));
         assert!(client.take_sync_slot(11_000));
+    }
+
+    #[test]
+    fn retry_is_needed_only_while_a_reply_is_held_back() {
+        let mut client = client_at(10_000);
+        assert!(!client.retry_needed());
+        client.resync_pending = true;
+        assert!(client.retry_needed());
+        client.resync_pending = false;
+        client.deferred_sv = Some(StateVector::default());
+        assert!(client.retry_needed());
+        client.deferred_sv = None;
+        assert!(!client.retry_needed());
+    }
+
+    #[test]
+    fn readiness_checks_do_not_spend_a_token() {
+        let mut client = client_at(10_000);
+        assert!(client.sync_slot_ready(10_000));
+        assert!(client.sync_slot_ready(10_000));
+        assert!(client.take_sync_slot(10_000));
+        assert!(client.take_sync_slot(10_000));
+        assert!(client.take_sync_slot(10_000));
+        assert!(!client.sync_slot_ready(10_000));
+        assert!(client.sync_slot_ready(11_000));
     }
 }
