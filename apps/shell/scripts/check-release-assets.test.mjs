@@ -199,7 +199,7 @@ test("a 0.9.8 release passes when latest.json is the 0.9.7 bridge it was given",
     tag: TAG8,
     release: release8(),
     readAsset: assetsFrom(files8(manifestFixture())),
-    bridgeText: BRIDGE_TEXT,
+    bridgeBytes: BRIDGE_TEXT,
   });
   assert.deepEqual(problems, []);
 });
@@ -210,16 +210,49 @@ test("a 0.9.8 latest.json with the same keys in another order is reported: the b
     tag: TAG8,
     release: release8(),
     readAsset: assetsFrom(files8(reordered)),
-    bridgeText: BRIDGE_TEXT,
+    bridgeBytes: BRIDGE_TEXT,
   });
   assert.ok(problems.some((p) => p.includes("latest.json") && p.includes("byte")), problems.join("\n"));
 });
+
+/** Runs the 0.9.8 check with the given latest.json bytes against the 0.9.7 bridge. */
+function problemsWithLegacy(legacy) {
+  return checkRelease({
+    tag: TAG8,
+    release: release8(),
+    readAsset: assetsFrom(files8(legacy)),
+    bridgeBytes: BRIDGE_TEXT,
+  });
+}
+
+test("a 0.9.8 latest.json equal in JSON but indented differently is reported: bytes decide", async () => {
+  const problems = await problemsWithLegacy(JSON.stringify(BRIDGE, null, 4) + "\n");
+  assert.ok(problems.some((p) => p.includes("latest.json") && p.includes("byte")), problems.join("\n"));
+});
+
+test("a 0.9.8 latest.json equal in JSON but with CRLF line endings is reported: bytes decide", async () => {
+  const crlf = (JSON.stringify(BRIDGE, null, 2) + "\n").replace(/\n/g, "\r\n");
+  const problems = await problemsWithLegacy(crlf);
+  assert.ok(problems.some((p) => p.includes("latest.json") && p.includes("byte")), problems.join("\n"));
+});
+
+test("a 0.9.8 latest.json equal in JSON but missing the trailing newline is reported: bytes decide", async () => {
+  const problems = await problemsWithLegacy(JSON.stringify(BRIDGE, null, 2));
+  assert.ok(problems.some((p) => p.includes("latest.json") && p.includes("byte")), problems.join("\n"));
+});
+
+test("a 0.9.8 latest.json with a UTF-8 byte order mark is reported", async () => {
+  const withBom = Buffer.concat([Buffer.from([0xef, 0xbb, 0xbf]), Buffer.from(BRIDGE_TEXT)]);
+  const problems = await problemsWithLegacy(withBom);
+  assert.ok(problems.some((p) => p.includes("latest.json")), problems.join("\n"));
+});
+
 test("a 0.9.8 release whose latest.json is not the 0.9.7 bridge is reported", async () => {
   const problems = await checkRelease({
     tag: TAG8,
     release: release8(),
     readAsset: assetsFrom(files8(manifest8)),
-    bridgeText: BRIDGE_TEXT,
+    bridgeBytes: BRIDGE_TEXT,
   });
   assert.ok(problems.some((p) => p.includes("latest.json") && p.includes("0.9.7")));
 });
@@ -238,7 +271,7 @@ test("a 0.9.8 release missing latest.json is reported", async () => {
     tag: TAG8,
     release: release8(NAMES8.filter((n) => n !== "latest.json")),
     readAsset: assetsFrom(files8(manifestFixture())),
-    bridgeText: BRIDGE_TEXT,
+    bridgeBytes: BRIDGE_TEXT,
   });
   assert.ok(problems.some((p) => p.includes("latest.json") && p.includes("missing")));
 });
@@ -248,7 +281,7 @@ test("a 0.9.8 release missing latest-v2.json is reported", async () => {
     tag: TAG8,
     release: release8(NAMES8.filter((n) => n !== "latest-v2.json")),
     readAsset: assetsFrom(files8(manifestFixture())),
-    bridgeText: BRIDGE_TEXT,
+    bridgeBytes: BRIDGE_TEXT,
   });
   assert.ok(problems.some((p) => p.includes("latest-v2.json") && p.includes("missing")));
 });
