@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { checkRelease, parseBridge } from "./check-release-assets.mjs";
+import { assetRequest, checkRelease, findRelease, parseBridge } from "./check-release-assets.mjs";
 
 const TAG = "v0.9.7";
 const URL_BASE = "https://github.com/Satwik-Miyyapuram/weaveforge/releases/download/v0.9.7";
@@ -348,4 +348,31 @@ test("a bridge latest.json for another version is reported: the bridge must be 0
 test("a bridge latest.json whose URLs point at another tag is reported", () => {
   const { problems } = parseBridge(manifestFixture().replaceAll("/download/v0.9.7/", "/download/v0.9.8/"));
   assert.ok(problems.some((p) => p.includes("v0.9.8")), problems.join("; "));
+});
+test("a draft release is found by tag in the release list", () => {
+  const releases = [
+    { tag_name: "v0.9.7", draft: false, assets: [] },
+    { tag_name: "v0.9.8", draft: true, assets: [] },
+  ];
+  assert.equal(findRelease(releases, "v0.9.8")?.draft, true);
+  assert.equal(findRelease(releases, "v0.9.9"), undefined);
+});
+
+test("a draft asset is downloaded through its API url with auth when GH_TOKEN is set", () => {
+  const asset = {
+    name: "WeaveForge_0.9.8_x64-setup.exe",
+    url: "https://api.github.com/repos/o/r/releases/assets/42",
+    browser_download_url: "https://github.com/o/r/releases/download/v0.9.8/WeaveForge_0.9.8_x64-setup.exe",
+  };
+  const withToken = assetRequest(asset, { GH_TOKEN: "t0k" });
+  assert.equal(withToken.url, asset.url);
+  assert.equal(withToken.headers.Accept, "application/octet-stream");
+  assert.equal(withToken.headers.Authorization, "Bearer t0k");
+});
+
+test("without a token a public asset is downloaded from browser_download_url with no auth", () => {
+  const asset = { name: "latest-v2.json", url: "https://api.github.com/x", browser_download_url: "https://github.com/y" };
+  const plain = assetRequest(asset, {});
+  assert.equal(plain.url, "https://github.com/y");
+  assert.equal(plain.headers.Authorization, undefined);
 });

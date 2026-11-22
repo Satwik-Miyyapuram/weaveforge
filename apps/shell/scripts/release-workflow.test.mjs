@@ -30,8 +30,17 @@ test("signs with the updater key and publishes a pre-release", () => {
   assert.match(workflow, /TAURI_SIGNING_PRIVATE_KEY: \$\{\{ secrets\.TAURI_SIGNING_PRIVATE_KEY \}\}/);
   assert.match(workflow, /write-latest-json\.mjs "\$TAG" dist/);
   assert.match(workflow, /gh release download v0\.9\.7 --pattern latest\.json --dir bridge/);
-  assert.match(workflow, /gh release create "\$TAG" --verify-tag --prerelease /);
+  assert.match(workflow, /gh release create "\$TAG" --verify-tag --draft --prerelease /);
   assert.doesNotMatch(workflow, /--latest/);
+});
+
+test("the release is created as a draft, checked, and only then published", () => {
+  const create = workflow.indexOf('gh release create "$TAG" --verify-tag --draft --prerelease');
+  const check = workflow.indexOf('node apps/shell/scripts/check-release-assets.mjs "$TAG"');
+  const publish = workflow.indexOf('gh release edit "$TAG" --draft=false');
+  assert.ok(create >= 0, "gh release create runs as a draft");
+  assert.ok(check > create, "the check runs after the draft is created");
+  assert.ok(publish > check, "the draft is published only after the check");
 });
 
 test("CI bundles without the updater key; the release never does", () => {

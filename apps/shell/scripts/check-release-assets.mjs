@@ -138,17 +138,46 @@ function legacyProblems({ version, legacy, legacyBytes, current, bridgeBytes }) 
   return [];
 }
 
+/**
+ * Finds a release by tag in the release list. The list includes drafts; the
+ * `releases/tags/<tag>` endpoint does not, and the gate runs on a draft before it is published.
+ */
+export function findRelease(releases, tag) {
+  return releases.find((release) => release.tag_name === tag);
+}
+
 /** Reads a release with the GitHub CLI; never writes to GitHub. */
 async function fetchRelease(tag) {
-  const { stdout } = await run("gh", ["api", `repos/${REPO}/releases/tags/${tag}`]);
-  return JSON.parse(stdout);
+  const { stdout } = await run("gh", ["api", "--paginate", `repos/${REPO}/releases`, "--jq", ".[]"]);
+  const releases = stdout
+    .split("\n")
+    .filter((line) => line.trim() !== "")
+    .map((line) => JSON.parse(line));
+  const release = findRelease(releases, tag);
+  if (!release) throw new Error(`no release named ${tag}`);
+  return release;
+}
+
+/**
+ * How to fetch one asset. A draft's browser_download_url needs no auth in theory but
+ * returns 404 to anonymous requests, so with a token the API asset url is used instead.
+ */
+export function assetRequest(asset, env = process.env) {
+  if (env.GH_TOKEN) {
+    return {
+      url: asset.url,
+      headers: { Accept: "application/octet-stream", Authorization: `Bearer ${env.GH_TOKEN}` },
+    };
+  }
+  return { url: asset.browser_download_url, headers: {} };
 }
 
 async function downloadAsset(release) {
   return async (name) => {
     const asset = release.assets.find((a) => a.name === name);
     if (!asset) return null;
-    const response = await fetch(asset.browser_download_url);
+    const { url, headers } = assetRequest(asset);
+    const response = await fetch(url, { headers });
     return response.ok ? Buffer.from(await response.arrayBuffer()) : null;
   };
 }

@@ -190,13 +190,20 @@ jobs:
           awk -v head="## [$version]" 'index($0, head) == 1 { on = 1; next } on && /^## \[/ { exit } on' CHANGELOG.md > notes.md
           if [ ! -s notes.md ]; then echo "no CHANGELOG entry for $version" >&2; exit 1; fi
 
-      - name: Create pre-release
+      # Created as a draft so nothing is public until the gate passes.
+      - name: Create draft pre-release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$TAG" --verify-tag --prerelease --title "WeaveForge $TAG" --notes-file notes.md dist/*
+        run: gh release create "$TAG" --verify-tag --draft --prerelease --title "WeaveForge $TAG" --notes-file notes.md dist/*
 
-      # Reads the published release back; the job fails if an installer, a .sig or a manifest is wrong.
-      - name: Check the published release
+      # Reads the draft back (the check finds drafts by tag); the job fails if an installer, a .sig or a manifest is wrong.
+      - name: Check the draft release
         env:
           GH_TOKEN: ${{ github.token }}
         run: node apps/shell/scripts/check-release-assets.mjs "$TAG"
+
+      # Publishes the pre-release only after the check passed. Latest stays a manual promotion.
+      - name: Publish pre-release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release edit "$TAG" --draft=false
