@@ -12,7 +12,9 @@ const REPORT_REL: &str = ".weaveforge/migration-0.9.7/report.json";
 #[derive(Debug, Serialize, specta::Type, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct MigrationStatus {
-    /// `verified`, `incomplete`, `removing`, `removed`, or `none` when no readable report exists.
+    /// This device's state: `verified`, `incomplete`, `removing`, `removed`, `unexported` (the report
+    /// exists but has no run from this device, so the export is offered), `unavailable`, or `none`
+    /// when no report or export exists.
     pub state: String,
     /// When old data was removed (report.json `removedAt`).
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -81,21 +83,28 @@ pub fn migration_status(folder: &Path, pg_root: &Path, device_id: &str) -> Migra
     let own_state = own.as_ref().and_then(|run| run["state"].as_str());
     let own_run_verified = own_state == Some("verified");
     let own_removed = report["removals"][device_id]["state"].as_str() == Some("removed");
-    // This device's view: its own removal, the migration in progress, or its own latest run.
-    // Another device's `removed` or `verified` never becomes this device's state.
-    let state = if !matches!(
+    // Only this device's own removal entry (or the removal it started) makes it `removing`; another
+    // device's removal never does, and the top-level state is not read for that.
+    let own_removing = report["removals"][device_id]["state"].as_str() == Some("removing")
+        || (report["state"].as_str() == Some("removing")
+            && report["removingDeviceId"].as_str() == Some(device_id));
+    let top_known = matches!(
         report["state"].as_str(),
         Some("verified" | "incomplete" | "removing" | "removed")
-    ) {
-        "unavailable".to_owned()
-    } else if own_removed {
+    );
+    // This device's view, read before any top-level gate, so another device's top-level state
+    // ("exporting", or an unknown value) never hides this device's removed or verified state.
+    let state = if own_removed {
         "removed".to_owned()
-    } else if report["state"].as_str() == Some("removing") {
+    } else if own_removing {
         "removing".to_owned()
     } else {
         match own_state {
             Some(known @ ("verified" | "incomplete")) => known.to_owned(),
-            _ => "unavailable".to_owned(),
+            Some(_) => "unavailable".to_owned(),
+            // The report exists but has no run from this device: offer this device the export.
+            None if top_known => "unexported".to_owned(),
+            None => "unavailable".to_owned(),
         }
     };
     let backup = super::remove::backup_name(&report, device_id)

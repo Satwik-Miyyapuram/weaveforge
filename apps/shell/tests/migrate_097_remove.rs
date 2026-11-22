@@ -923,6 +923,57 @@ fn status_reports_removing_device_and_unverified_own_run() {
     assert_eq!(value["ownRunVerified"], false);
 }
 
+const DEVICE_B: &str = "dev-b";
+
+#[test]
+fn status_offers_export_to_a_device_with_no_run_in_the_report() {
+    let f = Fixture::new("status-unexported", Some("verified"), Some(good_dump().as_slice()));
+    let value = serde_json::to_value(migration_status(&f.folder, &f.pg_root, DEVICE_B)).unwrap();
+    assert_eq!(value["state"], "unexported", "device B has no run; it must be offered the export");
+}
+
+#[test]
+fn status_gives_verified_when_this_device_has_its_own_verified_run() {
+    let f = Fixture::new("status-own-run-b", Some("verified"), Some(good_dump().as_slice()));
+    let run_b = RUN_CLEAN.replace(r#""deviceId":"dev-a""#, r#""deviceId":"dev-b""#);
+    f.set_report(&format!(
+        r#"{{"version":1,"state":"verified","backup":"{BACKUP_NAME}","verifiedAt":"{NOW}","runs":[{RUN_CLEAN},{run_b}]}}"#
+    ));
+    let value = serde_json::to_value(migration_status(&f.folder, &f.pg_root, DEVICE_B)).unwrap();
+    assert_eq!(value["state"], "verified");
+}
+
+#[test]
+fn another_devices_removal_in_progress_is_not_this_devices_removing() {
+    let f = Fixture::new("status-b-not-removing", Some("verified"), Some(good_dump().as_slice()));
+    f.set_report(&format!(
+        r#"{{"version":1,"state":"removing","removingDeviceId":"{DEVICE}","removals":{{"{DEVICE}":{{"state":"removing"}}}},"backup":"{BACKUP_NAME}","verifiedAt":"{NOW}","runs":[{RUN_CLEAN}]}}"#
+    ));
+    let value = serde_json::to_value(migration_status(&f.folder, &f.pg_root, DEVICE_B)).unwrap();
+    assert_ne!(value["state"], "removing", "dev-a's removal must not block or label dev-b");
+    assert_eq!(value["state"], "unexported");
+}
+
+#[test]
+fn another_devices_exporting_state_does_not_hide_own_removed_state() {
+    let f = Fixture::new("status-own-removed", Some("verified"), Some(good_dump().as_slice()));
+    f.set_report(&format!(
+        r#"{{"version":1,"state":"exporting","removals":{{"{DEVICE}":{{"state":"removed","removedAt":"{NOW}"}}}},"backup":"{BACKUP_NAME}","verifiedAt":"{NOW}","runs":[{RUN_CLEAN}]}}"#
+    ));
+    let value = serde_json::to_value(migration_status(&f.folder, &f.pg_root, DEVICE)).unwrap();
+    assert_eq!(value["state"], "removed");
+}
+
+#[test]
+fn an_unknown_top_level_state_with_no_own_run_is_unavailable() {
+    let f = Fixture::new("status-unknown-state", Some("verified"), None);
+    f.set_report(&format!(
+        r#"{{"version":1,"state":"bogus","backup":"{BACKUP_NAME}","verifiedAt":"{NOW}","runs":[{RUN_CLEAN}]}}"#
+    ));
+    let value = serde_json::to_value(migration_status(&f.folder, &f.pg_root, DEVICE_B)).unwrap();
+    assert_eq!(value["state"], "unavailable");
+}
+
 #[test]
 fn status_reports_not_exported_here_for_another_folder() {
     let f = Fixture::new("status-moved", Some("verified"), Some(good_dump().as_slice()));
@@ -988,33 +1039,33 @@ fn status_unreadable_report_after_removal_says_removed() {
 }
 
 #[test]
-fn status_report_without_a_state_is_unavailable_not_none() {
+fn status_report_without_a_state_still_shows_own_verified_run_not_none() {
     let f = Fixture::new("status-no-state", Some("verified"), None);
     f.set_report(&format!(
         r#"{{"version":1,"backup":"{BACKUP_NAME}","verifiedAt":"{NOW}","runs":[{RUN_CLEAN}]}}"#
     ));
     let value = serde_json::to_value(migration_status(&f.folder, &f.pg_root, DEVICE)).unwrap();
-    assert_eq!(value["state"], "unavailable");
+    assert_eq!(value["state"], "verified");
 }
 
 #[test]
-fn status_report_with_a_non_string_state_is_unavailable_not_none() {
+fn status_report_with_a_non_string_state_still_shows_own_verified_run_not_none() {
     let f = Fixture::new("status-num-state", Some("verified"), None);
     f.set_report(&format!(
         r#"{{"version":1,"state":5,"backup":"{BACKUP_NAME}","verifiedAt":"{NOW}","runs":[{RUN_CLEAN}]}}"#
     ));
     let value = serde_json::to_value(migration_status(&f.folder, &f.pg_root, DEVICE)).unwrap();
-    assert_eq!(value["state"], "unavailable");
+    assert_eq!(value["state"], "verified");
 }
 
 #[test]
-fn status_report_with_an_unknown_state_is_unavailable() {
-    let f = Fixture::new("status-unknown-state", Some("verified"), None);
+fn status_report_with_an_unknown_state_still_shows_own_verified_run() {
+    let f = Fixture::new("status-unknown-state-own", Some("verified"), None);
     f.set_report(&format!(
         r#"{{"version":1,"state":"bogus","backup":"{BACKUP_NAME}","verifiedAt":"{NOW}","runs":[{RUN_CLEAN}]}}"#
     ));
     let value = serde_json::to_value(migration_status(&f.folder, &f.pg_root, DEVICE)).unwrap();
-    assert_eq!(value["state"], "unavailable");
+    assert_eq!(value["state"], "verified");
 }
 
 #[test]
@@ -1221,7 +1272,7 @@ fn another_devices_verified_run_is_not_this_devices_state() {
     let f = Fixture::new("status-other-device", Some("verified"), None);
     // The report belongs to dev-a; dev-b has no run and must not inherit dev-a's verified state.
     let value = serde_json::to_value(migration_status(&f.folder, &f.pg_root, "dev-b")).unwrap();
-    assert_eq!(value["state"], "unavailable");
+    assert_eq!(value["state"], "unexported", "no run from dev-b: offered the export");
     assert!(value.get("verifiedAt").is_none());
 }
 
