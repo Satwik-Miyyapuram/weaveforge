@@ -5,7 +5,7 @@ import { REPORT_PATH, readMigrationReport, writesOff, type RunReport } from "../
 import { SERVER_ONLY_FIELDS } from "../domain/server-only-fields";
 import type { BlobRef, FileCodec, Row, ServerSource } from "../domain/ports";
 import type { KindWriter } from "../domain/kind-writer";
-import { runWebExport } from "../application/run-web-export";
+import { recordServerMarked, runWebExport } from "../application/run-web-export";
 import { createSecretMover } from "../application/move-secrets";
 import { sameRows, verifyExport } from "../application/verify-export";
 import { MemorySink } from "../infrastructure/memory-sink";
@@ -644,6 +644,38 @@ test("order: report.json says markers pending before any mark is attempted", asy
   await runWebExport({ kinds: KINDS, codec: fakeCodec(SUPPORTED), source, sink, now: NOW });
   assert.equal(seen.length, 1);
   assert.match(seen[0] ?? "", /^incomplete:.*markers pending/);
+});
+
+test("(P2-3) skipMark: the export never reads verified and sends no server mark; report.json says markers pending", async () => {
+  const { source, calls } = fakeServer({ rows: FIXTURE });
+  const sink = new MemorySink();
+  const result = await runWebExport({ kinds: KINDS, codec: fakeCodec(SUPPORTED), source, sink, now: NOW, skipMark: true });
+  assert.equal(result.state, "incomplete");
+  assert.equal(result.readyToMark, true);
+  assert.equal(calls.some((c) => c.startsWith("mark:")), false, "the caller writes the server mark");
+  const report = await readMigrationReport(sink);
+  assert.equal(report?.state, "incomplete");
+  assert.ok(report?.runs[0]?.missing.some((m) => m.reason === "markers pending"));
+});
+
+test("(P2-3) skipMark then recordServerMarked: report.json reads verified once the caller's mark has run", async () => {
+  const { source } = fakeServer({ rows: FIXTURE });
+  const sink = new MemorySink();
+  await runWebExport({ kinds: KINDS, codec: fakeCodec(SUPPORTED), source, sink, now: NOW, skipMark: true });
+  await recordServerMarked(sink);
+  const report = await readMigrationReport(sink);
+  assert.equal(report?.state, "verified");
+  assert.equal(report?.runs[0]?.missing.length, 0);
+});
+
+test("(P2-3) recordServerMarked keeps the report incomplete while any other row is missing", async () => {
+  const { source } = fakeServer({ rows: FIXTURE, failKind: "logEntries" });
+  const sink = new MemorySink();
+  await runWebExport({ kinds: KINDS, codec: fakeCodec(SUPPORTED), source, sink, now: NOW, skipMark: true });
+  await recordServerMarked(sink);
+  const report = await readMigrationReport(sink);
+  assert.equal(report?.state, "incomplete");
+  assert.ok(report?.runs[0]?.missing.some((m) => m.kind === "logEntries"), "the failed kind stays listed");
 });
 
 test("order: a failed report.json write means no desktop mark and no server marker", async () => {

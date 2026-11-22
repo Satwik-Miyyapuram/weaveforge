@@ -1,4 +1,7 @@
-import type { ExportOptions } from "@/features/migration-097/application/run-web-export";
+import {
+  recordServerMarked,
+  type ExportOptions,
+} from "@/features/migration-097/application/run-web-export";
 import { PostgrestSource } from "@/features/migration-097/infrastructure/postgrest-source";
 import type { BrowserFileWiring } from "./browser-file-backend";
 
@@ -65,6 +68,7 @@ export async function decideBrowserSwitch(deps: SwitchDeps): Promise<SwitchDecis
     if (!outcome.switch) return { switch: false, reason: "not-verified" };
     const wiring = await deps.openWiring();
     await source.markExported097();
+    await recordServerMarked(sink);
     return { switch: true, wiring };
   } catch {
     return { switch: false, reason: "error" };

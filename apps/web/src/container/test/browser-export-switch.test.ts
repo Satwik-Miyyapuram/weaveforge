@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { decideBrowserSwitch, type SwitchDeps } from "../browser-export-switch";
+import { MemorySink } from "../../features/migration-097/infrastructure/memory-sink";
+import { REPORT_PATH, readMigrationReport } from "../../features/migration-097/domain/report";
 
 const WIRING = { wiring: true } as unknown as Awaited<ReturnType<SwitchDeps["openWiring"]>>;
 
@@ -14,7 +16,7 @@ function harness(over: Partial<SwitchDeps> = {}) {
     anonKey: "anon",
     kinds: ["logEntries"],
     codec: {} as SwitchDeps["codec"],
-    openSink: async () => ({}) as SwitchDeps["openSink"] extends () => Promise<infer S> ? S : never,
+    openSink: async () => new MemorySink(),
     now: () => "2026-11-22T00:00:00.000Z",
     // The switch writes the server mark after wiring opens; stub it so no test reaches the network.
     fetch: async () => new Response(null, { status: 204 }),
@@ -212,4 +214,50 @@ test("(P2-2) a mark that fails after wiring opens keeps the switch off, and a re
   const retry = await decideBrowserSwitch(h.deps);
   assert.equal(retry.switch, true);
   assert.equal(opened, 2);
+});
+
+// What the gate leaves on disk when it verified but skipped the marks: incomplete, markers pending.
+const PENDING_REPORT = JSON.stringify({
+  version: 1,
+  state: "incomplete",
+  target: "opfs",
+  runs: [
+    {
+      startedAt: "2026-11-22T00:00:00.000Z",
+      finishedAt: "2026-11-22T00:00:00.000Z",
+      sources: ["server"],
+      kinds: {},
+      blobs: { db: 0, verified: 0 },
+      missing: [{ kind: "marker", id: "*", reason: "markers pending" }],
+    },
+  ],
+});
+
+test("(P2-3) the switch writes report.json verified only after its server mark succeeds", async () => {
+  const sink = new MemorySink();
+  const h = harness({
+    openSink: async () => sink,
+    gate: async (opts) => {
+      await opts.sink.write(REPORT_PATH, PENDING_REPORT);
+      return { switch: true };
+    },
+  });
+  const out = await decideBrowserSwitch(h.deps);
+  assert.equal(out.switch, true);
+  assert.equal((await readMigrationReport(sink))?.state, "verified");
+});
+
+test("(P2-3) a failed server mark leaves report.json incomplete with markers pending", async () => {
+  const sink = new MemorySink();
+  const h = harness({
+    openSink: async () => sink,
+    fetch: async () => new Response("boom", { status: 500 }),
+    gate: async (opts) => {
+      await opts.sink.write(REPORT_PATH, PENDING_REPORT);
+      return { switch: true };
+    },
+  });
+  const out = await decideBrowserSwitch(h.deps);
+  assert.deepEqual(out, { switch: false, reason: "error" });
+  assert.equal((await readMigrationReport(sink))?.state, "incomplete");
 });

@@ -1,5 +1,6 @@
 import {
   REPORT_PATH,
+  readMigrationReport,
   type KindCount,
   type MigrationReport,
   type MigrationState,
@@ -37,7 +38,8 @@ export type ExportOptions = {
   skipMark?: boolean;
 };
 
-export type ExportResult = { state: MigrationState; run: RunReport };
+/** readyToMark: the run verified and skipMark left the marks to the caller (see recordServerMarked). */
+export type ExportResult = { state: MigrationState; run: RunReport; readyToMark?: boolean };
 
 /** The desktop shell's part of the 0.9.7 contract: a pre-migration dump, then a mark. */
 export type DesktopMigration = {
@@ -344,19 +346,25 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
 
   // Markers (0.9.7 contract): the server marker first, the desktop mark last. report.json says
   // incomplete ("markers pending") until both succeed, so a crash between the two is never verified.
+  // skipMark: the caller writes the server mark after its own step, then calls recordServerMarked.
+  // Until then report.json stays incomplete ("markers pending"), so this run never reads as verified.
+  if (state === "verified" && skipMark) {
+    state = "incomplete";
+    missing.push({ kind: "marker", id: "*", reason: "markers pending" });
+    const run = await persist();
+    return { state, run, readyToMark: true };
+  }
   if (state === "verified") {
     state = "incomplete";
     missing.push({ kind: "marker", id: "*", reason: "markers pending" });
     const pendingAt = missing.length - 1;
     await persist();
     let marked = true;
-    if (!skipMark) {
-      try {
-        await source.markExported097();
-      } catch {
-        marked = false;
-        missing.push({ kind: "marker", id: "*", reason: "marker: server failed" });
-      }
+    try {
+      await source.markExported097();
+    } catch {
+      marked = false;
+      missing.push({ kind: "marker", id: "*", reason: "marker: server failed" });
     }
     if (marked && desktop) {
       try {
@@ -371,5 +379,21 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
   }
   const run = await persist();
   return { state, run };
+}
+
+/**
+ * Called by the browser switch after its server mark succeeds. Clears the "markers pending" row a
+ * skipMark run left behind and writes report.json verified, but only when no other row is missing.
+ */
+export async function recordServerMarked(sink: FileSink): Promise<void> {
+  const report = await readMigrationReport(sink);
+  const run = report?.runs[report.runs.length - 1];
+  if (!report || !run || report.state !== "incomplete") return;
+  run.missing = run.missing.filter((m) => !(m.kind === "marker" && m.reason === "markers pending"));
+  if (run.missing.length > 0) return;
+  const next: MigrationReport = { ...report, state: "verified", verifiedAt: new Date().toISOString() };
+  const part = `${REPORT_PATH}.part`;
+  await sink.write(part, JSON.stringify(next, null, 2));
+  await sink.rename(part, REPORT_PATH);
 }
 

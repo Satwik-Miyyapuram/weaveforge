@@ -10,5 +10,5 @@ export async function gateOpfsSwitch(
   opts: ExportOptions,
 ): Promise<{ switch: boolean; result: ExportResult }> {
   const result = await runWebExport(opts);
-  return { switch: result.state === "verified", result };
+  return { switch: result.state === "verified" || result.readyToMark === true, result };
 }
