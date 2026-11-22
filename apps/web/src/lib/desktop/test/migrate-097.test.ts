@@ -64,3 +64,25 @@ test("no folder means there is nothing to migrate and nothing to wire", async ()
   assert.equal(await migrate097Status(bridge, null), "unavailable");
   assert.equal(called, false);
 });
+
+test("a removed migration wires the file backend: the old data is gone, so the old backend would be empty", async () => {
+  const bridge = { migrate097Status: async () => ({ state: "removed" }) };
+  assert.equal(await migrate097Status(bridge, FOLDER), "removed");
+  assert.equal(usesFileBackend("removed"), true);
+});
+
+test("a removing migration on this device wires files; a removing migration on another device stays fail-closed", async () => {
+  const own = { migrate097Status: async () => ({ state: "removing", removingDeviceId: "dev-a", deviceId: "dev-a" }) };
+  assert.equal(await migrate097Status(own, FOLDER), "removing");
+  assert.equal(usesFileBackend("removing"), true);
+
+  const other = { migrate097Status: async () => ({ state: "removing", removingDeviceId: "dev-b", deviceId: "dev-a" }) };
+  const resolved = await migrate097Status(other, FOLDER);
+  assert.equal(resolved, "removing-other");
+  assert.equal(usesFileBackend(resolved), false);
+});
+
+test("a removing report that cannot name this device is treated as another device's", async () => {
+  const bridge = { migrate097Status: async () => ({ state: "removing", removingDeviceId: "dev-a" }) };
+  assert.equal(await migrate097Status(bridge, FOLDER), "removing-other");
+});

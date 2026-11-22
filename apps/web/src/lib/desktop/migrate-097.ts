@@ -7,14 +7,23 @@
  * backend exactly as it is today.
  */
 
-export type Migrate097State = "none" | "verified" | "incomplete";
+export type Migrate097State = "none" | "verified" | "incomplete" | "removing" | "removed";
 
-/** What the page can conclude; `unavailable` is any read that did not answer. */
-export type Migrate097Resolved = Migrate097State | "unavailable";
+/**
+ * What the page can conclude. `unavailable` is any read that did not answer;
+ * `removing-other` is a removal another device started, so this device stays fail-closed.
+ */
+export type Migrate097Resolved = Migrate097State | "unavailable" | "removing-other";
 
 /** The slice of the bridge this module reads. Optional: an old shell lacks it. */
 export interface Migrate097Bridge {
-  migrate097Status?(folder: string): Promise<{ state: unknown }>;
+  migrate097Status?(folder: string): Promise<{
+    state: unknown;
+    /** The device that started a removal, when one is running. */
+    removingDeviceId?: unknown;
+    /** This device's id, so a removal can be told apart from another device's. */
+    deviceId?: unknown;
+  }>;
 }
 
 /**
@@ -45,14 +54,26 @@ export async function migrate097Status(
 
 async function read(bridge: Migrate097Bridge, folder: string): Promise<Migrate097Resolved> {
   try {
-    const state = (await bridge.migrate097Status?.(folder))?.state;
-    return state === "verified" || state === "incomplete" || state === "none" ? state : "unavailable";
+    const report = await bridge.migrate097Status?.(folder);
+    const state = report?.state;
+    if (state === "removing") {
+      // A removal runs on one device only; any other device (or an unknown one) stays fail-closed.
+      const own = typeof report?.deviceId === "string" && report.removingDeviceId === report.deviceId;
+      return own ? "removing" : "removing-other";
+    }
+    return state === "verified" || state === "incomplete" || state === "none" || state === "removed"
+      ? state
+      : "unavailable";
   } catch {
     return "unavailable";
   }
 }
 
-/** The kill switch: only a verified migration wires the file backend. */
+/**
+ * The kill switch: a verified migration wires the file backend, and so does a
+ * finished removal (the old database is gone, so it would read empty) and a
+ * removal this device is running.
+ */
 export function usesFileBackend(state: Migrate097Resolved): boolean {
-  return state === "verified";
+  return state === "verified" || state === "removed" || state === "removing";
 }

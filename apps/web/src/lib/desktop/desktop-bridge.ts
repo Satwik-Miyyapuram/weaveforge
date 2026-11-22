@@ -472,6 +472,8 @@ export interface DesktopBridge {
     exportedTo?: string;
     backupPath?: string;
     missing?: string[];
+    removingDeviceId?: string;
+    deviceId?: string;
   }>;
   migrate097Run?(folder: string): Promise<{ state: Migrate097StateName }>;
   /** Deletes the old local data after a verified migration; the user confirms first. */
@@ -786,7 +788,7 @@ export interface DesktopWorkspaceSetup {
 export type DesktopPreferenceValue = string | boolean | null;
 
 /** A folder's 0.9.7 migration state, as the shell's report records it. */
-export type Migrate097StateName = "none" | "verified" | "incomplete";
+export type Migrate097StateName = "none" | "verified" | "incomplete" | "removing" | "removed";
 
 /** One step of a running migration; `done` of `total` items are through. */
 export interface Migrate097Progress {
