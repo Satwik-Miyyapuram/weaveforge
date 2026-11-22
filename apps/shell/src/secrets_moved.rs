@@ -118,19 +118,23 @@ pub fn move_into_keychain(
     let marker = || {
         record_secrets_moved(folder, device, rows.len()).map_err(|_| SecretError::MarkerFailed)
     };
-    let (fields, skipped) = row_fields(rows)?;
+    let (fields, mut skipped) = row_fields(rows)?;
     match index_source(secrets)? {
         IndexSource::Save => {
             // The save index is the truth: a key it does not list was deleted by the user and stays
             // deleted. Only a listed key whose entry is missing gets its old value back. A routed
-            // token is never restored: the page saved it under its own entry name.
+            // token lives under its own entry name: its old value comes back only when that entry is
+            // gone, and when the page already saved a newer one the old value is skipped instead.
             let listed = listed_keys(secrets)?;
             let mut restore = Vec::new();
             for (key, text) in &fields {
-                if routed_name(key).is_none()
-                    && listed.contains(key)
-                    && secrets.read(&field_name(key))?.is_none()
-                {
+                if routed_name(key).is_some() {
+                    if secrets.read(&entry_name(key))?.is_some() {
+                        skipped.push(key.clone());
+                    } else {
+                        restore.push((key.clone(), text.clone()));
+                    }
+                } else if listed.contains(key) && secrets.read(&field_name(key))?.is_none() {
                     restore.push((key.clone(), text.clone()));
                 }
             }
@@ -876,6 +880,28 @@ mod tests {
             Some("typed".to_owned())
         );
         assert_eq!(secrets.read(INDEX).expect("read"), Some(save_index.to_owned()));
+        assert_eq!(read_marker(&dir.0), serde_json::json!({ "count": 1, "deviceId": DEVICE }));
+    }
+
+    #[test]
+    fn a_save_restores_a_routed_token_whose_entry_is_gone_and_skips_one_still_present() {
+        let dir = Scratch::new("save-routed");
+        let secrets = fake_keychain(&store());
+        secrets
+            .write(INDEX, r#"{"source":"save","keys":["plainToken"]}"#)
+            .expect("save index");
+        secrets.write("overleaf-token", "newer").expect("native overleaf");
+        let row = old_row(r#"{"gitSyncToken":"old-git","overleafToken":"old-overleaf"}"#);
+        let skipped = move_into_keychain(&secrets, &dir.0, DEVICE, &[row]).expect("moves");
+        assert_eq!(
+            secrets.read("git-sync-token").expect("read"),
+            Some("old-git".to_owned())
+        );
+        assert_eq!(
+            secrets.read("overleaf-token").expect("read"),
+            Some("newer".to_owned())
+        );
+        assert_eq!(skipped, vec!["overleafToken".to_owned()]);
         assert_eq!(read_marker(&dir.0), serde_json::json!({ "count": 1, "deviceId": DEVICE }));
     }
 
