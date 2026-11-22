@@ -1,6 +1,7 @@
 import { createDataClient } from "@/backend/providers/postgrest/parts-1";
 import { readBackendConfig } from "@/backend/parts";
 import { readyCore } from "@/lib/rust-core";
+import { syncAllowedHere } from "./sync-gate";
 import { syncEngine } from "./use-sync";
 import type { AdoptionResult } from "../domain/parts-1";
 
@@ -49,6 +50,7 @@ export async function remoteProjectNames(client: {
  * client, which a window that never signs in should not pay for.
  */
 export async function enableSync(): Promise<AdoptionResult> {
+  if (!(await syncAllowedHere())) throw new Error("Sync is off until this folder's move to files is finished.");
   const config = readBackendConfig();
   const client = createDataClient(config.supabaseUrl ?? "", config.supabaseAnonKey ?? "");
   const { data } = await client.auth.getSession();

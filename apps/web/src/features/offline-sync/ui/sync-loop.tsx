@@ -17,6 +17,7 @@ import { LOCAL_USER_ID } from "@weaveforge/core";
 import { SyncStateStore } from "../domain/parts-3";
 import type { CycleResult } from "../domain/parts-3";
 import { enableSync, liveAccessToken } from "./enable-sync";
+import { syncAllowedHere } from "./sync-gate";
 import { syncEngine } from "./use-sync";
 
 /**
@@ -209,7 +210,13 @@ export function SyncLoop() {
     let gone = false;
     let stopSync: (() => void) | undefined;
     loadCore().then(
-      () => {
+      async () => {
+        if (gone) return;
+        // A folder that is migrating or migrated to files never runs the old database's sync.
+        if (!(await syncAllowedHere())) {
+          setLiveSyncState({ enabled: false, phase: "idle" });
+          return;
+        }
         if (!gone) stopSync = startSync();
       },
       (err) => {
