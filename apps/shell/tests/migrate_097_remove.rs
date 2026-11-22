@@ -1296,6 +1296,26 @@ fn verified_at_comes_from_this_devices_own_run() {
     assert_eq!(value["verifiedAt"], NOW);
 }
 
+#[test]
+fn an_unknown_top_level_state_is_unavailable_even_with_own_verified_run() {
+    let f = Fixture::new("status-bogus-verified", Some("verified"), None);
+    f.set_report(&format!(
+        r#"{{"version":1,"state":"bogus","runs":[{RUN_CLEAN}]}}"#
+    ));
+    let value = serde_json::to_value(migration_status(&f.folder, &f.pg_root, DEVICE)).unwrap();
+    assert_eq!(value["state"], "unavailable");
+}
+
+#[test]
+fn an_unknown_top_level_state_is_unavailable_even_with_own_removed_entry() {
+    let f = Fixture::new("status-bogus-removed", Some("removed"), None);
+    f.set_report(&format!(
+        r#"{{"version":1,"state":"bogus","runs":[{RUN_CLEAN}],"removals":{{"dev-a":{{"state":"removed","removedAt":"{NOW}"}}}}}}"#
+    ));
+    let value = serde_json::to_value(migration_status(&f.folder, &f.pg_root, DEVICE)).unwrap();
+    assert_eq!(value["state"], "unavailable");
+}
+
 // ---- item B: a run without deviceId is another device's; conflicts fail closed ----
 
 #[test]
