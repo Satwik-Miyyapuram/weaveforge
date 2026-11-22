@@ -14,6 +14,7 @@ tracks at once.
 ## [Unreleased]
 
 ### Desktop
+- **Changed:** The "Start fresh" local-database recovery is removed. An old local database is now handled by the "Install 0.9.7 first" gate, which blocks the app until 0.9.7 has moved the data across.
 - **Fixed:** Deleting a note moves its `.md` and its `.inkb` ink file to the workspace trash folder, and a deleted note is no longer offered again on import. 0.9.6 listed this fix, but in 0.9.6 a deleted note's file stayed in place; it is fixed now.
 - **Fixed:** Ink cannot be drawn until the workspace has a folder, so strokes are never kept only in memory.
 - **Fixed:** Renaming a note rewrites the `[[links]]` that point to it, leaving links inside code alone; any note it could not update is named in a message.

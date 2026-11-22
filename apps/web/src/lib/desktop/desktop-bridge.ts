@@ -165,6 +165,17 @@ export interface DesktopBridge {
    */
   localDbState(): Promise<DesktopLocalDbState>;
   resetLocalDb(): Promise<void>;
+  /**
+   * Whether an old (pre-0.9.7) local database is on this computer. Read-only. Absent on a desktop
+   * shell that predates the call is unknown, and the install gate blocks on unknown (fail closed).
+   */
+  legacyDbPresent?(): Promise<boolean>;
+  /**
+   * Whether the workspace folder holds `.weaveforge/migration-0.9.7/report.json`. Read-only.
+   * Absent on shells that predate the call. That is unknown, not present: the install gate treats
+   * unknown as missing and blocks while `legacyDbPresent` is true (fail closed).
+   */
+  migrationReportPresent?(): Promise<boolean>;
 
   /**
    * Offline attachment bytes as files in the app's data folder, one per
