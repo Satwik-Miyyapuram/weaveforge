@@ -84,3 +84,14 @@ test("a Request with no init keeps the Request's own headers and adds the bearer
   assert.equal(calls[0]?.headers.get("apikey"), "anon", "the Request's apikey survives");
   assert.equal(calls[0]?.headers.get("authorization"), "Bearer secret");
 });
+
+test("a base URL written with a trailing slash still gets the bearer token on its paths", async () => {
+  const { calls, inner } = recorder();
+  const fetchWithAuth = authedFetch(`${BASE}/`, async () => "secret", inner);
+
+  await fetchWithAuth(`${BASE}/papers?user_id=eq.u1`);
+  await fetchWithAuth(`${BASE}?select=id`);
+
+  assert.equal(calls[0]?.headers.get("authorization"), "Bearer secret", "base with '/' + path");
+  assert.equal(calls[1]?.headers.get("authorization"), "Bearer secret", "base with '/' + query");
+});
