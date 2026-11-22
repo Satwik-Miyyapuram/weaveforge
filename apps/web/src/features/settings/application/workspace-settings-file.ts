@@ -70,8 +70,21 @@ interface PendingSet {
 }
 
 /** Credentials never go in a settings file, parked or not. */
-const SECRET_SEGMENT = /secret|token|password|apikey|api_key|credential/i;
-const isSecretKey = (key: SettingsKey): boolean => key.some((seg) => SECRET_SEGMENT.test(seg));
+const SECRET_SEGMENT = /secret|token|password|passwd|apikey|credential|privatekey|accesskey|bearer/;
+/** Separators are dropped first, so "api-key", "api_key" and "API Key" all match. */
+const isSecretKey = (key: SettingsKey): boolean =>
+  key.some((seg) => SECRET_SEGMENT.test(seg.toLowerCase().replace(/[^a-z0-9]/g, "")));
+
+/** Drops secret-named properties at any depth, so a credential nested under a parked key is never written. */
+function stripSecrets(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(stripSecrets);
+  if (typeof value !== "object" || value === null) return value;
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(value)) {
+    if (!isSecretKey([k])) out[k] = stripSecrets(v);
+  }
+  return out;
+}
 
 /** Writes `value` at `key`, creating intermediate objects; `undefined` deletes the leaf. */
 function putAt(doc: SettingsDoc, key: SettingsKey, value: unknown): void {
@@ -256,7 +269,9 @@ export class WorkspaceSettingsFile {
   private async park(): Promise<void> {
     const fs = this.deps.fs();
     if (!fs) return;
-    const entries = [...this.pending.values()].filter((p) => !isSecretKey(p.key));
+    const entries = [...this.pending.values()]
+      .filter((p) => !isSecretKey(p.key))
+      .map((p) => ({ key: p.key, value: stripSecrets(p.value) }));
     if (entries.length === 0) return;
     try {
       await fs.mkdirp(".weaveforge");
@@ -278,8 +293,9 @@ export class WorkspaceSettingsFile {
     }
     for (const p of entries) {
       if (!Array.isArray(p.key) || p.key.length === 0 || isSecretKey(p.key)) continue;
-      this.pending.set(p.key.join("\u0000"), { key: p.key, value: p.value });
-      putAt(this.doc, p.key, p.value);
+      const value = stripSecrets(p.value);
+      this.pending.set(p.key.join("\u0000"), { key: p.key, value });
+      putAt(this.doc, p.key, value);
     }
     this.parkedOnDisk = true;
     this.generation += 1;

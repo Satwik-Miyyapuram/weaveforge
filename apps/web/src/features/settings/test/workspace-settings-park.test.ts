@@ -236,3 +236,18 @@ test("close() stops the no-folder reminder", async () => {
   await settings.close();
   assert.equal(live.size, 0, "no reminder stays scheduled after close()");
 });
+
+test("park never writes a credential, even nested under a non-secret key or named with a dash", async () => {
+  const files = new Map<string, string>();
+  const refuse = { on: true };
+  const warnings: string[] = [];
+  const exiting = open(files, refuse, warnings);
+  await exiting.load();
+  exiting.set(["sync"], { server: "https://sync.example", authToken: "NESTED-SECRET-VALUE" });
+  exiting.set(["ink", "api-key"], "DASH-SECRET-VALUE");
+  await exiting.close();
+  const parked = files.get(PARKED) ?? "";
+  assert.ok(parked.includes("https://sync.example"), "the non-secret sibling is still parked");
+  assert.ok(!parked.includes("NESTED-SECRET-VALUE"), "a token nested inside a parked value is stripped");
+  assert.ok(!parked.includes("DASH-SECRET-VALUE"), "a dashed secret key is not parked");
+});
