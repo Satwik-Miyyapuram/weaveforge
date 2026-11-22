@@ -7,7 +7,10 @@ export const INSTALL_097_URL = "https://github.com/Satwik-Miyyapuram/weaveforge/
 export type Install097Verdict =
   /** Nothing to move: no bridge, or no old database. */
   | { kind: "open" }
-  /** An old database is here but no verified 0.9.7 report is in the folder: ask for the export folder. */
+  /**
+   * An old database is here but the install gate does not pass: no verified 0.9.7 report in the
+   * folder, or the 0.9.7 secrets move has not finished. Ask for the export folder, or open 0.9.7 once more.
+   */
   | { kind: "unverified" }
   /** The check itself failed or is unavailable. `code` is a stable error code for the screen. */
   | { kind: "unknown"; code: string };
@@ -20,6 +23,8 @@ type Install097Bridge = Partial<Pick<DesktopBridge, "legacyDbPresent" | "migrati
  * shell every unknown answer fails closed: a missing, throwing or non-boolean answer from either
  * check is `unknown`, and the report is only asked about when the old database is present.
  * `folder` is the folder whose 0.9.7 report is checked, or null when none is known yet.
+ * `migrationReportVerified` answers the install gate: the report is verified AND this device's
+ * 0.9.7 secrets move is marked done (`install_gate_passes` in the shell). A false answer blocks open.
  */
 export async function install097Check(bridge: Install097Bridge | null, folder: string | null): Promise<Install097Verdict> {
   if (!bridge) return { kind: "open" };
@@ -46,6 +51,6 @@ export async function install097Check(bridge: Install097Bridge | null, folder: s
 
 /** The gate text. Showing it does not touch the data. */
 export const INSTALL_097_NOTICE = {
-  title: "Install 0.9.7 first.",
-  body: "Your data is safe. This version cannot open the older local database yet, so install WeaveForge 0.9.7 first to move your data across.",
+  title: "Open 0.9.7 once more.",
+  body: "Your data is safe. This version cannot open the older local database yet. Open WeaveForge 0.9.7 once more so its move finishes, then come back.",
 } as const;

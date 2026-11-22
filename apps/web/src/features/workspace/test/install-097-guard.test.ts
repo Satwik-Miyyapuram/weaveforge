@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { install097Check } from "../application/install-097-guard";
+import { INSTALL_097_NOTICE, install097Check } from "../application/install-097-guard";
 
 /** A bridge method that records each call and answers with `impl`. */
 function spyOf<A extends unknown[], R>(impl: (...args: A) => Promise<R>) {
@@ -77,6 +77,22 @@ test("legacy true and report not verified: unverified (picker), checked against 
   const bridge = { legacyDbPresent: legacyTrue, migrationReportVerified: verify.fn };
   assert.deepEqual(await install097Check(bridge, "/ws/moved"), { kind: "unverified" });
   assert.deepEqual(verify.calls, [["/ws/moved"]]);
+});
+
+test("legacy true, 0.9.7 secrets move not finished (marker absent, gate false): unverified, never open", async () => {
+  const verify = spyOf(async (_folder: string) => false);
+  const bridge = { legacyDbPresent: legacyTrue, migrationReportVerified: verify.fn };
+  assert.deepEqual(await install097Check(bridge, "/ws/moved"), { kind: "unverified" });
+});
+
+test("legacy true, report verified and secrets moved (marker present, gate true): open", async () => {
+  const bridge = { legacyDbPresent: legacyTrue, migrationReportVerified: async (_folder: string) => true };
+  assert.deepEqual(await install097Check(bridge, "/ws/moved"), { kind: "open" });
+});
+
+test("the gate notice tells the user to open 0.9.7 once more so the move finishes", () => {
+  assert.match(INSTALL_097_NOTICE.body, /open WeaveForge 0\.9\.7 once more/);
+  assert.match(INSTALL_097_NOTICE.body, /move/);
 });
 
 test("legacy true and report throws: unknown with its code, fail closed", async () => {

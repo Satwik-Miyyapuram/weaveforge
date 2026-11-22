@@ -181,9 +181,35 @@ fn run_is_complete(run: &serde_json::Value) -> bool {
         })
 }
 
-/// Bridge: whether this device's own run in the 0.9.7 report of the workspace at `folder` is
-/// verified (`migrationReportVerified`). Reads this device's id from app data, never creates it.
-/// An unreadable report or id file is a typed error.
+/// This device's secrets-moved marker, `{count, deviceId}`, written by the 0.9.7 keychain move
+/// (`secrets_moved.rs` on the 0.9.7 release line). Same folder and name as that writer.
+pub fn secrets_moved_marker(folder: &Path, device_id: &str) -> PathBuf {
+    folder
+        .join(".weaveforge")
+        .join("migration-0.9.7")
+        .join(format!("secrets-moved-{device_id}.json"))
+}
+
+/// The install gate for the workspace at `folder`: this device's own 0.9.7 report is verified AND
+/// this device's secrets-moved marker is present and names this device. A 0.9.7 keychain move that
+/// never finished therefore blocks install. Read-only; never writes.
+pub fn install_gate_passes(folder: &Path, device_id: Option<&str>) -> Result<bool, ShellError> {
+    let Some(device) = device_id else {
+        return Ok(false);
+    };
+    if !report_state_verified(folder, Some(device))? {
+        return Ok(false);
+    }
+    let marked = fs::read_to_string(secrets_moved_marker(folder, device))
+        .ok()
+        .and_then(|text| serde_json::from_str::<serde_json::Value>(&text).ok())
+        .is_some_and(|marker| marker["deviceId"].as_str() == Some(device));
+    Ok(marked)
+}
+
+/// Bridge: whether the install gate passes for the workspace at `folder` (`migrationReportVerified`):
+/// this device's own 0.9.7 report is verified and its secrets move is marked done. Reads this
+/// device's id from app data, never creates it. An unreadable report or id file is a typed error.
 #[tauri::command]
 #[specta::specta]
 pub fn migration_report_verified(app: tauri::AppHandle, folder: String) -> Result<bool, ShellError> {
@@ -195,7 +221,7 @@ pub fn migration_report_verified(app: tauri::AppHandle, folder: String) -> Resul
     let device = device_id::read_existing(&data).map_err(|e| {
         ShellError::coded("device_id_unreadable", &format!("cannot read this device's id: {e}"))
     })?;
-    report_state_verified(Path::new(&folder), device.as_deref())
+    install_gate_passes(Path::new(&folder), device.as_deref())
 }
 
 /// The non-empty `vault-root` from Electron's preferences, as a path.
@@ -423,6 +449,40 @@ mod tests {
         fs::create_dir_all(path.parent().unwrap()).unwrap();
         fs::write(&path, body).unwrap();
         folder
+    }
+
+    /// Writes this device's secrets-moved marker at its own path, naming `device` as its deviceId.
+    fn write_marker(folder: &Path, device: &str) {
+        let path = secrets_moved_marker(folder, DEVICE);
+        fs::create_dir_all(path.parent().unwrap()).unwrap();
+        fs::write(path, serde_json::json!({ "count": 2, "deviceId": device }).to_string()).unwrap();
+    }
+
+    #[test]
+    fn install_gate_refuses_when_the_secrets_marker_is_absent() {
+        let folder = report("gate-no-marker", COMPLETE);
+        assert_eq!(install_gate_passes(&folder, Some(DEVICE)), Ok(false));
+    }
+
+    #[test]
+    fn install_gate_passes_when_this_devices_secrets_marker_is_present() {
+        let folder = report("gate-marker", COMPLETE);
+        write_marker(&folder, DEVICE);
+        assert_eq!(install_gate_passes(&folder, Some(DEVICE)), Ok(true));
+    }
+
+    #[test]
+    fn install_gate_refuses_a_marker_that_names_another_device() {
+        let folder = report("gate-other-marker", COMPLETE);
+        write_marker(&folder, "device-b");
+        assert_eq!(install_gate_passes(&folder, Some(DEVICE)), Ok(false));
+    }
+
+    #[test]
+    fn install_gate_refuses_an_unverified_report_even_with_the_marker() {
+        let folder = report("gate-unverified-marker", r#"{"state":"incomplete"}"#);
+        write_marker(&folder, DEVICE);
+        assert_eq!(install_gate_passes(&folder, Some(DEVICE)), Ok(false));
     }
 
     #[test]
