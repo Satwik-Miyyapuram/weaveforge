@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { Button } from "@/components/button";
 import { Modal, ModalActions } from "@/components/modal";
+import { InstallIdLocksUnavailableError } from "@/container/browser-install-id";
 import { desktop } from "./desktop-bridge";
 import type { Migrate097Progress, Migrate097StateName } from "./desktop-bridge";
 
@@ -15,34 +16,46 @@ import type { Migrate097Progress, Migrate097StateName } from "./desktop-bridge";
  * use.
  */
 
-export type UpgradePhase = "running" | "stopped";
+export type UpgradePhase = "idle" | "running" | "stopped" | "verified";
 
 export interface UpgradeKindProgress {
   done: number;
   total: number;
 }
 
+/** What the exporter reports back. The web fields are optional; the desktop answer is `state` alone. */
+export type ExportReply = {
+  state: Migrate097StateName;
+  /** Provider names whose secret stayed on the server; the user reconnects them. */
+  reconnectProviders?: string[];
+  /** Server rows the web cannot decrypt; the desktop app exports them. */
+  undecryptable?: number;
+  /** The refusal was unsent sync outbox ops: sync pending changes first. */
+  pendingSync?: boolean;
+};
+
 /** The exporter: runs the move and reports its state. Injected; WEB-EXPORT supplies it. */
-export type ExportRunner = (
-  folder: string,
-  onProgress: (p: Migrate097Progress) => void,
-) => Promise<{ state: Migrate097StateName }>;
+export type ExportRunner = (folder: string, onProgress: (p: Migrate097Progress) => void) => Promise<ExportReply>;
 
 /**
  * Runs one upgrade pass. `verified` only when the exporter says so; a
  * throw or any other answer is `stopped`, so a failed run never wires the
- * file backend.
+ * file backend. `onReply` receives the exporter's reply when it answers.
  */
 export async function runUpgrade(
   folder: string,
   runExport: ExportRunner | null,
   onProgress: (p: Migrate097Progress) => void,
+  onReply?: (reply: ExportReply) => void,
+  onError?: (err: unknown) => void,
 ): Promise<"verified" | "stopped"> {
   if (!runExport) return "stopped";
   try {
     const reply = await runExport(folder, onProgress);
+    onReply?.(reply);
     return reply.state === "verified" ? "verified" : "stopped";
-  } catch {
+  } catch (err) {
+    onError?.(err);
     return "stopped";
   }
 }
@@ -60,12 +73,24 @@ export type UpgradeBodyProps = {
   phase: UpgradePhase;
   progress: Record<string, UpgradeKindProgress>;
   reportFolder: string;
+  /** The message for a failure the screen can name (a WebView lock failure); otherwise the generic line shows. */
+  failureMessage?: string;
   /** Kind names the exporter could not move; listed when the run stopped. */
   missing?: string[];
+  /** Web: provider names the user reconnects to finish the upgrade. */
+  reconnectProviders?: string[];
+  /** Web: rows only the desktop app can export. */
+  undecryptable?: number;
+  /** Web: the run stopped because unsent sync changes remain. */
+  pendingSync?: boolean;
   copied: boolean;
   onCopy: () => void;
   onRetry: () => void;
   onKeepOld: () => void;
+  /** Web: the user presses Start; nothing is exported before that. */
+  onStart?: () => void;
+  /** Web: after a verified run, the user presses Continue, which reloads the app. */
+  onContinue?: () => void;
 };
 
 /** The screen's content, without the Modal shell (the Modal portals, so it is not server-rendered). */
@@ -73,13 +98,44 @@ export function Migrate097UpgradeBody({
   phase,
   progress,
   reportFolder,
+  failureMessage,
   missing = [],
+  reconnectProviders = [],
+  undecryptable = 0,
+  pendingSync = false,
   copied,
   onCopy,
   onRetry,
   onKeepOld,
+  onStart,
+  onContinue,
 }: UpgradeBodyProps) {
   const kinds = Object.entries(progress);
+  if (phase === "idle") {
+    return (
+      <div>
+        <p>Your data will move from the local database to files in this browser. Keep this tab open until it finishes.</p>
+        <ModalActions>
+          <Button variant="primary" onClick={onStart}>
+            Start
+          </Button>
+        </ModalActions>
+      </div>
+    );
+  }
+  if (phase === "verified") {
+    return (
+      <div>
+        <p>The upgrade finished. Your data is now in files.</p>
+        {reconnectProviders.length > 0 ? <p>{`Reconnect ${reconnectProviders.join(", ")} to restore its sync.`}</p> : null}
+        <ModalActions>
+          <Button variant="primary" onClick={onContinue}>
+            Continue
+          </Button>
+        </ModalActions>
+      </div>
+    );
+  }
   if (phase === "running") {
     return (
       <div>
@@ -98,10 +154,16 @@ export function Migrate097UpgradeBody({
   }
   return (
     <div>
+      {failureMessage ? <p>{failureMessage}</p> : null}
       <p>The upgrade did not finish. Your old data is untouched.</p>
       {missing.length > 0 ? <p>{`Not moved yet: ${missing.join(", ")}.`}</p> : null}
+      {pendingSync ? <p>Sync pending changes first, then try again.</p> : null}
+      {reconnectProviders.length > 0 ? <p>{`Reconnect ${reconnectProviders.join(", ")} to finish the upgrade.`}</p> : null}
+      {undecryptable > 0 ? (
+        <p>{`${undecryptable} items cannot be read here. Open the desktop app to export these ${undecryptable} items.`}</p>
+      ) : null}
       <p>
-        Report folder: <code style={{ userSelect: "text", WebkitUserSelect: "text" }}>{reportFolder}</code>
+        Report folder: <code style={{ userSelect: "text", WebkitUserSelect: "text" }}>{reportFolder}</code>{" "}{"(the report-<device>.json file for this device)"}
       </p>
       <Button variant="secondary" onClick={onCopy}>
         {copied ? "Copied" : "Copy report folder"}
@@ -138,21 +200,30 @@ export function Migrate097Upgrade({
   onReady: () => void;
   onKeepOld: () => void;
 }) {
-  const [phase, setPhase] = useState<UpgradePhase>("running");
+  // The web waits for Start; the desktop answers at once (runExport is null there) and shows Retry.
+  const [phase, setPhase] = useState<UpgradePhase>(runExport ? "idle" : "running");
   const [progress, setProgress] = useState<Record<string, UpgradeKindProgress>>({});
   const [copied, setCopied] = useState(false);
   const [missing, setMissing] = useState<string[]>([]);
+  const [reply, setReply] = useState<ExportReply>({ state: "incomplete" });
+  const [failure, setFailure] = useState<string | null>(null);
   const started = useRef(false);
 
   async function run() {
     setPhase("running");
     setProgress({});
     setMissing([]);
-    const outcome = await runUpgrade(folder, runExport, (p) =>
-      setProgress((prev) => ({ ...prev, [p.kind]: { done: p.done, total: p.total } })),
+    setReply({ state: "incomplete" });
+    setFailure(null);
+    const outcome = await runUpgrade(
+      folder,
+      runExport,
+      (p) => setProgress((prev) => ({ ...prev, [p.kind]: { done: p.done, total: p.total } })),
+      setReply,
+      (err) => setFailure(err instanceof InstallIdLocksUnavailableError ? err.message : null),
     );
     if (outcome === "verified") {
-      onReady();
+      setPhase("verified");
       return;
     }
     setPhase("stopped");
@@ -167,7 +238,8 @@ export function Migrate097Upgrade({
   useEffect(() => {
     if (started.current) return;
     started.current = true;
-    void run();
+    // Only the desktop path (no runner) runs on mount; the web export waits for Start.
+    if (!runExport) void run();
     // Runs once per mount; run reads the latest folder and callbacks on that pass.
   }, [folder]);
 
@@ -185,11 +257,17 @@ export function Migrate097Upgrade({
       phase={phase}
       progress={progress}
       reportFolder={upgradeReportFolder(folder)}
+      failureMessage={failure ?? undefined}
       missing={missing}
+      reconnectProviders={reply.reconnectProviders}
+      undecryptable={reply.undecryptable}
+      pendingSync={reply.pendingSync}
       copied={copied}
       onCopy={copyPath}
       onRetry={() => void run()}
       onKeepOld={onKeepOld}
+      onStart={() => void run()}
+      onContinue={onReady}
     />
   );
 }
