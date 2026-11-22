@@ -139,6 +139,19 @@ async function exportTrash(kind: string, rows: Row[], sink: FileSink, codec: Fil
   return verified;
 }
 
+/**
+ * A verify error (verify-export.ts) as a fixed report code. The raw text names a blob path or a kind, and
+ * report.json must not carry those, so only the failure kind is kept.
+ */
+export function verifyReasonCode(raw: string): string {
+  if (raw.endsWith(": unsafe path")) return "blob-unsafe-path";
+  if (raw.endsWith(": size mismatch")) return "blob-size-mismatch";
+  if (raw.endsWith(": sha256 mismatch")) return "blob-sha256-mismatch";
+  if (raw.endsWith(": read failed") || raw === "blobs: read failed") return "read-failed";
+  if (raw.includes("decoded files differ")) return "decoded-differ";
+  return "verify-error";
+}
+
 export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
   const { kinds, codec, source, sink, now, onProgress, desktop, writers: givenWriters = [], projectFolders, moveSecrets, secretsPresent, runDeviceId, debugLog } = opts;
   const writers = projectFolders ? [...givenWriters, createPaperFieldsWriter(sink, projectFolders)] : givenWriters;
@@ -249,7 +262,7 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
             // Defs are compared per project, so a project that did not survive is named by its id.
             missing.push(...projectDefsMismatches(rows, back));
           } else if (!sameRows(kind, rows, back)) {
-            missing.push({ kind, id: "*", reason: `readBack differs: ${back.length} read, ${rows.length} exported` });
+            missing.push({ kind, id: "*", reason: "readback-differs" });
           }
           continue;
         }
@@ -330,7 +343,7 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
     debugLog?.(`verify: ${(err as Error).message}`);
     missing.push({ kind: "verify", id: "*", reason: "verify-failed" });
   }
-  for (const reason of verdict.errors) missing.push({ kind: "verify", id: "*", reason });
+  for (const raw of verdict.errors) missing.push({ kind: "verify", id: "*", reason: verifyReasonCode(raw) });
 
   const kindCounts: Record<string, KindCount> = {};
   for (const kind of kinds) {
