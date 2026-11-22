@@ -146,11 +146,15 @@ test("a second run of an already-exported blob is clean: no rename onto the exis
   ]);
 });
 
-test("a re-upload whose sidecar differs keeps the sidecar and writes the new one to a conflict copy", async () => {
+test("a re-upload whose sidecar differs keeps the sidecar, throws a conflict, and writes the new one outside assets/", async () => {
   const fs = refusingRename(new MemoryWorkspaceFs());
   const store = new FileBlobStore(fs);
   await store.upload("notes", "n1/diagram.png", png(1, 2, 3), "image/png");
-  await store.upload("notes", "n1/diagram.png", png(1, 2, 3), "image/jpeg");
+  await assert.rejects(store.upload("notes", "n1/diagram.png", png(1, 2, 3), "image/jpeg"), /conflict: .*differs/);
   assert.match(await fs.readText("assets/notes/n1/diagram.png.sha256"), /image\/png$/, "the existing sidecar is kept");
-  assert.match(await fs.readText("assets/notes/n1/diagram.png (conflict).sha256"), /image\/jpeg$/, "the new sidecar is in a conflict copy");
+  assert.match(
+    await fs.readText(".weaveforge/migration-0.9.7/sidecar-conflicts/notes/n1/diagram.png.sha256"),
+    /image\/jpeg$/,
+    "the new sidecar is in a conflict copy outside assets/",
+  );
 });

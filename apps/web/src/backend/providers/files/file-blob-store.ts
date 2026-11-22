@@ -29,16 +29,27 @@ async function writeAtomic(fs: IWorkspaceFs, file: string, data: Uint8Array | st
   await fs.rename(`${file}.part`, file);
 }
 
+/** Sidecar conflict copies live outside assets/, so they never collide with an asset's own name. */
+const SIDECAR_CONFLICT_DIR = ".weaveforge/migration-0.9.7/sidecar-conflicts";
+
 /**
  * Writes a sidecar without ever renaming onto an existing one. The same text is already there: nothing to do.
- * Different text keeps the existing sidecar and goes to the first free conflict copy beside it.
+ * Different text keeps the existing sidecar, writes the new text to the first free copy under `conflictBase`,
+ * and throws so the row counts as a conflict.
  */
-async function putSidecar(fs: IWorkspaceFs, sidecar: string, text: string): Promise<void> {
+async function putSidecar(fs: IWorkspaceFs, sidecar: string, text: string, conflictBase: string): Promise<void> {
+  if (!(await fs.stat(sidecar))) return writeAtomic(fs, sidecar, text);
+  if ((await fs.readText(sidecar)) === text) return;
   for (let n = 0; ; n++) {
-    const target = n === 0 ? sidecar : conflictCopyPath(sidecar, n);
-    if (!(await fs.stat(target))) return writeAtomic(fs, target, text);
-    if ((await fs.readText(target)) === text) return;
+    const target = n === 0 ? conflictBase : conflictCopyPath(conflictBase, n);
+    if (!(await fs.stat(target))) {
+      await fs.mkdirp(target.slice(0, target.lastIndexOf("/")));
+      await writeAtomic(fs, target, text);
+      break;
+    }
+    if ((await fs.readText(target)) === text) break;
   }
+  throw new Error(`conflict: ${sidecar} differs`);
 }
 
 function assetFile(bucket: string, path: string): string {
@@ -68,7 +79,7 @@ export class FileBlobStore implements IBlobFetcher {
       await this.fs.mkdirp(file.slice(0, file.lastIndexOf("/")));
       await writeAtomic(this.fs, file, bytes);
     }
-    await putSidecar(this.fs, `${file}.sha256`, `${digest}\n${type}`);
+    await putSidecar(this.fs, `${file}.sha256`, `${digest}\n${type}`, `${SIDECAR_CONFLICT_DIR}/${bucket}/${path}.sha256`);
   }
 
   /** Moves the bytes and sidecar to `.weaveforge/trash`; nothing is unlinked. */
