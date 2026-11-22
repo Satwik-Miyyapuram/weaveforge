@@ -25,6 +25,7 @@ mod ink;
 mod local_artifacts;
 mod mattermost;
 mod menu;
+mod migrate_097_pg;
 mod migrate_097_remove;
 mod model_cache;
 mod no_electron_copy;
