@@ -11,6 +11,7 @@ import { sameRows, verifyExport } from "../application/verify-export";
 import { MemorySink } from "../infrastructure/memory-sink";
 import { unzipFiles, zipFiles } from "../infrastructure/zip";
 import { listAllPages } from "../infrastructure/paging";
+import { PostgrestSource } from "../infrastructure/postgrest-source";
 import { buildDownloadZip } from "../application/download-export";
 
 const NOW = "2026-11-22T00:00:00.000Z";
@@ -34,6 +35,7 @@ function fakeServer(opts: {
   outbox?: number;
   undecryptable?: Record<string, number>;
   trashed?: Record<string, Row[]>;
+  secretCount?: () => Promise<number>;
 }) {
   const calls: string[] = [];
   const source: ServerSource = {
@@ -42,7 +44,7 @@ function fakeServer(opts: {
       if (kind === opts.failKind) throw new Error("connection reset");
       return opts.rows[kind] ?? [];
     },
-    secretCount: async () => 0,
+    secretCount: opts.secretCount ?? (async () => 0),
     countRows: async (kind) => {
       calls.push(`count:${kind}`);
       return opts.rawCounts?.[kind] ?? (opts.rows[kind] ?? []).length;
@@ -127,6 +129,32 @@ test("zip round-trip keeps every exported file byte-equal", async () => {
   for (const path of paths) {
     assert.deepEqual(back.get(path), await sink.readBytes(path), path);
   }
+});
+
+// A PostgREST count for one secret table: `totals` maps the table name to its row count.
+function secretCountFor(totals: Record<string, number>): () => Promise<number> {
+  const fetch = (async (url: string) => {
+    const table = new URL(url).pathname.split("/").pop() ?? "";
+    return new Response(null, { status: 200, headers: { "content-range": `0-0/${totals[table] ?? 0}` } });
+  }) as unknown as typeof fetch;
+  return () =>
+    new PostgrestSource({ baseUrl: "https://api.example.test", userId: "u1", headers: {}, fetch }).secretCount();
+}
+
+test("secrets: a user with only a Zotero key refuses without a mover and never sets the marker", async () => {
+  const { source, calls } = fakeServer({ rows: FIXTURE, secretCount: secretCountFor({ user_settings: 1 }) });
+  const result = await runWebExport({ runDeviceId: "dev-test", kinds: ["logEntries"], codec: fakeCodec(SUPPORTED), source, sink: new MemorySink(), now: NOW });
+  assert.equal(result.state, "incomplete");
+  assert.ok(result.run.missing.some((m) => m.reason === "keys: no mover"));
+  assert.equal(calls.includes("mark:097"), false);
+});
+
+test("secrets: a user with only an Overleaf token refuses without a mover and never sets the marker", async () => {
+  const { source, calls } = fakeServer({ rows: FIXTURE, secretCount: secretCountFor({ overleaf_connections: 1 }) });
+  const result = await runWebExport({ runDeviceId: "dev-test", kinds: ["logEntries"], codec: fakeCodec(SUPPORTED), source, sink: new MemorySink(), now: NOW });
+  assert.equal(result.state, "incomplete");
+  assert.ok(result.run.missing.some((m) => m.reason === "keys: no mover"));
+  assert.equal(calls.includes("mark:097"), false);
 });
 
 test("interrupted run gives incomplete, writes the report and never sets the marker", async () => {
