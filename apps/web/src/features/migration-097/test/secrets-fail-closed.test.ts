@@ -107,7 +107,7 @@ test("secrets: PostgrestSource names each provider whose table has a secret row"
     headers: {},
     fetch: countingFetch({ project_integrations: 3, user_settings: 0, overleaf_connections: 0 }, seen),
   });
-  assert.deepEqual(await source.secretProviders(), ["integrations"]);
+  assert.deepEqual(await source.secretProviders(), ["project integrations"]);
   assert.match(seen[0] ?? "", /\/project_integrations\?/);
   assert.match(seen[0] ?? "", /token=not\.is\.null/);
   assert.match(seen[0] ?? "", /projects\.user_id=eq\.u1/);
@@ -135,7 +135,7 @@ test("secrets: PostgrestSource names every provider whose secret table has rows"
     headers: {},
     fetch: countingFetch({ project_integrations: 3, user_settings: 1, overleaf_connections: 2 }, seen),
   });
-  assert.deepEqual(await source.secretProviders(), ["integrations", "zotero", "overleaf"]);
+  assert.deepEqual(await source.secretProviders(), ["project integrations", "zotero", "overleaf"]);
   assert.equal(seen.length, 3);
   assert.ok(seen.some((u) => /\/user_settings\?/.test(u) && /zotero_api_key=not\.is\.null/.test(u) && /user_id=eq\.u1/.test(u)));
   assert.ok(seen.some((u) => /\/overleaf_connections\?/.test(u) && /token_ciphertext=not\.is\.null/.test(u) && /user_id=eq\.u1/.test(u)));

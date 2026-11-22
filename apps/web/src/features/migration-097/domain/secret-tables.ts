@@ -6,7 +6,7 @@
  * both read this list, so they cover the same rows.
  */
 export const SECRET_TABLES = [
-  { table: "project_integrations", select: "id,projects!inner(user_id)", owner: "projects.user_id", secret: "token", provider: "integrations" },
+  { table: "project_integrations", select: "id,projects!inner(user_id)", owner: "projects.user_id", secret: "token", provider: "project integrations" },
   { table: "user_settings", select: "user_id", owner: "user_id", secret: "zotero_api_key", provider: "zotero" },
   { table: "overleaf_connections", select: "user_id", owner: "user_id", secret: "token_ciphertext", provider: "overleaf" },
 ] as const;
