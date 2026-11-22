@@ -24,9 +24,10 @@ Rules:
 
 Dead code since the device-local change, to remove with the 1.0.0 drop:
 
-- `unseen` (reads `user_settings`) in the release-notices repository, and its
-  `IReleaseNoticesRepository` entry and facade/local stubs.
-- `saveNoticeSeen` and `unseen` in `crates/wf-core/src/repos/user_settings.rs`.
+- The `unseen` arm and `fn unseen` in `crates/wf-core/src/repos/release_notices.rs`,
+  with the `last_release_notice_seen` read in it. The web code no longer calls it.
+- The `saveNoticeSeen` arm in `crates/wf-core/src/repos/user_settings.rs`, with the
+  `last_release_notice_seen` field of its row.
 - Column `user_settings.last_release_notice_seen` in `db/migrations/0156_release_notices.sql`,
   dropped by a 1.0.0 migration (ask first; it is a production write).
 

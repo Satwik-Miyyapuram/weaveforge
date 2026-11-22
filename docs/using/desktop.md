@@ -227,8 +227,8 @@ older version is offered 0.9.7 before 0.9.8.
   installer is smaller. If old database data is found that 0.9.7 never moved,
   the app shows an **Install 0.9.7 first** screen and leaves that data untouched.
 - **1.0.0** is the first stable release. Everything in 0.9.8 is included. The
-  server no longer keeps personal notes, papers or other personal data; only
-  organisation, sharing and relay data stays on the server.
+  server no longer keeps your personal notes, papers or reading lists. Milestones,
+  projects, settings and Overleaf links stay on the server until a later 1.0.x.
 
 ## A folder on your disk
 

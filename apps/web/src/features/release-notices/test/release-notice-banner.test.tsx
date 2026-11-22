@@ -54,10 +54,6 @@ const notice: ReleaseNotice = {
 
 /** A container whose account-side calls are recorded, so any `user_settings` use shows up. */
 function stubContainer(latest: ReleaseNotice | null) {
-  const record = (name: string) => async () => {
-    calls.push(name);
-    return null;
-  };
   setContainerForTests({
     settings: {
       releaseNotices: {
@@ -65,9 +61,7 @@ function stubContainer(latest: ReleaseNotice | null) {
           calls.push("latest");
           return latest;
         },
-        unseen: record("unseen"),
       },
-      preferences: { saveNoticeSeen: record("saveNoticeSeen") },
     },
   } as unknown as Parameters<typeof setContainerForTests>[0]);
 }

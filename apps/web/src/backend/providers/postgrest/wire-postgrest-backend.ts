@@ -263,7 +263,7 @@ export function wirePostgrestBackend(
     parts?.settingsRepository ?? new PostgrestSettingsRepository(db, session, secretsStoreFor(db));
   const releaseNoticesRepository =
     parts?.releaseNotices ??
-    rustRepository<IReleaseNoticesRepository>(db, "release_notices", ["latest", "unseen"], async () => ({
+    rustRepository<IReleaseNoticesRepository>(db, "release_notices", ["latest"], async () => ({
       userId: (await session.getCurrentUserId()) ?? undefined,
     }));
   const manageSettings = new ManageSettingsUseCaseClass({ repository: settingsRepository, clock: systemClock });

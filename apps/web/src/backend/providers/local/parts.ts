@@ -131,7 +131,7 @@ export function localBackendParts(query: LocalQuery = localRunnerQuery()): Backe
     session,
     settingsRepository: new PostgrestSettingsRepository(db, session, new DeviceSecretsStore(query)),
     // Offline copies never show server notices.
-    releaseNotices: { latest: async () => null, unseen: async () => null },
+    releaseNotices: { latest: async () => null },
     auth: new LocalAuthService(),
     blobStore: new LocalBlobStore(query, localFiles(desktop())),
   };
