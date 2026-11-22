@@ -99,19 +99,6 @@ pub trait SemanticRanker: Send + Sync {
     ) -> BoxFuture<'a, Option<Vec<String>>>;
 }
 
-/// Saves an experiment artifact and returns its `app://artifacts/...` URL.
-///
-/// TS: `SaveArtifact` in local-artifacts.ts.
-pub trait SaveArtifact: Send + Sync {
-    /// Stores the artifact bytes for the experiment.
-    fn save<'a>(
-        &'a self,
-        experiment_id: &'a str,
-        name: &'a str,
-        bytes: Vec<u8>,
-    ) -> BoxFuture<'a, Result<String, String>>;
-}
-
 /// Answers one parsed JSON-RPC message from POST `/mcp`; `None` for a notification (202).
 ///
 /// TS: `routeMcpRequest` in local-mcp.ts. `tracking` is true when the token also has

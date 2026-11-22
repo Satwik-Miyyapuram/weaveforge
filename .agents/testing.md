@@ -62,7 +62,7 @@ npm run test:web -- --test-name-pattern "find overlay"
 `.claude/launch.json` names the dev servers (`web`, `web-desktop-mode`,
 `web-prod`, `web-worktree`, `pitch-export`). Start one with the preview tool,
 never from the shell. Good for layout and CSS; anything that depends on the
-desktop shell (local DB, file system, app:// routes) is checked in the
+desktop shell (file system, app:// routes) is checked in the
 desktop app below.
 
 ## 3. Desktop: the WeaveForge Dev build
@@ -73,10 +73,9 @@ its own app id, user-data folder and workspace pointer.
 
 ### What keeps Dev apart
 
-- Its own app id, user-data folder and local DB (see the build below).
+- Its own app id, user-data folder and workspace pointer (see the build below).
 - Open a new or demo project in Dev. Never point it at the person's
-  workspace: two apps on one local DB hit EPERM and the reset path can move
-  the DB aside.
+  workspace: two apps writing one workspace's files race each other.
 - Sign-in loopback port 53682 is shared, so Dev logs `EADDRINUSE` while the
   main app runs. Harmless for local-only checks.
 
@@ -90,21 +89,15 @@ this machine: it would migrate from the installed app's data.
 
 ```powershell
 cd apps\shell; node scripts/build-web.mjs; cd ..\..
-node apps/shell/scripts/stage-postgres.mjs <extracted postgres dist> <out>
 cd apps\shell; npm run tauri -- build --no-bundle --config tauri.dev.json
 ```
 
-A release exe reads its migrations and MCP bridge from `<out>\app`, laid out
-as `tauri.bundle.json` maps them: `db\migrations` to `app\migrations`,
-`db\migrations-local` to `app\migrations-local`, and
+A release exe reads its MCP bridge from `<out>\app`, laid out as
+`tauri.bundle.json` maps it:
 `plugins\weaveforge-research\mcp-server\index.mjs` to
-`app\weaveforge-mcp.mjs`. A debug build reads them from the repo instead when
-`WF_DEV_REPO` names the repo root.
-
-`stage-postgres.mjs` takes the extracted
-`postgresql-18.6.1-x86_64-pc-windows-msvc` release of
-theseus-rs/postgresql-binaries (the one CI pins) and writes `<out>\postgres`,
-where the native local database looks for it.
+`app\weaveforge-mcp.mjs`. A debug build reads it from the repo instead when
+`WF_DEV_REPO` names the repo root. 0.9.8 bundles no Postgres and no
+migrations.
 
 Copy `target\release\weaveforge-shell.exe` into `<out>`, and
 `apps\shell\dist\web` to `<out>\web`. Run the exe from `<out>` unbundled, so
@@ -162,11 +155,7 @@ Two measuring scripts do live in the repo, in `scripts/perf/`:
 
 - `node scripts/perf/memory.mjs` (Dev running, read-only over CDP) prints
   memory per part: JS heap, wasm, DOM, canvases, workers, and the working set
-  of every WebView2 process, the shell, and the Postgres processes the Dev
-  shell started (not other Postgres on the machine).
-- `node scripts/perf/db-start.mjs --bin <postgres bin dir>` times each phase of
-  the local database start (initdb, spawn until ready, connect, migrate, local
-  user) on a scratch cluster in the temp dir. It never opens an app's data.
+  of every WebView2 process and the shell.
 
 Conventions:
 
@@ -185,7 +174,6 @@ Conventions:
   pixels. Synthetic `PointerEvent`s cannot `setPointerCapture`.
 - Keyboard: `Input.dispatchKeyEvent`, `modifiers: 2` for Ctrl.
 - Screenshots come back at the window's DPR unless emulation sets it.
-- Local DB from the page: `window.weaveforge.queryLocalDb(sql, params)`.
 - React state the DOM does not show: walk `__reactFiber$*` up to the
   component's `memoizedProps`.
 - Console noise to ignore: two `Uncaught (in promise)` from the collab

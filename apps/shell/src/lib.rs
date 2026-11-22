@@ -394,13 +394,11 @@ fn local_api_deps(app: &tauri::AppHandle) -> Option<(local_http::control::LocalA
             token_file: mcp_paths.file.to_string_lossy().into_owned(),
         }),
     );
-    let artifacts = paths.app_data_dir().unwrap_or_default().join("artifacts");
     let deps = local_http::control::LocalApiDeps {
         vault,
         prefs: Arc::new(prefs),
         secrets: Arc::new(secrets),
         opener: Arc::new(local_api::TauriOpener(app.clone())),
-        save_artifact: Some(Arc::new(local_api::AppArtifacts(artifacts))),
         mcp: Some(Arc::new(mcp)),
         ranker,
         paths: mcp_paths,

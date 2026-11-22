@@ -7,7 +7,7 @@ use super::sdk::SDK_PREFIX;
 use super::sdk_files;
 use super::token::grant_permissions;
 use super::verified::{Mode, folder_mode};
-use super::{Expected, LocalApiRequest, LocalApiResponse, McpRouter, Permission, SaveArtifact};
+use super::{Expected, LocalApiRequest, LocalApiResponse, McpRouter, Permission};
 use crate::cmd_vault;
 use crate::vault::{EntryKindPayload, VaultState};
 use crate::vault_search::search_vault;
@@ -22,8 +22,6 @@ const MCP_PATH: &str = "/mcp";
 pub struct RouteDeps<'a> {
     /// The chosen workspace folder.
     pub vault: &'a VaultState,
-    /// Saves experiment artifacts for `/api/sdk/`.
-    pub save_artifact: Option<&'a dyn SaveArtifact>,
     /// Answers `/mcp`. `None` answers 404, as an unserved route.
     pub mcp: Option<&'a dyn McpRouter>,
 }
@@ -365,7 +363,6 @@ mod tests {
         with_project(&fixture);
         let deps = RouteDeps {
             vault: &fixture.vault,
-            save_artifact: None,
             mcp: None,
         };
         let answer = block_on(route_local_request(
@@ -410,7 +407,6 @@ mod tests {
     ) -> LocalApiResponse {
         let deps = RouteDeps {
             vault: &fixture.vault,
-            save_artifact: None,
             mcp,
         };
         block_on(route_local_request(
@@ -435,7 +431,6 @@ mod tests {
         let req = request("POST", "/search/simple/?query=kettle", "");
         let deps = RouteDeps {
             vault: &fixture.vault,
-            save_artifact: None,
             mcp: None,
         };
         let held = fixture.vault.clone();
@@ -766,7 +761,6 @@ mod tests {
         let mcp = FakeMcp;
         let deps = RouteDeps {
             vault: &vault,
-            save_artifact: None,
             mcp: Some(&mcp as &dyn McpRouter),
         };
         let body = json!({ "jsonrpc": "2.0", "id": 1, "method": "tools/list" }).to_string();
@@ -788,7 +782,6 @@ mod tests {
         with_project(&fixture);
         let deps = RouteDeps {
             vault: &fixture.vault,
-            save_artifact: None,
             mcp: None,
         };
         let answer = block_on(route_local_request(
@@ -807,7 +800,6 @@ mod tests {
         with_project(&fixture);
         let deps = RouteDeps {
             vault: &fixture.vault,
-            save_artifact: None,
             mcp: None,
         };
         let answer = block_on(route_local_request(
@@ -829,7 +821,6 @@ mod tests {
         let mcp = FakeMcp;
         let deps = RouteDeps {
             vault: &fixture.vault,
-            save_artifact: None,
             mcp: Some(&mcp as &dyn McpRouter),
         };
         // Whoami is answered locally in files mode (200), everything else is 503.
