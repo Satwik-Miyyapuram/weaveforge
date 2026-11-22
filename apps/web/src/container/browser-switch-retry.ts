@@ -84,14 +84,24 @@ export function recordReadOnlyStart(readOnly: boolean): void {
   setSwitchRetryNeeded(readOnly);
 }
 
-type SwitchRun = { run: () => Promise<SwitchDecision>; onSwitched: () => void };
+type SwitchRun = { run: (signal: AbortSignal) => Promise<SwitchDecision>; onSwitched: () => void };
 /** The last switch asked for, so Retry and sign-in can run it again. */
 let lastRun: SwitchRun | null = null;
-/** The run in progress. A second request joins it: two exports never write OPFS at once. */
+/** The run in progress. A second request joins it. It clears at the timeout at the latest. */
 let inFlight: Promise<SwitchDecision | null> | null = null;
-/** True while the export itself runs, including after its run timed out. */
-let exportRunning = false;
-/** Settles when the running export settles, even past its timeout. */
+/**
+ * How long an aborted export may keep running before Retry may start another. The timeout aborts the
+ * export, which stops at its next file; a file that hangs must not block Retry for the rest of the page's
+ * life. The export's sink refuses every write once the signal aborts, so an old file op that resolves
+ * after the grace still writes nothing. A run declared without a signal parameter gets no grace: it
+ * cannot stop, so Retry waits for it to settle.
+ */
+export const ABORTED_EXPORT_GRACE_MS = 10_000;
+/**
+ * Pending while an export runs, past its timeout too: no second export starts while it may still write
+ * OPFS. It settles when the export settles, or `graceMs` after the export's signal aborts (only for a
+ * run that takes the signal).
+ */
 let exportSettled: Promise<void> | null = null;
 
 async function runSwitchOnce(
@@ -128,29 +138,39 @@ async function runSwitchOnce(
  * A switched run reloads into files mode once per session; a repeat switch keeps the banner
  * instead of reloading. Any other outcome updates the banner, except that a read-only start keeps
  * it until a switch succeeds: the browser is still read-only whatever the retry found.
- * A call while a run is in flight joins that run, and a call while a timed-out export still runs
- * resolves null without starting another. Resolves with the outcome and never rejects.
+ * A call while a run is in flight joins that run. A timed-out run has its signal aborted; until it
+ * settles, or `graceMs` after the abort, a call resolves null without starting a second export.
+ * Resolves with the outcome and never rejects.
  */
 export function retrySwitch(
-  run: () => Promise<SwitchDecision>,
+  run: (signal: AbortSignal) => Promise<SwitchDecision>,
   onSwitched: () => void,
   timeoutMs?: number,
+  graceMs: number = ABORTED_EXPORT_GRACE_MS,
 ): Promise<SwitchDecision | null> {
   if (!startedReadOnly) return Promise.resolve(null);
   lastRun = { run, onSwitched };
   if (inFlight) return inFlight;
-  // A run past its timeout still writes OPFS. No second export starts until it settles.
-  if (exportRunning) return Promise.resolve(null);
-  const tracked = () => {
-    exportRunning = true;
-    const running = (async () => run())();
-    const settled = running.then(
-      () => {},
-      () => {},
-    );
+  // An aborted export may still be writing its last file. No second export starts until it settles.
+  if (exportSettled) return Promise.resolve(null);
+  const acceptsSignal = run.length > 0;
+  const tracked = (signal: AbortSignal) => {
+    const running = (async () => run(signal))();
+    let grace: ReturnType<typeof setTimeout> | undefined;
+    const settled = new Promise<void>((resolve) => {
+      void running.then(
+        () => resolve(),
+        () => resolve(),
+      );
+      // Only a run that takes the signal can stop at the abort. A run that ignores it keeps the old
+      // guard: no second export until this one settles.
+      if (acceptsSignal) {
+        signal.addEventListener("abort", () => (grace = setTimeout(resolve, graceMs)), { once: true });
+      }
+    });
     exportSettled = settled;
     void settled.then(() => {
-      exportRunning = false;
+      clearTimeout(grace);
       if (exportSettled === settled) exportSettled = null;
     });
     return running;
@@ -182,8 +202,8 @@ export function startSwitchRetryOnSignIn(auth: AuthEvents): () => void {
   if (!stopWatch) {
     const { data } = auth.onAuthStateChange((event) => {
       if (event !== "SIGNED_IN" || !isSwitchRetryNeeded()) return;
-      // A run in flight may have started signed out: run once more after its export settles,
-      // past any timeout, so the re-run is never refused as a second export.
+      // A run in flight may have started signed out: run once more after its export settles (or its
+      // abort grace ends), so the re-run is never refused as a second export.
       const running = inFlight ?? exportSettled;
       if (!running) {
         void retrySwitchNow();

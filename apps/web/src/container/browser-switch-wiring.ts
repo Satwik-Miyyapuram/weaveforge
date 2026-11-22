@@ -32,10 +32,12 @@ function authSession(): () => Promise<SwitchSession | null> {
  * Runs the fresh 0.9.8 switch decision from the live config. The Tauri shell is
  * desktop even when its bridge is missing, so the `__TAURI_INTERNALS__` global counts too.
  * Anything missing (wasm core, data URL, auth config) reads as "error", which keeps the server backend.
+ * `signal` is the background timeout's; the export stops between files once it aborts.
  */
 export async function decideBrowserSwitchFromConfig(
   config: BackendConfig,
   shell: ReturnType<typeof desktop>,
+  signal?: AbortSignal,
 ): Promise<SwitchDecision> {
   const inTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
   if (shell !== null || inTauri) return { switch: false, reason: "desktop" };
@@ -59,6 +61,7 @@ export async function decideBrowserSwitchFromConfig(
     openWiring: openBrowserFileWiring,
     installId: async () => readOrCreateInstallId(await BrowserWorkspaceFs.openOpfs()),
     pending: localSwitchPending(),
+    signal,
   });
 }
 

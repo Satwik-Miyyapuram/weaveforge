@@ -33,6 +33,8 @@ export type SwitchDeps = {
    * A switch left pending (marker write failed) makes the next start read-only, never server-writable.
    */
   pending?: { set(): void; clear(): void };
+  /** Aborted at the background timeout. The export stops between files; an aborted switch never marks. */
+  signal?: AbortSignal;
 };
 
 export type SwitchDecision =
@@ -75,9 +77,16 @@ export async function decideBrowserSwitch(deps: SwitchDeps): Promise<SwitchDecis
       runDeviceId: deviceId,
       // The export never writes the server mark itself. The mark is written below, after wiring opens.
       skipMark: true,
+      signal: deps.signal,
     });
-    if (!outcome.switch) return { switch: false, reason: "not-verified" };
+    // An abort that lands after a verified gate still stops here: no wiring, no server mark, no marker.
+    if (!outcome.switch || deps.signal?.aborted) return { switch: false, reason: "not-verified" };
     const wiring = await deps.openWiring();
+    if (deps.signal?.aborted) {
+      // The timeout landed while the files opened: still no server mark and no marker.
+      await wiring.close();
+      return { switch: false, reason: "not-verified" };
+    }
     try {
       await source.markExported097();
       deps.pending?.set();

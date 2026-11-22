@@ -39,6 +39,23 @@ test("(P2-4) a run that outlives the timeout settles to null, so the caller can 
   assert.equal(out, null);
 });
 
+test("(098 P2 hung) the timeout aborts the run's signal; a run in time never sees an abort", async () => {
+  let hungSignal: AbortSignal | undefined;
+  const out = await runBrowserSwitchInBackground((signal) => {
+    hungSignal = signal;
+    return new Promise<SwitchDecision>(() => {});
+  }, 10);
+  assert.equal(out, null);
+  assert.equal(hungSignal?.aborted, true, "the export is told to stop at the timeout");
+  let quickSignal: AbortSignal | undefined;
+  await runBrowserSwitchInBackground(async (signal) => {
+    quickSignal = signal;
+    return { switch: false, reason: "not-verified" };
+  }, 1000);
+  await new Promise((resolve) => setTimeout(resolve, 5));
+  assert.equal(quickSignal?.aborted, false);
+});
+
 test("(098 P2) a switch that lands after the timeout has its files wiring closed and its result dropped", async () => {
   let closed = 0;
   let land: (d: SwitchDecision) => void = () => {};

@@ -54,6 +54,54 @@ test("(P2) the switch gate gets this browser's install id as runDeviceId, and th
   assert.equal((await readSwitchMarker(sink))?.deviceId, INSTALL_ID);
 });
 
+test("(098 P2 hung) the switch's signal reaches the export gate", async () => {
+  const signal = new AbortController().signal;
+  const h = harness({ signal });
+  await decideBrowserSwitch(h.deps);
+  assert.equal((h.gateCalls[0] as { signal?: AbortSignal }).signal, signal);
+});
+
+test("(098 P2 hung) aborted while the gate ran: no wiring, no mark, no marker", async () => {
+  const sink = new MemorySink();
+  const controller = new AbortController();
+  const order: string[] = [];
+  const h = harness({
+    signal: controller.signal,
+    openSink: async () => sink,
+    fetch: recordingFetch(order),
+    gate: async () => {
+      controller.abort();
+      return { switch: true };
+    },
+  });
+  const out = await decideBrowserSwitch(h.deps);
+  assert.equal(out.switch, false);
+  assert.equal(h.opened(), 0);
+  assert.deepEqual(order, [], "the server is never marked");
+  assert.equal(await readSwitchMarker(sink), null);
+});
+
+test("(098 P2 hung) aborted while the files opened: wiring closed, no mark, no marker", async () => {
+  const sink = new MemorySink();
+  const controller = new AbortController();
+  const order: string[] = [];
+  let closed = 0;
+  const h = harness({
+    signal: controller.signal,
+    openSink: async () => sink,
+    fetch: recordingFetch(order),
+    openWiring: async () => {
+      controller.abort();
+      return { close: async () => void (closed += 1) } as unknown as typeof WIRING;
+    },
+  });
+  const out = await decideBrowserSwitch(h.deps);
+  assert.deepEqual(out, { switch: false, reason: "not-verified" });
+  assert.equal(closed, 1, "the opened files are closed");
+  assert.deepEqual(order, [], "the server is never marked");
+  assert.equal(await readSwitchMarker(sink), null);
+});
+
 test("(a) a fresh verified run switches to the OPFS wiring", async () => {
   const h = harness();
   const out = await decideBrowserSwitch(h.deps);

@@ -218,28 +218,85 @@ test("(098 item2) a retry while a run is in flight joins it: never two exports a
   clearSwitchReloadGuard();
 });
 
-test("(098 P1) a retry after a timed-out run starts no second export while the first still runs", async () => {
+const tick = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+const notVerified = async (): Promise<SwitchDecision> => ({ switch: false, reason: "not-verified" });
+
+test("(098 P2 hung) a timed-out run is aborted; once it stops at its next file Retry runs again", async () => {
+  clearSwitchReloadGuard();
+  recordReadOnlyStart(true);
+  let runs = 0;
+  let firstSignal: AbortSignal | undefined;
+  let finish: (d: SwitchDecision) => void = () => {};
+  const slow = (signal: AbortSignal) => {
+    runs += 1;
+    firstSignal ??= signal;
+    return new Promise<SwitchDecision>((resolve) => {
+      finish = resolve;
+    });
+  };
+  // A grace far past the test: only the aborted run settling can free Retry here.
+  const out = await retrySwitch(slow, () => {}, 10, 60_000);
+  assert.equal(out, null, "the first run timed out");
+  assert.equal(firstSignal?.aborted, true, "the timeout aborts the export");
+  assert.equal(await retrySwitch(notVerified, () => {}), null, "no second export while the aborted one may still write");
+  assert.equal(runs, 1);
+  finish({ switch: false, reason: "not-verified" });
+  await tick(1);
+  await retrySwitch(async (signal) => {
+    runs += 1;
+    assert.equal(signal.aborted, false, "the fresh run gets its own signal");
+    return { switch: false, reason: "not-verified" };
+  }, () => {});
+  assert.equal(runs, 2, "the aborted export settled, so Retry runs again");
+  recordReadOnlyStart(false);
+  clearSwitchReloadGuard();
+});
+
+test("(098 P2 hung) an export that ignores the abort frees Retry after the grace, never later", async () => {
+  clearSwitchReloadGuard();
+  recordReadOnlyStart(true);
+  let runs = 0;
+  // Takes the signal but never settles: a hung file read stuck past the abort.
+  const hung = (_signal: AbortSignal) => {
+    runs += 1;
+    return new Promise<SwitchDecision>(() => {});
+  };
+  assert.equal(await retrySwitch(hung, () => {}, 10, 30), null, "timed out");
+  assert.equal(await retrySwitch(notVerified, () => {}), null, "held back during the grace");
+  assert.equal(runs, 1);
+  await tick(60);
+  assert.deepEqual(await retrySwitch(async () => {
+    runs += 1;
+    return { switch: false, reason: "not-verified" };
+  }, () => {}), { switch: false, reason: "not-verified" });
+  assert.equal(runs, 2, "a hung export never blocks Retry past the grace");
+  recordReadOnlyStart(false);
+  clearSwitchReloadGuard();
+});
+
+test("(098 P2 hung) a run that drops the signal gets no grace: Retry waits for it to settle", async () => {
   clearSwitchReloadGuard();
   recordReadOnlyStart(true);
   let runs = 0;
   let finish: (d: SwitchDecision) => void = () => {};
-  const hung = () => {
+  // No signal parameter: this export cannot stop at the abort, so it may write until it settles.
+  const deaf = () => {
     runs += 1;
     return new Promise<SwitchDecision>((resolve) => {
       finish = resolve;
     });
   };
-  const out = await retrySwitch(hung, () => {}, 10);
-  assert.equal(out, null, "the first run timed out");
-  assert.equal(await retrySwitchNow(), null);
-  assert.equal(runs, 1, "the timed-out export still runs, so no second export starts");
+  assert.equal(await retrySwitch(deaf, () => {}, 10, 20), null, "timed out");
+  await tick(60);
+  assert.equal(await retrySwitch(notVerified, () => {}), null, "still held back after the grace");
+  assert.equal(runs, 1);
   finish({ switch: false, reason: "not-verified" });
-  await new Promise((resolve) => setTimeout(resolve, 5));
-  await retrySwitch(async () => {
+  await tick(1);
+  assert.deepEqual(await retrySwitch(async () => {
     runs += 1;
     return { switch: false, reason: "not-verified" };
-  }, () => {});
-  assert.equal(runs, 2, "once it settles, Retry runs again");
+  }, () => {}), { switch: false, reason: "not-verified" });
+  assert.equal(runs, 2, "Retry runs again once the deaf export settled");
   recordReadOnlyStart(false);
   clearSwitchReloadGuard();
 });
@@ -363,33 +420,28 @@ test("(098 P2) signing in during a signed-out run re-runs once that run settles"
   clearSwitchReloadGuard();
 });
 
-test("(098 P2) signing in during a timed-out export re-runs once that export settles", async () => {
+test("(098 P2 hung) signing in after a timed-out hung export re-runs once the abort grace ends", async () => {
   clearSwitchReloadGuard();
   recordReadOnlyStart(true);
   let runs = 0;
-  let finish: (d: SwitchDecision) => void = () => {};
   const out = await retrySwitch(
-    () => {
+    (_signal: AbortSignal) => {
       runs += 1;
-      if (runs === 1) {
-        return new Promise<SwitchDecision>((resolve) => {
-          finish = resolve;
-        });
-      }
+      if (runs === 1) return new Promise<SwitchDecision>(() => {});
       return Promise.resolve<SwitchDecision>({ switch: false, reason: "not-verified" });
     },
     () => {},
     10,
+    30,
   );
   assert.equal(out, null, "timed out");
   const auth = fakeAuth();
   const stop = startSwitchRetryOnSignIn(auth);
   auth.emit("SIGNED_IN");
   await new Promise((resolve) => setTimeout(resolve, 5));
-  assert.equal(runs, 1, "no second export while the timed-out one still runs");
-  finish({ switch: false, reason: "no-session" });
-  await new Promise((resolve) => setTimeout(resolve, 5));
-  assert.equal(runs, 2, "the sign-in re-run starts after the export settles");
+  assert.equal(runs, 1, "no second export while the aborted one may still write");
+  await new Promise((resolve) => setTimeout(resolve, 60));
+  assert.equal(runs, 2, "the sign-in re-run starts once the grace ends");
   stop();
   recordReadOnlyStart(false);
   clearSwitchReloadGuard();

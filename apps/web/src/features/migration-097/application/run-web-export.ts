@@ -56,6 +56,13 @@ export type ExportOptions = {
   debugLog?: (line: string) => void;
   /** Web only: skip the server marker. The browser switch writes it itself after its wiring opens. */
   skipMark?: boolean;
+  /**
+   * Web only: the switch's timeout. Checked between files; once aborted the run writes nothing more
+   * (no report, no mark) and returns incomplete with an "aborted" row. The early report stays "in progress".
+   * A write already awaiting when the abort lands still completes; the retry module holds the next run
+   * back until this one settles, or for a short grace after the abort.
+   */
+  signal?: AbortSignal;
 };
 
 /** Refusal reason when unsent sync_outbox ops exist; the UI keys "sync pending changes first" on it. */
@@ -173,9 +180,10 @@ const TRASH_DIR = ".weaveforge/migration-0.9.7/trash";
  * any other row is written as raw JSON. Each file must read back to the text written, or the row is
  * listed missing. Returns how many rows verified.
  */
-async function exportTrash(kind: string, rows: Row[], sink: FileSink, store: FileStore, codec: FileCodec, missing: MissingRow[]): Promise<number> {
+async function exportTrash(kind: string, rows: Row[], sink: FileSink, store: FileStore, codec: FileCodec, missing: MissingRow[], signal?: AbortSignal): Promise<number> {
   let verified = 0;
   for (const row of rows) {
+    signal?.throwIfAborted();
     if (row.id === undefined || row.id === null || row.id === "") {
       missing.push({ kind, id: "*", reason: "missing id" });
       continue;
@@ -250,10 +258,49 @@ async function priorOutputs(sink: FileSink, deviceId: string | undefined): Promi
   return latest?.outputs ?? {};
 }
 
+/**
+ * The result of a run its signal stopped. Nothing is written for it: the early report, if one was written,
+ * still says "export in progress", which is true of a stopped run.
+ */
+/**
+ * Refuses every write, rename and remove once `signal` aborts; reads pass through. A file whose read or
+ * fetch was still awaiting at the abort therefore never lands, even when it resolves much later.
+ */
+function abortableSink(sink: FileSink, signal: AbortSignal): FileSink {
+  return {
+    write: async (path, data) => (signal.throwIfAborted(), sink.write(path, data)),
+    list: () => sink.list(),
+    readText: (path) => sink.readText(path),
+    readBytes: (path) => sink.readBytes(path),
+    exists: (path) => sink.exists(path),
+    rename: async (from, to) => (signal.throwIfAborted(), sink.rename(from, to)),
+    remove: async (path) => (signal.throwIfAborted(), sink.remove(path)),
+    writeIf: async (path, text, expected) => (signal.throwIfAborted(), sink.writeIf(path, text, expected)),
+  };
+}
+
+function abortedResult(now: string, target: MigrationTarget, kind: string, missing: MissingRow[], deviceId: string | undefined, backup: string | null): ExportResult {
+  const run: RunReport = {
+    startedAt: now,
+    finishedAt: new Date().toISOString(),
+    sources: ["server"],
+    kinds: {},
+    blobs: { db: 0, verified: 0 },
+    missing: [...missing, { kind, id: "*", reason: "aborted" }],
+    deviceId,
+    state: "incomplete",
+    target,
+    backup,
+  };
+  return { state: "incomplete", run, reconnectProviders: [], undecryptable: 0 };
+}
+
 export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
-  const { kinds, codec, source, sink, now, onProgress, desktop, writers: givenWriters, projectFolders, moveSecrets, runDeviceId, debugLog, skipMark = false } = opts;
+  const { kinds, codec, source, now, onProgress, desktop, writers: givenWriters, projectFolders, moveSecrets, runDeviceId, debugLog, skipMark = false, signal } = opts;
+  const sink = signal ? abortableSink(opts.sink, signal) : opts.sink;
   if (projectFolders) checkProjectFolders(projectFolders);
   const target: MigrationTarget = desktop ? "folder" : "opfs";
+  if (signal?.aborted) return abortedResult(now, target, "*", [], runDeviceId, null);
 
   // A browser run must name a well-formed install id; without one the run cannot be matched or verified later.
   if (!desktop && !ID_SHAPE.test(runDeviceId ?? "")) {
@@ -336,6 +383,7 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
 
   // Read before the early report, which replaces this device's run and with it its outputs.
   const prior = await priorOutputs(sink, deviceId);
+  if (signal?.aborted) return abortedResult(now, target, "*", [], deviceId, dumpName);
   // Early report: if the run dies before the end, report.json already says incomplete.
   await writeReport(sink, {
     version: 1,
@@ -369,6 +417,7 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
   let current = "*";
   try {
     for (const kind of kinds) {
+      signal?.throwIfAborted();
       // A writer that claims blobs (group c) is fed by the blob loop below, which reads each blob back by sha256.
       // Its sink listing is not compared with the rows, but the raw count and the undecryptable check still run.
       if (kind === "blobs" && writerFor(kind)) {
@@ -404,10 +453,11 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
             missing.push({ kind, id: String(row.id), reason });
           }
         }
-        trashCount[kind] = await exportTrash(kind, await source.listTrashed(kind), sink, store, codec, missing);
+        trashCount[kind] = await exportTrash(kind, await source.listTrashed(kind), sink, store, codec, missing, signal);
         const writer = writerFor(kind);
         if (writer) {
           for (const row of rows) {
+            signal?.throwIfAborted();
             try {
               await writer.write(kind, row);
               written[kind]++;
@@ -444,6 +494,7 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
           continue;
         }
         for (const row of rows) {
+          signal?.throwIfAborted();
           // One bad row is listed missing; the others are still exported.
           try {
             const file = codec.toFile(kind, row);
@@ -457,13 +508,16 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
           }
           onProgress?.({ kind, done: written[kind] ?? 0, total: rows.length });
         }
-      } catch {
+      } catch (err) {
+        // An abort stops the whole run, not just this kind.
+        if (signal?.aborted) throw err;
         missing.push({ kind, id: "*", reason: `${kind}: read failed` });
       }
     }
     current = "blobs";
     const blobWriter = writerFor("blobs");
     for (const item of sanitizeBlobRefs(await source.listBlobs())) {
+      signal?.throwIfAborted();
       const { ref } = item;
       // The id keeps the bucket: the same path in two buckets must read apart in the report.
       const id = `${ref.bucket}/${ref.path}`;
@@ -517,9 +571,13 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
       }
     }
   } catch (err) {
-    debugLog?.(`run ${current}: ${(err as Error).message}`);
-    missing.push({ kind: current, id: "*", reason: `run-failed:${current}` });
+    if (!signal?.aborted) {
+      debugLog?.(`run ${current}: ${(err as Error).message}`);
+      missing.push({ kind: current, id: "*", reason: `run-failed:${current}` });
+    }
   }
+  // Stopped between files: no verify, no report, no mark.
+  if (signal?.aborted) return abortedResult(now, target, current, missing, deviceId, dumpName);
 
   // Orphans: what this device's previous run wrote and this run did not. They stay on disk untouched and do
   // not block verify. They stay in outputs, so later runs still see them as this device's files.
@@ -538,6 +596,7 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
     missing.push({ kind: "verify", id: "*", reason: "verify-failed" });
   }
   for (const raw of verdict.errors) missing.push({ kind: "verify", id: "*", reason: verifyReasonCode(raw) });
+  if (signal?.aborted) return abortedResult(now, target, "verify", missing, deviceId, dumpName);
 
   const kindCounts: Record<string, KindCount> = {};
   for (const kind of kinds) {
@@ -595,6 +654,7 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
       missing.push({ kind: "keys", id: "*", reason: "keys: move failed" });
     }
   }
+  if (signal?.aborted) return abortedResult(now, target, "keys", missing, deviceId, dumpName);
 
   // Markers (0.9.7 contract): the server marker first, the desktop mark last. report.json says
   // incomplete ("markers pending") until both succeed, so a crash between the two is never verified.
