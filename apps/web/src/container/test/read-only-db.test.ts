@@ -81,6 +81,28 @@ test("an experiment crdt_updates insert passes the guard (live-share relay appen
   assert.deepEqual(calls, ["insert crdt_updates"]);
 });
 
+test("crdt_updates: insert of a live-share type passes; update, upsert and delete are refused", () => {
+  const { db, calls } = fakeDb();
+  const guarded = readOnlyDb(db);
+  for (const type of ["experiment", "lab_snapshot"]) {
+    assert.equal(guarded.from("crdt_updates").insert({ resource_type: type }), "inserted", type);
+  }
+  assert.throws(() => guarded.from("crdt_updates").update({}), new ReadOnlyError(), "update");
+  assert.throws(() => guarded.from("crdt_updates").upsert({}), new ReadOnlyError(), "upsert");
+  assert.throws(() => guarded.from("crdt_updates").delete(), new ReadOnlyError(), "delete");
+  assert.deepEqual(calls, ["insert crdt_updates", "insert crdt_updates"]);
+});
+
+test("crdt_updates: a personal resource_type insert is refused before it reaches the database", () => {
+  const { db, calls } = fakeDb();
+  const guarded = readOnlyDb(db);
+  for (const type of ["paper", "vault_page", "reading_list", "report_section", "milestone"]) {
+    assert.throws(() => guarded.from("crdt_updates").insert({ resource_type: type }), new ReadOnlyError(), type);
+  }
+  assert.throws(() => guarded.from("crdt_updates").insert([{ resource_type: "experiment" }, { resource_type: "paper" }]), new ReadOnlyError(), "mixed batch");
+  assert.deepEqual(calls, [], "no personal crdt row reached the database");
+});
+
 test("a profiles upsert passes the guard (lab-directory saveProfile)", () => {
   const { db, calls } = fakeDb();
   const guarded = readOnlyDb(db);

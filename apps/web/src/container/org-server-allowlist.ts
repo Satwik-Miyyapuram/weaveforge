@@ -49,6 +49,7 @@ export const ORG_SERVER_WRITE_TABLES = [
   "share_links",
   "comments",
   "blob_objects",
+  // crdt_updates: insert only, and only live-share types (read-only-repositories.ts guardCrdtUpdates).
   "crdt_updates",
   "profiles",
 ] as const;
