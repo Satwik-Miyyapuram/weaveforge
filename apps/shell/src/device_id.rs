@@ -22,7 +22,7 @@ pub fn get_or_create(dir: &Path) -> io::Result<String> {
         // Absent, or an empty leftover from a crash: clear any empty leftover so the new file can
         // take the name.
         remove_if_still_empty(&path)?;
-        return create(dir, &path);
+        return create(dir, &path, |part, path| fs::hard_link(part, path));
     }
     parse_id(&path, text.trim())
 }
@@ -45,7 +45,11 @@ fn remove_if_still_empty(path: &Path) -> io::Result<()> {
 /// link fails when another call already created the name, and that call's id is read back. The
 /// name is only ever bound to a complete file, so a crash cannot leave a partial id behind. Each
 /// call has its own temp name, so concurrent calls never share an inode.
-fn create(dir: &Path, path: &Path) -> io::Result<String> {
+fn create(
+    dir: &Path,
+    path: &Path,
+    link: impl Fn(&Path, &Path) -> io::Result<()>,
+) -> io::Result<String> {
     fs::create_dir_all(dir)?;
     let id = new_id(dir);
     let part = part_path(path);
@@ -54,7 +58,11 @@ fn create(dir: &Path, path: &Path) -> io::Result<String> {
         file.write_all(id.as_bytes())?;
         file.sync_all()?;
     }
-    let linked = fs::hard_link(&part, path);
+    let linked = match link(&part, path) {
+        // A filesystem without hard links (FAT, exFAT, some network shares) gets a plain create.
+        Err(e) if e.kind() == io::ErrorKind::Unsupported => create_new_with(path, &id),
+        other => other,
+    };
     let _ = fs::remove_file(&part);
     match linked {
         Ok(()) => {
@@ -79,6 +87,14 @@ fn part_path(path: &Path) -> std::path::PathBuf {
     let seq = SEQ.fetch_add(1, Ordering::Relaxed);
     let name = format!("{FILE}.{}-{nanos}-{seq}.part", std::process::id());
     path.with_file_name(name)
+}
+
+/// Creates the name exclusively and writes the id into it. Used only where hard links are not
+/// supported. A crash mid-write can leave a partial id, which is then reported as corrupt.
+fn create_new_with(path: &Path, id: &str) -> io::Result<()> {
+    let mut file = fs::OpenOptions::new().write(true).create_new(true).open(path)?;
+    file.write_all(id.as_bytes())?;
+    file.sync_all()
 }
 
 /// Makes the new name durable. On Unix a link is only durable once the folder is synced; Windows
@@ -202,6 +218,22 @@ mod tests {
         std::fs::write(&path, &real).unwrap();
         remove_if_still_empty(&path).unwrap();
         assert_eq!(std::fs::read_to_string(&path).unwrap(), real, "a real id is kept");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn a_filesystem_without_hard_links_still_gets_an_id() {
+        use super::create;
+        let dir = std::env::temp_dir().join(format!("wf-devid-nolink-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("device-id");
+        let unsupported = |_: &std::path::Path, _: &std::path::Path| {
+            Err(std::io::Error::from(std::io::ErrorKind::Unsupported))
+        };
+        let id = create(&dir, &path, unsupported).expect("falls back to create_new");
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), id);
+        assert_eq!(std::fs::read_dir(&dir).unwrap().count(), 1, "no temp file is left");
         let _ = std::fs::remove_dir_all(&dir);
     }
 
