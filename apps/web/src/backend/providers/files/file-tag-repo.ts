@@ -28,6 +28,8 @@ import { readyCore } from "@/lib/rust-core";
 export interface SettingsSection {
   get(key: readonly string[]): unknown;
   set(key: readonly string[], value: unknown): void;
+  /** Resolves once pending edits are on disk; absent for in-memory sections. */
+  flush?(): Promise<void>;
 }
 
 /** The slice of the paper repository this needs (`FilePaperRepository`). */
