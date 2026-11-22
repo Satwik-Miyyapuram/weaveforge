@@ -118,6 +118,7 @@ import { ExperimentArtifactStore } from "@/features/experiments/infrastructure/p
 import { createCredentialReader } from "@/integrations/parts";
 import { WorkspaceSearch } from "@/features/search/application/workspace-search";
 import { clearActiveProvider } from "@/features/ai-assistant/application/parts";
+import { resolveMigrationChoice } from "@/container/resolve-migration-choice";
 
 export interface CreatedAppContainer {
   container: AppContainer;
@@ -161,7 +162,10 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
     projectLww.notifyPeers(resourceType);
     search?.markStale(resourceType);
   });
-  const backend = wireBackend(readBackendConfig(), projectContext, pid);
+  // Awaited before `wireBackend`: the personal-data backend is chosen once, from
+  // the folder's migration report, so the choice never races a late answer.
+  const migration = await resolveMigrationChoice(desktop());
+  const backend = wireBackend(readBackendConfig(), projectContext, pid, { migration });
   if ("db" in backend) {
     projectLww.watch(backend.db, pid());
   }
