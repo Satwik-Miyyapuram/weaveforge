@@ -4,23 +4,26 @@ import { before, test } from "node:test";
 import { ManageSettingsUseCase } from "@weaveforge/core";
 import { systemClock } from "@/lib/parts";
 import { loadTestCore } from "@/lib/test/load-test-core";
-import { READ_ONLY_KEYS, READ_ONLY_MESSAGE, readOnlyBackend } from "../read-only-repositories";
+import { READ_ONLY_KEYS, READ_ONLY_MESSAGE, READ_ONLY_METHODS, readOnlyBackend } from "../read-only-repositories";
 
 before(loadTestCore);
 
-type Writable = { saveOne: () => string; getAll: () => string[] };
-
 test("readOnlyBackend wraps every personal key, alias and the settings use case, by explicit list", () => {
-  const bag: Record<string, unknown> = { config: { x: 1 }, shareRepository: { saveOne: () => "live" } };
-  for (const key of READ_ONLY_KEYS) bag[key] = { saveOne: () => "w", getAll: () => ["a"] } satisfies Writable;
-  const out = readOnlyBackend(bag);
+  const bag: Record<string, unknown> = { config: { x: 1 }, shareRepository: { save: () => "live" } };
   for (const key of READ_ONLY_KEYS) {
     if (key === "manageSettings") continue;
-    const repo = out[key] as Writable;
-    assert.throws(() => repo.saveOne(), new RegExp(READ_ONLY_MESSAGE), key);
-    assert.deepEqual(repo.getAll(), ["a"], `${key} reads pass`);
+    const repo: Record<string, () => unknown> = { save: () => "w" };
+    for (const read of READ_ONLY_METHODS[key] ?? []) repo[read] = () => ["a"];
+    bag[key] = repo;
   }
-  assert.equal((out.shareRepository as Writable).saveOne(), "live", "org keys are not in the explicit list");
+  const out = readOnlyBackend(bag) as Record<string, Record<string, () => unknown>>;
+  for (const key of READ_ONLY_KEYS) {
+    if (key === "manageSettings") continue;
+    const repo = out[key];
+    assert.throws(() => repo.save(), new RegExp(READ_ONLY_MESSAGE), key);
+    for (const read of READ_ONLY_METHODS[key] ?? []) assert.deepEqual(repo[read](), ["a"], `${key}.${read} reads pass`);
+  }
+  assert.equal((out.shareRepository as unknown as Record<string, () => unknown>).save(), "live", "org keys are not in the explicit list");
   assert.equal(out.config, bag.config);
 });
 
@@ -60,13 +63,13 @@ test("readOnlyBackend refuses settings, credential and Zotero writes through the
 });
 
 test("readOnlyBackend refuses repository writes and leaves the database reads alone", () => {
-  const repo = { getAll: () => ["a"], saveOne: () => "written" };
+  const repo = { list: () => ["a"], save: () => "written" };
   const bag = {
     paperRepository: repo,
     db: { from: (_table: string) => ({ select: (..._args: unknown[]) => "rows" }) },
   };
   const out = readOnlyBackend(bag);
-  assert.deepEqual(out.paperRepository.getAll(), ["a"]);
-  assert.throws(() => out.paperRepository.saveOne(), new RegExp(READ_ONLY_MESSAGE));
+  assert.deepEqual(out.paperRepository.list(), ["a"]);
+  assert.throws(() => out.paperRepository.save(), new RegExp(READ_ONLY_MESSAGE));
   assert.equal(out.db.from("papers").select(), "rows", "db reads still pass");
 });
