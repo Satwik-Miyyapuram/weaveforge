@@ -91,7 +91,8 @@ pub async fn resolve_member(state: &AppState, token: &str) -> Result<Option<Memb
     }))
 }
 
-/// Creates a confirmed auth user; the new user's id, or the auth server's message.
+/// Creates a confirmed auth user; the new user's id, or fixed wording on refusal:
+/// "Email already registered." for a taken email, else "Failed to create user.".
 pub async fn admin_create_user(
     state: &AppState,
     email: &str,
@@ -104,12 +105,25 @@ pub async fn admin_create_user(
     }
     let answer = send(admin(state, Method::POST, "/auth/v1/admin/users", &body)).await?;
     if !answer.ok {
-        return Err(auth_message(&answer.body, "Failed to create user."));
+        log_refusal("admin create user", answer.status);
+        let text = auth_message(&answer.body, "").to_lowercase();
+        let taken = [
+            "already registered",
+            "already been registered",
+            "already exists",
+        ]
+        .iter()
+        .any(|needle| text.contains(needle));
+        return Err(if taken {
+            "Email already registered.".to_string()
+        } else {
+            "Failed to create user.".to_string()
+        });
     }
     user_id_of(&answer.body).ok_or_else(|| "Failed to create user.".to_string())
 }
 
-/// Deletes an auth user outright; the auth server's message on refusal.
+/// Deletes an auth user outright; fixed wording on refusal (the auth server's text is not passed on).
 pub async fn admin_delete_user(state: &AppState, user_id: &str) -> Result<(), String> {
     let body = json!({"should_soft_delete": false});
     let path = format!("/auth/v1/admin/users/{user_id}");
@@ -117,7 +131,8 @@ pub async fn admin_delete_user(state: &AppState, user_id: &str) -> Result<(), St
     if answer.ok {
         Ok(())
     } else {
-        Err(auth_message(&answer.body, "Failed to delete user."))
+        log_refusal("admin delete user", answer.status);
+        Err("Failed to delete user.".to_string())
     }
 }
 
@@ -126,12 +141,13 @@ pub async fn send_email_otp(state: &AppState, email: &str) -> Result<(), String>
     let body = json!({"email": email, "create_user": false});
     let answer = send(anon(state, Method::POST, "/auth/v1/otp", &body)).await?;
     if answer.ok {
-        Ok(())
+        return Ok(());
+    }
+    log_refusal("send otp", answer.status);
+    if answer.status == 429 {
+        Err("Too many code requests. Wait a minute and try again.".to_string())
     } else {
-        Err(auth_message(
-            &answer.body,
-            "Failed to send confirmation code.",
-        ))
+        Err("Failed to send confirmation code.".to_string())
     }
 }
 
@@ -147,17 +163,21 @@ pub async fn verify_email_otp(
     };
     let answer = send(anon(state, Method::POST, "/auth/v1/verify", &body)).await?;
     if !answer.ok {
-        return Err(auth_message(
-            &answer.body,
-            "Invalid or expired confirmation code.",
-        ));
+        log_refusal("verify otp", answer.status);
+        // GoTrue refuses a bad or expired code with 400, 403 or 422. Anything else (our key
+        // refused, 404, 429, 5xx) is the server's trouble; that wording avoids the 400 keywords.
+        if matches!(answer.status, 400 | 403 | 422) {
+            return Err("Invalid or expired confirmation code.".to_string());
+        }
+        return Err("The sign-in server could not check the code. Try again later.".to_string());
     }
     user_id_of(&answer.body).ok_or_else(|| "Invalid or expired confirmation code.".to_string())
 }
 
-/// A reply from the auth server: whether it succeeded, and its JSON body (`Null` when not JSON).
+/// A reply from the auth server: whether it succeeded, its status, and its JSON body (`Null` when not JSON).
 struct Answer {
     ok: bool,
+    status: u16,
     body: Value,
 }
 
@@ -165,9 +185,15 @@ struct Answer {
 async fn send(request: reqwest::RequestBuilder) -> Result<Answer, String> {
     let response = request.send().await.map_err(|_| UNREACHABLE.to_string())?;
     let ok = response.status().is_success();
+    let status = response.status().as_u16();
     let bytes = response.bytes().await.unwrap_or_default();
     let body = serde_json::from_slice(&bytes).unwrap_or(Value::Null);
-    Ok(Answer { ok, body })
+    Ok(Answer { ok, status, body })
+}
+
+/// Logs an auth server refusal by step and status only; its text can name internal hosts.
+fn log_refusal(step: &str, status: u16) {
+    eprintln!("[gotrue {step}] HTTP {status}");
 }
 
 /// A call to the auth server as the service role.
@@ -198,6 +224,7 @@ fn authed(
 }
 
 /// The first non-empty `msg`, `message`, `error_description` or `error` of an auth reply.
+/// Only admin user creation uses it, to spot a taken email; the text is never returned or logged.
 fn auth_message(body: &Value, fallback: &str) -> String {
     ["msg", "message", "error_description", "error"]
         .iter()

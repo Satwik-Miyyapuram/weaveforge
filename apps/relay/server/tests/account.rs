@@ -165,15 +165,15 @@ async fn otp_is_sent_and_only_a_hint_is_returned() {
 }
 
 #[tokio::test]
-async fn otp_upstream_refusal_is_500_with_its_message() {
+async fn otp_upstream_refusal_is_500_with_fixed_wording() {
     let up = upstream(
         PROFILE_OK,
-        vec![(OTP, vec![json_reply(429, r#"{"msg":"rate"}"#)])],
+        vec![(OTP, vec![json_reply(500, r#"{"msg":"smtp secret-key"}"#)])],
     )
     .await;
     let (status, _, value) = reply(&up, post(DELETE_OTP, "", Some(SESSION))).await;
     assert_eq!(status, StatusCode::INTERNAL_SERVER_ERROR);
-    assert_eq!(value, json!({"error": "rate"}));
+    assert_eq!(value, json!({"error": "Failed to send confirmation code."}));
 }
 
 #[tokio::test]
@@ -254,8 +254,29 @@ async fn expired_code_is_400_and_deletes_nothing() {
     .await;
     let (status, _, value) = reply(&up, post(DELETE_USER, CONFIRMED, Some(SESSION))).await;
     assert_eq!(status, StatusCode::BAD_REQUEST);
-    assert_eq!(value, json!({"error": "Token has expired or is invalid"}));
+    assert_eq!(
+        value,
+        json!({"error": "Invalid or expired confirmation code."})
+    );
     assert!(calls(&up, "POST", RPC).is_empty());
+}
+
+#[tokio::test]
+async fn auth_delete_refusal_is_500_without_the_auth_text() {
+    let up = upstream(
+        PROFILE_OK,
+        vec![(
+            ADMIN_DELETE,
+            vec![json_reply(
+                403,
+                r#"{"msg":"Forbidden: invalid secret-key"}"#,
+            )],
+        )],
+    )
+    .await;
+    let (status, _, value) = reply(&up, post(DELETE_USER, CONFIRMED, Some(SESSION))).await;
+    assert_eq!(status, StatusCode::INTERNAL_SERVER_ERROR);
+    assert_eq!(value, json!({"error": "Failed to delete user."}));
 }
 
 #[tokio::test]

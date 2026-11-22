@@ -197,14 +197,19 @@ async fn admin_create_reads_the_id_from_a_user_object() {
 }
 
 #[tokio::test]
-async fn admin_create_returns_the_auth_message_on_refusal() {
-    let body = r#"{"msg":"A user with this email address has already been registered"}"#;
+async fn admin_create_taken_email_is_fixed_wording() {
+    let body = r#"{"msg":"A user with this email secret-key has already been registered"}"#;
     let up = serve(vec![("/auth/v1/admin/users", vec![json_reply(422, body)])]).await;
     let created = admin_create_user(&state(up.port), "a@x.org", "pw12345678", None).await;
-    assert_eq!(
-        created,
-        Err("A user with this email address has already been registered".to_string())
-    );
+    assert_eq!(created, Err("Email already registered.".to_string()));
+}
+
+#[tokio::test]
+async fn admin_create_other_refusal_is_fixed_wording_not_the_auth_text() {
+    let body = r#"{"msg":"db.internal secret-key down"}"#;
+    let up = serve(vec![("/auth/v1/admin/users", vec![json_reply(500, body)])]).await;
+    let created = admin_create_user(&state(up.port), "a@x.org", "pw12345678", None).await;
+    assert_eq!(created, Err("Failed to create user.".to_string()));
 }
 
 #[tokio::test]
@@ -222,14 +227,23 @@ async fn admin_delete_succeeds_and_sends_no_soft_delete() {
 }
 
 #[tokio::test]
-async fn admin_delete_returns_the_auth_message_on_failure() {
-    let up = serve(vec![(
-        "/auth/v1/admin/users/u1",
-        vec![json_reply(404, r#"{"msg":"User not found"}"#)],
-    )])
-    .await;
-    let deleted = admin_delete_user(&state(up.port), "u1").await;
-    assert_eq!(deleted, Err("User not found".to_string()));
+async fn admin_delete_failure_is_fixed_wording_not_the_auth_text() {
+    for (status, body) in [
+        (404, r#"{"msg":"User not found secret-key"}"#),
+        (403, r#"{"msg":"Forbidden: invalid JWT secret-key"}"#),
+    ] {
+        let up = serve(vec![(
+            "/auth/v1/admin/users/u1",
+            vec![json_reply(status, body)],
+        )])
+        .await;
+        let deleted = admin_delete_user(&state(up.port), "u1").await;
+        assert_eq!(
+            deleted,
+            Err("Failed to delete user.".to_string()),
+            "{status}"
+        );
+    }
 }
 
 #[tokio::test]
@@ -244,15 +258,31 @@ async fn send_email_otp_uses_the_anon_key_and_no_signup() {
 }
 
 #[tokio::test]
-async fn send_email_otp_returns_the_error_description_on_failure() {
+async fn send_email_otp_failure_is_fixed_wording_not_the_auth_text() {
     let up = serve(vec![(
         "/auth/v1/otp",
-        vec![json_reply(400, r#"{"error_description":"x"}"#)],
+        vec![json_reply(
+            500,
+            r#"{"error_description":"smtp.internal:587 secret-key"}"#,
+        )],
     )])
     .await;
     assert_eq!(
         send_email_otp(&state(up.port), "a@x.org").await,
-        Err("x".to_string())
+        Err("Failed to send confirmation code.".to_string())
+    );
+}
+
+#[tokio::test]
+async fn send_email_otp_rate_limit_says_to_wait() {
+    let up = serve(vec![(
+        "/auth/v1/otp",
+        vec![json_reply(429, r#"{"msg":"rate secret-key"}"#)],
+    )])
+    .await;
+    assert_eq!(
+        send_email_otp(&state(up.port), "a@x.org").await,
+        Err("Too many code requests. Wait a minute and try again.".to_string())
     );
 }
 
@@ -296,6 +326,46 @@ async fn verify_falls_back_to_a_fixed_message_without_one() {
         verified,
         Err("Invalid or expired confirmation code.".to_string())
     );
+}
+
+#[tokio::test]
+async fn verify_refusal_is_fixed_wording_not_the_auth_text() {
+    for status in [400, 403, 422] {
+        let up = serve(vec![(
+            "/auth/v1/verify",
+            vec![json_reply(
+                status,
+                r#"{"msg":"Token secret-key has expired"}"#,
+            )],
+        )])
+        .await;
+        let otp = OtpInput::Token("123456".to_string());
+        let verified = verify_email_otp(&state(up.port), "a@x.org", &otp).await;
+        assert_eq!(
+            verified,
+            Err("Invalid or expired confirmation code.".to_string()),
+            "{status}"
+        );
+    }
+}
+
+#[tokio::test]
+async fn verify_server_failure_is_not_called_an_invalid_code() {
+    // 401 (our key refused) and 404 are not a bad code either.
+    for status in [401, 404, 429, 500] {
+        let up = serve(vec![(
+            "/auth/v1/verify",
+            vec![json_reply(status, r#"{"msg":"invalid db secret-key"}"#)],
+        )])
+        .await;
+        let otp = OtpInput::Token("123456".to_string());
+        let verified = verify_email_otp(&state(up.port), "a@x.org", &otp).await;
+        assert_eq!(
+            verified,
+            Err("The sign-in server could not check the code. Try again later.".to_string()),
+            "{status}"
+        );
+    }
 }
 
 #[tokio::test]
