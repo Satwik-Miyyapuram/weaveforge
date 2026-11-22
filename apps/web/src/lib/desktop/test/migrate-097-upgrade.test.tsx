@@ -121,3 +121,54 @@ test("stopped view without missing kinds shows no missing line", () => {
   );
   assert.doesNotMatch(html, /Not moved yet/);
 });
+
+test("web stopped view names the reconnect providers and the undecryptable count", () => {
+  const html = renderToStaticMarkup(
+    <Migrate097UpgradeBody
+      phase="stopped"
+      progress={{}}
+      reportPath=""
+      copied={false}
+      onCopy={noop}
+      onRetry={noop}
+      onKeepOld={noop}
+      reconnectProviders={["zotero"]}
+      undecryptable={4}
+    />,
+  );
+  assert.match(html, /Reconnect zotero/);
+  assert.match(html, /open the desktop app to export these 4 items/i);
+  assert.doesNotMatch(html, /Report:/, "no report path is shown on the web");
+  assert.doesNotMatch(html, /Copy report path/);
+});
+
+test("web stopped view says to sync pending changes first when the outbox is not empty", () => {
+  const html = renderToStaticMarkup(
+    <Migrate097UpgradeBody
+      phase="stopped"
+      progress={{}}
+      reportPath=""
+      copied={false}
+      onCopy={noop}
+      onRetry={noop}
+      onKeepOld={noop}
+      pendingSync
+    />,
+  );
+  assert.match(html, /sync pending changes first/i);
+});
+
+test("web Start runs the web export once and reports verified with its reconnect names", async () => {
+  let calls = 0;
+  let reply: { reconnectProviders?: string[] } | null = null;
+  const runExport = async () => {
+    calls += 1;
+    return { state: "verified" as const, reconnectProviders: ["zotero"] };
+  };
+  const outcome = await runUpgrade(FOLDER, runExport, noop, (r) => {
+    reply = r;
+  });
+  assert.equal(outcome, "verified");
+  assert.equal(calls, 1, "one Start calls the export once");
+  assert.deepEqual(reply, { state: "verified", reconnectProviders: ["zotero"] });
+});

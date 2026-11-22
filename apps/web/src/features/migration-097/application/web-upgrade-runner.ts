@@ -1,5 +1,5 @@
 import type { PostgrestSourceOptions } from "../infrastructure/postgrest-source";
-import type { ExportProgress, ExportResult } from "./run-web-export";
+import { OUTBOX_NOT_EMPTY_REASON, type ExportProgress, type ExportResult } from "./run-web-export";
 import type { WebUpgradeOptions } from "./run-web-upgrade";
 
 /** The upgrade call, injectable so the runner can be tested without a server. */
@@ -15,13 +15,19 @@ export type WebUpgradeRunnerOptions = Omit<WebUpgradeOptions, "server"> & {
   run: WebUpgradeRun;
 };
 
+/** The export result plus `pendingSync`: true when the refusal was unsent outbox ops. */
+export type WebUpgradeReply = ExportResult & { pendingSync: boolean };
+
 /**
- * Adapter for the desktop upgrade screen's `ExportRunner` slot: `(folder, onProgress) => { state }`.
- * The web has no folder, so `folder` is ignored. The result also carries `reconnectProviders`
- * (provider names only) for the screen's reconnect list.
+ * Adapter for the desktop upgrade screen's `ExportRunner` slot: `(folder, onProgress) => reply`.
+ * The web has no folder, so `folder` is ignored. The reply carries `reconnectProviders`
+ * (provider names only), `undecryptable`, and `pendingSync` for the screen.
  */
 export function makeWebUpgradeRunner(opts: WebUpgradeRunnerOptions) {
   const { run, server, pendingOutbox, ...rest } = opts;
-  return (_folder: string, onProgress?: (e: ExportProgress) => void): Promise<ExportResult> =>
-    run({ ...rest, server: { ...server, pendingOutbox } }, onProgress);
+  return async (_folder: string, onProgress?: (e: ExportProgress) => void): Promise<WebUpgradeReply> => {
+    const result = await run({ ...rest, server: { ...server, pendingOutbox } }, onProgress);
+    const pendingSync = result.run.missing?.some((m) => m.reason === OUTBOX_NOT_EMPTY_REASON) ?? false;
+    return { ...result, pendingSync };
+  };
 }

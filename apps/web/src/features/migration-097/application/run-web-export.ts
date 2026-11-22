@@ -53,6 +53,9 @@ export type ExportOptions = {
   debugLog?: (line: string) => void;
 };
 
+/** Refusal reason when unsent sync_outbox ops exist; the UI keys "sync pending changes first" on it. */
+export const OUTBOX_NOT_EMPTY_REASON = "outbox not empty: flush before export";
+
 /** `reconnectProviders` names the services whose secret stayed on the server (never the secret itself). */
 /** `undecryptable` counts the content_enc rows the web cannot read; any above 0 keeps the run incomplete. */
 export type ExportResult = { state: MigrationState; run: RunReport; reconnectProviders: string[]; undecryptable: number };
@@ -330,7 +333,7 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
     return { state: "incomplete", run, reconnectProviders: [], undecryptable: 0 };
   }
   if (pending > 0) {
-    return refused(sink, now, "outbox not empty: flush before export", target, { backup: dumpName, deviceId });
+    return refused(sink, now, OUTBOX_NOT_EMPTY_REASON, target, { backup: dumpName, deviceId });
   }
 
   // Read before the early report, which replaces this device's run and with it its outputs.
