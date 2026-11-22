@@ -12,7 +12,8 @@ import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative, sep } from "node:path";
 
 const SRC = new URL("../../", import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, "$1");
-const FORBIDDEN = /from\s+["'][^"']*pglite-client["']|import\s*\{[^}]*\bLocalRunner\b[^}]*\}\s*from/;
+const FORBIDDEN =
+  /["'][^"']*(?:pglite-client|@electric-sql\/pglite)[^"']*["']|\{[^}]*\bLocalRunner\b[^}]*\}\s*from\b/;
 
 function sourceFiles(dir: string): string[] {
   const out: string[] = [];
@@ -27,6 +28,27 @@ function sourceFiles(dir: string): string[] {
   }
   return out;
 }
+
+const FORMS = [
+  `import type { LocalRunner } from "@/backend/providers/local/parts";`,
+  `export { LocalRunner } from "./parts";`,
+  `export * from "@electric-sql/pglite";`,
+  `const m = await import("@/backend/providers/local/pglite-client");`,
+  `import "@electric-sql/pglite";`,
+  `import { PGlite } from "@electric-sql/pglite";`,
+  `import { openClient } from "./pglite-client";`,
+  `import { LocalRunner as Runner } from "./parts";`,
+];
+
+for (const form of FORMS) {
+  test(`forbidden pattern detects: ${form}`, () => {
+    assert.equal(FORBIDDEN.test(form), true);
+  });
+}
+
+test("forbidden pattern ignores unrelated imports", () => {
+  assert.equal(FORBIDDEN.test(`import { Foo } from "@/lib/foo";`), false);
+});
 
 test("no non-test src file imports pglite-client or LocalRunner [expected-red until B]", () => {
   const offenders = sourceFiles(SRC)
