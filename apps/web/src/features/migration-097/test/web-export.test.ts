@@ -285,3 +285,36 @@ test("download-your-data zip is built from the sink only, never marks the server
   assert.equal(calls.length, callsBefore);
   assert.equal(calls.some((c) => c.startsWith("mark:")), false);
 });
+
+/** Codec that writes every column except `dropped`, as a file that lacks server-only columns would. */
+function codecDropping(kinds: string[], dropped: string[]): FileCodec {
+  const base = fakeCodec(kinds);
+  return {
+    ...base,
+    toFile: (kind, row) => ({
+      path: `${kind}/${String(row.id)}.json`,
+      text: JSON.stringify(Object.fromEntries(Object.entries(row).filter(([k]) => !dropped.includes(k)))),
+    }),
+  };
+}
+
+test("verify allow-list: a server-only column (userId) absent from the file still verifies", async () => {
+  const rows = { experiments: [{ id: "e9", name: "Z", userId: "u-1" }] };
+  const { source } = fakeServer({ rows });
+  const codec = codecDropping(["experiments"], ["userId"]);
+  const sink = new MemorySink();
+  await runWebExport({ kinds: ["experiments"], codec, source, sink, now: NOW });
+  const verdict = await verifyExport({ kinds: ["experiments"], codec, source, sink });
+  assert.equal(verdict.state, "verified");
+});
+
+test("verify allow-list: an unlisted server column the file lacks is a mismatch", async () => {
+  const rows = { experiments: [{ id: "e9", name: "Z", secretOther: "x" }] };
+  const { source } = fakeServer({ rows });
+  const codec = codecDropping(["experiments"], ["secretOther"]);
+  const sink = new MemorySink();
+  await runWebExport({ kinds: ["experiments"], codec, source, sink, now: NOW });
+  const verdict = await verifyExport({ kinds: ["experiments"], codec, source, sink });
+  assert.equal(verdict.state, "incomplete");
+  assert.ok(verdict.errors.some((e) => e.startsWith("experiments: decoded files differ")));
+});

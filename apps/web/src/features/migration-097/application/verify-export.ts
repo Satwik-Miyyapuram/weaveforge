@@ -1,6 +1,13 @@
 import type { KindCount, MigrationState } from "../domain/report";
 import type { FileCodec, FileSink, Row, ServerSource } from "../domain/ports";
 import { sha256Hex } from "../domain/hash";
+import { SERVER_ONLY_FIELDS } from "../domain/server-only-fields";
+
+/** The server row without its server-only columns, so only file-backed fields are compared. */
+function withoutServerOnly(kind: string, row: Row): Row {
+  const skip = new Set(SERVER_ONLY_FIELDS[kind] ?? []);
+  return Object.fromEntries(Object.entries(row).filter(([k]) => !skip.has(k)));
+}
 
 export type VerifyInput = {
   kinds: readonly string[];
@@ -54,7 +61,7 @@ export async function verifyExport(input: VerifyInput): Promise<Verdict> {
         if (row) decoded.push(row);
       }
       out.kinds[kind] = { db: expected.length, files: decoded.length };
-      const want = expected.map(canon).sort();
+      const want = expected.map((row) => canon(withoutServerOnly(kind, row))).sort();
       const got = decoded.map(canon).sort();
       if (want.length !== got.length || want.some((w, i) => w !== got[i])) {
         errors.push(`${kind}: decoded files differ from server rows`);
