@@ -95,7 +95,7 @@ test("an entity save whose text lands in a conflict copy reports false, not true
   const sink = new MemorySink();
   await sink.write("notes/x.md", "old");
   const fs = sinkAsWorkspaceFs(guardedSink(sink, await createFileStore(sink, {})));
-  assert.equal(await fs.writeTextIf("notes/x.md", "new", "old"), false, "the file does not hold the text");
+  assert.equal(await fs.writeTextIf!("notes/x.md", "new", "old"), false, "the file does not hold the text");
   assert.equal(await sink.readText("notes/x.md"), "old");
   assert.equal(await sink.readText(conflictCopyPath("notes/x.md", 1)), "new");
 });

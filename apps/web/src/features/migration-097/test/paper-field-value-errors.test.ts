@@ -19,12 +19,12 @@ test("paper field values: a missing paper or definition gives the not-found mess
 });
 
 test("paper field values: a not-found keeps its message", () => {
-  const err = valueWriteError(new NotFoundError('No paper with id "p1".'));
+  const err = valueWriteError(new NotFoundError('No paper with id "p1".'), null);
   assert.equal(err.message, "paper field value: no paper or definition for it");
 });
 
 test("paper field values: any other failure gives the fixed write-failed code, never the sink's text", () => {
-  const err = valueWriteError(new Error("EIO: disk gone at Thesis/secret.paper.md")) as Error & { code?: string };
+  const err = valueWriteError(new Error("EIO: disk gone at Thesis/secret.paper.md"), null) as Error & { code?: string };
   assert.equal(err.message, "paper field value: write failed");
   assert.equal(err.code, "paper-value-write-failed");
 });

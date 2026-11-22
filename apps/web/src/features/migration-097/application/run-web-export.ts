@@ -47,15 +47,14 @@ export type ExportOptions = {
   desktop?: { folder: string; bridge: DesktopMigration };
   /** KEYS hook: runs only after a verified run, before the markers. A throw leaves the run incomplete. */
   moveSecrets?: () => Promise<void>;
-  /** True when the source holds secrets: the run is refused unless a moveSecrets hook is given. */
-  secretsPresent?: boolean;
   /** Web only: the stable per-browser id (OPFS settings). Desktop takes its id from the backup. */
   runDeviceId?: string;
   /** Receives the raw error text of each failure. It never reaches report.json, which carries fixed codes only. */
   debugLog?: (line: string) => void;
 };
 
-export type ExportResult = { state: MigrationState; run: RunReport };
+/** `reconnectProviders` names the services whose secret stayed on the server (never the secret itself). */
+export type ExportResult = { state: MigrationState; run: RunReport; reconnectProviders: string[] };
 
 /** The desktop shell's part of the 0.9.7 contract: a pre-migration dump, then a mark. */
 export type DesktopMigration = {
@@ -159,7 +158,7 @@ async function refused(
     backup: extra.backup ?? null,
   };
   await writeReport(sink, { version: 1, state: "incomplete", backup: extra.backup ?? null, deviceId: extra.deviceId, target, runs: [run] });
-  return { state: "incomplete", run };
+  return { state: "incomplete", run, reconnectProviders: [] };
 }
 
 /**
@@ -257,7 +256,7 @@ async function priorOutputs(sink: FileSink, deviceId: string | undefined): Promi
 }
 
 export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
-  const { kinds, codec, source, sink, now, onProgress, desktop, writers: givenWriters, projectFolders, moveSecrets, secretsPresent, runDeviceId, debugLog } = opts;
+  const { kinds, codec, source, sink, now, onProgress, desktop, writers: givenWriters, projectFolders, moveSecrets, runDeviceId, debugLog } = opts;
   if (projectFolders) checkProjectFolders(projectFolders);
   const target: MigrationTarget = desktop ? "folder" : "opfs";
 
@@ -278,13 +277,15 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
   const written: Record<string, number> = {};
   const missing: MissingRow[] = [];
 
-  // A source that holds secrets cannot be exported without the KEYS mover that moves them. A count that cannot be
-  // read (missing, throws) counts as holding some, so the run refuses rather than guessing.
+  // Without a KEYS mover, secrets stay on the server and the run still verifies: each provider that holds one is
+  // named for reconnect. Only a source that cannot say which providers hold secrets refuses the run.
+  let reconnectProviders: string[] = [];
   if (!moveSecrets) {
-    const held = await Promise.resolve()
-      .then(() => source.secretCount())
-      .catch(() => Number.POSITIVE_INFINITY);
-    if (secretsPresent || held > 0) return refused(sink, now, "keys: no mover", target);
+    try {
+      reconnectProviders = await source.secretProviders();
+    } catch {
+      return refused(sink, now, "keys: unreadable", target);
+    }
   }
 
   // The pre-migration dump comes first: nothing is read or written without it.
@@ -324,7 +325,7 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
       backup: dumpName,
     };
     await writeReport(sink, { version: 1, state: "incomplete", backup: dumpName, deviceId, target, runs: [run] });
-    return { state: "incomplete", run };
+    return { state: "incomplete", run, reconnectProviders: [] };
   }
   if (pending > 0) {
     return refused(sink, now, "outbox not empty: flush before export", target, { backup: dumpName, deviceId });
@@ -564,6 +565,7 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
       verifiedAt: state === "verified" ? finishedAt : undefined,
       deviceId,
       target,
+      reconnectProviders,
       runs: [run],
     };
     await writeReport(sink, report);
@@ -607,6 +609,6 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
     if (marked) state = "verified";
   }
   const run = await persist();
-  return { state, run };
+  return { state, run, reconnectProviders };
 }
 

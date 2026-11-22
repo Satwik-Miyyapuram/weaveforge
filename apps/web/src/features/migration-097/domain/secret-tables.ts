@@ -1,13 +1,14 @@
 /**
  * Tables that hold secrets (integration tokens, Zotero key, Overleaf token). `secret` is the column
  * that must be set; `owner` scopes the rows to the user (project_integrations goes through projects).
- * The web count (infrastructure/postgrest-source.ts) and the move scope (application/move-secrets.ts)
+ * `provider` names the service the user must reconnect, so the report never carries the secret itself.
+ * The web provider check (infrastructure/postgrest-source.ts) and the move scope (application/move-secrets.ts)
  * both read this list, so they cover the same rows.
  */
 export const SECRET_TABLES = [
-  { table: "project_integrations", select: "id,projects!inner(user_id)", owner: "projects.user_id", secret: "token" },
-  { table: "user_settings", select: "user_id", owner: "user_id", secret: "zotero_api_key" },
-  { table: "overleaf_connections", select: "user_id", owner: "user_id", secret: "token_ciphertext" },
+  { table: "project_integrations", select: "id,projects!inner(user_id)", owner: "projects.user_id", secret: "token", provider: "integrations" },
+  { table: "user_settings", select: "user_id", owner: "user_id", secret: "zotero_api_key", provider: "zotero" },
+  { table: "overleaf_connections", select: "user_id", owner: "user_id", secret: "token_ciphertext", provider: "overleaf" },
 ] as const;
 
 /**

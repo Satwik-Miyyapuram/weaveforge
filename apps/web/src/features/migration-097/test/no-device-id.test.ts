@@ -22,7 +22,7 @@ function server(): ServerSource {
     listBlobs: async () => [REF],
     fetchBlob: async () => new Uint8Array([1, 2, 3, 4]),
     markExported097: async () => {},
-    secretCount: async () => 0,
+    secretProviders: async () => [],
   } as unknown as ServerSource;
 }
 

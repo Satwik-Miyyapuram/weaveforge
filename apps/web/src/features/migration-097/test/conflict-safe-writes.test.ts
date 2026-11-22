@@ -19,7 +19,7 @@ const codec: FileCodec = {
 function server(rows: Row[]): ServerSource {
   return {
     listRows: async () => rows,
-    secretCount: async () => 0,
+    secretProviders: async () => [],
     countRows: async () => rows.length,
     pendingOutbox: async () => 0,
     listTrashed: async () => [],
@@ -48,7 +48,7 @@ test("conflict: a differing existing file stays byte-identical, a conflict copy 
   const sink = new MemorySink();
   const userEdit = "my own edit, not the database";
   await sink.write("logEntries/l1.json", userEdit);
-  const result = await runWebExport({ runDeviceId: "dev-test", kinds: KINDS, codec, source: server([L1]), sink, now: NOW, runDeviceId: "dev-a" });
+  const result = await runWebExport({ kinds: KINDS, codec, source: server([L1]), sink, now: NOW, runDeviceId: "dev-a" });
 
   assert.equal(await sink.readText("logEntries/l1.json"), userEdit);
   assert.equal(await sink.readText("logEntries/l1 (conflict).json"), JSON.stringify({ conflictOf: "l1", text: "from the database" }));
@@ -61,7 +61,7 @@ test("conflict: an identical existing file is left alone (no write to it)", asyn
   const { sink, writes } = spied(new MemorySink());
   await sink.write("logEntries/l1.json", JSON.stringify(L1));
   writes.length = 0;
-  const result = await runWebExport({ runDeviceId: "dev-test", kinds: KINDS, codec, source: server([L1]), sink, now: NOW, runDeviceId: "dev-a" });
+  const result = await runWebExport({ kinds: KINDS, codec, source: server([L1]), sink, now: NOW, runDeviceId: "dev-a" });
 
   assert.ok(!writes.includes("logEntries/l1.json"), "an identical file is never rewritten");
   assert.deepEqual(result.run.conflicts ?? [], []);
@@ -70,7 +70,7 @@ test("conflict: an identical existing file is left alone (no write to it)", asyn
 
 test("conflict: a missing file is written with the database version and no conflict is recorded", async () => {
   const sink = new MemorySink();
-  const result = await runWebExport({ runDeviceId: "dev-test", kinds: KINDS, codec, source: server([L1]), sink, now: NOW, runDeviceId: "dev-a" });
+  const result = await runWebExport({ kinds: KINDS, codec, source: server([L1]), sink, now: NOW, runDeviceId: "dev-a" });
 
   assert.equal(await sink.readText("logEntries/l1.json"), JSON.stringify(L1));
   assert.deepEqual(result.run.conflicts ?? [], []);
@@ -80,8 +80,8 @@ test("conflict: a missing file is written with the database version and no confl
 test("conflict: a re-run with the same differing file reuses the copy it already wrote (no copy pile-up)", async () => {
   const sink = new MemorySink();
   await sink.write("logEntries/l1.json", "my own edit");
-  await runWebExport({ runDeviceId: "dev-test", kinds: KINDS, codec, source: server([L1]), sink, now: NOW, runDeviceId: "dev-a" });
-  const second = await runWebExport({ runDeviceId: "dev-test", kinds: KINDS, codec, source: server([L1]), sink, now: NOW, runDeviceId: "dev-a" });
+  await runWebExport({ kinds: KINDS, codec, source: server([L1]), sink, now: NOW, runDeviceId: "dev-a" });
+  const second = await runWebExport({ kinds: KINDS, codec, source: server([L1]), sink, now: NOW, runDeviceId: "dev-a" });
 
   assert.deepEqual(second.run.conflicts, ["logEntries/l1 (conflict).json"]);
   assert.equal(await sink.readText("logEntries/l1 (conflict) 2.json").catch(() => null), null, "no second copy");
@@ -89,10 +89,10 @@ test("conflict: a re-run with the same differing file reuses the copy it already
 
 test("orphans: a row deleted since the last run is listed as an orphan and its file is untouched", async () => {
   const sink = new MemorySink();
-  await runWebExport({ runDeviceId: "dev-test", kinds: KINDS, codec, source: server([L1, L2]), sink, now: NOW, runDeviceId: "dev-a" });
+  await runWebExport({ kinds: KINDS, codec, source: server([L1, L2]), sink, now: NOW, runDeviceId: "dev-a" });
   const before = await sink.readText("logEntries/l2.json");
 
-  const second = await runWebExport({ runDeviceId: "dev-test", kinds: KINDS, codec, source: server([L1]), sink, now: NOW, runDeviceId: "dev-a" });
+  const second = await runWebExport({ kinds: KINDS, codec, source: server([L1]), sink, now: NOW, runDeviceId: "dev-a" });
 
   assert.deepEqual(second.run.orphans, ["logEntries/l2.json"]);
   assert.equal(await sink.readText("logEntries/l2.json"), before, "the orphan file is never deleted or changed");
@@ -103,9 +103,9 @@ test("orphans: a row deleted since the last run is listed as an orphan and its f
 
 test("orphans: another device's files are never flagged; only this device's own previous run is compared", async () => {
   const sink = new MemorySink();
-  await runWebExport({ runDeviceId: "dev-test", kinds: KINDS, codec, source: server([L1, L2]), sink, now: NOW, runDeviceId: "dev-a" });
+  await runWebExport({ kinds: KINDS, codec, source: server([L1, L2]), sink, now: NOW, runDeviceId: "dev-a" });
 
-  const other = await runWebExport({ runDeviceId: "dev-test", kinds: KINDS, codec, source: server([L1]), sink, now: NOW, runDeviceId: "dev-b" });
+  const other = await runWebExport({ kinds: KINDS, codec, source: server([L1]), sink, now: NOW, runDeviceId: "dev-b" });
 
   assert.deepEqual(other.run.orphans ?? [], [], "dev-b never wrote l2, so l2 is not its orphan");
   assert.equal(await sink.readText("logEntries/l2.json"), JSON.stringify(L2), "dev-a's file is untouched");

@@ -36,7 +36,7 @@ function fakeServer(opts: {
   outbox?: number;
   undecryptable?: Record<string, number>;
   trashed?: Record<string, Row[]>;
-  secretCount?: () => Promise<number>;
+  secretProviders?: () => Promise<string[]>;
 }) {
   const calls: string[] = [];
   const source: ServerSource = {
@@ -45,7 +45,7 @@ function fakeServer(opts: {
       if (kind === opts.failKind) throw new Error("connection reset");
       return opts.rows[kind] ?? [];
     },
-    secretCount: opts.secretCount ?? (async () => 0),
+    secretProviders: opts.secretProviders ?? (async () => []),
     countRows: async (kind) => {
       calls.push(`count:${kind}`);
       return opts.rawCounts?.[kind] ?? (opts.rows[kind] ?? []).length;
@@ -132,30 +132,30 @@ test("zip round-trip keeps every exported file byte-equal", async () => {
   }
 });
 
-// A PostgREST count for one secret table: `totals` maps the table name to its row count.
-function secretCountFor(totals: Record<string, number>): () => Promise<number> {
+// PostgREST counts for the secret tables: `totals` maps the table name to its row count.
+function secretProvidersFor(totals: Record<string, number>): () => Promise<string[]> {
   const fetch = (async (url: string) => {
     const table = new URL(url).pathname.split("/").pop() ?? "";
     return new Response(null, { status: 200, headers: { "content-range": `0-0/${totals[table] ?? 0}` } });
-  }) as unknown as typeof fetch;
+  }) as unknown as typeof globalThis.fetch;
   return () =>
-    new PostgrestSource({ baseUrl: "https://api.example.test", userId: "u1", headers: {}, fetch }).secretCount();
+    new PostgrestSource({ baseUrl: "https://api.example.test", userId: "u1", headers: {}, fetch: fetch }).secretProviders();
 }
 
-test("secrets: a user with only a Zotero key refuses without a mover and never sets the marker", async () => {
-  const { source, calls } = fakeServer({ rows: FIXTURE, secretCount: secretCountFor({ user_settings: 1 }) });
+test("keys: a Zotero-only user's export verifies, with reconnectProviders = [\"zotero\"], and sets the marker", async () => {
+  const { source, calls } = fakeServer({ rows: FIXTURE, secretProviders: secretProvidersFor({ user_settings: 1 }) });
   const result = await runWebExport({ runDeviceId: "dev-test", kinds: ["logEntries"], codec: fakeCodec(SUPPORTED), source, sink: new MemorySink(), now: NOW });
-  assert.equal(result.state, "incomplete");
-  assert.ok(result.run.missing.some((m) => m.reason === "keys: no mover"));
-  assert.equal(calls.includes("mark:097"), false);
+  assert.equal(result.state, "verified");
+  assert.deepEqual(result.reconnectProviders, ["zotero"]);
+  assert.equal(calls.includes("mark:097"), true);
 });
 
-test("secrets: a user with only an Overleaf token refuses without a mover and never sets the marker", async () => {
-  const { source, calls } = fakeServer({ rows: FIXTURE, secretCount: secretCountFor({ overleaf_connections: 1 }) });
+test("keys: an Overleaf-linked user's export verifies, with reconnectProviders = [\"overleaf\"], and sets the marker", async () => {
+  const { source, calls } = fakeServer({ rows: FIXTURE, secretProviders: secretProvidersFor({ overleaf_connections: 1 }) });
   const result = await runWebExport({ runDeviceId: "dev-test", kinds: ["logEntries"], codec: fakeCodec(SUPPORTED), source, sink: new MemorySink(), now: NOW });
-  assert.equal(result.state, "incomplete");
-  assert.ok(result.run.missing.some((m) => m.reason === "keys: no mover"));
-  assert.equal(calls.includes("mark:097"), false);
+  assert.equal(result.state, "verified");
+  assert.deepEqual(result.reconnectProviders, ["overleaf"]);
+  assert.equal(calls.includes("mark:097"), true);
 });
 
 test("interrupted run gives incomplete, writes the report and never sets the marker", async () => {
@@ -1166,24 +1166,6 @@ test("verify: syncState is local-only and is not compared", () => {
   assert.equal(sameRows("experiments", want, got), true);
 });
 
-test("keys: secrets present but no mover refuses the run and writes an incomplete report", async () => {
-  const sink = new MemorySink();
-  const { source, calls } = fakeServer({ rows: FIXTURE });
-  const result = await runWebExport({ runDeviceId: "dev-test",
-    kinds: KINDS,
-    codec: fakeCodec(SUPPORTED),
-    source,
-    sink,
-    now: NOW,
-    secretsPresent: true,
-  });
-  assert.equal(result.state, "incomplete");
-  assert.equal(calls.some((c) => c.startsWith("mark:")), false, "no server marker without a mover");
-  const report = JSON.parse(await sink.readText(REPORT_PATH)) as { state: string };
-  assert.equal(report.state, "incomplete");
-  assert.match(JSON.stringify(report), /keys: no mover/);
-});
-
 test("refused runs (outbox not empty) still write an incomplete report with the reason", async () => {
   const sink = new MemorySink();
   const { source } = fakeServer({ rows: FIXTURE });
@@ -1222,7 +1204,6 @@ test("keys: copy-only mover; a failed marker then a re-run copies each secret on
     source,
     sink,
     now: NOW,
-    secretsPresent: true,
     moveSecrets,
   });
   assert.equal(first.state, "incomplete");
@@ -1234,7 +1215,6 @@ test("keys: copy-only mover; a failed marker then a re-run copies each secret on
     source,
     sink,
     now: NOW,
-    secretsPresent: true,
     moveSecrets,
   });
   assert.equal(second.state, "verified");

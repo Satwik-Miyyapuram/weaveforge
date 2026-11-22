@@ -16,8 +16,8 @@ const codec: FileCodec = {
   toRow: (kind, path, text) => (path.startsWith(`${kind}/`) ? (JSON.parse(text) as Row) : null),
 };
 
-/** A server whose secret count is given; `marks` records every server marker call. */
-function server(secretCount: () => Promise<number>, marks: string[]): ServerSource {
+/** A server whose secret providers are given; `marks` records every server marker call. */
+function server(secretProviders: () => Promise<string[]>, marks: string[]): ServerSource {
   return {
     listRows: async () => [L1],
     countRows: async () => 1,
@@ -29,11 +29,11 @@ function server(secretCount: () => Promise<number>, marks: string[]): ServerSour
     markExported097: async () => {
       marks.push("mark");
     },
-    secretCount,
+    secretProviders,
   } as unknown as ServerSource;
 }
 
-test("secrets: a source that cannot count its secrets is treated as holding some, so no mover refuses", async () => {
+test("secrets: a source that cannot say which providers hold secrets refuses, and writes no data", async () => {
   const marks: string[] = [];
   const sink = new MemorySink();
   const source = server(async () => {
@@ -42,46 +42,52 @@ test("secrets: a source that cannot count its secrets is treated as holding some
   const result = await runWebExport({ runDeviceId: "dev-test", kinds: KINDS, codec, source, sink, now: NOW });
 
   assert.equal(result.state, "incomplete");
-  assert.ok(result.run.missing.some((m) => m.reason === "keys: no mover"));
-  assert.deepEqual(marks, [], "no server marker without a mover");
+  assert.ok(result.run.missing.some((m) => m.reason === "keys: unreadable"));
+  assert.deepEqual(marks, [], "no server marker when the secrets cannot be read");
   assert.equal((await sink.list()).some((p) => p.startsWith("logEntries/")), false, "a refused run writes no data");
   assert.equal(JSON.parse(await sink.readText(REPORT_PATH)).state, "incomplete");
 });
 
-test("secrets: a count of zero runs without a mover and verifies", async () => {
+test("secrets: no providers with secrets runs without a mover and verifies, reconnecting nothing", async () => {
   const marks: string[] = [];
-  const result = await runWebExport({ runDeviceId: "dev-test",
+  const result = await runWebExport({
+    runDeviceId: "dev-test",
     kinds: KINDS,
     codec,
-    source: server(async () => 0, marks),
+    source: server(async () => [], marks),
     sink: new MemorySink(),
     now: NOW,
   });
   assert.equal(result.state, "verified");
+  assert.deepEqual(result.reconnectProviders, []);
   assert.deepEqual(marks, ["mark"]);
 });
 
-test("secrets: a count above zero with no mover refuses", async () => {
+test("secrets: a provider with a secret does not block the export; it is named for reconnect and the run verifies", async () => {
   const marks: string[] = [];
-  const result = await runWebExport({ runDeviceId: "dev-test",
+  const sink = new MemorySink();
+  const result = await runWebExport({
+    runDeviceId: "dev-test",
     kinds: KINDS,
     codec,
-    source: server(async () => 3, marks),
-    sink: new MemorySink(),
+    source: server(async () => ["zotero", "overleaf"], marks),
+    sink,
     now: NOW,
   });
-  assert.equal(result.state, "incomplete");
-  assert.ok(result.run.missing.some((m) => m.reason === "keys: no mover"));
-  assert.deepEqual(marks, []);
+  assert.equal(result.state, "verified");
+  assert.deepEqual(result.reconnectProviders, ["zotero", "overleaf"]);
+  assert.deepEqual(marks, ["mark"]);
+  assert.deepEqual(JSON.parse(await sink.readText(REPORT_PATH)).reconnectProviders, ["zotero", "overleaf"]);
 });
 
-test("secrets: a count above zero with a mover runs the mover once after verify", async () => {
+test("secrets: a provider with a secret and a mover runs the mover once after verify, reconnecting nothing", async () => {
   const marks: string[] = [];
   let moved = 0;
-  const result = await runWebExport({ runDeviceId: "dev-test",
+  const result = await runWebExport({
+    runDeviceId: "dev-test",
     kinds: KINDS,
     codec,
-    source: server(async () => 2, marks),
+    source: server(async () => ["zotero"], marks),
     sink: new MemorySink(),
     now: NOW,
     moveSecrets: async () => {
@@ -90,9 +96,10 @@ test("secrets: a count above zero with a mover runs the mover once after verify"
   });
   assert.equal(result.state, "verified");
   assert.equal(moved, 1);
+  assert.deepEqual(result.reconnectProviders, []);
 });
 
-test("secrets: PostgrestSource counts integration rows with a token, through the owning project", async () => {
+test("secrets: PostgrestSource names each provider whose table has a secret row", async () => {
   const seen: string[] = [];
   const source = new PostgrestSource({
     baseUrl: "https://api.example.test",
@@ -100,7 +107,7 @@ test("secrets: PostgrestSource counts integration rows with a token, through the
     headers: {},
     fetch: countingFetch({ project_integrations: 3, user_settings: 0, overleaf_connections: 0 }, seen),
   });
-  assert.equal(await source.secretCount(), 3);
+  assert.deepEqual(await source.secretProviders(), ["integrations"]);
   assert.match(seen[0] ?? "", /\/project_integrations\?/);
   assert.match(seen[0] ?? "", /token=not\.is\.null/);
   assert.match(seen[0] ?? "", /projects\.user_id=eq\.u1/);
@@ -120,7 +127,7 @@ function countingFetch(totals: Record<string, number>, seen: string[], fail?: st
   }) as unknown as typeof fetch;
 }
 
-test("secrets: PostgrestSource sums the token rows of all three secret tables", async () => {
+test("secrets: PostgrestSource names every provider whose secret table has rows", async () => {
   const seen: string[] = [];
   const source = new PostgrestSource({
     baseUrl: "https://api.example.test",
@@ -128,7 +135,7 @@ test("secrets: PostgrestSource sums the token rows of all three secret tables", 
     headers: {},
     fetch: countingFetch({ project_integrations: 3, user_settings: 1, overleaf_connections: 2 }, seen),
   });
-  assert.equal(await source.secretCount(), 6);
+  assert.deepEqual(await source.secretProviders(), ["integrations", "zotero", "overleaf"]);
   assert.equal(seen.length, 3);
   assert.ok(seen.some((u) => /\/user_settings\?/.test(u) && /zotero_api_key=not\.is\.null/.test(u) && /user_id=eq\.u1/.test(u)));
   assert.ok(seen.some((u) => /\/overleaf_connections\?/.test(u) && /token_ciphertext=not\.is\.null/.test(u) && /user_id=eq\.u1/.test(u)));
@@ -142,28 +149,28 @@ test("secrets: PostgrestSource encodes the user id in every secret-table URL", a
     headers: {},
     fetch: countingFetch({ project_integrations: 0, user_settings: 0, overleaf_connections: 0 }, seen),
   });
-  await source.secretCount();
+  assert.deepEqual(await source.secretProviders(), []);
   assert.equal(seen.length, 3);
   for (const url of seen) assert.doesNotMatch(url, / /, url);
   assert.ok(seen.every((u) => /u%201/.test(u)), seen.join("\n"));
 });
 
-test("secrets: PostgrestSource reads a count with no total as unknown (Infinity), so the export refuses", async () => {
+test("secrets: PostgrestSource rejects a count with no total, so the export refuses rather than reading zero", async () => {
   const source = new PostgrestSource({
     baseUrl: "https://api.example.test",
     userId: "u1",
     headers: {},
     fetch: (async () => new Response(null, { status: 200 })) as unknown as typeof fetch,
   });
-  assert.equal(await source.secretCount(), Number.POSITIVE_INFINITY);
+  await assert.rejects(source.secretProviders());
 });
 
-test("secrets: PostgrestSource reads a failing secret-table count as unknown (Infinity)", async () => {
+test("secrets: PostgrestSource rejects when a secret-table count fails, so the export refuses", async () => {
   const source = new PostgrestSource({
     baseUrl: "https://api.example.test",
     userId: "u1",
     headers: {},
     fetch: countingFetch({ project_integrations: 0, user_settings: 0, overleaf_connections: 0 }, [], "user_settings"),
   });
-  assert.equal(await source.secretCount(), Number.POSITIVE_INFINITY);
+  await assert.rejects(source.secretProviders());
 });

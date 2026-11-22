@@ -24,26 +24,30 @@ function liveColumns(): Map<string, Set<string>> {
     for (const stmt of sql.split(";")) {
       const created = /create table\s+(?:if not exists\s+)?(?:public\.)?"?(\w+)"?\s*\(([\s\S]*)\)/i.exec(stmt);
       if (created) {
+        const [, name = "", body = ""] = created;
         const cols = new Set<string>();
-        for (const line of created[2].split("\n")) {
+        for (const line of body.split("\n")) {
           const col = /^\s*"?(\w+)"?\s+\w/.exec(line);
-          if (col && !CONSTRAINT_WORDS.has(col[1].toLowerCase())) cols.add(col[1]);
+          const word = col?.[1] ?? "";
+          if (col && !CONSTRAINT_WORDS.has(word.toLowerCase())) cols.add(word);
         }
-        tables.set(created[1], cols);
+        tables.set(name, cols);
         continue;
       }
       const dropped = /drop table\s+(?:if exists\s+)?(?:public\.)?"?(\w+)"?/i.exec(stmt);
       if (dropped) {
-        tables.delete(dropped[1]);
+        tables.delete(dropped[1] ?? "");
         continue;
       }
       const altered = /alter table\s+(?:only\s+)?(?:public\.)?"?(\w+)"?([\s\S]*)/i.exec(stmt);
       if (!altered) continue;
-      const cols = tables.get(altered[1]) ?? new Set<string>();
-      tables.set(altered[1], cols);
-      for (const clause of altered[2].matchAll(/(add|drop) column\s+(?:if (?:not )?exists\s+)?"?(\w+)"?/gi)) {
-        if (clause[1].toLowerCase() === "add") cols.add(clause[2]);
-        else cols.delete(clause[2]);
+      const [, altName = "", clauses = ""] = altered;
+      const cols = tables.get(altName) ?? new Set<string>();
+      tables.set(altName, cols);
+      for (const clause of clauses.matchAll(/(add|drop) column\s+(?:if (?:not )?exists\s+)?"?(\w+)"?/gi)) {
+        const [, op = "", colName = ""] = clause;
+        if (op.toLowerCase() === "add") cols.add(colName);
+        else cols.delete(colName);
       }
     }
   }
@@ -68,7 +72,7 @@ test("every table with a secret-like column is in SECRET_TABLES or EXCLUDED_SECR
 });
 
 test("every excluded table has a reason, and no table is both counted and excluded", () => {
-  const counted = new Set(SECRET_TABLES.map((t) => t.table));
+  const counted = new Set<string>(SECRET_TABLES.map((t) => t.table));
   for (const entry of EXCLUDED_SECRET_TABLES) {
     assert.ok(entry.reason.trim().length > 0, `${entry.table} needs a reason`);
     assert.ok(!counted.has(entry.table), `${entry.table} is counted and excluded`);

@@ -21,7 +21,7 @@ function server(rows: Record<string, unknown[]>): ServerSource {
     listBlobs: async () => [],
     fetchBlob: async () => new Uint8Array(),
     markExported097: async () => {},
-    secretCount: async () => 0,
+    secretProviders: async () => [],
   } as unknown as ServerSource;
 }
 

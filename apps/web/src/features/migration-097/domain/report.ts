@@ -67,6 +67,8 @@ export type MigrationReport = {
   deviceId?: string;
   /** "folder" for desktop, "opfs" for the browser. Absent on reports written before this field. */
   target?: MigrationTarget;
+  /** Providers whose secret stayed on the server, so the user reconnects them on desktop. Names only. */
+  reconnectProviders?: string[];
   runs: RunReport[];
 };
 

@@ -144,22 +144,18 @@ export class PostgrestSource implements ServerSource {
   }
 
   /**
-   * Owner-scoped rows that hold a secret, summed over SECRET_TABLES. A count that fails or has no
-   * total reads as unknown (Infinity), so the export refuses rather than treating it as zero.
+   * Providers with an owner-scoped secret row, one per SECRET_TABLES entry that has rows. A failed or
+   * total-less count throws, so the export refuses rather than reading an unknown as "no secrets".
    */
-  async secretCount(): Promise<number> {
+  async secretProviders(): Promise<string[]> {
     const uid = encodeURIComponent(this.opts.userId);
-    let total = 0;
-    for (const { table, select, owner, secret } of SECRET_TABLES) {
+    const providers: string[] = [];
+    for (const { table, select, owner, secret, provider } of SECRET_TABLES) {
       const url = `${this.opts.baseUrl}/${table}?select=${select}&${owner}=eq.${uid}&${secret}=not.is.null`;
-      try {
-        const res = await this.request(url, { method: "HEAD", extra: { Prefer: "count=exact" } }, table);
-        total += totalOf(res, table);
-      } catch {
-        return Number.POSITIVE_INFINITY;
-      }
+      const res = await this.request(url, { method: "HEAD", extra: { Prefer: "count=exact" } }, table);
+      if (totalOf(res, table) > 0) providers.push(provider);
     }
-    return total;
+    return providers;
   }
 
   async pendingOutbox(): Promise<number> {

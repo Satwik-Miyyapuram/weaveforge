@@ -13,7 +13,7 @@ test("run: a readBack that differs is listed with the fixed code readback-differ
   const source = {
     listRows: async () => [{ id: "w1" }],
     listTrashed: async () => [],
-    secretCount: async () => 0,
+    secretProviders: async () => [],
     countRows: async () => 1,
     pendingOutbox: async () => 0,
     undecryptable: async () => 0,
@@ -44,7 +44,7 @@ test("run: a backup or outbox error message with a path never reaches report.jso
   const source = {
     listRows: async () => [],
     listTrashed: async () => [],
-    secretCount: async () => 0,
+    secretProviders: async () => [],
     countRows: async () => 0,
     pendingOutbox: async () => {
       throw new Error("EACCES /secret/path/outbox.json");
@@ -70,6 +70,7 @@ test("run: a backup or outbox error message with a path never reaches report.jso
         backup: async () => {
           throw new Error("EACCES /secret/path/backup.dump");
         },
+        markExported: async () => {},
       },
     },
     debugLog: (line) => debug.push(line),

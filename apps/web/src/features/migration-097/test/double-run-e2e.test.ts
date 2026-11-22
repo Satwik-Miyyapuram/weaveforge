@@ -53,7 +53,7 @@ function server(): ServerSource {
     listBlobs: async () => [BLOB.ref],
     fetchBlob: async () => BLOB.bytes,
     markExported097: async () => {},
-    secretCount: async () => 0,
+    secretProviders: async () => [],
   } as unknown as ServerSource;
 }
 
@@ -144,7 +144,7 @@ function writerServer(): ServerSource {
     listBlobs: async () => [BLOB.ref],
     fetchBlob: async () => BLOB.bytes,
     markExported097: async () => {},
-    secretCount: async () => 0,
+    secretProviders: async () => [],
   } as unknown as ServerSource;
 }
 
@@ -212,7 +212,6 @@ test("double run with secrets present: the run moves secrets only after verify, 
   const SECRET = "sk-live-SECRET-VALUE-0123456789";
   let moved = 0;
   const result = await exportWithWriters(sink, {
-    secretsPresent: true,
     moveSecrets: async () => {
       moved++;
     },

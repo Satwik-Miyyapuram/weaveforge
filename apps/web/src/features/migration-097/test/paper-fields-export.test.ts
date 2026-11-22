@@ -48,7 +48,7 @@ function fakeSource(rows: Record<string, Row[]>): ServerSource {
   return {
     listRows: async (kind: string) => rows[kind] ?? [],
     listTrashed: async () => [],
-    secretCount: async () => 0,
+    secretProviders: async () => [],
     countRows: async (kind: string) => (rows[kind] ?? []).length,
     pendingOutbox: async () => 0,
     undecryptable: async () => 0,
@@ -319,10 +319,10 @@ test("paper fields: a value the file already holds is reported as a conflict tha
   const sink = new MemorySink();
   await sink.write("Thesis/papers/a.paper.md", typedCore().writePaperRow(null, { id: "p1", title: "A" }) + "Body.\n");
   const seed = createPaperFieldsWriter(sink, FOLDERS);
-  await seed.write("paperFields", DEFS[0]);
+  await seed.write("paperFields", DEFS[0]!);
   await seed.write("paperFieldValues", { id: "x", projectId: "proj-a", paperId: "p1", fieldId: "fa", value: "user" });
   const result = await runWebExport({ runDeviceId: "dev-test", kinds: ["paperFields", "paperFieldValues"], codec: NO_CODEC, now: NOW,
-    source: fakeSource({ paperFields: [DEFS[0]], paperFieldValues: [VALUES[0]] }), sink, writers: () => [createPaperFieldsWriter(sink, FOLDERS)] });
+    source: fakeSource({ paperFields: [DEFS[0]!], paperFieldValues: [VALUES[0]!] }), sink, writers: () => [createPaperFieldsWriter(sink, FOLDERS)] });
   const row = result.run.missing.find((m) => m.kind === "paperFieldValues" && m.id === "v1") as { reason: string; value?: unknown } | undefined;
   assert.equal(row?.reason, "conflict:paperFieldValues");
   assert.equal(row?.value, "NeurIPS", "the report keeps the DB value so nothing is lost");

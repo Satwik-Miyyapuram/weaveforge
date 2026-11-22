@@ -19,7 +19,7 @@ function keyBlocks(front: string[]): Map<string, string> | null {
   for (const line of front) {
     const key = /^([^\s-][^:]*):/.exec(line);
     if (key) {
-      const name = key[1].trim();
+      const name = (key[1] ?? "").trim();
       if (blocks.has(name)) return null;
       current = [line];
       blocks.set(name, current);
