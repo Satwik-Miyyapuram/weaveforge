@@ -155,8 +155,8 @@ describe("the route credentials store", () => {
     }
 
     assert.equal(seen.length, 1);
-    const [request] = seen;
-    assert.ok(request, "the store made a request");
+    const request = seen[0];
+    if (!request) assert.fail("the store made no request");
     assert.equal(request.url, "/api/settings/credentials");
     assert.equal(
       (request.init?.headers as Record<string, string> | undefined)?.Authorization,
