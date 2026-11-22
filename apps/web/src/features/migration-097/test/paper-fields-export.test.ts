@@ -95,7 +95,7 @@ const TERMS = { kinds: ["paperFields"], codec: NO_CODEC, now: NOW };
 
 test("paper fields: defs for two projects land in settings.json per project folder and verify end to end", async () => {
   const sink = new MemorySink();
-  const result = await runWebExport({
+  const result = await runWebExport({ runDeviceId: "dev-test",
     ...TERMS,
     source: fakeSource({ paperFields: DEFS }),
     sink,
@@ -118,7 +118,7 @@ test("paper fields: a project whose defs read back changed is listed missing by 
     readBack: async (kind) =>
       (await base.readBack(kind)).map((r) => (r.projectId === "proj-b" ? { ...r, name: "Other" } : r)),
   };
-  const result = await runWebExport({ ...TERMS, source: fakeSource({ paperFields: DEFS }), sink, writers: [renamed] });
+  const result = await runWebExport({ runDeviceId: "dev-test", ...TERMS, source: fakeSource({ paperFields: DEFS }), sink, writers: [renamed] });
   assert.equal(result.state, "incomplete");
   assert.deepEqual(
     result.run.missing.filter((m) => m.kind === "paperFields"),
@@ -134,7 +134,7 @@ test("paper fields: a project whose defs are absent on readBack is listed missin
     write: base.write,
     readBack: async (kind) => (await base.readBack(kind)).filter((r) => r.projectId !== "proj-b"),
   };
-  const result = await runWebExport({ ...TERMS, source: fakeSource({ paperFields: DEFS }), sink, writers: [dropB] });
+  const result = await runWebExport({ runDeviceId: "dev-test", ...TERMS, source: fakeSource({ paperFields: DEFS }), sink, writers: [dropB] });
   assert.equal(result.state, "incomplete");
   assert.deepEqual(
     result.run.missing.filter((m) => m.kind === "paperFields"),
@@ -143,7 +143,7 @@ test("paper fields: a project whose defs are absent on readBack is listed missin
 });
 
 test("paper fields: with no writer wired, the paper fields are listed missing without the wf-wasm codec reason", async () => {
-  const result = await runWebExport({
+  const result = await runWebExport({ runDeviceId: "dev-test",
     ...TERMS,
     source: fakeSource({ paperFields: DEFS }),
     sink: new MemorySink(),
@@ -160,7 +160,7 @@ test("paper fields: a null projectId def and its values land at the root and ver
   await sink.write("papers/b.paper.md", core.writePaperRow(null, { id: "p2", title: "B" }) + "Body.\n");
   const rootDef: Row = { id: "fr", projectId: null, name: "Root", kind: "text", options: [], sortOrder: 0 };
   const rootValue: Row = { id: "p2:fr", projectId: null, paperId: "p2", fieldId: "fr", value: "x" };
-  const result = await runWebExport({
+  const result = await runWebExport({ runDeviceId: "dev-test",
     kinds: ["paperFields", "paperFieldValues"],
     codec: NO_CODEC,
     now: NOW,
@@ -185,7 +185,7 @@ test("paper field values: written into each paper's frontmatter through FilePape
   const sink = new MemorySink();
   await sink.write("Thesis/papers/a.paper.md", core.writePaperRow(null, { id: "p1", title: "A" }) + "Body.\n");
   await sink.write("papers/b.paper.md", core.writePaperRow(null, { id: "p2", title: "B" }) + "Body.\n");
-  const result = await runWebExport({
+  const result = await runWebExport({ runDeviceId: "dev-test",
     kinds: ["paperFields", "paperFieldValues"],
     codec: NO_CODEC,
     now: NOW,
@@ -213,7 +213,7 @@ test("paper field values: written into each paper's frontmatter through FilePape
 test("paper field values: a value whose paper has no file is listed missing", async () => {
   const sink = new MemorySink();
   const ghost = [...VALUES, { id: "v9", projectId: "proj-a", paperId: "p-ghost", fieldId: "fa", value: "x" }];
-  const result = await runWebExport({
+  const result = await runWebExport({ runDeviceId: "dev-test",
     kinds: ["paperFields", "paperFieldValues"],
     codec: NO_CODEC,
     now: NOW,
@@ -253,7 +253,7 @@ test("paper fields: runWebExport wires the paper-fields writer itself from proje
   const sink = new MemorySink();
   await sink.write("Thesis/papers/a.paper.md", core.writePaperRow(null, { id: "p1", title: "A" }) + "Body.\n");
   await sink.write("papers/b.paper.md", core.writePaperRow(null, { id: "p2", title: "B" }) + "Body.\n");
-  const result = await runWebExport({
+  const result = await runWebExport({ runDeviceId: "dev-test",
     kinds: ["paperFields", "paperFieldValues"],
     codec: NO_CODEC,
     now: NOW,
@@ -295,7 +295,7 @@ test("paper field values: an unmapped project is a per-row missing entry and the
   const sink = new MemorySink();
   await sink.write("Thesis/papers/a.paper.md", core.writePaperRow(null, { id: "p1", title: "A" }) + "Body.\n");
   const values = [...VALUES.slice(0, 2), { id: "v8", projectId: "proj-unknown", paperId: "p1", fieldId: "fa", value: "x" }];
-  const result = await runWebExport({
+  const result = await runWebExport({ runDeviceId: "dev-test",
     kinds: ["paperFields", "paperFieldValues"],
     codec: NO_CODEC,
     now: NOW,

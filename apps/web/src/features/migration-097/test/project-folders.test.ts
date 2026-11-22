@@ -36,7 +36,7 @@ test("runWebExport: a bad folder map is refused before any file is written", asy
   const source = {} as unknown as ServerSource;
   const codec = { supports: () => false } as unknown as FileCodec;
   await assert.rejects(
-    runWebExport({
+    runWebExport({ runDeviceId: "dev-test",
       kinds: [],
       codec,
       now: "2026-11-22T00:00:00.000Z",

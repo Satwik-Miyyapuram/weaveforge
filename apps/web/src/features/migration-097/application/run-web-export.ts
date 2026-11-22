@@ -222,6 +222,11 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
   const writers = projectFolders ? [...givenWriters, createPaperFieldsWriter(sink, projectFolders)] : givenWriters;
   const target: MigrationTarget = desktop ? "folder" : "opfs";
 
+  // The web run counts per device, so it needs the caller's stable id; a fresh id each run would invent a device.
+  if (!desktop && runDeviceId === undefined) {
+    return refused(sink, now, "device id missing", target);
+  }
+
   // An unreadable report.json is never merged over: it is kept aside and this run is refused before any write.
   if ((await readExistingRuns(sink)) === null) {
     await moveAside(sink);
@@ -240,8 +245,8 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
   }
 
   // The pre-migration dump comes first: nothing is read or written without it.
-  // Web always has a device id: the caller's stable one, or a fresh one so the run still counts per device.
-  let deviceId: string | undefined = desktop ? undefined : (runDeviceId ?? globalThis.crypto.randomUUID());
+  // Web always has a device id: the caller's stable one (refused above when absent).
+  let deviceId: string | undefined = desktop ? undefined : runDeviceId;
   let dumpName: string | null = null;
   if (desktop && typeof desktop.bridge?.backup !== "function") {
     return refused(sink, now, "desktop migrate097Backup missing: the shell cannot make the pre-migration dump", target);

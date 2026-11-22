@@ -68,7 +68,7 @@ test("blob paths: runWebExport writes the sanitized names, and verifies them wit
   } as unknown as ServerSource;
   const codec = { supports: () => false } as unknown as FileCodec;
   const sink = new MemorySink();
-  const result = await runWebExport({ kinds: [], codec, now: "2026-11-22T00:00:00.000Z", source, sink });
+  const result = await runWebExport({ runDeviceId: "dev-test", kinds: [], codec, now: "2026-11-22T00:00:00.000Z", source, sink });
   assert.deepEqual(result.run.missing, []);
   assert.equal(result.state, "verified");
   assert.equal(await sha256Hex(await sink.readBytes("assets/bkt/a..b.png")), await sha256Hex(bytesA));
@@ -88,7 +88,7 @@ test("blob paths: a missing blob's id keeps its bucket, so the same path in two 
     markExported097: async () => {},
   } as unknown as ServerSource;
   const codec = { supports: () => false } as unknown as FileCodec;
-  const result = await runWebExport({
+  const result = await runWebExport({ runDeviceId: "dev-test",
     kinds: [],
     codec,
     now: "2026-11-22T00:00:00.000Z",

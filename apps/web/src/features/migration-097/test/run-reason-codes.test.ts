@@ -26,7 +26,7 @@ test("run: a readBack that differs is listed with the fixed code readback-differ
     readBack: async () => [],
   };
   const codec = { supports: () => false } as unknown as FileCodec;
-  const result = await runWebExport({
+  const result = await runWebExport({ runDeviceId: "dev-test",
     kinds: ["widgets"],
     codec,
     writers: [writer],
@@ -56,7 +56,7 @@ test("run: a backup or outbox error message with a path never reaches report.jso
   const debug: string[] = [];
 
   const backupSink = new MemorySink();
-  const backedUp = await runWebExport({
+  const backedUp = await runWebExport({ runDeviceId: "dev-test",
     kinds: [],
     codec,
     now: "2026-11-22T00:00:00.000Z",
@@ -79,7 +79,7 @@ test("run: a backup or outbox error message with a path never reaches report.jso
   assert.ok(debug.some((l) => l.includes("/secret/path/backup.dump")));
 
   const outboxSink = new MemorySink();
-  const outboxRun = await runWebExport({
+  const outboxRun = await runWebExport({ runDeviceId: "dev-test",
     kinds: [],
     codec,
     now: "2026-11-22T00:00:00.000Z",
