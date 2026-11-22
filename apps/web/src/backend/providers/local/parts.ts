@@ -212,17 +212,35 @@ export function desktopMoveSecrets(bridge: DesktopBridge | null = desktop()): ()
   };
 }
 
+/** Thrown when the old local database cannot be read while its folder exists. Nothing is assumed, so nothing is saved over it. */
+export class LegacySecretsReadError extends Error {
+  readonly code = "legacy-secrets-unreadable";
+  constructor(cause: unknown) {
+    const reason = cause instanceof Error ? cause.message : String(cause);
+    super(`The old local secrets could not be read (${reason}). Nothing was saved.`);
+    this.name = "LegacySecretsReadError";
+  }
+}
+
+/** The shell's probe: true when the old database folder is gone. Outside the desktop app there is no old database, so true. */
+export function desktopLegacyDirMissing(bridge: DesktopBridge | null = desktop()): () => Promise<boolean> {
+  return async () => (bridge ? bridge.legacyDirMissing() : true);
+}
+
 export class DeviceSecretsStore implements SecretsStore {
   constructor(
     private readonly run: LocalQuery = localRunnerQuery(),
     private readonly keychain: DeviceKeychain = desktopKeychain(),
     private readonly moveSecrets: () => Promise<void> = desktopMoveSecrets(),
+    private readonly legacyDirMissing: () => Promise<boolean> = desktopLegacyDirMissing(),
   ) {}
 
   /**
    * The keychain when it holds the credentials (its `_index` exists). Otherwise the old
    * local database row, read and returned but never copied: the shell's one-time migration
-   * moves it. A failed keychain or database read throws; it never reads as "no credentials".
+   * moves it. A failed keychain read throws. A failed database read is `{}` only when the
+   * old database folder is gone (a fresh install); with the folder present it throws, so a
+   * stopped database never reads as "no credentials".
    */
   async load(): Promise<Secrets> {
     const keys = await this.readIndex();
@@ -258,6 +276,9 @@ export class DeviceSecretsStore implements SecretsStore {
       if (!fields.has(key)) await this.keychain.clear(key);
     }
     // The index is written last, so a failed save leaves the previous index in place.
+    // A crash between the field writes and this index leaves a mix: some fields new, the old index
+    // still listing the previous keys. The next load reads the old index's keys; the next save
+    // rewrites every field and the index, so a successful save repairs the mix.
     await this.keychain.write(INDEX_KEY, JSON.stringify({ source: "save", keys: [...fields.keys()] }));
   }
 
@@ -288,16 +309,19 @@ export class DeviceSecretsStore implements SecretsStore {
     return out as Secrets;
   }
 
-  /** The row's JSON text, `undefined` when there is no row or no database. */
+  /**
+   * The row's JSON text, `undefined` when there is no row or the old database folder is gone.
+   * A failed read while the folder exists throws `LegacySecretsReadError`.
+   */
   private async legacyText(): Promise<string | undefined> {
     let rows: { secrets: Secrets | string | null }[];
     try {
       rows = (await this.run(readyCore().localSecretsLoadSql(), [LOCAL_USER_ID])) as {
         secrets: Secrets | string | null;
       }[];
-    } catch {
-      // The local database is missing or stopped: there is no legacy row to read, so no credentials.
-      return undefined;
+    } catch (err) {
+      if (await this.legacyDirMissing()) return undefined;
+      throw new LegacySecretsReadError(err);
     }
     const stored = rows[0]?.secrets;
     if (stored === undefined || stored === null) return undefined;
