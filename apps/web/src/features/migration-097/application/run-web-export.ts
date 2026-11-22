@@ -12,6 +12,7 @@ import type { KindWriter } from "../domain/kind-writer";
 import { sha256Hex } from "../domain/hash";
 import { PAPER_FIELD_KINDS, projectDefsMismatches } from "../domain/paper-fields-file";
 import { isUnsafeAssetPath } from "../domain/asset-path";
+import { createPaperFieldsWriter } from "../infrastructure/kind-writer-paper-fields";
 import { sameRows, verifyExport, type Verdict } from "./verify-export";
 
 export type ExportProgress = { kind: string; done: number; total: number };
@@ -27,6 +28,8 @@ export type ExportOptions = {
   onProgress?: (e: ExportProgress) => void;
   /** Writers over the FILES repos. A kind a writer owns is written and read back through it. */
   writers?: readonly KindWriter[];
+  /** Project id to folder ("" = workspace root). Given, the run writes paper fields through the FILES repos itself. */
+  projectFolders?: ReadonlyMap<string, string>;
   /** Desktop only: the backup runs before anything else, and a failure aborts the export. */
   desktop?: { folder: string; bridge: DesktopMigration };
   /** KEYS hook: runs only after a verified run, before the markers. A throw leaves the run incomplete. */
@@ -137,7 +140,8 @@ async function exportTrash(kind: string, rows: Row[], sink: FileSink, codec: Fil
 }
 
 export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
-  const { kinds, codec, source, sink, now, onProgress, desktop, writers = [], moveSecrets, secretsPresent, runDeviceId, debugLog } = opts;
+  const { kinds, codec, source, sink, now, onProgress, desktop, writers: givenWriters = [], projectFolders, moveSecrets, secretsPresent, runDeviceId, debugLog } = opts;
+  const writers = projectFolders ? [...givenWriters, createPaperFieldsWriter(sink, projectFolders)] : givenWriters;
   const target: MigrationTarget = desktop ? "folder" : "opfs";
   const writerFor = (kind: string) => writers.find((w) => w.kinds.includes(kind));
   const dbCount: Record<string, number> = {};

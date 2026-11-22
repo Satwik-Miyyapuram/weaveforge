@@ -227,6 +227,34 @@ test("settings writers: paper fields and tags keep each other's keys in either w
   }
 });
 
+test("paper fields: runWebExport wires the paper-fields writer itself from projectFolders, with no writers passed", async () => {
+  const core = typedCore();
+  const sink = new MemorySink();
+  await sink.write("Thesis/papers/a.paper.md", core.writePaperRow(null, { id: "p1", title: "A" }) + "Body.\n");
+  await sink.write("papers/b.paper.md", core.writePaperRow(null, { id: "p2", title: "B" }) + "Body.\n");
+  const result = await runWebExport({
+    kinds: ["paperFields", "paperFieldValues"],
+    codec: NO_CODEC,
+    now: NOW,
+    source: fakeSource({ paperFields: DEFS, paperFieldValues: VALUES }),
+    sink,
+    projectFolders: FOLDERS,
+  });
+  assert.deepEqual(result.run.missing, []);
+  assert.equal(result.state, "verified");
+  const doc = await readSettings(sink);
+  const fs = sinkAsWorkspaceFs(sink);
+  const { FilePaperRepository } = await import("@/features/papers/infrastructure/file-paper-repository");
+  const thesis = new FilePaperFieldRepository(new FilePaperRepository(fs, "Thesis"), settingsOver(doc), fs, () => "Thesis");
+  assert.deepEqual(
+    (await thesis.listValuesForProject()).map((v) => [v.id, v.value]),
+    [
+      ["p1:fa", "NeurIPS"],
+      ["p1:fa2", 4.5],
+    ],
+  );
+});
+
 test("paper field values: a null or empty projectId maps to the workspace root", async () => {
   const core = typedCore();
   const sink = new MemorySink();
