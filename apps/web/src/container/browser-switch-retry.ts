@@ -34,18 +34,62 @@ export function subscribeSwitchRetry(listener: Listener): () => void {
   };
 }
 
+const RELOAD_GUARD_KEY = "weaveforge.switch-reload-098";
+let reloadGuardTakenInMemory = false;
+
+function sessionStore(): Storage | null {
+  try {
+    return globalThis.sessionStorage ?? null;
+  } catch {
+    return null;
+  }
+}
+
 /**
- * Runs the switch for startup or for Retry. A switched run reloads into files mode; any other
- * outcome updates the banner. Resolves with the outcome and never rejects.
+ * One reload per session from a switch, so a switch that keeps reporting success cannot loop the
+ * page. Falls back to memory when sessionStorage is unavailable.
+ */
+function takeReloadGuard(): boolean {
+  const store = sessionStore();
+  try {
+    if (store) {
+      if (store.getItem(RELOAD_GUARD_KEY)) return false;
+      store.setItem(RELOAD_GUARD_KEY, "1");
+      return true;
+    }
+  } catch {
+    // Storage blocked: use the in-memory guard below.
+  }
+  if (reloadGuardTakenInMemory) return false;
+  reloadGuardTakenInMemory = true;
+  return true;
+}
+
+/** Forgets the reload guard. Startup calls this once files mode is running. */
+export function clearSwitchReloadGuard(): void {
+  reloadGuardTakenInMemory = false;
+  try {
+    sessionStore()?.removeItem(RELOAD_GUARD_KEY);
+  } catch {
+    // Nothing stored to clear.
+  }
+}
+
+/**
+ * Runs the switch for startup or for Retry. A switched run reloads into files mode once per
+ * session; a repeat switch keeps the banner instead of reloading. Any other outcome updates the
+ * banner. Resolves with the outcome and never rejects.
  */
 export async function retrySwitch(
   run: () => Promise<SwitchDecision>,
   onSwitched: () => void,
 ): Promise<SwitchDecision | null> {
   const outcome = await runBrowserSwitchInBackground(run);
-  if (outcome?.switch) {
+  if (outcome?.switch && takeReloadGuard()) {
     setSwitchRetryNeeded(false);
     onSwitched();
+  } else if (outcome?.switch) {
+    setSwitchRetryNeeded(true);
   } else {
     setSwitchRetryNeeded(needsSwitchRetry(outcome));
   }

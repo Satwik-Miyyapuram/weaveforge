@@ -4,6 +4,7 @@ import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 import {
   SWITCH_RETRY_TEXT,
+  clearSwitchReloadGuard,
   isSwitchRetryNeeded,
   needsSwitchRetry,
   retrySwitch,
@@ -64,6 +65,37 @@ test("(item3) Retry runs the switch again and reloads only when it switches", as
   assert.equal(runs, 2);
   assert.equal(reloads, 1);
   assert.equal(isSwitchRetryNeeded(), false);
+});
+
+test("(item3 P2) a second switched run in the same session shows the banner and does not reload again", async () => {
+  clearSwitchReloadGuard();
+  let reloads = 0;
+  const onSwitched = () => {
+    reloads += 1;
+  };
+  await retrySwitch(async () => ({ switch: true, wiring: WIRING }), onSwitched);
+  assert.equal(reloads, 1);
+  assert.equal(isSwitchRetryNeeded(), false);
+
+  await retrySwitch(async () => ({ switch: true, wiring: WIRING }), onSwitched);
+  assert.equal(reloads, 1, "the reload guard stops a second reload");
+  assert.equal(isSwitchRetryNeeded(), true);
+  clearSwitchReloadGuard();
+  setSwitchRetryNeeded(false);
+});
+
+test("(item3 P2) clearing the reload guard lets a switched run reload again", async () => {
+  clearSwitchReloadGuard();
+  let reloads = 0;
+  const onSwitched = () => {
+    reloads += 1;
+  };
+  await retrySwitch(async () => ({ switch: true, wiring: WIRING }), onSwitched);
+  clearSwitchReloadGuard();
+  await retrySwitch(async () => ({ switch: true, wiring: WIRING }), onSwitched);
+  assert.equal(reloads, 2);
+  clearSwitchReloadGuard();
+  setSwitchRetryNeeded(false);
 });
 
 test("(item3) the app shell mounts the retry banner beside the release notice", () => {

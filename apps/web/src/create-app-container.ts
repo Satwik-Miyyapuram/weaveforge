@@ -63,7 +63,7 @@ import { rustAiStores, rustShareLinkRepository } from "@/backend/providers/postg
 import { PrefetchProjectUseCase } from "@/application/prefetch-project.use-case";
 import { readBackendConfig } from "@/backend/parts";
 import { decideBrowserSwitchFromConfig, openMarkedBrowserFiles } from "./container/browser-switch-wiring";
-import { retrySwitch, setSwitchRetryNeeded } from "./container/browser-switch-retry";
+import { clearSwitchReloadGuard, retrySwitch, setSwitchRetryNeeded } from "./container/browser-switch-retry";
 import { chooseBrowserStart, localSwitchPending } from "./container/browser-readonly-fallback-098";
 import {
   PapersFacade,
@@ -186,6 +186,7 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
       () => window.location.reload(),
     );
   }
+  if (start?.mode === "files") clearSwitchReloadGuard();
   const backend = wireBackend(readBackendConfig(), projectContext, pid, {
     migration,
     onDesktop: Boolean(shell),
