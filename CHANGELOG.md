@@ -28,7 +28,7 @@ WeaveForge 1.0.0 is the first stable release. Your notes and papers live in your
 - **Changed:** Stable release. Everything in 0.9.8 is included.
 
 ### Server
-- **Removed:** The server no longer keeps your personal notes, papers or reading lists. Milestones, projects, settings and Overleaf links stay on the server until a later 1.0.x.
+- **Removed:** The server keeps only organisation data, sharing (including shared images) and relay data. Personal papers, notes, reading lists, annotations, tags, reports, log entries, vault pages, AI records and project integrations are archived in a schema the API cannot reach. Milestones, projects, settings and Overleaf links stay on the server until a later 1.0.x.
 
 ## [0.9.8] - TBD
 
