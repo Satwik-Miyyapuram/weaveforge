@@ -57,3 +57,19 @@ test("the updater endpoint is the manifest the release scripts write (MANIFEST_N
 test("the workflow header names latest-v2.json as the manifest the updater reads", () => {
   assert.match(workflow.split("\n").slice(0, 8).join("\n"), /reads latest-v2\.json from the Latest release only/);
 });
+
+test("a validate job rejects any tag that is not vX.Y.Z before anything is built", () => {
+  const validate = workflow.match(/^  validate:\n([\s\S]*?)(?=^  \w)/m);
+  assert.ok(validate, "the workflow has a validate job");
+  assert.match(validate[1], /\[\[ ! "\$TAG" =~ \^v\[0-9\]\+\\.\[0-9\]\+\\.\[0-9\]\+\$ \]\]/);
+  assert.match(workflow, /^  build:\n(?:    .*\n)*?    needs: validate\n/m);
+});
+
+test("the tag pattern takes vX.Y.Z and refuses release candidates", () => {
+  const vxyz = /^v[0-9]+\.[0-9]+\.[0-9]+$/;
+  assert.ok(vxyz.test("v0.9.7"));
+  assert.ok(vxyz.test("v1.0.0"));
+  assert.ok(!vxyz.test("v0.9.7-rc1"));
+  assert.ok(!vxyz.test("v0.9.7-rc.1"));
+  assert.ok(!vxyz.test("v0.9"));
+});
