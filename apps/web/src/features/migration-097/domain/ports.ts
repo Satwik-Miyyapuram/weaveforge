@@ -11,6 +11,8 @@ export interface ServerSource {
   countRows(kind: string): Promise<number>;
   /** Unflushed local writes. Non-zero means the export must refuse to run. */
   pendingOutbox(): Promise<number>;
+  /** Rows whose content_enc fails to decrypt. Each one blocks verified. */
+  undecryptable(kind: string): Promise<number>;
   listBlobs(): Promise<BlobRef[]>;
   fetchBlob(ref: BlobRef): Promise<Uint8Array>;
   /** Sets profiles.exported_097_at. Called only after a verified export. */

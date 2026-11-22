@@ -45,6 +45,8 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
       const rows = await source.listRows(kind);
       const raw = await source.countRows(kind);
       if (raw !== rows.length) errors.push(`${kind}: raw count ${raw} != exported ${rows.length}`);
+      const bad = await source.undecryptable(kind);
+      if (bad > 0) missing.push({ kind, id: "*", reason: `${bad} content_enc row(s) failed to decrypt` });
       written[kind] = 0;
       if (!codec.supports(kind)) {
         for (const row of rows) missing.push({ kind, id: String(row.id), reason: "no wf-wasm codec" });
@@ -83,7 +85,8 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
     };
   }
 
-  let state: MigrationState = errors.length === 0 && verdict.state === "verified" ? "verified" : "incomplete";
+  let state: MigrationState =
+    errors.length === 0 && missing.length === 0 && verdict.state === "verified" ? "verified" : "incomplete";
   if (state === "verified") {
     try {
       await source.markExported(now);

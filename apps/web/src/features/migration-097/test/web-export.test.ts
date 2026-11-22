@@ -28,6 +28,7 @@ function fakeServer(opts: {
   failKind?: string;
   rawCounts?: Record<string, number>;
   outbox?: number;
+  undecryptable?: Record<string, number>;
 }) {
   const calls: string[] = [];
   const source: ServerSource = {
@@ -41,6 +42,7 @@ function fakeServer(opts: {
       return opts.rawCounts?.[kind] ?? (opts.rows[kind] ?? []).length;
     },
     pendingOutbox: async () => opts.outbox ?? 0,
+    undecryptable: async (kind) => opts.undecryptable?.[kind] ?? 0,
     listBlobs: async () => (opts.blobs ?? []).map((b) => b.ref),
     fetchBlob: async (ref) => {
       calls.push(`blob:${ref.path}`);
@@ -210,6 +212,18 @@ test("raw server count above the exported rows gives incomplete (short source li
 
   assert.equal(result.state, "incomplete");
   assert.ok(result.run.errors.some((e) => e.includes("raw count")));
+  assert.equal(calls.some((c) => c.startsWith("mark:")), false);
+});
+
+test("undecryptable content_enc rows keep the export incomplete and name kind and count", async () => {
+  const { source, calls } = fakeServer({ rows: FIXTURE, undecryptable: { logEntries: 2 } });
+  const sink = new MemorySink();
+  const result = await runWebExport({ kinds: KINDS, codec: fakeCodec(SUPPORTED), source, sink, now: NOW });
+
+  assert.equal(result.state, "incomplete");
+  assert.ok(
+    result.run.missing.some((m) => m.kind === "logEntries" && m.reason.includes("2") && /decrypt/.test(m.reason)),
+  );
   assert.equal(calls.some((c) => c.startsWith("mark:")), false);
 });
 
