@@ -3,9 +3,10 @@
 //! so reports written by this device keep matching it. An empty file is a crash leftover, not an
 //! id, so it is regenerated.
 
-use std::fs::{self, File};
+use std::fs;
 use std::io::{self, Write};
 use std::path::Path;
+use std::sync::atomic::{AtomicU64, Ordering};
 
 const FILE: &str = "device-id";
 
@@ -29,16 +30,16 @@ pub fn get_or_create(dir: &Path) -> io::Result<String> {
     parse_id(&path, text.trim())
 }
 
-/// Writes the id to `<file>.part`, syncs it, then hard-links it to the final name. The link fails
-/// when another call already created the name, and that call's id is read back. The name is only
-/// ever bound to a complete file, so a crash cannot leave a partial id behind.
+/// Writes the id to a temp file of its own, syncs it, then hard-links it to the final name. The
+/// link fails when another call already created the name, and that call's id is read back. The
+/// name is only ever bound to a complete file, so a crash cannot leave a partial id behind. Each
+/// call has its own temp name, so concurrent calls never share an inode.
 fn create(dir: &Path, path: &Path) -> io::Result<String> {
     fs::create_dir_all(dir)?;
     let id = new_id(dir);
-    let part = path.with_extension("part");
+    let part = part_path(path);
     {
-        // `create` truncates a `.part` left by an earlier crash.
-        let mut file = File::create(&part)?;
+        let mut file = fs::OpenOptions::new().write(true).create_new(true).open(&part)?;
         file.write_all(id.as_bytes())?;
         file.sync_all()?;
     }
@@ -52,6 +53,18 @@ fn create(dir: &Path, path: &Path) -> io::Result<String> {
         }
         Err(e) => Err(e),
     }
+}
+
+/// A temp name unique to this call: pid, nanos and a process-wide counter.
+fn part_path(path: &Path) -> std::path::PathBuf {
+    static SEQ: AtomicU64 = AtomicU64::new(0);
+    let nanos = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_nanos())
+        .unwrap_or(0);
+    let seq = SEQ.fetch_add(1, Ordering::Relaxed);
+    let name = format!("{FILE}.{}-{nanos}-{seq}.part", std::process::id());
+    path.with_file_name(name)
 }
 
 fn parse_id(path: &Path, id: &str) -> io::Result<String> {
@@ -95,6 +108,36 @@ mod tests {
         assert_eq!(first, second);
         assert_eq!(first.len(), 64);
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn concurrent_first_calls_agree_on_one_id() {
+        use std::sync::{Arc, Barrier};
+        for round in 0..30 {
+            let dir = std::env::temp_dir()
+                .join(format!("wf-devid-race-{}-{round}", std::process::id()));
+            let _ = std::fs::remove_dir_all(&dir);
+            let barrier = Arc::new(Barrier::new(8));
+            let handles: Vec<_> = (0..8)
+                .map(|_| {
+                    let (dir, barrier) = (dir.clone(), Arc::clone(&barrier));
+                    std::thread::spawn(move || {
+                        let _ = barrier.wait();
+                        get_or_create(&dir)
+                    })
+                })
+                .collect();
+            let ids: Vec<String> = handles
+                .into_iter()
+                .map(|h| h.join().expect("thread").expect("creates"))
+                .collect();
+            let stored = std::fs::read_to_string(dir.join("device-id")).unwrap();
+            assert!(
+                ids.iter().all(|id| *id == stored),
+                "every caller must return the stored id"
+            );
+            let _ = std::fs::remove_dir_all(&dir);
+        }
     }
 
     #[test]
