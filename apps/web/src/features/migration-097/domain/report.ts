@@ -83,16 +83,40 @@ export async function readMigrationReport(fs: Pick<FileSink, "readText">): Promi
   const { state, runs } = parsed as { state?: unknown; runs?: unknown };
   if (!(state === "verified" || state === "incomplete" || state === "none")) return null;
   if (!Array.isArray(runs) || runs.length === 0) return null;
-  const runsOk = runs.every((run) => typeof run === "object" && run !== null && Array.isArray((run as { missing?: unknown }).missing));
-  return runsOk ? (parsed as MigrationReport) : null;
+  return runs.every(isRunReport) ? (parsed as MigrationReport) : null;
+}
+
+function isCount(v: unknown): v is number {
+  return typeof v === "number" && Number.isFinite(v);
+}
+
+function isKindCount(v: unknown): v is KindCount {
+  if (typeof v !== "object" || v === null) return false;
+  const k = v as Partial<KindCount>;
+  return isCount(k.db) && isCount(k.files) && isCount(k.written) && isCount(k.trash) && Array.isArray(k.conflicts);
+}
+
+/** A run with a missing list, per-kind counts and blob counts of the shape the export writes. */
+function isRunReport(run: unknown): run is RunReport {
+  if (typeof run !== "object" || run === null) return false;
+  const r = run as Partial<RunReport>;
+  if (!Array.isArray(r.missing)) return false;
+  if (typeof r.kinds !== "object" || r.kinds === null || !Object.values(r.kinds).every(isKindCount)) return false;
+  return typeof r.blobs === "object" && r.blobs !== null && isCount(r.blobs.db) && isCount(r.blobs.verified);
 }
 
 /**
- * True only when the OPFS repos hold a clean verified export: state verified, target opfs, and no
- * run lists a missing row. Anything else (absent, corrupt, incomplete, folder, zip) is false.
+ * True only when the OPFS repos hold a clean verified export: state verified, target opfs, and in
+ * every run no row is missing, every kind's files match its db rows with no conflicts, and every
+ * blob is verified. Anything else (absent, corrupt, incomplete, folder, zip) is false.
  */
 export async function browserReportVerified(fs: Pick<FileSink, "readText">): Promise<boolean> {
   const report = await readMigrationReport(fs);
   if (!report || report.state !== "verified" || report.target !== "opfs") return false;
-  return report.runs.every((run) => run.missing.length === 0);
+  return report.runs.every(
+    (run) =>
+      run.missing.length === 0 &&
+      run.blobs.db === run.blobs.verified &&
+      Object.values(run.kinds).every((k) => k.db === k.files && k.conflicts.length === 0),
+  );
 }

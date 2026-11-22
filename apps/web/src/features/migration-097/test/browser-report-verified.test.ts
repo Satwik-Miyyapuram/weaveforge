@@ -89,3 +89,43 @@ test("readMigrationReport: a sink whose read throws gives null, never throws", a
   assert.equal(await readMigrationReport(throwing), null);
   assert.equal(await browserReportVerified(throwing), false);
 });
+
+const KIND_OK = { db: 2, files: 2, written: 2, conflicts: [], trash: 0 };
+
+test("browserReportVerified: false when a kind's files do not match its db rows", async () => {
+  const dirty = report({ runs: [{ ...RUN, kinds: { notes: { ...KIND_OK, files: 1 } } }] });
+  assert.equal(await browserReportVerified(await sinkWith(JSON.stringify(dirty))), false);
+});
+
+test("browserReportVerified: false when a kind lists conflicts", async () => {
+  const dirty = report({ runs: [{ ...RUN, kinds: { notes: { ...KIND_OK, conflicts: ["n1"] } } }] });
+  assert.equal(await browserReportVerified(await sinkWith(JSON.stringify(dirty))), false);
+});
+
+test("browserReportVerified: false when the blobs verified count is short of the db count", async () => {
+  const dirty = report({ runs: [{ ...RUN, blobs: { db: 2, verified: 1 } }] });
+  assert.equal(await browserReportVerified(await sinkWith(JSON.stringify(dirty))), false);
+});
+
+test("browserReportVerified: a clean verified report with matching kinds and blobs is true", async () => {
+  const clean = report({ runs: [{ ...RUN, kinds: { notes: KIND_OK }, blobs: { db: 2, verified: 2 } }] });
+  assert.equal(await browserReportVerified(await sinkWith(JSON.stringify(clean))), true);
+});
+
+const BAD_SHAPE: [string, Partial<RunReport>][] = [
+  ["a kind has no files count", { kinds: { notes: { db: 1 } as never } }],
+  ["a kind's conflicts is not an array", { kinds: { notes: { ...KIND_OK, conflicts: "x" as never } } }],
+  ["blobs has a string count", { blobs: { db: "2" as never, verified: 2 } }],
+];
+
+for (const [label, over] of BAD_SHAPE) {
+  test(`readMigrationReport: a report whose ${label} is not a report (null)`, async () => {
+    const sink = await sinkWith(JSON.stringify(report({ runs: [{ ...RUN, ...over }] })));
+    assert.equal(await readMigrationReport(sink), null);
+  });
+
+  test(`browserReportVerified: a report whose ${label} is false`, async () => {
+    const sink = await sinkWith(JSON.stringify(report({ runs: [{ ...RUN, ...over }] })));
+    assert.equal(await browserReportVerified(sink), false);
+  });
+}
