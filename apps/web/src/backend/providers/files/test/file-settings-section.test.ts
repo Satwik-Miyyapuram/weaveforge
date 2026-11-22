@@ -16,6 +16,18 @@ class FailingPartFs extends MemoryWorkspaceFs {
   }
 }
 
+/** Fails only the first write to the `.part` file, so an earlier queued set fails and a later one lands. */
+class FailFirstPartFs extends MemoryWorkspaceFs {
+  failures = 1;
+  override async writeFile(path: string, data: Uint8Array | string): Promise<void> {
+    if (path === PART && this.failures > 0) {
+      this.failures -= 1;
+      throw new Error("disk full");
+    }
+    return super.writeFile(path, data);
+  }
+}
+
 describe("file settings section: crash recovery of settings.json.part", () => {
   it("drops a half-written .part and keeps the last good settings.json", async () => {
     const fs = new MemoryWorkspaceFs();
@@ -169,6 +181,17 @@ describe("file settings section: P2/P3 write ordering, cross-writer, rollback", 
     fs.failPart = true;
     await assert.rejects(s.set(["theme"], "new"));
     assert.equal(s.get(["theme"]), "old");
+  });
+
+  it("set v1, set v2, v1 fails: get() stays v2 and v2 reaches disk", async () => {
+    const fs = new FailFirstPartFs();
+    const s = await openFileSettingsSection(fs, ROOT);
+    const v1 = s.set(["theme"], "v1");
+    const v2 = s.set(["theme"], "v2");
+    await assert.rejects(v1);
+    await v2;
+    assert.equal(s.get(["theme"]), "v2");
+    assert.equal(JSON.parse(await fs.readText(PATH)).theme, "v2");
   });
 
   it("an unreadable settings.json written by someone else is moved aside, and the in-session value is kept", async () => {

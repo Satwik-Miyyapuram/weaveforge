@@ -145,6 +145,11 @@ export async function openFileSettingsSection(fs: IWorkspaceFs, root: string): P
     return next;
   };
 
+  /** The last value of each key (by its joined path) known to be on disk, and the latest set number per key. */
+  const committed = new Map<string, unknown>();
+  const latestSet = new Map<string, number>();
+  let setCount = 0;
+
   return {
     get(key) {
       let node: unknown = data;
@@ -156,13 +161,22 @@ export async function openFileSettingsSection(fs: IWorkspaceFs, root: string): P
     },
     set(key, value) {
       assertNoSecret(key, value);
-      const previous = readAt(data, key);
+      const id = key.join("\u0000");
+      if (!committed.has(id)) committed.set(id, readAt(data, key));
+      const mine = ++setCount;
+      latestSet.set(id, mine);
       setAt(data, key, structuredClone(value));
-      return persist(key, (doc) => setAt(doc, key, structuredClone(value))).catch((error: unknown) => {
-        // The write did not reach disk: the in-memory value goes back to what was committed.
-        setAt(data, key, previous);
-        throw error;
-      });
+      return persist(key, (doc) => setAt(doc, key, structuredClone(value))).then(
+        () => {
+          committed.set(id, structuredClone(value));
+        },
+        (error: unknown) => {
+          // The write did not reach disk. Roll back only when no later set on this key is queued:
+          // a later set's value is already in memory and will be written on its own.
+          if (latestSet.get(id) === mine) setAt(data, key, committed.get(id));
+          throw error;
+        },
+      );
     },
     flush() {
       return persist([], () => undefined);
