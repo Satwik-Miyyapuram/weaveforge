@@ -117,7 +117,7 @@ test("secrets: a provider with a secret does not block the export; it is named f
   assert.deepEqual(JSON.parse(await sink.readText(await onlyReportPath(sink))).reconnectProviders, ["zotero", "overleaf"]);
 });
 
-test("secrets: a provider with a secret and a mover runs the mover once after verify, reconnecting nothing", async () => {
+test("secrets: a web run with a mover runs it once after verify and still names the provider with a secret", async () => {
   const marks: string[] = [];
   let moved = 0;
   const result = await runWebExport({
@@ -134,7 +134,7 @@ test("secrets: a provider with a secret and a mover runs the mover once after ve
   });
   assert.equal(result.state, "verified");
   assert.equal(moved, 1);
-  assert.deepEqual(result.reconnectProviders, []);
+  assert.deepEqual(result.reconnectProviders, ["zotero"]);
 });
 
 test("secrets: PostgrestSource names each provider whose table has a secret row", async () => {
