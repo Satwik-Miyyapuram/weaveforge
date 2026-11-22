@@ -183,6 +183,29 @@ test("blob: size matches and the local sha256 verifies, sidecar written", async 
   assert.equal(await sink.readText("assets/notes-assets/fig/a.png.sha256"), sha(bytes));
 });
 
+test("blob: an unsafe path (.. or a sidecar name) is listed missing as unsafe path, never fetched or written", async () => {
+  const bytes = new TextEncoder().encode("x");
+  const escape: BlobRef = { bucket: "notes-assets", path: "../escape.png", sizeBytes: bytes.length };
+  const sidecar: BlobRef = { bucket: "notes-assets", path: "fig/a.png.sha256", sizeBytes: bytes.length };
+  const { source, calls } = fakeServer({
+    rows: {},
+    blobs: [
+      { ref: escape, bytes },
+      { ref: sidecar, bytes },
+    ],
+  });
+  const sink = new MemorySink();
+  const result = await runWebExport({ kinds: [], codec: fakeCodec([]), source, sink, now: NOW });
+
+  assert.equal(result.state, "incomplete");
+  assert.deepEqual(result.run.missing.filter((m) => m.kind === "blobs"), [
+    { kind: "blobs", id: "../escape.png", reason: "unsafe path" },
+    { kind: "blobs", id: "fig/a.png.sha256", reason: "unsafe path" },
+  ]);
+  assert.equal(calls.some((c) => c.startsWith("blob:")), false);
+  assert.equal((await sink.list()).some((p) => p.startsWith("assets/")), false);
+});
+
 test("blob size mismatch goes to missing, nothing is written, no marker", async () => {
   const bytes = new TextEncoder().encode("8 bytes!");
   const ref: BlobRef = { bucket: "notes-assets", path: "fig/a.png", sizeBytes: 99 };

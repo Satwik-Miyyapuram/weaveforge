@@ -10,6 +10,7 @@ import {
 import type { FileCodec, FileSink, Row, ServerSource } from "../domain/ports";
 import type { KindWriter } from "../domain/kind-writer";
 import { sha256Hex } from "../domain/hash";
+import { isUnsafeAssetPath } from "../domain/asset-path";
 import { sameRows, verifyExport, type Verdict } from "./verify-export";
 
 export type ExportProgress = { kind: string; done: number; total: number };
@@ -260,6 +261,10 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
     current = "blobs";
     const blobWriter = writerFor("blobs");
     for (const ref of await source.listBlobs()) {
+      if (isUnsafeAssetPath(ref.bucket, ref.path)) {
+        missing.push({ kind: "blobs", id: ref.path, reason: "unsafe path" });
+        continue;
+      }
       try {
         const bytes = await source.fetchBlob(ref);
         if (bytes.length !== ref.sizeBytes) {
