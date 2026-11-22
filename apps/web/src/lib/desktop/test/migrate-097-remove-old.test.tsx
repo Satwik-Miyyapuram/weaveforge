@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -204,4 +205,11 @@ test("the settings section stays hidden when verify or move is not injected (fai
     renderToStaticMarkup(<RemoveOldDataSection deps={{ verify: okDeps.verify, moveSecrets: null }} />),
     "",
   );
+});
+
+test("the settings section reloads the container after a remove, not just clears the view", () => {
+  const source = readFileSync(new URL("../migrate-097-remove-old-button.tsx", import.meta.url), "utf8");
+  const section = source.slice(source.indexOf("export function RemoveOldDataSection"));
+  assert.equal(section.includes("onRemoved={() => window.location.reload()}"), true, "onRemoved must reload the container");
+  assert.equal(section.includes("onRemoved={() => setView(null)}"), false, "clearing the view alone leaves stale UI");
 });

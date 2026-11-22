@@ -143,7 +143,7 @@ export function RemoveOldDataSection({ deps = null }: { deps?: RemoveOldDeps | n
       exportedHere={view.exportedHere}
       backupPath={view.backupPath}
       deps={deps}
-      onRemoved={() => setView(null)}
+      onRemoved={() => window.location.reload()}
     />
   );
 }
