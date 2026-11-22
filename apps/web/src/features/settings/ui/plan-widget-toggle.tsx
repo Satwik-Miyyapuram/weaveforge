@@ -9,8 +9,9 @@ import { formatError } from "@/lib/format-error";
  * Settings → Calendar, desktop app on Windows only: the deadlines widget that
  * sits on the wallpaper, under every window.
  *
- * It reads the plan the desktop shell keeps on this computer in files mode, so
- * the toggle is always available when the bridge supports the widget.
+ * It reads the plan from the workspace folder on this computer. Signed-in desktop
+ * is files mode only with a folder, so the toggle is always available when the
+ * bridge supports the widget, and the line below says what it shows without one.
  */
 export function PlanWidgetToggle() {
   const bridge = desktop();
@@ -64,6 +65,9 @@ export function PlanWidgetToggle() {
         />
         Show deadlines on the desktop
       </label>
+      <p className="muted api-token-intro">
+        Deadlines come from the workspace folder on this computer. Without a folder open, the card stays empty.
+      </p>
     </section>
   );
 }
