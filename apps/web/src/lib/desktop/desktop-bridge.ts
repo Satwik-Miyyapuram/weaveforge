@@ -211,11 +211,18 @@ export interface DesktopBridge {
   missingVaultRoot?(): Promise<string | null>;
 
   /**
-   * 0.9.7 export, desktop only: writes pre-migration.dump in `folder` before
-   * any export read or write. Rejects when the dump cannot be written, and the
-   * export then does not run. Answers with this install's id for report.json.
+   * 0.9.7 export, desktop only: dumps the old local database before any export
+   * read, and never overwrites an existing dump. Rejects when the dump cannot be
+   * written, and the export then does not run. Answers with this install's id
+   * and the dump path (the shell's `migrate_097_backup`).
    */
-  migrate097Backup?(folder: string): Promise<{ deviceId: string; dump: string }>;
+  migrate097Backup?(): Promise<{ deviceId: string; dumpPath: string }>;
+  /**
+   * 0.9.7 export, desktop only: one read-only page of an exporter kind from the
+   * old local database. `after` is the last row's key values (null for the first
+   * page). The shell refuses unknown kinds and `ink`, and caps `limit` at 1000.
+   */
+  migrate097Read?(kind: string, after: readonly unknown[] | null, limit: number): Promise<Record<string, unknown>[]>;
   /** 0.9.7 export, desktop only: records a verified export. Never called otherwise. */
   migrate097MarkExported?(folder: string): Promise<void>;
   /** Try the remembered folder again; rejects with why it still cannot be used. */
