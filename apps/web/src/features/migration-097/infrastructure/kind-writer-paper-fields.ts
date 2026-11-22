@@ -1,3 +1,4 @@
+import { NotFoundError } from "@weaveforge/core";
 import { FilePaperFieldRepository } from "@/backend/providers/files/file-paper-field-repo";
 import { FilePaperRepository } from "@/features/papers/infrastructure/file-paper-repository";
 import type { KindWriter } from "../domain/kind-writer";
@@ -15,6 +16,20 @@ import { sinkAsWorkspaceFs } from "./sink-workspace-fs";
  * writer never holds a stale copy of its own writes. Other writers that cache settings.json (the tags
  * writer) can still overwrite these defs if they write after this one; the run's readBack catches that.
  */
+/** An Error with a stable machine code, so the report can name the failure without its text. */
+function coded(message: string, code: string): Error & { code: string } {
+  return Object.assign(new Error(message), { code });
+}
+
+/**
+ * The error a value write reports. Only a NotFoundError keeps its meaning (no paper or definition);
+ * anything else gets a fixed code, never the sink's or the repo's text.
+ */
+export function valueWriteError(err: unknown): Error {
+  if (err instanceof NotFoundError) return new Error("paper field value: no paper or definition for it");
+  return coded("paper field value: write failed", "paper-value-write-failed");
+}
+
 export function createPaperFieldsWriter(sink: FileSink, folders: ReadonlyMap<string, string>): KindWriter {
   const fs = sinkAsWorkspaceFs(sink);
 
@@ -50,16 +65,17 @@ export function createPaperFieldsWriter(sink: FileSink, folders: ReadonlyMap<str
         return;
       }
       if (kind === "paperFieldValues") {
-        const doc = await loadSettingsDoc(sink, "paper fields");
+        const folder = folderOf(row.projectId);
         try {
-          await repoAt(folderOf(row.projectId), doc).setValue({
+          const doc = await loadSettingsDoc(sink, "paper fields");
+          await repoAt(folder, doc).setValue({
             paperId: String(row.paperId),
             fieldId: String(row.fieldId),
             value: row.value as FileFieldValue,
           });
-        } catch {
-          // Fixed code, not the repo's message: the report names no paper or field text.
-          throw new Error("paper field value: no paper or definition for it");
+        } catch (err) {
+          // Fixed codes, never the repo's or the sink's text: the report names no paper or field.
+          throw valueWriteError(err);
         }
         return;
       }
