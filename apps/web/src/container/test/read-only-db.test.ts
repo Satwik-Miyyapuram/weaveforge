@@ -108,9 +108,8 @@ test("crdt_updates delete (deleteUpTo's from().delete()) is refused even for liv
   // Rust planner). Pinned so a future caller in files mode is a deliberate change here.
   const { db, calls } = fakeDb();
   const guarded = readOnlyDb(db);
-  for (const type of ["experiment", "lab_snapshot"]) {
-    assert.throws(() => guarded.from("crdt_updates").delete(), new ReadOnlyError(), type);
-  }
+  // delete() takes no row, so the guard cannot see a resource_type; one refusal covers every type.
+  assert.throws(() => guarded.from("crdt_updates").delete(), new ReadOnlyError());
   assert.deepEqual(calls, [], "no crdt delete reached the database");
 });
 

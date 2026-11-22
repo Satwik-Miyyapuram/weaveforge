@@ -50,11 +50,6 @@ export const commands = {
 	 *  The page asks this when a read of the old rows fails: a missing folder means no old secrets.
 	 */
 	legacyDbPresent: () => __TAURI_INVOKE<boolean>("legacy_db_present"),
-	/**
-	 *  The inverse of `legacy_db_present`: true when the old database folder is missing, so the page's
-	 *  legacy read can report "no old secrets" without an error.
-	 */
-	legacyDirMissing: () => __TAURI_INVOKE<boolean>("legacy_dir_missing"),
 	/**  Forgets a secret the page may write. */
 	secretClear: (name: string) => typedError<null, ShellError_Serialize>(__TAURI_INVOKE("secret_clear", { name })),
 	/**
