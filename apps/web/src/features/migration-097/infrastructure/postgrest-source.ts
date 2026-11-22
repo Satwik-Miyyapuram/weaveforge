@@ -70,6 +70,10 @@ function tableFor(kind: string): string {
   return table;
 }
 
+/**
+ * Reads the server for the 0.9.7 export. The only write this source makes is rpc/mark_exported_097,
+ * the server marker; every other request is a GET or HEAD.
+ */
 export class PostgrestSource implements ServerSource {
   private readonly opts: PostgrestSourceOptions;
 
