@@ -86,3 +86,27 @@ test("track never overwrites a malformed stored entry; it stays in settings and 
   assert.deepEqual(settings.get(["citationAlerts", "p-bad"]), bad);
   assert.deepEqual((await repo.failures()).map((f) => f.paperId), ["p-bad"]);
 });
+
+test("save never overwrites a malformed stored entry either; it throws and leaves the entry", async () => {
+  const { settings, repo } = setup();
+  const bad = { id: "x", trackedAt: "2026-01-01T00:00:00.000Z", seenCitingIds: "c-1" };
+  settings.set(["citationAlerts", "p-bad"], bad);
+  await assert.rejects(
+    repo.save({ id: "x", paperId: "p-bad", trackedAt: "2026-01-01T00:00:00.000Z", seenCitingIds: [] }),
+  );
+  assert.deepEqual(settings.get(["citationAlerts", "p-bad"]), bad);
+  assert.deepEqual((await repo.failures()).map((f) => f.paperId), ["p-bad"]);
+});
+
+test("a lastCheckedAt that is not a string makes the entry malformed", async () => {
+  const { settings, repo } = setup();
+  settings.set(["citationAlerts", "p-bad-check"], {
+    id: "x",
+    trackedAt: "2026-01-01T00:00:00.000Z",
+    lastCheckedAt: 5,
+    seenCitingIds: [],
+  });
+  assert.deepEqual(await repo.listForProject(), []);
+  assert.equal(await repo.getByPaperId("p-bad-check"), null);
+  assert.deepEqual((await repo.failures()).map((f) => f.paperId), ["p-bad-check"]);
+});
