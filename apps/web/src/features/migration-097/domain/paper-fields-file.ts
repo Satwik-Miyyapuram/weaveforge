@@ -15,10 +15,15 @@ export const PAPER_FIELD_KINDS = ["paperFields", "paperFieldValues"] as const;
 
 const DEF_FIELDS = ["id", "projectId", "name", "kind", "options", "sortOrder"] as const;
 
+/** A server project id as the key the File format uses: a null, undefined or empty id is the workspace root (""). */
+export function projectKey(projectId: unknown): string {
+  return projectId === null || projectId === undefined || projectId === "" ? "" : String(projectId);
+}
+
 function groupByProject(rows: Row[]): Map<string, Row[]> {
   const out = new Map<string, Row[]>();
   for (const r of rows) {
-    const projectId = String(r.projectId);
+    const projectId = projectKey(r.projectId);
     out.set(projectId, [...(out.get(projectId) ?? []), r]);
   }
   return out;
@@ -26,7 +31,10 @@ function groupByProject(rows: Row[]): Map<string, Row[]> {
 
 /** Stable text of one project's defs, over the fields the File format keeps. */
 function defsKey(rows: Row[]): string {
-  const picked = rows.map((r) => Object.fromEntries(DEF_FIELDS.map((k) => [k, r[k]])));
+  const picked: Record<string, unknown>[] = rows.map((r) => ({
+    ...Object.fromEntries(DEF_FIELDS.map((k) => [k, r[k]])),
+    projectId: projectKey(r.projectId),
+  }));
   picked.sort((a, b) => (String(a.id) < String(b.id) ? -1 : String(a.id) > String(b.id) ? 1 : 0));
   return JSON.stringify(picked);
 }
@@ -53,6 +61,15 @@ export function projectDefsMismatches(want: Row[], got: Row[]): MissingRow[] {
 export type FileFieldDef = { projectId: string; name: string; kind: string; options: string[]; sortOrder: number };
 export type FileFieldValue = string | number | string[];
 
+/**
+ * Whether two field values hold the same data as the file and the DB see them. Relations and multi-selects are
+ * sets, so their order does not count; scalars must match exactly. A value is never an object (FileFieldValue).
+ */
+export function sameFieldValue(a: unknown, b: unknown): boolean {
+  const norm = (v: unknown): unknown => (Array.isArray(v) ? v.map(String).sort() : v);
+  return JSON.stringify(norm(a)) === JSON.stringify(norm(b));
+}
+
 function asOption(o: unknown): string {
   if (typeof o !== "string") throw new Error("paper field option is not text");
   return o;
@@ -72,8 +89,8 @@ function asFieldValue(v: unknown): FileFieldValue {
 export function defsToSettings(rows: Row[], folders: ReadonlyMap<string, string>): Record<string, FileFieldDef> {
   const out: Record<string, FileFieldDef> = {};
   for (const r of rows) {
-    const projectId = String(r.projectId);
-    const folder = folders.get(projectId);
+    const projectId = projectKey(r.projectId);
+    const folder = projectId === "" ? "" : folders.get(projectId);
     if (folder === undefined) throw new Error(`paper field ${String(r.id)}: project ${projectId} has no folder`);
     const options = Array.isArray(r.options) ? r.options.map(asOption) : [];
     out[String(r.id)] = { projectId: folder, name: String(r.name), kind: String(r.kind), options, sortOrder: Number(r.sortOrder) };

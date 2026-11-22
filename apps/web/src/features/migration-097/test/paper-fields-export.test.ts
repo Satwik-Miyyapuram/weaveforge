@@ -2,13 +2,15 @@ import assert from "node:assert/strict";
 import { before, test } from "node:test";
 import { loadTestCore } from "@/lib/test/load-test-core";
 import { typedCore } from "@/lib/rust-core";
+import { ConflictError } from "@weaveforge/core";
 import { FilePaperFieldRepository } from "@/backend/providers/files/file-paper-field-repo";
 import type { SettingsSection } from "@/backend/providers/files/file-tag-repo";
 import type { KindWriter } from "../domain/kind-writer";
 import { defsToSettings, projectDefsMismatches, type FileFieldValue } from "../domain/paper-fields-file";
-import type { FileCodec, Row, ServerSource } from "../domain/ports";
+import type { FileCodec, FileSink, Row, ServerSource } from "../domain/ports";
 import { runWebExport } from "../application/run-web-export";
-import { createPaperFieldsWriter } from "../infrastructure/kind-writer-paper-fields";
+import { createPaperFieldsWriter, valueWriteError } from "../infrastructure/kind-writer-paper-fields";
+import { createTagsWriter } from "../infrastructure/kind-writer-tags";
 import { MemorySink } from "../infrastructure/memory-sink";
 import { sinkAsWorkspaceFs } from "../infrastructure/sink-workspace-fs";
 
@@ -47,6 +49,7 @@ function fakeSource(rows: Record<string, Row[]>): ServerSource {
   return {
     listRows: async (kind: string) => rows[kind] ?? [],
     listTrashed: async () => [],
+    secretProviders: async () => [],
     countRows: async (kind: string) => (rows[kind] ?? []).length,
     pendingOutbox: async () => 0,
     undecryptable: async () => 0,
@@ -94,11 +97,11 @@ const TERMS = { kinds: ["paperFields"], codec: NO_CODEC, now: NOW };
 
 test("paper fields: defs for two projects land in settings.json per project folder and verify end to end", async () => {
   const sink = new MemorySink();
-  const result = await runWebExport({
+  const result = await runWebExport({ runDeviceId: "dev-test",
     ...TERMS,
     source: fakeSource({ paperFields: DEFS }),
     sink,
-    writers: [createPaperFieldsWriter(sink, FOLDERS)],
+    writers: () => [createPaperFieldsWriter(sink, FOLDERS)],
   });
   assert.deepEqual(result.run.missing, []);
   assert.equal(result.state, "verified");
@@ -117,7 +120,7 @@ test("paper fields: a project whose defs read back changed is listed missing by 
     readBack: async (kind) =>
       (await base.readBack(kind)).map((r) => (r.projectId === "proj-b" ? { ...r, name: "Other" } : r)),
   };
-  const result = await runWebExport({ ...TERMS, source: fakeSource({ paperFields: DEFS }), sink, writers: [renamed] });
+  const result = await runWebExport({ runDeviceId: "dev-test", ...TERMS, source: fakeSource({ paperFields: DEFS }), sink, writers: () => [renamed] });
   assert.equal(result.state, "incomplete");
   assert.deepEqual(
     result.run.missing.filter((m) => m.kind === "paperFields"),
@@ -133,7 +136,7 @@ test("paper fields: a project whose defs are absent on readBack is listed missin
     write: base.write,
     readBack: async (kind) => (await base.readBack(kind)).filter((r) => r.projectId !== "proj-b"),
   };
-  const result = await runWebExport({ ...TERMS, source: fakeSource({ paperFields: DEFS }), sink, writers: [dropB] });
+  const result = await runWebExport({ runDeviceId: "dev-test", ...TERMS, source: fakeSource({ paperFields: DEFS }), sink, writers: () => [dropB] });
   assert.equal(result.state, "incomplete");
   assert.deepEqual(
     result.run.missing.filter((m) => m.kind === "paperFields"),
@@ -142,7 +145,7 @@ test("paper fields: a project whose defs are absent on readBack is listed missin
 });
 
 test("paper fields: with no writer wired, the paper fields are listed missing without the wf-wasm codec reason", async () => {
-  const result = await runWebExport({
+  const result = await runWebExport({ runDeviceId: "dev-test",
     ...TERMS,
     source: fakeSource({ paperFields: DEFS }),
     sink: new MemorySink(),
@@ -150,6 +153,27 @@ test("paper fields: with no writer wired, the paper fields are listed missing wi
   assert.equal(result.state, "incomplete");
   assert.ok(!result.run.missing.some((m) => m.reason.includes("wf-wasm")));
   assert.ok(result.run.missing.some((m) => m.kind === "paperFields"));
+});
+
+test("paper fields: a null projectId def and its values land at the root and verify, with no project mapped to root", async () => {
+  // No project maps to the root here, so the root's defs and values are read back only if readBack includes it.
+  const core = typedCore();
+  const sink = new MemorySink();
+  await sink.write("papers/b.paper.md", core.writePaperRow(null, { id: "p2", title: "B" }) + "Body.\n");
+  const rootDef: Row = { id: "fr", projectId: null, name: "Root", kind: "text", options: [], sortOrder: 0 };
+  const rootValue: Row = { id: "p2:fr", projectId: null, paperId: "p2", fieldId: "fr", value: "x" };
+  const result = await runWebExport({ runDeviceId: "dev-test",
+    kinds: ["paperFields", "paperFieldValues"],
+    codec: NO_CODEC,
+    now: NOW,
+    source: fakeSource({ paperFields: [rootDef], paperFieldValues: [rootValue] }),
+    sink,
+    writers: () => [createPaperFieldsWriter(sink, new Map([["proj-a", "Thesis"]]))],
+  });
+  assert.deepEqual(result.run.missing, []);
+  assert.equal(result.state, "verified");
+  const defs = (await readSettings(sink)).paperFields as Record<string, { projectId: string }>;
+  assert.equal(defs.fr?.projectId, "");
 });
 
 test("projectDefsMismatches: an extra project in readBack is listed as differing", () => {
@@ -163,13 +187,13 @@ test("paper field values: written into each paper's frontmatter through FilePape
   const sink = new MemorySink();
   await sink.write("Thesis/papers/a.paper.md", core.writePaperRow(null, { id: "p1", title: "A" }) + "Body.\n");
   await sink.write("papers/b.paper.md", core.writePaperRow(null, { id: "p2", title: "B" }) + "Body.\n");
-  const result = await runWebExport({
+  const result = await runWebExport({ runDeviceId: "dev-test",
     kinds: ["paperFields", "paperFieldValues"],
     codec: NO_CODEC,
     now: NOW,
     source: fakeSource({ paperFields: DEFS, paperFieldValues: VALUES }),
     sink,
-    writers: [createPaperFieldsWriter(sink, FOLDERS)],
+    writers: () => [createPaperFieldsWriter(sink, FOLDERS)],
   });
   assert.deepEqual(result.run.missing, []);
   assert.equal(result.state, "verified");
@@ -191,14 +215,177 @@ test("paper field values: written into each paper's frontmatter through FilePape
 test("paper field values: a value whose paper has no file is listed missing", async () => {
   const sink = new MemorySink();
   const ghost = [...VALUES, { id: "v9", projectId: "proj-a", paperId: "p-ghost", fieldId: "fa", value: "x" }];
-  const result = await runWebExport({
+  const result = await runWebExport({ runDeviceId: "dev-test",
     kinds: ["paperFields", "paperFieldValues"],
     codec: NO_CODEC,
     now: NOW,
     source: fakeSource({ paperFields: DEFS, paperFieldValues: ghost }),
     sink,
-    writers: [createPaperFieldsWriter(sink, FOLDERS)],
+    writers: () => [createPaperFieldsWriter(sink, FOLDERS)],
   });
   assert.equal(result.state, "incomplete");
   assert.ok(result.run.missing.some((m) => m.kind === "paperFieldValues" && m.id === "v9"));
+});
+
+test("settings writers: paper fields and tags keep each other's keys in either write order", async () => {
+  for (const order of ["fields-first", "tags-first"] as const) {
+    const sink = new MemorySink();
+    const fields = createPaperFieldsWriter(sink, FOLDERS);
+    const tags = createTagsWriter(sink);
+    const writeFields = async () => {
+      for (const def of DEFS) await fields.write("paperFields", def);
+    };
+    const writeTag = () => tags.write("tags", { id: "Urgent", name: "Urgent", color: "#f00" });
+    if (order === "fields-first") {
+      await writeFields();
+      await writeTag();
+    } else {
+      await writeTag();
+      await writeFields();
+    }
+    const doc = await readSettings(sink);
+    assert.deepEqual(doc.paperFields, defsToSettings(DEFS, FOLDERS), order);
+    // The tag's settings key is the slugged name.
+    assert.deepEqual(doc.tags, { urgent: { color: "#f00" } }, order);
+  }
+});
+
+test("paper fields: runWebExport wires the paper-fields writer itself from projectFolders, with no writers passed", async () => {
+  const core = typedCore();
+  const sink = new MemorySink();
+  await sink.write("Thesis/papers/a.paper.md", core.writePaperRow(null, { id: "p1", title: "A" }) + "Body.\n");
+  await sink.write("papers/b.paper.md", core.writePaperRow(null, { id: "p2", title: "B" }) + "Body.\n");
+  const result = await runWebExport({ runDeviceId: "dev-test",
+    kinds: ["paperFields", "paperFieldValues"],
+    codec: NO_CODEC,
+    now: NOW,
+    source: fakeSource({ paperFields: DEFS, paperFieldValues: VALUES }),
+    sink,
+    projectFolders: FOLDERS,
+  });
+  assert.deepEqual(result.run.missing, []);
+  assert.equal(result.state, "verified");
+  const doc = await readSettings(sink);
+  const fs = sinkAsWorkspaceFs(sink);
+  const { FilePaperRepository } = await import("@/features/papers/infrastructure/file-paper-repository");
+  const thesis = new FilePaperFieldRepository(new FilePaperRepository(fs, "Thesis"), settingsOver(doc), fs, () => "Thesis");
+  assert.deepEqual(
+    (await thesis.listValuesForProject()).map((v) => [v.id, v.value]),
+    [
+      ["p1:fa", "NeurIPS"],
+      ["p1:fa2", 4.5],
+    ],
+  );
+});
+
+test("paper field values: a null or empty projectId maps to the workspace root", async () => {
+  const core = typedCore();
+  const sink = new MemorySink();
+  await sink.write("papers/b.paper.md", core.writePaperRow(null, { id: "p2", title: "B" }) + "Body.\n");
+  const writer = createPaperFieldsWriter(sink, FOLDERS);
+  await writer.write("paperFields", DEFS[2] as Row);
+  await writer.write("paperFieldValues", { id: "v5", projectId: null, paperId: "p2", fieldId: "fb", value: "ICML" });
+  await writer.write("paperFieldValues", { id: "v6", projectId: "", paperId: "p2", fieldId: "fb", value: "ICML" });
+  const fs = sinkAsWorkspaceFs(sink);
+  const { FilePaperRepository } = await import("@/features/papers/infrastructure/file-paper-repository");
+  const root = new FilePaperFieldRepository(new FilePaperRepository(fs, ""), settingsOver(await readSettings(sink)), fs, () => "");
+  assert.deepEqual((await root.listValuesForProject()).map((v) => [v.id, v.value as FileFieldValue]), [["p2:fb", "ICML"]]);
+});
+
+test("paper field values: an unmapped project is a per-row missing entry and the other rows still export", async () => {
+  const core = typedCore();
+  const sink = new MemorySink();
+  await sink.write("Thesis/papers/a.paper.md", core.writePaperRow(null, { id: "p1", title: "A" }) + "Body.\n");
+  const values = [...VALUES.slice(0, 2), { id: "v8", projectId: "proj-unknown", paperId: "p1", fieldId: "fa", value: "x" }];
+  const result = await runWebExport({ runDeviceId: "dev-test",
+    kinds: ["paperFields", "paperFieldValues"],
+    codec: NO_CODEC,
+    now: NOW,
+    source: fakeSource({ paperFields: DEFS, paperFieldValues: values }),
+    sink,
+    writers: () => [createPaperFieldsWriter(sink, FOLDERS)],
+  });
+  assert.equal(result.state, "incomplete");
+  const missing = result.run.missing.filter((m) => m.kind === "paperFieldValues" && m.id === "v8");
+  assert.equal(missing.length, 1);
+  assert.ok(!missing[0]?.reason.includes("proj-unknown"));
+  const doc = await readSettings(sink);
+  const { FilePaperRepository } = await import("@/features/papers/infrastructure/file-paper-repository");
+  const fs = sinkAsWorkspaceFs(sink);
+  const thesis = new FilePaperFieldRepository(new FilePaperRepository(fs, "Thesis"), settingsOver(doc), fs, () => "Thesis");
+  assert.deepEqual((await thesis.listValuesForProject()).map((v) => v.id), ["p1:fa", "p1:fa2"]);
+});
+
+test("paper fields: a value the file already holds is reported as a conflict that carries the DB value", async () => {
+  const sink = new MemorySink();
+  await sink.write("Thesis/papers/a.paper.md", typedCore().writePaperRow(null, { id: "p1", title: "A" }) + "Body.\n");
+  const seed = createPaperFieldsWriter(sink, FOLDERS);
+  await seed.write("paperFields", DEFS[0]!);
+  await seed.write("paperFieldValues", { id: "x", projectId: "proj-a", paperId: "p1", fieldId: "fa", value: "user" });
+  const result = await runWebExport({ runDeviceId: "dev-test", kinds: ["paperFields", "paperFieldValues"], codec: NO_CODEC, now: NOW,
+    source: fakeSource({ paperFields: [DEFS[0]!], paperFieldValues: [VALUES[0]!] }), sink, writers: () => [createPaperFieldsWriter(sink, FOLDERS)] });
+  const row = result.run.missing.find((m) => m.kind === "paperFieldValues" && m.id === "v1") as { reason: string; value?: unknown } | undefined;
+  assert.equal(row?.reason, "conflict:paperFieldValues");
+  assert.equal(row?.value, "NeurIPS", "the report keeps the DB value so nothing is lost");
+  assert.ok((await sink.readText("Thesis/papers/a.paper.md")).includes("user"), "the file's value is kept");
+});
+
+test("secret kinds: a conflict in a secret kind never puts its value in the report", async () => {
+  const sink = new MemorySink();
+  const secretWriter = {
+    kinds: ["secrets"],
+    write: async () => {
+      throw Object.assign(new ConflictError("conflict: secret differs"), { conflictValue: "tok-secret-123" });
+    },
+    readBack: async () => [],
+  } as unknown as KindWriter;
+  const result = await runWebExport({ runDeviceId: "dev-test", kinds: ["secrets"], codec: NO_CODEC, now: NOW,
+    source: fakeSource({ secrets: [{ id: "i1", projectId: "proj-a" }] }), sink, writers: () => [secretWriter] });
+  const row = result.run.missing.find((m) => m.kind === "secrets" && m.id === "i1") as { value?: unknown } | undefined;
+  assert.ok(row, "the conflict is still listed");
+  assert.equal("value" in (row ?? {}), false, "no value for a secret kind");
+  assert.ok(!JSON.stringify(result.run).includes("tok-secret-123"), "the secret never reaches the run report");
+});
+
+test("allowlist: a conflict in a kind that is not a paper field carries no value", async () => {
+  const sink = new MemorySink();
+  const widgetWriter = {
+    kinds: ["widgets"],
+    write: async () => {
+      throw Object.assign(new ConflictError("conflict: widget differs"), { conflictValue: "widget-value-xyz" });
+    },
+    readBack: async () => [],
+  } as unknown as KindWriter;
+  const result = await runWebExport({ runDeviceId: "dev-test", kinds: ["widgets"], codec: NO_CODEC, now: NOW,
+    source: fakeSource({ widgets: [{ id: "w1", projectId: "proj-a" }] }), sink, writers: () => [widgetWriter] });
+  const row = result.run.missing.find((m) => m.kind === "widgets" && m.id === "w1") as { value?: unknown } | undefined;
+  assert.ok(row, "the conflict is still listed");
+  assert.equal("value" in (row ?? {}), false, "only paper field kinds carry their DB value");
+});
+
+test("paper field value: a plain Error that only starts conflict: is a write failure, not a kept-value conflict", () => {
+  const err = valueWriteError(new Error("conflict: paper field value differs"), "NeurIPS");
+  assert.ok(!(err instanceof ConflictError), "a message prefix alone does not make a conflict");
+  assert.equal((err as Error & { code?: string }).code, "paper-value-write-failed");
+});
+
+test("e2e: a user's paper file survives two exports, body and keys unchanged", async () => {
+  const core = typedCore();
+  const userText = core.writePaperRow(null, { id: "p1", title: "A" }) + "My own notes.\n";
+  const sink = new MemorySink();
+  await sink.write("Thesis/papers/a.paper.md", userText);
+  const opts = {
+    runDeviceId: "dev-test",
+    kinds: ["paperFields", "paperFieldValues"],
+    codec: NO_CODEC,
+    now: NOW,
+    source: fakeSource({ paperFields: DEFS, paperFieldValues: VALUES }),
+    sink,
+    writers: (s: FileSink) => [createPaperFieldsWriter(s, FOLDERS)],
+  };
+  await runWebExport(opts);
+  await runWebExport(opts);
+  const text = await sink.readText("Thesis/papers/a.paper.md");
+  assert.ok(text.endsWith("My own notes.\n"), "the user's body survives both exports");
+  assert.ok(text.includes('weaveforge-id: "p1"') && text.includes('title: "A"'), "the user's keys survive both exports");
 });

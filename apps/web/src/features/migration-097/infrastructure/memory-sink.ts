@@ -16,6 +16,10 @@ export class MemorySink implements FileSink {
     return new TextDecoder().decode(await this.readBytes(path));
   }
 
+  async exists(path: string): Promise<boolean> {
+    return this.files.has(path);
+  }
+
   async readBytes(path: string): Promise<Uint8Array> {
     const bytes = this.files.get(path);
     if (!bytes) throw new Error(`missing file: ${path}`);
@@ -30,6 +34,13 @@ export class MemorySink implements FileSink {
 
   async remove(path: string): Promise<void> {
     if (!this.files.delete(path)) throw new Error(`missing file: ${path}`);
+  }
+
+  async writeIf(path: string, text: string, expected: string): Promise<boolean> {
+    const current = this.files.get(path);
+    if (!current || new TextDecoder().decode(current) !== expected) return false;
+    await this.write(path, text);
+    return true;
   }
 
   /** Every stored path, for the workspace bridge. */

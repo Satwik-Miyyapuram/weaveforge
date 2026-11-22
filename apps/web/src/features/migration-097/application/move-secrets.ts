@@ -1,3 +1,11 @@
+import { SECRET_TABLES } from "../domain/secret-tables";
+
+/**
+ * The tables whose secrets the port covers. An adapter for SecretsPort must cover exactly these,
+ * the same rows that the web count reads (domain/secret-tables.ts).
+ */
+export const SECRET_SCOPE: readonly string[] = SECRET_TABLES.map((t) => t.table);
+
 /**
  * Port for the KEYS move. 0.9.7 is copy-only: the port has no delete, so a
  * secret is never removed from its source.

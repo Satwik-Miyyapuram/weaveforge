@@ -33,7 +33,45 @@ function withoutServerOnly(kind: string, row: Row): Row {
   return Object.fromEntries(Object.entries(row).filter(([key]) => !skip.has(key)));
 }
 
+/**
+ * A stable text form of a value: object keys sorted at every depth, and null or absent object keys dropped,
+ * so two values with the same content give the same text whatever their key order. A non-plain object (a
+ * Date, say) is serialised with JSON.stringify, so a Date gives its ISO string and two Dates differ.
+ */
+function canonical(value: unknown): string {
+  if (value === undefined || value === null) return "null";
+  if (Array.isArray(value)) return `[${value.map(canonical).join(",")}]`;
+  // A Map or Set has no own keys, so JSON.stringify would give "{}" for every one. Entries and members are sorted.
+  if (value instanceof Map) return `Map{${[...value].map(([k, v]) => `${canonical(k)}:${canonical(v)}`).sort().join(",")}}`;
+  if (value instanceof Set) return `Set{${[...value].map(canonical).sort().join(",")}}`;
+  if (typeof value === "object") {
+    const proto = Object.getPrototypeOf(value);
+    if (proto !== Object.prototype && proto !== null) return JSON.stringify(value);
+    const obj = value as Row;
+    const keys = Object.keys(obj)
+      .filter((k) => obj[k] !== undefined && obj[k] !== null)
+      .sort();
+    return `{${keys.map((k) => `${JSON.stringify(k)}:${canonical(obj[k])}`).join(",")}}`;
+  }
+  return JSON.stringify(value);
+}
+
+/**
+ * True when the stored section already holds the DB row's content. Walks the union of the row's and the
+ * stored section's keys, so a key only in the file with a non-null value is a difference. A null field and
+ * an absent one read alike, because the file stores a null field as absent. The repo's updatedAt stamp is ignored.
+ */
+export function sameExceptStamp(stored: ReportSection, row: ReportSection): boolean {
+  const field = (s: ReportSection, k: string): string => canonical((s as unknown as Row)[k]);
+  const keys = new Set([...Object.keys(row), ...Object.keys(stored)]);
+  keys.delete("updatedAt");
+  return [...keys].every((k) => field(stored, k) === field(row, k));
+}
+
 const KIND_NAMES = ["logEntries", "milestones", "experiments", "metrics", "reportSections", "aiProposals"] as const;
+
+/** Kinds stored once for the whole workspace, not per project folder. */
+const WORKSPACE_KINDS: ReadonlySet<string> = new Set(["aiProposals"]);
 
 /** The FILES repos of one project folder ("" = workspace root). */
 function buildRepos(fs: ReturnType<typeof sinkAsWorkspaceFs>, projectRoot: string): Record<string, KindRepo> {
@@ -88,7 +126,13 @@ function buildRepos(fs: ReturnType<typeof sinkAsWorkspaceFs>, projectRoot: strin
       },
     },
     reportSections: {
-      write: (row) => sections.save(withoutServerOnly("reportSections", row) as unknown as ReportSection),
+      write: async (row) => {
+        const want = withoutServerOnly("reportSections", row) as unknown as ReportSection;
+        // The repo stamps a new updatedAt on every save, so an unchanged section is not saved again: a re-run keeps its bytes.
+        const have = (await sections.list()).find((s) => s.id === want.id);
+        if (have && sameExceptStamp(have, want)) return;
+        await sections.save(want);
+      },
       readBack: async () =>
         (await sections.list()).map((s) => defined({ ...s })),
     },
@@ -138,7 +182,9 @@ export function createGroupBWriter(sink: FileSink, roots: ReadonlyMap<string, st
     readBack: async (kind) => {
       checkKind(kind);
       const out: Row[] = [];
-      for (const folder of new Set(roots.values())) {
+      // Workspace-wide kinds have one store, not one per folder: read it once, so no row is listed twice.
+      const folders = WORKSPACE_KINDS.has(kind) ? [""] : [...new Set(roots.values())];
+      for (const folder of folders) {
         out.push(...(await reposFor(folder)[kind]!.readBack()));
       }
       return out;

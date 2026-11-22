@@ -26,7 +26,7 @@ function prefixOf(dir: string): string {
  * bytes into the export staging area. The sink is flat: directories exist
  * only as path prefixes, so mkdirp is a no-op.
  */
-export function sinkAsWorkspaceFs(sink: FileSink): IWorkspaceFs {
+export function sinkAsWorkspaceFs(sink: FileSink, options: { compareAndSet?: boolean } = {}): IWorkspaceFs {
   const fileNames = async (): Promise<string[]> => (await sink.list()).map(norm);
 
   async function exists(path: string): Promise<boolean> {
@@ -72,14 +72,20 @@ export function sinkAsWorkspaceFs(sink: FileSink): IWorkspaceFs {
 
     async writeTextIf(path, text, expected) {
       const clean = norm(path);
-      const present = await exists(clean);
       if (expected === null) {
-        if (present) return false;
-      } else {
-        if (!present || (await sink.readText(clean)) !== expected) return false;
+        // Create-only: a file already at the path is never written over. The call reports true only when the text
+        // reads back at this path, so a file that appears mid-call (kept as a conflict copy) reports false.
+        if ((await sink.readText(clean).catch(() => null)) !== null) return false;
+        await sink.write(clean, text);
+        return (await sink.readText(clean).catch(() => null)) === text;
       }
+      if (options.compareAndSet) return sink.writeIf(clean, text, expected);
+      // Entity saves: the file must still read `expected`. The new text then goes through the sink's write, so a
+      // differing user edit is kept and the DB version lands in a conflict copy. Reports true only when the text reads
+      // back at this path, so a save that became a conflict copy reports false.
+      if ((await sink.readText(clean).catch(() => null)) !== expected) return false;
       await sink.write(clean, text);
-      return true;
+      return (await sink.readText(clean).catch(() => null)) === text;
     },
 
     async remove(path, options) {

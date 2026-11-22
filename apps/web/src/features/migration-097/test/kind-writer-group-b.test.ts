@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import { before, test } from "node:test";
 import { loadTestCore } from "@/lib/test/load-test-core";
-import { createGroupBWriter } from "../infrastructure/kind-writer-group-b";
+import { ConflictError, type ReportSection } from "@weaveforge/core";
+import { createGroupBWriter, sameExceptStamp } from "../infrastructure/kind-writer-group-b";
 import { MemorySink } from "../infrastructure/memory-sink";
 
 before(loadTestCore);
@@ -156,6 +157,30 @@ test("reportSections: written row reads back field-equal except updatedAt (stamp
   assert.deepEqual(picked(back!, keys), picked(SECTION_ROW, keys));
 });
 
+test("reportSections: a re-run with the same rows leaves every file byte-unchanged", async () => {
+  const sink = new MemorySink();
+  const writer = createGroupBWriter(sink, ROOTS);
+  await writer.write("reportSections", SECTION_ROW);
+  const before = new Map<string, string>();
+  for (const p of sink.paths()) before.set(p, await sink.readText(p));
+  await new Promise((resolve) => setTimeout(resolve, 5));
+  await writer.write("reportSections", SECTION_ROW);
+  assert.deepEqual(sink.paths(), [...before.keys()]);
+  for (const [p, text] of before) assert.equal(await sink.readText(p), text, p);
+});
+
+test("reportSections: a sparse row (optional fields null) re-runs byte-unchanged", async () => {
+  const sink = new MemorySink();
+  const writer = createGroupBWriter(sink, ROOTS);
+  const sparse = { ...SECTION_ROW, deadline: null, draftUrl: null, notes: null, targetWords: null };
+  await writer.write("reportSections", sparse);
+  const before = new Map<string, string>();
+  for (const p of sink.paths()) before.set(p, await sink.readText(p));
+  await new Promise((resolve) => setTimeout(resolve, 5));
+  await writer.write("reportSections", sparse);
+  for (const [p, text] of before) assert.equal(await sink.readText(p), text, p);
+});
+
 test("aiProposals: pending proposal reads back field-equal", async () => {
   const writer = createGroupBWriter(new MemorySink(), ROOTS);
   await writer.write("aiProposals", PROPOSAL_ROW);
@@ -198,6 +223,15 @@ test("metrics: an orphan point (no experiment row) is rejected and the error nam
   await assert.rejects(() => writer.write("metrics", { ...METRIC_ROW, experimentId: "0123456789abcdff" }), /0123456789abcdff.*val_loss|val_loss.*0123456789abcdff/);
 });
 
+test("metrics: a chunk already on disk with different text is a conflict, not a silent skip", async () => {
+  const sink = new MemorySink();
+  const writer = createGroupBWriter(sink, ROOTS);
+  await writer.write("experiments", EXPERIMENT_ROW);
+  await writer.write("metrics", METRIC_ROW);
+  const chunk = sink.paths().find((p) => p.endsWith(".csv"))!;
+  await sink.write(chunk, "run,step,metric,value\nedited,0,val_loss,9\n");
+  await assert.rejects(() => writer.write("metrics", METRIC_ROW), (err: Error) => err instanceof ConflictError && err.message.startsWith("conflict:") && err.message.includes(chunk));
+});
 const OWNER = { userId: "user-1", projectId: "proj-1" };
 
 test("server-only owner columns never reach a file (guard, green today)", async () => {
@@ -281,4 +315,65 @@ test("syncState is local sync bookkeeping: a row carrying it is written without 
   await writer.write("milestones", { ...MILESTONE_ROW, syncState: "synced" });
   const [back] = await writer.readBack("milestones");
   assert.equal("syncState" in back!, false);
+});
+
+test("aiProposals are workspace-wide: with two project folders, each proposal is read back once", async () => {
+  const writer = createGroupBWriter(new MemorySink(), new Map([["proj-1", ""], ["proj-2", "Other"]]));
+  await writer.write("aiProposals", {
+    projectId: "proj-1",
+    id: "0123456789abcd06",
+    kind: "create_log_entry",
+    resourceId: "0123456789abcd01",
+    content: "Draft log entry",
+    createdAt: "2026-11-05T09:00:00.000Z",
+    status: "pending",
+    sourceLinks: [],
+  });
+  const back = await writer.readBack("aiProposals");
+  assert.deepEqual(back.map((p) => p.id), ["0123456789abcd06"]);
+});
+
+test("sameExceptStamp: nested objects compare by content, key order ignored (R2)", () => {
+  const stored = { id: "s1", meta: { a: 1, b: { x: 1, y: 2 } }, updatedAt: "t1" } as unknown as ReportSection;
+  const sameKeysReordered = { id: "s1", meta: { b: { y: 2, x: 1 }, a: 1 } } as unknown as ReportSection;
+  const differs = { id: "s1", meta: { b: { y: 3, x: 1 }, a: 1 } } as unknown as ReportSection;
+  assert.equal(sameExceptStamp(stored, sameKeysReordered), true);
+  assert.equal(sameExceptStamp(stored, differs), false);
+  const nullKey = { id: "s1", meta: { a: 1, b: null } } as unknown as ReportSection;
+  const noKey = { id: "s1", meta: { a: 1 } } as unknown as ReportSection;
+  assert.equal(sameExceptStamp(nullKey, noKey), true);
+  assert.equal(sameExceptStamp(noKey, nullKey), true);
+  const arr12 = { id: "s1", meta: [1, 2] } as unknown as ReportSection;
+  const arr21 = { id: "s1", meta: [2, 1] } as unknown as ReportSection;
+  assert.equal(sameExceptStamp(arr12, arr21), false);
+});
+
+test("sameExceptStamp: a key only in the file with a non-null value is a difference (R2 P3)", () => {
+  const fileHasExtra = { id: "s1", meta: { a: 1, extra: 5 } } as unknown as ReportSection;
+  const rowOnly = { id: "s1", meta: { a: 1 } } as unknown as ReportSection;
+  assert.equal(sameExceptStamp(fileHasExtra, rowOnly), false);
+});
+
+test("sameExceptStamp: two different Dates differ, equal Dates match (R2 P3)", () => {
+  const stored = { id: "s1", meta: { at: new Date(1000) } } as unknown as ReportSection;
+  const sameDate = { id: "s1", meta: { at: new Date(1000) } } as unknown as ReportSection;
+  const otherDate = { id: "s1", meta: { at: new Date(2000) } } as unknown as ReportSection;
+  assert.equal(sameExceptStamp(stored, sameDate), true);
+  assert.equal(sameExceptStamp(stored, otherDate), false);
+});
+
+test("sameExceptStamp: two different Maps differ, equal Maps match whatever their insertion order", () => {
+  const stored = { id: "s1", meta: new Map([["a", 1], ["b", 2]]) } as unknown as ReportSection;
+  const reordered = { id: "s1", meta: new Map([["b", 2], ["a", 1]]) } as unknown as ReportSection;
+  const differs = { id: "s1", meta: new Map([["a", 1], ["b", 3]]) } as unknown as ReportSection;
+  assert.equal(sameExceptStamp(stored, reordered), true);
+  assert.equal(sameExceptStamp(stored, differs), false);
+});
+
+test("sameExceptStamp: two different Sets differ, equal Sets match whatever their insertion order", () => {
+  const stored = { id: "s1", tags: new Set(["x", "y"]) } as unknown as ReportSection;
+  const reordered = { id: "s1", tags: new Set(["y", "x"]) } as unknown as ReportSection;
+  const differs = { id: "s1", tags: new Set(["x", "z"]) } as unknown as ReportSection;
+  assert.equal(sameExceptStamp(stored, reordered), true);
+  assert.equal(sameExceptStamp(stored, differs), false);
 });

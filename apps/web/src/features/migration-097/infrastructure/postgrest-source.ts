@@ -1,4 +1,5 @@
 import type { BlobRef, Row, ServerSource } from "../domain/ports";
+import { SECRET_TABLES } from "../domain/secret-tables";
 import { PAGE_SIZE, listAllPages } from "./paging";
 
 /** camelCase kind -> snake_case PostgREST table. */
@@ -62,6 +63,16 @@ export function toCamelRow(row: Row): Row {
     out[key.replace(/_([a-z0-9])/g, (_, c: string) => c.toUpperCase())] = value;
   }
   return out;
+}
+
+/** The total from a Prefer: count=exact response. Throws when the header has no total, so the count reads as unknown. */
+function totalOf(res: Response, table: string): number {
+  const range = res.headers.get("content-range") ?? "";
+  const total = Number(range.split("/")[1]);
+  if (range.split("/").length < 2 || !Number.isInteger(total)) {
+    throw new Error(`count ${table} failed: no total in content-range`);
+  }
+  return total;
 }
 
 function tableFor(kind: string): string {
@@ -129,12 +140,22 @@ export class PostgrestSource implements ServerSource {
       { method: "HEAD", extra: { Prefer: "count=exact" } },
       table,
     );
-    const range = res.headers.get("content-range") ?? "";
-    const total = Number(range.split("/")[1]);
-    if (range.split("/").length < 2 || !Number.isInteger(total)) {
-      throw new Error(`count ${table} failed: no total in content-range`);
+    return totalOf(res, table);
+  }
+
+  /**
+   * Providers with an owner-scoped secret row, one per SECRET_TABLES entry that has rows. A failed or
+   * total-less count throws, so the export refuses rather than reading an unknown as "no secrets".
+   */
+  async secretProviders(): Promise<string[]> {
+    const uid = encodeURIComponent(this.opts.userId);
+    const providers: string[] = [];
+    for (const { table, select, owner, secret, provider } of SECRET_TABLES) {
+      const url = `${this.opts.baseUrl}/${table}?select=${select}&${owner}=eq.${uid}&${secret}=not.is.null`;
+      const res = await this.request(url, { method: "HEAD", extra: { Prefer: "count=exact" } }, table);
+      if (totalOf(res, table) > 0) providers.push(provider);
     }
-    return total;
+    return providers;
   }
 
   async pendingOutbox(): Promise<number> {

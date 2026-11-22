@@ -1,4 +1,4 @@
-import type { NewReaderAnnotation } from "@weaveforge/core";
+import { ConflictError, type NewReaderAnnotation } from "@weaveforge/core";
 import type { KindWriter } from "../domain/kind-writer";
 import type { FileSink, Row } from "../domain/ports";
 import { sinkAsWorkspaceFs } from "./sink-workspace-fs";
@@ -61,7 +61,7 @@ export function createGroupCWriter(sink: FileSink, projectRoot: string): KindWri
           const existing = (await annotations.list(paperId)).find((a) => a.id === (row.id as string));
           if (existing) {
             if (sameAnnotation(existing, row)) return;
-            throw new Error(`conflict: annotation ${String(row.id)} on paper ${paperId} exists with different content`);
+            throw new ConflictError(`conflict: annotation ${String(row.id)} on paper ${paperId} exists with different content`);
           }
           const draft: NewReaderAnnotation & { createdAt?: string; updatedAt?: string } = {
             id: row.id as string,
@@ -88,7 +88,11 @@ export function createGroupCWriter(sink: FileSink, projectRoot: string): KindWri
             if (!entry.path.endsWith(".annotations.json")) continue;
             const rows = typedCore().parseAnnotationsFile(await fs.readText(entry.path));
             const paperId = paperOfSidecar.get(entry.path) ?? null;
-            for (const row of rows) out.push({ ...row, paperId });
+            // The DB column page_index is top-level, but a file row keeps pageIndex only inside its anchor.
+            for (const row of rows) {
+              const anchorPage = (row.anchor as { pageIndex?: number } | null | undefined)?.pageIndex;
+              out.push({ ...row, paperId, pageIndex: Number(anchorPage ?? 0) });
+            }
           }
           return out;
         },
@@ -122,26 +126,28 @@ export function createGroupCWriter(sink: FileSink, projectRoot: string): KindWri
           if ((await sha256Hex(bytes)) !== sha256) {
             throw new Error(`blobs: sha256 mismatch for ${bucket}/${path}`);
           }
-          // The type goes into the existing `.sha256` sidecar (line 2) via upload's contentType.
+          // FileBlobStore writes this type to the `.sha256` sidecar's line 2. The web export's sidecar holds the sha256 alone (061ff182f).
           const contentType = row.contentType ? String(row.contentType) : "application/octet-stream";
           await blobs.upload(bucket, path, new Blob([new Uint8Array(bytes)]), contentType);
         },
         // Scans assets/ on disk, so a blob written by an earlier run is listed too. Each file is
-        // checked against its own sidecar: sha256 on line 1, content type on line 2.
+        // checked against its own sidecar: sha256 on line 1 (a line 2 is read if present). A .part file is
+        // an interrupted write, and an asset with no sidecar is left out: its entry then reads as
+        // missing, and the other blobs still read back.
         async readBack() {
           const out: Row[] = [];
           if (!(await fs.stat("assets"))) return out;
           for await (const entry of fs.walk("assets")) {
-            if (entry.path.endsWith(".sha256")) continue;
+            if (entry.path.endsWith(".sha256") || entry.path.endsWith(".part")) continue;
+            if (!(await fs.stat(`${entry.path}.sha256`))) continue;
             const rel = entry.path.slice("assets/".length);
             const slash = rel.indexOf("/");
             const bucket = rel.slice(0, slash);
             const path = rel.slice(slash + 1);
             const bytes = await fs.readFile(entry.path);
             const [sha256, type] = (await fs.readText(`${entry.path}.sha256`)).split("\n");
-            if ((await sha256Hex(bytes)) !== sha256) {
-              throw new Error(`blobs: read-back sha256 mismatch for ${bucket}/${path}`);
-            }
+            // A blob that no longer matches its sidecar is left out, so its entry reads as missing; the others still read back.
+            if ((await sha256Hex(bytes)) !== sha256) continue;
             out.push({ bucket, path, sha256, contentType: type || "application/octet-stream" });
           }
           return out;
