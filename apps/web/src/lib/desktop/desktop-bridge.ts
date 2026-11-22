@@ -149,8 +149,8 @@ export interface DesktopBridge {
    * (no keychain, locked keychain, unreadable row), so the caller shows the move as not done.
    */
   migrate097MoveSecrets(): Promise<void>;
-  /** True when the old local database folder is gone, so there are no old secrets to move. */
-  legacyDirMissing(): Promise<boolean>;
+  /** True when the old local database folder exists. Metadata only: the database is never opened. */
+  legacyDbPresent(): Promise<boolean>;
 
   /**
    * Run one statement against the local database and get its rows.

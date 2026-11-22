@@ -245,9 +245,18 @@ export class LegacySecretsReadError extends Error {
   }
 }
 
-/** The shell's probe: true when the old database folder is gone. Outside the desktop app there is no old database, so true. */
-export function desktopLegacyDirMissing(bridge: DesktopBridge | null = desktop()): () => Promise<boolean> {
-  return async () => (bridge ? bridge.legacyDirMissing() : true);
+/** Thrown when the old local database folder does not exist: there are no old secrets. Not an error for the user. */
+export class LegacyDbMissingError extends Error {
+  readonly code = "legacy-db-missing";
+  constructor() {
+    super("The old local database folder does not exist, so there are no old secrets.");
+    this.name = "LegacyDbMissingError";
+  }
+}
+
+/** The shell's probe: true when the old database folder exists (metadata only, the database is never opened). Outside the desktop app there is no old database, so false. */
+export function desktopLegacyDbPresent(bridge: DesktopBridge | null = desktop()): () => Promise<boolean> {
+  return async () => (bridge ? bridge.legacyDbPresent() : false);
 }
 
 export class DeviceSecretsStore implements SecretsStore {
@@ -255,7 +264,7 @@ export class DeviceSecretsStore implements SecretsStore {
     private readonly run: LocalQuery = localRunnerQuery(),
     private readonly keychain: DeviceKeychain = desktopKeychain(),
     private readonly moveSecrets: () => Promise<void> = desktopMoveSecrets(),
-    private readonly legacyDirMissing: () => Promise<boolean> = desktopLegacyDirMissing(),
+    private readonly legacyDbPresent: () => Promise<boolean> = desktopLegacyDbPresent(),
   ) {}
 
   /**
@@ -268,7 +277,13 @@ export class DeviceSecretsStore implements SecretsStore {
   async load(): Promise<Secrets> {
     const keys = await this.readIndex();
     if (keys !== null) return this.fromKeychain(keys);
-    const legacy = await this.legacyText();
+    let legacy: string | undefined;
+    try {
+      legacy = await this.legacyText();
+    } catch (err) {
+      if (err instanceof LegacyDbMissingError) return {};
+      throw err;
+    }
     if (legacy === undefined) return {};
     return parseSecrets(legacy);
   }
@@ -334,8 +349,9 @@ export class DeviceSecretsStore implements SecretsStore {
   }
 
   /**
-   * The row's JSON text, `undefined` when there is no row or the old database folder is gone.
-   * A failed read while the folder exists throws `LegacySecretsReadError`.
+   * The row's JSON text, `undefined` when there is no row. A failed read throws
+   * `LegacyDbMissingError` when the old database folder does not exist, otherwise
+   * `LegacySecretsReadError`.
    */
   private async legacyText(): Promise<string | undefined> {
     let rows: { secrets: Secrets | string | null }[];
@@ -344,7 +360,7 @@ export class DeviceSecretsStore implements SecretsStore {
         secrets: Secrets | string | null;
       }[];
     } catch (err) {
-      if (await this.legacyDirMissing()) return undefined;
+      if (!(await this.legacyDbPresent())) throw new LegacyDbMissingError();
       throw new LegacySecretsReadError(err);
     }
     const stored = rows[0]?.secrets;

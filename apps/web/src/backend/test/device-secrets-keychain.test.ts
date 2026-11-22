@@ -12,6 +12,7 @@ import {
   KEYCHAIN_HELP,
   KeychainUnavailableError,
   desktopMoveSecrets,
+  LegacySecretsReadError,
   type DeviceKeychain,
 } from "../providers/local/parts";
 
@@ -405,6 +406,24 @@ describe("reserved keychain names", () => {
     const store = new DeviceSecretsStore(fakeRun([]).run, keychain);
     await assert.rejects(() => store.save(flat({ _index: "x" })), /_index is reserved/);
     assert.deepEqual(writes, []);
+  });
+});
+
+describe("the old database folder probe", () => {
+  const noMove = async () => undefined;
+
+  it("a failed legacy read with no old folder is no secrets, not an error", async () => {
+    const { keychain } = fakeKeychain();
+    const db = fakeRun(new Error("no such table"));
+    const store = new DeviceSecretsStore(db.run, keychain, noMove, async () => false);
+    assert.deepEqual(await store.load(), {});
+  });
+
+  it("a failed legacy read with the old folder present throws, never reads as empty", async () => {
+    const { keychain } = fakeKeychain();
+    const db = fakeRun(new Error("database is stopped"));
+    const store = new DeviceSecretsStore(db.run, keychain, noMove, async () => true);
+    await assert.rejects(store.load(), LegacySecretsReadError);
   });
 });
 
