@@ -9,6 +9,7 @@ import { DesktopWorkspaceFs, type VaultFileBridge } from "@/features/workspace/i
 import { systemClock } from "@/lib/parts";
 import { overlayFileRepositories } from "./with-file-repositories";
 import { readOnlyDb } from "./read-only-repositories";
+import { guardOrgDb } from "./org-db-guard";
 
 /**
  * The desktop's personal-data backend for 0.9.7: the PostgREST backend with its
@@ -34,12 +35,14 @@ export function wireDesktopFileBackend(
       secrets,
     });
     // Settings writes must reach the folder: the use case is rebuilt over the file repository.
-    // The database client (postgrest.db, guarded above) stays live for org and sharing tables only:
-    // personal table writes, non-org rpcs, storage writes outside the org buckets and schema() writes
-    // are refused (readOnlyDb's rule), so no personal write can reach the server.
+    // The container's database client (db) stays live for org and sharing tables only. 0.9.8:
+    // guardOrgDb refuses every table and rpc outside the org allowlist, read or write, before any
+    // request; readOnlyDb (above) still refuses writes outside the org write tables. Repositories
+    // built inside wirePostgrestBackend keep their own client and are not covered by this guard.
     return {
       ...overlayFileRepositories(postgrest, files),
       manageSettings: new ManageSettingsUseCase({ repository: files.settingsRepository, clock: systemClock }),
+      db: guardOrgDb(postgrest.db),
     };
   };
 }

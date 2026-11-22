@@ -8,11 +8,12 @@ import { workspaceSettings } from "@/features/settings/application/workspace-set
 import { systemClock } from "@/lib/parts";
 import { overlayFileRepositories } from "./with-file-repositories";
 import { readOnlyDb } from "./read-only-repositories";
+import { guardOrgDb } from "./org-db-guard";
 
 /**
  * No-account mode (0.9.8): the personal repositories are file repositories over
- * the open folder, and org/sharing rows stay on PostgREST behind the read-only
- * guard, the same arrangement as the desktop file backend.
+ * the open folder, and org/sharing rows stay on PostgREST behind the org-table
+ * and read-only guards, the same arrangement as the desktop file backend.
  */
 export function wireNoAccountBackend(
   config: BackendConfig,
@@ -28,5 +29,7 @@ export function wireNoAccountBackend(
   return {
     ...overlayFileRepositories(postgrest, files),
     manageSettings: new ManageSettingsUseCase({ repository: files.settingsRepository, clock: systemClock }),
+    // The container's client: tables and rpcs outside the org allowlist are refused, read or write, before any request.
+    db: guardOrgDb(postgrest.db),
   };
 }
