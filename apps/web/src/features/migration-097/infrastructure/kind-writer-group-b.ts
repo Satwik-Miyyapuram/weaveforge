@@ -33,13 +33,16 @@ function withoutServerOnly(kind: string, row: Row): Row {
   return Object.fromEntries(Object.entries(row).filter(([key]) => !skip.has(key)));
 }
 
-/** True when two sections hold the same content and differ at most in the repo's own updatedAt stamp. */
-function sameExceptStamp(a: ReportSection, b: ReportSection): boolean {
-  const strip = (s: ReportSection): string => {
-    const { updatedAt: _stamp, ...rest } = s;
-    return JSON.stringify(Object.entries(defined(rest as unknown as Row)).sort(([x], [y]) => x.localeCompare(y)));
-  };
-  return strip(a) === strip(b);
+/**
+ * True when the stored section already holds the DB row's content. Walks the DB row's keys only (not the
+ * repo's read-back keys) and reads null and absent alike, because the file stores a null field as absent.
+ * The repo's own updatedAt stamp is ignored.
+ */
+function sameExceptStamp(stored: ReportSection, row: ReportSection): boolean {
+  const field = (s: ReportSection, k: string): string => JSON.stringify((s as unknown as Row)[k] ?? null);
+  return Object.keys(row)
+    .filter((k) => k !== "updatedAt")
+    .every((k) => field(stored, k) === field(row, k));
 }
 
 const KIND_NAMES = ["logEntries", "milestones", "experiments", "metrics", "reportSections", "aiProposals"] as const;

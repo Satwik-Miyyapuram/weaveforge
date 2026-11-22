@@ -156,6 +156,30 @@ test("reportSections: written row reads back field-equal except updatedAt (stamp
   assert.deepEqual(picked(back!, keys), picked(SECTION_ROW, keys));
 });
 
+test("reportSections: a re-run with the same rows leaves every file byte-unchanged", async () => {
+  const sink = new MemorySink();
+  const writer = createGroupBWriter(sink, ROOTS);
+  await writer.write("reportSections", SECTION_ROW);
+  const before = new Map<string, string>();
+  for (const p of sink.paths()) before.set(p, await sink.readText(p));
+  await new Promise((resolve) => setTimeout(resolve, 5));
+  await writer.write("reportSections", SECTION_ROW);
+  assert.deepEqual(sink.paths(), [...before.keys()]);
+  for (const [p, text] of before) assert.equal(await sink.readText(p), text, p);
+});
+
+test("reportSections: a sparse row (optional fields null) re-runs byte-unchanged", async () => {
+  const sink = new MemorySink();
+  const writer = createGroupBWriter(sink, ROOTS);
+  const sparse = { ...SECTION_ROW, deadline: null, draftUrl: null, notes: null, targetWords: null };
+  await writer.write("reportSections", sparse);
+  const before = new Map<string, string>();
+  for (const p of sink.paths()) before.set(p, await sink.readText(p));
+  await new Promise((resolve) => setTimeout(resolve, 5));
+  await writer.write("reportSections", sparse);
+  for (const [p, text] of before) assert.equal(await sink.readText(p), text, p);
+});
+
 test("aiProposals: pending proposal reads back field-equal", async () => {
   const writer = createGroupBWriter(new MemorySink(), ROOTS);
   await writer.write("aiProposals", PROPOSAL_ROW);
