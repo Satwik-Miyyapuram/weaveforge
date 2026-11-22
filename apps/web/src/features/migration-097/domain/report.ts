@@ -80,8 +80,9 @@ export async function readMigrationReport(fs: Pick<FileSink, "readText">): Promi
 }
 
 /**
- * True only when the OPFS repos hold a clean verified export for this device. `ownDeviceId` is the
- * device's id from its desktop backup; the browser and Android have none, so pass nothing there.
+ * True only when the OPFS repos hold a clean verified export for this device. `ownDeviceId` is this
+ * install's stable id (the browser and Android keep one under .weaveforge/local/; desktop uses its
+ * backup id). Without an id nothing is this device's own run, so the result is false.
  * Anything else (absent, corrupt, incomplete, folder-only) is false.
  */
 export async function browserReportVerified(fs: Pick<FileSink, "readText">, ownDeviceId?: string): Promise<boolean> {
@@ -112,6 +113,8 @@ function runIsClean(run: object): boolean {
  * Never throws; anything malformed is false.
  */
 export function isVerifiedOpfsReport(report: unknown, ownDeviceId?: string): boolean {
+  // No install id means no own run: a run without an id must never unlock this device.
+  if (ownDeviceId === undefined) return false;
   if (typeof report !== "object" || report === null) return false;
   const runs = (report as { runs?: unknown }).runs;
   if (!Array.isArray(runs)) return false;

@@ -14,11 +14,14 @@ function reportFs(text: string | null) {
   };
 }
 
+/** This browser install's id, as the export writes it on each run. */
+const OWN = "web-a";
+
 test("browser report is verified only when opfs, verified and no run misses a row", async () => {
-  const ok = JSON.stringify({ state: "verified", target: "opfs", runs: [{ kinds: {}, missing: [], state: "verified", target: "opfs" }] });
-  assert.equal(await browserReportVerified(reportFs(ok)), true);
-  const missing = JSON.stringify({ state: "verified", target: "opfs", runs: [{ missing: ["p-1"] }] });
-  assert.equal(await browserReportVerified(reportFs(missing)), false);
+  const ok = JSON.stringify({ state: "verified", target: "opfs", runs: [{ deviceId: OWN, kinds: {}, missing: [], state: "verified", target: "opfs" }] });
+  assert.equal(await browserReportVerified(reportFs(ok), OWN), true);
+  const missing = JSON.stringify({ state: "verified", target: "opfs", runs: [{ deviceId: OWN, missing: ["p-1"] }] });
+  assert.equal(await browserReportVerified(reportFs(missing), OWN), false);
 });
 
 test("zip-only or absent export keeps writes on PostgREST (no report file)", async () => {
@@ -62,6 +65,7 @@ test("unknown legacy state fails closed to export first, even with a verified re
 
 /** A clean run in the shape the export writes: every kind a known migration kind, no missing rows. */
 const cleanRun = {
+  deviceId: OWN,
   kinds: { notes: { db: 2, files: 2, written: 2, conflicts: [], trash: 0 } },
   missing: [],
   state: "verified",
@@ -70,12 +74,12 @@ const cleanRun = {
 const verifiedReport = (runs: unknown) => JSON.stringify({ state: "verified", target: "opfs", runs });
 
 test("a hand-edited report with a clean run and known kinds is verified", async () => {
-  assert.equal(await browserReportVerified(reportFs(verifiedReport([cleanRun]))), true);
+  assert.equal(await browserReportVerified(reportFs(verifiedReport([cleanRun])), OWN), true);
 });
 
 test("a hand-edited report with an unknown kind is not verified", async () => {
-  const run = { kinds: { notAKind: { db: 1, files: 1, written: 1, conflicts: [], trash: 0 } }, missing: [] };
-  assert.equal(await browserReportVerified(reportFs(verifiedReport([run]))), false);
+  const run = { deviceId: OWN, kinds: { notAKind: { db: 1, files: 1, written: 1, conflicts: [], trash: 0 } }, missing: [] };
+  assert.equal(await browserReportVerified(reportFs(verifiedReport([run])), OWN), false);
 });
 
 test("a hand-edited report whose runs is not a list is not verified, and does not throw", async () => {

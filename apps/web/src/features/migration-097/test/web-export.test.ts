@@ -13,6 +13,7 @@ import { unzipFiles, zipFiles } from "../infrastructure/zip";
 import { listAllPages } from "../infrastructure/paging";
 import { buildDownloadZip } from "../application/download-export";
 
+const WEB_ID = "web-me";
 const NOW = "2026-11-22T00:00:00.000Z";
 const sha = (bytes: Uint8Array | string) => createHash("sha256").update(bytes).digest("hex");
 
@@ -79,7 +80,7 @@ const SUPPORTED = ["logEntries", "experiments"];
 test("fixture export writes every row, verifies field-equal and sets the marker", async () => {
   const { source, calls } = fakeServer({ rows: FIXTURE });
   const sink = new MemorySink();
-  const result = await runWebExport({
+  const result = await runWebExport({ runDeviceId: WEB_ID,
     kinds: KINDS,
     codec: fakeCodec(SUPPORTED),
     source,
@@ -116,7 +117,7 @@ test("fixture export writes every row, verifies field-equal and sets the marker"
 test("zip round-trip keeps every exported file byte-equal", async () => {
   const { source } = fakeServer({ rows: FIXTURE });
   const sink = new MemorySink();
-  await runWebExport({ kinds: KINDS, codec: fakeCodec(SUPPORTED), source, sink, now: NOW });
+  await runWebExport({ runDeviceId: WEB_ID, kinds: KINDS, codec: fakeCodec(SUPPORTED), source, sink, now: NOW });
 
   const zip = await zipFiles(sink);
   const back = unzipFiles(zip);
@@ -131,7 +132,7 @@ test("zip round-trip keeps every exported file byte-equal", async () => {
 test("interrupted run gives incomplete, writes the report and never sets the marker", async () => {
   const { source, calls } = fakeServer({ rows: FIXTURE, failKind: "experiments" });
   const sink = new MemorySink();
-  const result = await runWebExport({
+  const result = await runWebExport({ runDeviceId: WEB_ID,
     kinds: KINDS,
     codec: fakeCodec(SUPPORTED),
     source,
@@ -152,7 +153,7 @@ test("a kind without a wasm codec stays incomplete and is listed as missing", as
   const rows = { ...FIXTURE, tags: [{ id: "t1", name: "ml" }] };
   const { source, calls } = fakeServer({ rows });
   const sink = new MemorySink();
-  const result = await runWebExport({
+  const result = await runWebExport({ runDeviceId: WEB_ID,
     kinds: [...KINDS, "tags"],
     codec: fakeCodec(SUPPORTED),
     source,
@@ -174,7 +175,7 @@ test("blob: size matches and the local sha256 verifies, sidecar written", async 
   const ref: BlobRef = { bucket: "notes-assets", path: "fig/a.png", sizeBytes: bytes.length };
   const { source } = fakeServer({ rows: {}, blobs: [{ ref, bytes }] });
   const sink = new MemorySink();
-  const result = await runWebExport({ kinds: [], codec: fakeCodec([]), source, sink, now: NOW });
+  const result = await runWebExport({ runDeviceId: WEB_ID, kinds: [], codec: fakeCodec([]), source, sink, now: NOW });
 
   assert.equal(result.state, "verified");
   assert.deepEqual(result.run.blobs, { db: 1, verified: 1 });
@@ -188,7 +189,7 @@ test("blob size mismatch goes to missing, nothing is written, no marker", async 
   const ref: BlobRef = { bucket: "notes-assets", path: "fig/a.png", sizeBytes: 99 };
   const { source, calls } = fakeServer({ rows: {}, blobs: [{ ref, bytes }] });
   const sink = new MemorySink();
-  const result = await runWebExport({ kinds: [], codec: fakeCodec([]), source, sink, now: NOW });
+  const result = await runWebExport({ runDeviceId: WEB_ID, kinds: [], codec: fakeCodec([]), source, sink, now: NOW });
 
   assert.equal(result.state, "incomplete");
   assert.deepEqual(result.run.blobs, { db: 1, verified: 0 });
@@ -209,7 +210,7 @@ test("blob read-back mismatch goes to missing (same size, different bytes), no m
   const bytes = new TextEncoder().encode("png-bytes");
   const ref: BlobRef = { bucket: "notes-assets", path: "fig/a.png", sizeBytes: bytes.length };
   const { source, calls } = fakeServer({ rows: {}, blobs: [{ ref, bytes }] });
-  const result = await runWebExport({
+  const result = await runWebExport({ runDeviceId: WEB_ID,
     kinds: [], codec: fakeCodec([]), source, sink: new TamperingSink(), now: NOW,
   });
 
@@ -223,7 +224,7 @@ test("blob read-back mismatch goes to missing (same size, different bytes), no m
 test("verify is strict: a file missing from the sink makes state incomplete", async () => {
   const { source } = fakeServer({ rows: FIXTURE });
   const sink = new MemorySink();
-  await runWebExport({ kinds: KINDS, codec: fakeCodec(SUPPORTED), source, sink, now: NOW });
+  await runWebExport({ runDeviceId: WEB_ID, kinds: KINDS, codec: fakeCodec(SUPPORTED), source, sink, now: NOW });
 
   const damaged = new MemorySink();
   for (const path of await sink.list()) {
@@ -242,7 +243,7 @@ test("verify is strict: a file missing from the sink makes state incomplete", as
 test("raw server count above the exported rows gives incomplete (short source list)", async () => {
   const { source, calls } = fakeServer({ rows: FIXTURE, rawCounts: { logEntries: 3 } });
   const sink = new MemorySink();
-  const result = await runWebExport({ kinds: KINDS, codec: fakeCodec(SUPPORTED), source, sink, now: NOW });
+  const result = await runWebExport({ runDeviceId: WEB_ID, kinds: KINDS, codec: fakeCodec(SUPPORTED), source, sink, now: NOW });
 
   assert.equal(result.state, "incomplete");
   assert.ok(result.run.missing.some((m) => m.kind === "logEntries" && m.reason.includes("raw count")));
@@ -252,7 +253,7 @@ test("raw server count above the exported rows gives incomplete (short source li
 test("undecryptable content_enc rows keep the export incomplete and name kind and count", async () => {
   const { source, calls } = fakeServer({ rows: FIXTURE, undecryptable: { logEntries: 2 } });
   const sink = new MemorySink();
-  const result = await runWebExport({ kinds: KINDS, codec: fakeCodec(SUPPORTED), source, sink, now: NOW });
+  const result = await runWebExport({ runDeviceId: WEB_ID, kinds: KINDS, codec: fakeCodec(SUPPORTED), source, sink, now: NOW });
 
   assert.equal(result.state, "incomplete");
   assert.ok(
@@ -265,7 +266,7 @@ test("report has verifiedAt when verified, no runs errors field, and is written 
   const { source } = fakeServer({ rows: FIXTURE });
   const sink = new MemorySink();
   const events: { kind: string; done: number; total: number }[] = [];
-  const result = await runWebExport({
+  const result = await runWebExport({ runDeviceId: WEB_ID,
     kinds: KINDS,
     codec: fakeCodec(SUPPORTED),
     source,
@@ -288,7 +289,7 @@ test("report has verifiedAt when verified, no runs errors field, and is written 
 test("pending outbox refuses the export: state incomplete, only the report written, no marker", async () => {
   const { source, calls } = fakeServer({ rows: FIXTURE, outbox: 2 });
   const sink = new MemorySink();
-  const result = await runWebExport({ kinds: KINDS, codec: fakeCodec(SUPPORTED), source, sink, now: NOW });
+  const result = await runWebExport({ runDeviceId: WEB_ID, kinds: KINDS, codec: fakeCodec(SUPPORTED), source, sink, now: NOW });
 
   assert.equal(result.state, "incomplete");
   assert.deepEqual(await sink.list(), [REPORT_PATH]);
@@ -307,7 +308,7 @@ test("listAllPages reads past the 1000-row PostgREST cap until an empty page", a
 test("download-your-data zip is built from the sink only, never marks the server, and keeps an incomplete report", async () => {
   const { source, calls } = fakeServer({ rows: FIXTURE, failKind: "experiments" });
   const sink = new MemorySink();
-  await runWebExport({ kinds: KINDS, codec: fakeCodec(SUPPORTED), source, sink, now: NOW });
+  await runWebExport({ runDeviceId: WEB_ID, kinds: KINDS, codec: fakeCodec(SUPPORTED), source, sink, now: NOW });
   const callsBefore = calls.length;
 
   const zip = await buildDownloadZip(sink);
@@ -336,7 +337,7 @@ test("verify allow-list: a server-only column (userId) absent from the file stil
   const { source } = fakeServer({ rows });
   const codec = codecDropping(["experiments"], ["userId"]);
   const sink = new MemorySink();
-  await runWebExport({ kinds: ["experiments"], codec, source, sink, now: NOW });
+  await runWebExport({ runDeviceId: WEB_ID, kinds: ["experiments"], codec, source, sink, now: NOW });
   const verdict = await verifyExport({ kinds: ["experiments"], codec, source, sink });
   assert.equal(verdict.state, "verified");
 });
@@ -346,7 +347,7 @@ test("verify allow-list: an unlisted server column the file lacks is a mismatch"
   const { source } = fakeServer({ rows });
   const codec = codecDropping(["experiments"], ["secretOther"]);
   const sink = new MemorySink();
-  await runWebExport({ kinds: ["experiments"], codec, source, sink, now: NOW });
+  await runWebExport({ runDeviceId: WEB_ID, kinds: ["experiments"], codec, source, sink, now: NOW });
   const verdict = await verifyExport({ kinds: ["experiments"], codec, source, sink });
   assert.equal(verdict.state, "incomplete");
   assert.ok(verdict.errors.some((e) => e.startsWith("experiments: decoded files differ")));
@@ -358,7 +359,7 @@ test("verify allow-list: the owner column arrives camelCased (projectId) and abs
   const { source } = fakeServer({ rows });
   const codec = codecDropping(["experiments"], ["projectId"]);
   const sink = new MemorySink();
-  await runWebExport({ kinds: ["experiments"], codec, source, sink, now: NOW });
+  await runWebExport({ runDeviceId: WEB_ID, kinds: ["experiments"], codec, source, sink, now: NOW });
   const verdict = await verifyExport({ kinds: ["experiments"], codec, source, sink });
   assert.equal(verdict.state, "verified");
 });
@@ -381,7 +382,7 @@ test("per-row failure: one bad row is listed missing, the other rows are exporte
     },
   };
   const sink = new MemorySink();
-  const { state, run } = await runWebExport({ kinds: ["experiments"], codec, source, sink, now: NOW });
+  const { state, run } = await runWebExport({ runDeviceId: WEB_ID, kinds: ["experiments"], codec, source, sink, now: NOW });
   assert.equal(state, "incomplete");
   assert.ok(run.missing.some((m) => m.kind === "experiments" && m.id === "bad" && m.reason.includes("cannot encode")));
   assert.equal(run.kinds.experiments?.written, 2);
@@ -408,7 +409,7 @@ function fakeDesktop(calls: string[], opts: { backupFails?: boolean; deviceId?: 
 test("desktop: backup runs first, before any server read, and the report carries its deviceId", async () => {
   const { source, calls } = fakeServer({ rows: FIXTURE });
   const sink = new MemorySink();
-  const result = await runWebExport({
+  const result = await runWebExport({ runDeviceId: WEB_ID,
     kinds: KINDS,
     codec: fakeCodec(SUPPORTED),
     source,
@@ -428,7 +429,7 @@ test("desktop: backup runs first, before any server read, and the report carries
 test("desktop: report.backup carries the backup dump file name", async () => {
   const sink = new MemorySink();
   const { source } = fakeServer({ rows: FIXTURE });
-  await runWebExport({
+  await runWebExport({ runDeviceId: WEB_ID,
     kinds: KINDS,
     codec: fakeCodec(SUPPORTED),
     source,
@@ -443,7 +444,7 @@ test("desktop: report.backup carries the backup dump file name", async () => {
 test("desktop: a bridge without migrate097Backup refuses before any server read or write", async () => {
   const sink = new MemorySink();
   const { source, calls } = fakeServer({ rows: FIXTURE });
-  const result = await runWebExport({
+  const result = await runWebExport({ runDeviceId: WEB_ID,
     kinds: KINDS,
     codec: fakeCodec(SUPPORTED),
     source,
@@ -454,13 +455,48 @@ test("desktop: a bridge without migrate097Backup refuses before any server read 
   assert.notEqual(result.state, "verified");
   assert.match(result.run.missing[0]!.reason, /migrate097Backup missing/);
   assert.deepEqual(calls, []);
-  assert.deepEqual(await sink.list(), [REPORT_PATH]);
+  assert.deepEqual(await sink.list(), [], "no device id, so the refusal writes no report");
+});
+
+test("desktop: a run refused before its backup (no device id) leaves the browser's run in report.json", async () => {
+  const sink = new MemorySink();
+  // A browser run written before install ids: it carries no deviceId.
+  const browserRun = {
+    startedAt: "2026-11-21T00:00:00.000Z",
+    finishedAt: "2026-11-21T00:01:00.000Z",
+    sources: ["postgrest"],
+    kinds: {},
+    blobs: { db: 0, verified: 0 },
+    missing: [],
+    state: "verified",
+    target: "opfs",
+  } as RunReport;
+  const before = JSON.stringify({ version: 1, state: "verified", backup: null, target: "opfs", runs: [browserRun] }, null, 2);
+  await sink.write(REPORT_PATH, before);
+  const { source, calls } = fakeServer({ rows: FIXTURE });
+  await runWebExport({ runDeviceId: WEB_ID,
+    kinds: KINDS,
+    codec: fakeCodec(SUPPORTED),
+    source,
+    sink,
+    now: NOW,
+    desktop: { folder: "C:/ws", bridge: { markExported: async () => {} } as never },
+  });
+  assert.equal(await sink.readText(REPORT_PATH), before, "the browser's run is not replaced");
+  assert.deepEqual(calls, []);
+});
+
+test("web: a browser run with no runDeviceId writes no report.json entry", async () => {
+  const sink = new MemorySink();
+  const { source } = fakeServer({ rows: FIXTURE });
+  await runWebExport({ kinds: KINDS, codec: fakeCodec(SUPPORTED), source, sink, now: NOW });
+  assert.equal((await sink.list()).includes(REPORT_PATH), false, "a run without an id is never written");
 });
 
 test("desktop: a failed backup aborts the export: no server read, no write, no marker, no mark-exported", async () => {
   const { source, calls } = fakeServer({ rows: FIXTURE });
   const sink = new MemorySink();
-  const result = await runWebExport({
+  const result = await runWebExport({ runDeviceId: WEB_ID,
     kinds: KINDS,
     codec: fakeCodec(SUPPORTED),
     source,
@@ -472,14 +508,14 @@ test("desktop: a failed backup aborts the export: no server read, no write, no m
   assert.equal(result.state, "incomplete");
   assert.match(result.run.missing[0]!.reason, /backup failed: disk full/);
   assert.deepEqual(calls, ["backup:C:/ws"]);
-  assert.deepEqual(await sink.list(), [REPORT_PATH]);
+  assert.deepEqual(await sink.list(), [], "no device id, so the refusal writes no report");
 });
 
 test("desktop: mark-exported runs only after a verified run", async () => {
   const calls: string[] = [];
   const { source } = fakeServer({ rows: FIXTURE });
   const sink = new MemorySink();
-  const result = await runWebExport({
+  const result = await runWebExport({ runDeviceId: WEB_ID,
     kinds: KINDS,
     codec: fakeCodec(SUPPORTED),
     source,
@@ -495,7 +531,7 @@ test("desktop: an incomplete run does not call mark-exported", async () => {
   const calls: string[] = [];
   const { source } = fakeServer({ rows: FIXTURE, failKind: "logEntries" });
   const sink = new MemorySink();
-  const result = await runWebExport({
+  const result = await runWebExport({ runDeviceId: WEB_ID,
     kinds: KINDS,
     codec: fakeCodec(SUPPORTED),
     source,
@@ -507,12 +543,12 @@ test("desktop: an incomplete run does not call mark-exported", async () => {
   assert.equal(calls.some((c) => c.startsWith("desktop-mark")), false);
 });
 
-test("web: no desktop bridge means no deviceId key in report.json", async () => {
+test("web: no desktop bridge means the run carries the browser install id", async () => {
   const { source } = fakeServer({ rows: FIXTURE });
   const sink = new MemorySink();
-  await runWebExport({ kinds: KINDS, codec: fakeCodec(SUPPORTED), source, sink, now: NOW });
-  const report = JSON.parse(await sink.readText(REPORT_PATH)) as Record<string, unknown>;
-  assert.equal("deviceId" in report, false);
+  await runWebExport({ runDeviceId: WEB_ID, kinds: KINDS, codec: fakeCodec(SUPPORTED), source, sink, now: NOW });
+  const report = JSON.parse(await sink.readText(REPORT_PATH)) as { runs: Array<{ deviceId?: string }> };
+  assert.equal(report.runs[0]?.deviceId, WEB_ID);
 });
 
 test("verify: a null server contentType and application/octet-stream in the file are the same blob type", async () => {
@@ -526,7 +562,7 @@ test("verify: a null server contentType and application/octet-stream in the file
     toRow: (kind, path, text) => (path.startsWith(`${kind}/`) ? (JSON.parse(text) as Row) : null),
   };
   const { source } = fakeServer({ rows: { blobs: [{ id: "b1", contentType: null, bucket: "x" }] } });
-  const result = await runWebExport({ kinds: ["blobs"], codec, source, sink: new MemorySink(), now: NOW });
+  const result = await runWebExport({ runDeviceId: WEB_ID, kinds: ["blobs"], codec, source, sink: new MemorySink(), now: NOW });
   assert.equal(result.state, "verified");
 });
 
@@ -539,7 +575,7 @@ test("order: the server marker comes first, the desktop mark last, and report.js
     order.push("server-mark");
     await realMark();
   };
-  const result = await runWebExport({
+  const result = await runWebExport({ runDeviceId: WEB_ID,
     kinds: KINDS,
     codec: fakeCodec(SUPPORTED),
     source,
@@ -566,7 +602,7 @@ test("order: a failed desktop mark (last) leaves report.json incomplete, though 
   const { source, calls } = fakeServer({ rows: FIXTURE });
   const sink = new MemorySink();
   const desktopCalls: string[] = [];
-  const result = await runWebExport({
+  const result = await runWebExport({ runDeviceId: WEB_ID,
     kinds: KINDS,
     codec: fakeCodec(SUPPORTED),
     source,
@@ -589,7 +625,7 @@ test("order: a failed server marker leaves report.json incomplete and the deskto
   };
   const sink = new MemorySink();
   const desktopCalls: string[] = [];
-  const result = await runWebExport({
+  const result = await runWebExport({ runDeviceId: WEB_ID,
     kinds: KINDS,
     codec: fakeCodec(SUPPORTED),
     source,
@@ -607,7 +643,7 @@ test("order: a failed server marker leaves report.json incomplete and the deskto
 test("order: a crash between the two marks never leaves report.json verified", async () => {
   const { source, calls } = fakeServer({ rows: FIXTURE });
   const sink = new MemorySink();
-  const result = await runWebExport({
+  const result = await runWebExport({ runDeviceId: WEB_ID,
     kinds: KINDS,
     codec: fakeCodec(SUPPORTED),
     source,
@@ -641,7 +677,7 @@ test("order: report.json says markers pending before any mark is attempted", asy
     };
     seen.push(report.state + ":" + JSON.stringify(report.runs[0]?.missing ?? []));
   };
-  await runWebExport({ kinds: KINDS, codec: fakeCodec(SUPPORTED), source, sink, now: NOW });
+  await runWebExport({ runDeviceId: WEB_ID, kinds: KINDS, codec: fakeCodec(SUPPORTED), source, sink, now: NOW });
   assert.equal(seen.length, 1);
   assert.match(seen[0] ?? "", /^incomplete:.*markers pending/);
 });
@@ -656,7 +692,7 @@ test("order: a failed report.json write means no desktop mark and no server mark
   };
   const desktopCalls: string[] = [];
   await assert.rejects(
-    runWebExport({
+    runWebExport({ runDeviceId: WEB_ID,
       kinds: KINDS,
       codec: fakeCodec(SUPPORTED),
       source,
@@ -681,7 +717,7 @@ test("interrupted run: report.json says incomplete before the first row is writt
     }
     return realWrite(path, data);
   };
-  await runWebExport({ kinds: KINDS, codec: fakeCodec(SUPPORTED), source, sink, now: NOW });
+  await runWebExport({ runDeviceId: WEB_ID, kinds: KINDS, codec: fakeCodec(SUPPORTED), source, sink, now: NOW });
   assert.ok(reportAtFirstRow, "report.json exists before the first row");
   assert.equal(JSON.parse(reportAtFirstRow).state, "incomplete");
 });
@@ -694,7 +730,7 @@ test("interrupted run: a throw while writing rows leaves report.json incomplete 
     if (path === "logEntries/l2.json") throw new Error("disk full mid-rows");
     return realWrite(path, data);
   };
-  const result = await runWebExport({ kinds: KINDS, codec: fakeCodec(SUPPORTED), source, sink, now: NOW });
+  const result = await runWebExport({ runDeviceId: WEB_ID, kinds: KINDS, codec: fakeCodec(SUPPORTED), source, sink, now: NOW });
   assert.equal(result.state, "incomplete");
   const report = JSON.parse(await sink.readText(REPORT_PATH));
   assert.equal(report.state, "incomplete");
@@ -710,7 +746,7 @@ test("pendingOutbox throw: a missing entry and an incomplete report, no marker",
     throw new Error("outbox unreadable");
   };
   const sink = new MemorySink();
-  const result = await runWebExport({ kinds: KINDS, codec: fakeCodec(SUPPORTED), source, sink, now: NOW });
+  const result = await runWebExport({ runDeviceId: WEB_ID, kinds: KINDS, codec: fakeCodec(SUPPORTED), source, sink, now: NOW });
   assert.equal(result.state, "incomplete");
   assert.ok(result.run.missing.some((m) => m.reason.includes("outbox unreadable")));
   const report = JSON.parse(await sink.readText(REPORT_PATH));
@@ -730,7 +766,7 @@ test("verify throw: a missing entry and an incomplete report, no marker", async 
     },
   };
   const sink = new MemorySink();
-  const result = await runWebExport({ kinds: KINDS, codec, source, sink, now: NOW });
+  const result = await runWebExport({ runDeviceId: WEB_ID, kinds: KINDS, codec, source, sink, now: NOW });
   assert.equal(result.state, "incomplete");
   assert.ok(result.run.missing.some((m) => m.reason === "logEntries: read failed"));
   assert.equal(JSON.stringify(result.run).includes("decode crashed"), false);
@@ -748,7 +784,7 @@ test("verify listing throw: a missing entry and an incomplete report, no marker"
   sink.list = async () => {
     throw new Error("sink listing failed");
   };
-  const result = await runWebExport({ kinds: KINDS, codec: fakeCodec(SUPPORTED), source, sink, now: NOW });
+  const result = await runWebExport({ runDeviceId: WEB_ID, kinds: KINDS, codec: fakeCodec(SUPPORTED), source, sink, now: NOW });
   assert.equal(result.state, "incomplete");
   assert.ok(result.run.missing.some((m) => m.reason.includes("sink listing failed")));
   const report = JSON.parse(await sink.readText(REPORT_PATH));
@@ -783,7 +819,7 @@ test("writer kinds: rows go through KindWriter.write, never the codec, and readB
       return { path: `${kind}/${String(row.id)}.json`, text: JSON.stringify(row) };
     },
   };
-  const result = await runWebExport({
+  const result = await runWebExport({ runDeviceId: WEB_ID,
     kinds: KINDS,
     codec,
     source,
@@ -801,7 +837,7 @@ test("writer kinds: a readBack that loses a row makes the export incomplete", as
   const { source } = fakeServer({ rows: FIXTURE });
   const sink = new MemorySink();
   const { writer } = memoryWriter("logEntries", { dropOnReadBack: true });
-  const result = await runWebExport({
+  const result = await runWebExport({ runDeviceId: WEB_ID,
     kinds: KINDS,
     codec: fakeCodec(SUPPORTED),
     source,
@@ -830,7 +866,7 @@ test("re-run conflict: a writer conflict is listed on the kind and the run is in
     },
     readBack: async () => (FIXTURE.logEntries ?? []).filter((r) => r.id !== "l2"),
   };
-  const result = await runWebExport({ kinds: KINDS, codec: fakeCodec(SUPPORTED), source, sink, now: NOW, writers: [writer] });
+  const result = await runWebExport({ runDeviceId: WEB_ID, kinds: KINDS, codec: fakeCodec(SUPPORTED), source, sink, now: NOW, writers: [writer] });
   assert.equal(result.state, "incomplete");
   assert.deepEqual(result.run.kinds.logEntries?.conflicts, ["l2"]);
   assert.equal(JSON.parse(await sink.readText(REPORT_PATH)).state, "incomplete");
@@ -842,7 +878,7 @@ test("blobs: a listBlobs failure makes the run incomplete, the report is not ver
     throw new Error("blob listing failed: export incomplete");
   };
   const sink = new MemorySink();
-  const result = await runWebExport({ kinds: KINDS, codec: fakeCodec(SUPPORTED), source, sink, now: NOW });
+  const result = await runWebExport({ runDeviceId: WEB_ID, kinds: KINDS, codec: fakeCodec(SUPPORTED), source, sink, now: NOW });
   assert.equal(result.state, "incomplete");
   const report = JSON.parse(await sink.readText(REPORT_PATH));
   assert.notEqual(report.state, "verified");
@@ -883,7 +919,7 @@ test("keys: moveSecrets runs after verify and before the desktop mark and the se
     order.push("server-mark");
     await realMark();
   };
-  const result = await runWebExport({
+  const result = await runWebExport({ runDeviceId: WEB_ID,
     kinds: KINDS,
     codec: fakeCodec(SUPPORTED),
     source,
@@ -912,7 +948,7 @@ test("keys: a failed moveSecrets gives incomplete, no desktop mark and no server
   const desktopCalls: string[] = [];
   const sink = new MemorySink();
   const { source, calls } = fakeServer({ rows: FIXTURE });
-  const result = await runWebExport({
+  const result = await runWebExport({ runDeviceId: WEB_ID,
     kinds: KINDS,
     codec: fakeCodec(SUPPORTED),
     source,
@@ -934,7 +970,7 @@ test("keys: a failed moveSecrets gives incomplete, no desktop mark and no server
 test("reasons: report.json and the run never carry a thrown message (fixed codes only)", async () => {
   // Move failure: the thrown text holds a secret-like value that must not reach the report.
   const sinkA = new MemorySink();
-  await runWebExport({
+  await runWebExport({ runDeviceId: WEB_ID,
     kinds: KINDS,
     codec: fakeCodec(SUPPORTED),
     source: fakeServer({ rows: FIXTURE }).source,
@@ -954,14 +990,14 @@ test("reasons: report.json and the run never carry a thrown message (fixed codes
     throw new Error("LEAK-SERVER-token-222");
   };
   const sinkB = new MemorySink();
-  await runWebExport({ kinds: KINDS, codec: fakeCodec(SUPPORTED), source: srv, sink: sinkB, now: NOW });
+  await runWebExport({ runDeviceId: WEB_ID, kinds: KINDS, codec: fakeCodec(SUPPORTED), source: srv, sink: sinkB, now: NOW });
   const textB = await sinkB.readText(REPORT_PATH);
   assert.equal(textB.includes("LEAK-SERVER"), false, "server message not in report");
   assert.match(textB, /marker: server failed/);
 
   // Desktop mark failure.
   const sinkC = new MemorySink();
-  await runWebExport({
+  await runWebExport({ runDeviceId: WEB_ID,
     kinds: KINDS,
     codec: fakeCodec(SUPPORTED),
     source: fakeServer({ rows: FIXTURE }).source,
@@ -991,7 +1027,7 @@ test("keys: moveSecrets does not run when the run is incomplete", async () => {
   }
   const { source, calls } = fakeServer({ rows: FIXTURE });
   let moved = false;
-  const result = await runWebExport({
+  const result = await runWebExport({ runDeviceId: WEB_ID,
     kinds: KINDS,
     codec: fakeCodec(SUPPORTED),
     source,
@@ -1026,7 +1062,7 @@ test("verify: syncState is local-only and is not compared", () => {
 test("keys: secrets present but no mover refuses the run and writes an incomplete report", async () => {
   const sink = new MemorySink();
   const { source, calls } = fakeServer({ rows: FIXTURE });
-  const result = await runWebExport({
+  const result = await runWebExport({ runDeviceId: WEB_ID,
     kinds: KINDS,
     codec: fakeCodec(SUPPORTED),
     source,
@@ -1045,7 +1081,7 @@ test("refused runs (outbox not empty) still write an incomplete report with the 
   const sink = new MemorySink();
   const { source } = fakeServer({ rows: FIXTURE });
   source.pendingOutbox = async () => 2;
-  const result = await runWebExport({ kinds: KINDS, codec: fakeCodec(SUPPORTED), source, sink, now: NOW });
+  const result = await runWebExport({ runDeviceId: WEB_ID, kinds: KINDS, codec: fakeCodec(SUPPORTED), source, sink, now: NOW });
   assert.equal(result.state, "incomplete");
   const report = JSON.parse(await sink.readText(REPORT_PATH)) as { state: string };
   assert.equal(report.state, "incomplete");
@@ -1073,7 +1109,7 @@ test("keys: copy-only mover; a failed marker then a re-run copies each secret on
   source.markExported097 = async () => {
     throw new Error("server down");
   };
-  const first = await runWebExport({
+  const first = await runWebExport({ runDeviceId: WEB_ID,
     kinds: KINDS,
     codec: fakeCodec(SUPPORTED),
     source,
@@ -1085,7 +1121,7 @@ test("keys: copy-only mover; a failed marker then a re-run copies each secret on
   assert.equal(first.state, "incomplete");
 
   source.markExported097 = realMark;
-  const second = await runWebExport({
+  const second = await runWebExport({ runDeviceId: WEB_ID,
     kinds: KINDS,
     codec: fakeCodec(SUPPORTED),
     source,
@@ -1116,7 +1152,7 @@ test("runs: a run replaces this device's entry and keeps another device's entry,
   await sink.write(REPORT_PATH, JSON.stringify({ version: 1, state: "incomplete", backup: null, runs: [other, stale] }));
   const { source } = fakeServer({ rows: FIXTURE });
   const exportOnce = () =>
-    runWebExport({ kinds: KINDS, codec: fakeCodec(SUPPORTED), source, sink, now: NOW, runDeviceId: "web-me" });
+    runWebExport({ runDeviceId: WEB_ID, kinds: KINDS, codec: fakeCodec(SUPPORTED), source, sink, now: NOW });
 
   await exportOnce();
   const first = (JSON.parse(await sink.readText(REPORT_PATH)) as { runs: RunReport[] }).runs;
@@ -1134,7 +1170,7 @@ test("runs: a run replaces this device's entry and keeps another device's entry,
 test("per-kind failure: a failed kind is listed missing and the later kinds still export", async () => {
   const { source, calls } = fakeServer({ rows: FIXTURE, failKind: "logEntries" });
   const sink = new MemorySink();
-  const result = await runWebExport({ kinds: KINDS, codec: fakeCodec(SUPPORTED), source, sink, now: NOW });
+  const result = await runWebExport({ runDeviceId: WEB_ID, kinds: KINDS, codec: fakeCodec(SUPPORTED), source, sink, now: NOW });
 
   assert.equal(result.state, "incomplete");
   assert.deepEqual(
@@ -1149,7 +1185,7 @@ test("per-kind failure: a failed kind is listed missing and the later kinds stil
 test("target: a web run records target opfs in report.json", async () => {
   const { source } = fakeServer({ rows: FIXTURE });
   const sink = new MemorySink();
-  await runWebExport({ kinds: KINDS, codec: fakeCodec(SUPPORTED), source, sink, now: NOW });
+  await runWebExport({ runDeviceId: WEB_ID, kinds: KINDS, codec: fakeCodec(SUPPORTED), source, sink, now: NOW });
   const report = JSON.parse(await sink.readText(REPORT_PATH)) as { target?: string };
   assert.equal(report.target, "opfs");
 });
@@ -1157,7 +1193,7 @@ test("target: a web run records target opfs in report.json", async () => {
 test("target: a desktop run records target folder in report.json", async () => {
   const { source, calls } = fakeServer({ rows: FIXTURE });
   const sink = new MemorySink();
-  await runWebExport({
+  await runWebExport({ runDeviceId: WEB_ID,
     kinds: KINDS,
     codec: fakeCodec(SUPPORTED),
     source,
@@ -1197,7 +1233,7 @@ test("readMigrationReport: JSON that is not a report (null, or an unknown state)
 test("readMigrationReport: the report the web export writes reads back and switches writes off", async () => {
   const { source } = fakeServer({ rows: {} });
   const sink = new MemorySink();
-  const result = await runWebExport({ kinds: [], codec: fakeCodec([]), source, sink, now: NOW });
+  const result = await runWebExport({ runDeviceId: WEB_ID, kinds: [], codec: fakeCodec([]), source, sink, now: NOW });
   assert.equal(result.state, "verified");
   const report = await readMigrationReport(sink);
   assert.ok(report);
@@ -1206,7 +1242,7 @@ test("readMigrationReport: the report the web export writes reads back and switc
   assert.equal(report.runs[0]?.state, "verified", "the run carries its own state");
   assert.equal(report.runs[0]?.target, "opfs", "the run carries its own target");
   assert.deepEqual(report, JSON.parse(await sink.readText(REPORT_PATH)));
-  assert.equal(await browserReportVerified(sink), true);
+  assert.equal(await browserReportVerified(sink, WEB_ID), true);
 });
 
 const TRASH_ROW = { id: "t1", body: "gone", deleted_at: "2026-11-01T00:00:00.000Z" };
@@ -1215,7 +1251,7 @@ const TRASH_PATH = ".weaveforge/migration-0.9.7/trash/logEntries/t1.json";
 test("trash: a trashed row is exported as raw JSON, read back equal, and counted per kind", async () => {
   const { source } = fakeServer({ rows: FIXTURE, trashed: { logEntries: [TRASH_ROW] } });
   const sink = new MemorySink();
-  const result = await runWebExport({ kinds: KINDS, codec: fakeCodec(SUPPORTED), source, sink, now: NOW });
+  const result = await runWebExport({ runDeviceId: WEB_ID, kinds: KINDS, codec: fakeCodec(SUPPORTED), source, sink, now: NOW });
 
   assert.deepEqual(JSON.parse(await sink.readText(TRASH_PATH)), TRASH_ROW);
   assert.equal(result.run.kinds.logEntries?.trash, 1);
@@ -1230,7 +1266,7 @@ test("trash: a trash file that does not read back equal goes to missing, state i
     }
   }
   const { source, calls } = fakeServer({ rows: FIXTURE, trashed: { logEntries: [TRASH_ROW] } });
-  const result = await runWebExport({
+  const result = await runWebExport({ runDeviceId: WEB_ID,
     kinds: KINDS, codec: fakeCodec(SUPPORTED), source, sink: new TamperingSink(), now: NOW,
   });
 
