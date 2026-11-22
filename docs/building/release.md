@@ -201,14 +201,19 @@ inputs are kept as artifacts (`proptest-regressions`, `fuzz-artifacts`).
 Pushing a `vX.Y.Z` tag runs `release-desktop.yml`. It builds the signed x64
 installers on `windows-latest` and the arm64 ones natively on `windows-11-arm`,
 signs them with the `TAURI_SIGNING_PRIVATE_KEY` and
-`TAURI_SIGNING_PRIVATE_KEY_PASSWORD` repo secrets, writes `latest.json`, and
+`TAURI_SIGNING_PRIVATE_KEY_PASSWORD` repo secrets, writes `latest-v2.json` and `latest.json`, and
 creates the GitHub **pre-release** with the tag's CHANGELOG entry as notes
 (steps 4 to 6 below). To rebuild an existing tag, run it by hand
 (**Actions → Release desktop → Run workflow**) after deleting the old release.
 The manual steps below remain the fallback. A release goes out as a **pre-release first** and becomes
 **Latest** only after the release gate passes. The in-app updater reads
-`latest.json` from the Latest release (`releases/latest/download/latest.json`),
+`latest-v2.json` from the Latest release (`releases/latest/download/latest-v2.json`),
 so a pre-release is invisible to updaters until it is promoted.
+
+**Two manifests.** Each release writes `latest-v2.json` (this release) and `latest.json`
+(a bridge). The 0.9.7 release writes both as 0.9.7. From 0.9.8 on, `latest.json` stays
+pinned to the 0.9.7 manifest, because 0.9.6 and older builds can only read that name.
+Builds 0.9.6 and older read only `latest.json`, so they must update to 0.9.7 first, never straight to a newer release.
 
 1. PR: set the release version in `version` in `apps/shell/tauri.conf.json`. The
    release scripts read that file. The shell crate's `apps/shell/Cargo.toml`
@@ -238,15 +243,16 @@ so a pre-release is invisible to updaters until it is promoted.
    time and delete `apps/shell/target/stage` between them. With
    `createUpdaterArtifacts` on (`tauri.bundle.json`), each NSIS build writes a
    `*-setup.exe.sig` beside the installer. Keep it.
-5. Write `latest.json` from the two signed installers. The script reads each
-   `.sig` file, takes the URLs from the tag, and writes `latest.json` into the
-   same folder. It fails if a `.sig` is missing or not a minisign signature, or
-   if a version differs from the tag:
+5. Write `latest-v2.json` and `latest.json` from the two signed installers. The script
+   reads each `.sig` file, takes the URLs from the tag, and writes both manifests into
+   the same folder. For a release after 0.9.7, pass the 0.9.7 `latest.json` as the
+   third argument (the workflow downloads it from v0.9.7). It fails if a `.sig` is
+   missing or not a minisign signature, or if a version differs from the tag:
    ```powershell
-   node apps/shell/scripts/write-latest-json.mjs vX.Y.Z <folder-with-both-setup-exe-and-sig>
+   node apps/shell/scripts/write-latest-json.mjs vX.Y.Z <folder-with-both-setup-exe-and-sig> [bridge-latest.json]
    ```
 6. Create the GitHub release as a **pre-release** (not Latest). Attach the MSI
-   and `*-setup.exe` for x64 and arm64, their `.sig` files, and `latest.json`:
+   and `*-setup.exe` for x64 and arm64, their `.sig` files, `latest-v2.json` and `latest.json`:
    ```bash
    gh release create vX.Y.Z --prerelease --title "WeaveForge vX.Y.Z" --notes-file <notes.md> <assets...>
    ```
@@ -258,16 +264,17 @@ so a pre-release is invisible to updaters until it is promoted.
    - Ink works on x64 and on arm64 (arm64 unverified until the first arm64 build).
    - The taskbar icon is visible.
    - The update notice appears. Before promotion, check it with a WeaveForge Dev
-     build whose updater endpoint points at this pre-release's `latest.json`.
+     build whose updater endpoint points at this pre-release's `latest-v2.json`.
      Confirm it again on a real install after promotion.
 8. Promote to Latest only after the gate passes and the checklist is done:
    ```bash
    npm run check:release-assets -- vX.Y.Z
    gh release edit vX.Y.Z --prerelease=false --latest
    ```
-   The gate is read-only. It fails if either setup.exe, its `.sig`, or
-   `latest.json` is missing, or if `latest.json` does not have version `X.Y.Z`,
-   or its URLs or signatures do not match this tag's assets. Do not promote on a
+   The gate is read-only. It fails if either setup.exe, its `.sig`, `latest-v2.json`
+   or `latest.json` is missing, or if `latest-v2.json` does not have version `X.Y.Z`,
+   or its URLs or signatures do not match this tag's assets. On a release after 0.9.7
+   it also fails if `latest.json` is not the 0.9.7 bridge. Do not promote on a
    failed gate.
 9. Write the notes on the release.
 10. Publish the in-app release notice. The `## [X.Y.Z]` section (no `v`) must exist in
