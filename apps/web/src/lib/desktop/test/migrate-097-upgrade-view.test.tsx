@@ -28,10 +28,10 @@ test("the stopped view names the per-device report file next to the folder", () 
       onKeepOld={noop}
     />,
   );
-  assert.match(html, /\(report-(&lt;|<)device(&gt;|>)\.json\)/);
+  assert.match(html, /the report-(&lt;|<)device(&gt;|>)\.json file for this device/);
 });
 
-test("a WebView lock failure shows its own message, not the generic line", () => {
+test("a WebView lock failure shows its own message, with the old-data line kept", () => {
   const html = renderToStaticMarkup(
     <Migrate097UpgradeBody
       phase="stopped"
@@ -45,5 +45,5 @@ test("a WebView lock failure shows its own message, not the generic line", () =>
     />,
   );
   assert.ok(html.includes(WEBVIEW_UPDATE_MESSAGE), "the WebView message is shown");
-  assert.doesNotMatch(html, /did not finish/, "the generic line is replaced");
+  assert.match(html, /Your old data is untouched\./, "the old-data line is still shown");
 });

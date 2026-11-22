@@ -128,7 +128,7 @@ test("web stopped view names the reconnect providers and the undecryptable count
     <Migrate097UpgradeBody
       phase="stopped"
       progress={{}}
-      reportPath=""
+      reportFolder={upgradeReportFolder(FOLDER)}
       copied={false}
       onCopy={noop}
       onRetry={noop}
@@ -148,7 +148,7 @@ test("web stopped view says to sync pending changes first when the outbox is not
     <Migrate097UpgradeBody
       phase="stopped"
       progress={{}}
-      reportPath=""
+      reportFolder={upgradeReportFolder(FOLDER)}
       copied={false}
       onCopy={noop}
       onRetry={noop}
@@ -179,7 +179,7 @@ test("web idle view offers Start and shows no progress or retry until Start is p
     <Migrate097UpgradeBody
       phase="idle"
       progress={{}}
-      reportPath=""
+      reportFolder={upgradeReportFolder(FOLDER)}
       copied={false}
       onCopy={noop}
       onRetry={noop}
@@ -197,7 +197,7 @@ test("web verified view names the reconnect providers and offers Continue before
     <Migrate097UpgradeBody
       phase="verified"
       progress={{}}
-      reportPath=""
+      reportFolder={upgradeReportFolder(FOLDER)}
       copied={false}
       onCopy={noop}
       onRetry={noop}
