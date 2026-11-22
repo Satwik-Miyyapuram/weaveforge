@@ -12,6 +12,7 @@ export const ORG_SERVER_READ_TABLES = [
   "experiment_metric_names",
   "lab_snapshots",
   "crdt_updates",
+  "crdt_snapshots",
   "profiles",
   "organizations",
   "org_memberships",
