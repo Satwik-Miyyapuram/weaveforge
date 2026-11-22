@@ -29,6 +29,7 @@ test("the stopped view names the per-device report file next to the folder", () 
     />,
   );
   assert.match(html, /the report-(&lt;|<)device(&gt;|>)\.json file for this device/);
+  assert.doesNotMatch(html, /report\.json/, "the legacy report.json name is never shown as this device's file");
 });
 
 test("a WebView lock failure shows its own message, with the old-data line kept", () => {
