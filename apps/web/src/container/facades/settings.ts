@@ -80,7 +80,7 @@ export class SettingsFacade {
     return this.deps.preferences;
   }
   get releaseNotices(): IReleaseNoticesRepository {
-    return this.deps.releaseNotices ?? { unseen: async () => null };
+    return this.deps.releaseNotices ?? { latest: async () => null, unseen: async () => null };
   }
   get integrations() {
     return this.deps.integrations;

@@ -40,8 +40,9 @@ export interface ReleaseNotice {
   publishedAt: string;
 }
 
-/** The newest notice this account has not dismissed, or null. */
+/** The newest notice, or null. The device tracks which one it dismissed. */
 export interface IReleaseNoticesRepository {
+  latest(): Promise<ReleaseNotice | null>;
   unseen(): Promise<ReleaseNotice | null>;
 }
 

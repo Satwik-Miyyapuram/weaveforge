@@ -31,7 +31,7 @@ async function reposFor(db: Db) {
   const userId = await db.createUser();
   const client = clientFor(db, userId);
   const session = sessionFor(userId);
-  const notices = rustRepository<IReleaseNoticesRepository>(client, "release_notices", ["unseen"], async () => ({
+  const notices = rustRepository<IReleaseNoticesRepository>(client, "release_notices", ["latest", "unseen"], async () => ({
     userId,
   }));
   const settings = new PostgrestSettingsRepository(client, session, memorySecrets());
@@ -82,4 +82,12 @@ test("saveNoticeSeen keeps the rest of the settings row", async () => {
   await settings.save({ ...before, zoteroApiKey: "key-n" } as Parameters<typeof settings.save>[0]);
   await settings.saveNoticeSeen("9.1.0-d");
   assert.equal((await settings.get()).zoteroApiKey, "key-n");
+});
+
+test("latest returns the newest notice even after the account dismissed it", async () => {
+  const db = await testDb();
+  const { notices, settings } = await reposFor(db);
+  await publish(db, "9.1.0-e", "2999-12-01T00:00:00Z");
+  await settings.saveNoticeSeen("9.1.0-e");
+  assert.equal((await notices.latest())?.version, "9.1.0-e");
 });
