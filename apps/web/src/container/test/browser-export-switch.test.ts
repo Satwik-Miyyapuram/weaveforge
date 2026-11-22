@@ -191,3 +191,25 @@ test("the real source wiring answers undecryptable from the server, never 'not w
   assert.equal(out.switch, true);
   assert.equal(count, 0);
 });
+
+test("(P2-2) a mark that fails after wiring opens keeps the switch off, and a retry opens the wiring again", async () => {
+  let opened = 0;
+  let marks = 0;
+  const h = harness({
+    fetch: async (input) => {
+      if (!String(input).includes("/rpc/mark_exported_097")) return new Response(null, { status: 204 });
+      marks += 1;
+      return marks === 1 ? new Response("boom", { status: 500 }) : new Response(null, { status: 204 });
+    },
+    gate: async () => ({ switch: true }),
+    openWiring: async () => {
+      opened += 1;
+      return WIRING;
+    },
+  });
+  const first = await decideBrowserSwitch(h.deps);
+  assert.deepEqual(first, { switch: false, reason: "error" });
+  const retry = await decideBrowserSwitch(h.deps);
+  assert.equal(retry.switch, true);
+  assert.equal(opened, 2);
+});
