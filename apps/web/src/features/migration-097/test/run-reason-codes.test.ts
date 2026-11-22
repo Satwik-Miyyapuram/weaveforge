@@ -29,7 +29,7 @@ test("run: a readBack that differs is listed with the fixed code readback-differ
   const result = await runWebExport({ runDeviceId: "dev-test",
     kinds: ["widgets"],
     codec,
-    writers: [writer],
+    writers: () => [writer],
     now: "2026-11-22T00:00:00.000Z",
     source,
     sink: new MemorySink(),

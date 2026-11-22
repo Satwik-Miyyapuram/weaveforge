@@ -32,6 +32,13 @@ export class MemorySink implements FileSink {
     if (!this.files.delete(path)) throw new Error(`missing file: ${path}`);
   }
 
+  async writeIf(path: string, text: string, expected: string): Promise<boolean> {
+    const current = this.files.get(path);
+    if (!current || new TextDecoder().decode(current) !== expected) return false;
+    await this.write(path, text);
+    return true;
+  }
+
   /** Every stored path, for the workspace bridge. */
   paths(): string[] {
     return [...this.files.keys()];

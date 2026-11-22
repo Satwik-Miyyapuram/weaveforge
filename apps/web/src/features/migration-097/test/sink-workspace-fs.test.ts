@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { createFileStore, guardedSink } from "../application/file-store";
 import { MemorySink } from "../infrastructure/memory-sink";
 import { sinkAsWorkspaceFs } from "../infrastructure/sink-workspace-fs";
 
@@ -36,13 +37,24 @@ test("walk yields files only, recursively", async () => {
   assert.deepEqual(seen.sort(), ["papers/one.md", "papers/sub/two.md"]);
 });
 
-test("writeTextIf writes only while the file still says expected", async () => {
+test("writeTextIf with expected text writes only while the file still says it", async () => {
   const { fs } = fresh();
   assert.ok(fs.writeTextIf);
-  assert.equal(await fs.writeTextIf("n.md", "v1", null), true);
-  assert.equal(await fs.writeTextIf("n.md", "v2", null), false);
+  await fs.writeFile("n.md", "v1");
+  assert.equal(await fs.writeTextIf("n.md", "v3", "other"), false);
   assert.equal(await fs.writeTextIf("n.md", "v2", "v1"), true);
   assert.equal(await fs.readText("n.md"), "v2");
+});
+
+test("writeTextIf with expected null goes to the guarded sink: a differing file is kept, the text lands in a conflict copy", async () => {
+  const sink = new MemorySink();
+  const store = await createFileStore(sink, {});
+  const fs = sinkAsWorkspaceFs(guardedSink(sink, store));
+  assert.ok(fs.writeTextIf);
+  assert.equal(await fs.writeTextIf("n.md", "v1", null), true);
+  assert.equal(await fs.writeTextIf("n.md", "v2", null), true);
+  assert.equal(await fs.readText("n.md"), "v1");
+  assert.equal(await fs.readText("n (conflict).md"), "v2");
 });
 
 test("stat, rename and remove", async () => {

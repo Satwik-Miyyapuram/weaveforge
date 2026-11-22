@@ -99,7 +99,7 @@ test("paper fields: defs for two projects land in settings.json per project fold
     ...TERMS,
     source: fakeSource({ paperFields: DEFS }),
     sink,
-    writers: [createPaperFieldsWriter(sink, FOLDERS)],
+    writers: () => [createPaperFieldsWriter(sink, FOLDERS)],
   });
   assert.deepEqual(result.run.missing, []);
   assert.equal(result.state, "verified");
@@ -118,7 +118,7 @@ test("paper fields: a project whose defs read back changed is listed missing by 
     readBack: async (kind) =>
       (await base.readBack(kind)).map((r) => (r.projectId === "proj-b" ? { ...r, name: "Other" } : r)),
   };
-  const result = await runWebExport({ runDeviceId: "dev-test", ...TERMS, source: fakeSource({ paperFields: DEFS }), sink, writers: [renamed] });
+  const result = await runWebExport({ runDeviceId: "dev-test", ...TERMS, source: fakeSource({ paperFields: DEFS }), sink, writers: () => [renamed] });
   assert.equal(result.state, "incomplete");
   assert.deepEqual(
     result.run.missing.filter((m) => m.kind === "paperFields"),
@@ -134,7 +134,7 @@ test("paper fields: a project whose defs are absent on readBack is listed missin
     write: base.write,
     readBack: async (kind) => (await base.readBack(kind)).filter((r) => r.projectId !== "proj-b"),
   };
-  const result = await runWebExport({ runDeviceId: "dev-test", ...TERMS, source: fakeSource({ paperFields: DEFS }), sink, writers: [dropB] });
+  const result = await runWebExport({ runDeviceId: "dev-test", ...TERMS, source: fakeSource({ paperFields: DEFS }), sink, writers: () => [dropB] });
   assert.equal(result.state, "incomplete");
   assert.deepEqual(
     result.run.missing.filter((m) => m.kind === "paperFields"),
@@ -166,7 +166,7 @@ test("paper fields: a null projectId def and its values land at the root and ver
     now: NOW,
     source: fakeSource({ paperFields: [rootDef], paperFieldValues: [rootValue] }),
     sink,
-    writers: [createPaperFieldsWriter(sink, new Map([["proj-a", "Thesis"]]))],
+    writers: () => [createPaperFieldsWriter(sink, new Map([["proj-a", "Thesis"]]))],
   });
   assert.deepEqual(result.run.missing, []);
   assert.equal(result.state, "verified");
@@ -191,7 +191,7 @@ test("paper field values: written into each paper's frontmatter through FilePape
     now: NOW,
     source: fakeSource({ paperFields: DEFS, paperFieldValues: VALUES }),
     sink,
-    writers: [createPaperFieldsWriter(sink, FOLDERS)],
+    writers: () => [createPaperFieldsWriter(sink, FOLDERS)],
   });
   assert.deepEqual(result.run.missing, []);
   assert.equal(result.state, "verified");
@@ -219,7 +219,7 @@ test("paper field values: a value whose paper has no file is listed missing", as
     now: NOW,
     source: fakeSource({ paperFields: DEFS, paperFieldValues: ghost }),
     sink,
-    writers: [createPaperFieldsWriter(sink, FOLDERS)],
+    writers: () => [createPaperFieldsWriter(sink, FOLDERS)],
   });
   assert.equal(result.state, "incomplete");
   assert.ok(result.run.missing.some((m) => m.kind === "paperFieldValues" && m.id === "v9"));
@@ -301,7 +301,7 @@ test("paper field values: an unmapped project is a per-row missing entry and the
     now: NOW,
     source: fakeSource({ paperFields: DEFS, paperFieldValues: values }),
     sink,
-    writers: [createPaperFieldsWriter(sink, FOLDERS)],
+    writers: () => [createPaperFieldsWriter(sink, FOLDERS)],
   });
   assert.equal(result.state, "incomplete");
   const missing = result.run.missing.filter((m) => m.kind === "paperFieldValues" && m.id === "v8");

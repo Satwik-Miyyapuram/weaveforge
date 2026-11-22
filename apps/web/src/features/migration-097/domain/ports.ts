@@ -39,4 +39,9 @@ export interface FileSink {
   rename(from: string, to: string): Promise<void>;
   /** Removes one file; a missing file is an error. */
   remove(path: string): Promise<void>;
+  /**
+   * Compare-and-set: writes `text` only while the file still reads `expected`. Returns false, with nothing
+   * written, on a mismatch or a missing file. The caller re-reads and retries.
+   */
+  writeIf(path: string, text: string, expected: string): Promise<boolean>;
 }

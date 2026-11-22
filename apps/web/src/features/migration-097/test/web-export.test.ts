@@ -816,7 +816,7 @@ test("writer kinds: rows go through KindWriter.write, never the codec, and readB
     source,
     sink,
     now: NOW,
-    writers: [writer],
+    writers: () => [writer],
   });
   assert.equal(result.state, "verified");
   assert.deepEqual(stored, FIXTURE.logEntries);
@@ -834,7 +834,7 @@ test("writer kinds: a readBack that loses a row makes the export incomplete", as
     source,
     sink,
     now: NOW,
-    writers: [writer],
+    writers: () => [writer],
   });
   assert.equal(result.state, "incomplete");
   assert.ok(result.run.missing.some((m) => m.kind === "logEntries" && m.reason === "readback-differs"));
@@ -857,7 +857,7 @@ test("re-run conflict: a writer conflict is listed on the kind and the run is in
     },
     readBack: async () => (FIXTURE.logEntries ?? []).filter((r) => r.id !== "l2"),
   };
-  const result = await runWebExport({ runDeviceId: "dev-test", kinds: KINDS, codec: fakeCodec(SUPPORTED), source, sink, now: NOW, writers: [writer] });
+  const result = await runWebExport({ runDeviceId: "dev-test", kinds: KINDS, codec: fakeCodec(SUPPORTED), source, sink, now: NOW, writers: () => [writer] });
   assert.equal(result.state, "incomplete");
   assert.deepEqual(result.run.kinds.logEntries?.conflicts, ["l2"]);
   assert.equal(JSON.parse(await sink.readText(REPORT_PATH)).state, "incomplete");
@@ -875,7 +875,7 @@ test("failure reasons: a writer error is a fixed code; its message stays out of 
     readBack: async () => (FIXTURE.logEntries ?? []).filter((r) => r.id !== "l1"),
   };
   const result = await runWebExport({ runDeviceId: "dev-test",
-    kinds: KINDS, codec: fakeCodec(SUPPORTED), source, sink, now: NOW, writers: [writer],
+    kinds: KINDS, codec: fakeCodec(SUPPORTED), source, sink, now: NOW, writers: () => [writer],
     debugLog: (line) => logs.push(line),
   });
   const miss = result.run.missing.find((m) => m.kind === "logEntries" && m.id === "l1");
@@ -894,7 +894,7 @@ test("failure reasons: a codec error and a readBack error are fixed codes, never
     readBack: async () => { throw new Error("SECRET readBack /home/x"); },
   };
   source.listBlobs = async () => { throw new Error("SECRET list /home/x"); };
-  const result = await runWebExport({ runDeviceId: "dev-test", kinds: KINDS, codec, source, sink, now: NOW, writers: [writer] });
+  const result = await runWebExport({ runDeviceId: "dev-test", kinds: KINDS, codec, source, sink, now: NOW, writers: () => [writer] });
   const reasons = result.run.missing.map((m) => m.reason);
   assert.equal(reasons.some((r) => r.startsWith("codec-failed:")), true);
   assert.equal(reasons.includes("logEntries: read failed"), true);

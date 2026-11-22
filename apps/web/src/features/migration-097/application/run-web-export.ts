@@ -15,7 +15,7 @@ import { sanitizeBlobRefs } from "../domain/asset-path";
 import { toConflictCopyText } from "../domain/conflict-copy";
 import { createPaperFieldsWriter } from "../infrastructure/kind-writer-paper-fields";
 import { sameRows, verifyExport, type Verdict } from "./verify-export";
-import { createFileStore, type FileStore, type Outputs } from "./file-store";
+import { createFileStore, guardedSink, type FileStore, type Outputs } from "./file-store";
 
 export type ExportProgress = { kind: string; done: number; total: number };
 
@@ -28,8 +28,11 @@ export type ExportOptions = {
   now: string;
   /** Called after each row is written to the sink. */
   onProgress?: (e: ExportProgress) => void;
-  /** Writers over the FILES repos. A kind a writer owns is written and read back through it. */
-  writers?: readonly KindWriter[];
+  /**
+   * Writers over the FILES repos, built on the sink they are given. That sink is the run's guarded sink, so every
+   * kind writer gets the same no-overwrite rule: identical content is a no-op, differing content is a conflict copy.
+   */
+  writers?: (sink: FileSink) => readonly KindWriter[];
   /** Project id to folder ("" = workspace root). Given, the run writes paper fields through the FILES repos itself. */
   projectFolders?: ReadonlyMap<string, string>;
   /** Desktop only: the backup runs before anything else, and a failure aborts the export. */
@@ -225,9 +228,8 @@ async function priorOutputs(sink: FileSink, deviceId: string | undefined): Promi
 }
 
 export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
-  const { kinds, codec, source, sink, now, onProgress, desktop, writers: givenWriters = [], projectFolders, moveSecrets, secretsPresent, runDeviceId, debugLog } = opts;
+  const { kinds, codec, source, sink, now, onProgress, desktop, writers: givenWriters, projectFolders, moveSecrets, secretsPresent, runDeviceId, debugLog } = opts;
   if (projectFolders) checkProjectFolders(projectFolders);
-  const writers = projectFolders ? [...givenWriters, createPaperFieldsWriter(sink, projectFolders)] : givenWriters;
   const target: MigrationTarget = desktop ? "folder" : "opfs";
 
   // The web run counts per device, so it needs the caller's stable id; a fresh id each run would invent a device.
@@ -317,6 +319,12 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
   });
 
   const store = await createFileStore(sink, prior);
+  // Every kind writer writes through the one guarded sink, so no kind can overwrite a differing file.
+  const guarded = guardedSink(sink, store);
+  const writers: readonly KindWriter[] = [
+    ...(givenWriters?.(guarded) ?? []),
+    ...(projectFolders ? [createPaperFieldsWriter(guarded, projectFolders)] : []),
+  ];
   const trashCount: Record<string, number> = {};
   let current = "*";
   try {

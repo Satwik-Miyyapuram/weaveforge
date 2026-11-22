@@ -1,4 +1,4 @@
-import { NotFoundError } from "@weaveforge/core";
+import { ConflictError, NotFoundError } from "@weaveforge/core";
 import { FilePaperFieldRepository } from "@/backend/providers/files/file-paper-field-repo";
 import { FilePaperRepository } from "@/features/papers/infrastructure/file-paper-repository";
 import type { KindWriter } from "../domain/kind-writer";
@@ -21,17 +21,35 @@ function coded(message: string, code: string): Error & { code: string } {
   return Object.assign(new Error(message), { code });
 }
 
+/** Reported as `conflict:<kind>`: the file's own value is kept, the export value is not written. */
+const KEPT_MESSAGE = "conflict: paper field value differs from the file; kept the file's value";
+
 /**
  * The error a value write reports. Only a NotFoundError keeps its meaning (no paper or definition);
- * anything else gets a fixed code, never the sink's or the repo's text.
+ * a conflict (the file's value differs, or the paper kept changing through the retries) is reported as
+ * one. Anything else gets a fixed code, never the sink's or the repo's text.
  */
 export function valueWriteError(err: unknown): Error {
   if (err instanceof NotFoundError) return new Error("paper field value: no paper or definition for it");
+  if (err instanceof ConflictError || (err instanceof Error && err.message === KEPT_MESSAGE)) return new Error(KEPT_MESSAGE);
   return coded("paper field value: write failed", "paper-value-write-failed");
 }
 
 export function createPaperFieldsWriter(sink: FileSink, folders: ReadonlyMap<string, string>): KindWriter {
-  const fs = sinkAsWorkspaceFs(sink);
+  // The paper merge is a compare-and-set: it writes only over the text it read, and its retries handle a race.
+  const fs = sinkAsWorkspaceFs(sink, { compareAndSet: true });
+  /** Values already in each folder's papers, keyed by paper and field: loaded once, then kept up to date. */
+  const stored = new Map<string, Map<string, unknown>>();
+
+  async function storedValues(folder: string, doc: Record<string, unknown>): Promise<Map<string, unknown>> {
+    let values = stored.get(folder);
+    if (!values) {
+      values = new Map();
+      for (const v of await repoAt(folder, doc).listValuesForProject()) values.set(`${v.paperId}\u0000${v.fieldId}`, v.value);
+      stored.set(folder, values);
+    }
+    return values;
+  }
 
   /** A missing project id is the workspace root, as is an empty one. Any other unmapped id is an error. */
   function folderOf(projectId: unknown): string {
@@ -68,13 +86,16 @@ export function createPaperFieldsWriter(sink: FileSink, folders: ReadonlyMap<str
       }
       if (kind === "paperFieldValues") {
         const folder = folderOf(row.projectId);
+        const paperId = String(row.paperId);
+        const fieldId = String(row.fieldId);
         try {
           const doc = await loadSettingsDoc(sink, "paper fields");
-          await repoAt(folder, doc).setValue({
-            paperId: String(row.paperId),
-            fieldId: String(row.fieldId),
-            value: row.value as FileFieldValue,
-          });
+          // The merge only adds missing keys: a value the file already holds that differs is kept and reported.
+          const values = await storedValues(folder, doc);
+          const key = `${paperId}\u0000${fieldId}`;
+          if (values.has(key) && JSON.stringify(values.get(key)) !== JSON.stringify(row.value)) throw new Error(KEPT_MESSAGE);
+          await repoAt(folder, doc).setValue({ paperId, fieldId, value: row.value as FileFieldValue });
+          values.set(key, row.value);
         } catch (err) {
           // Fixed codes, never the repo's or the sink's text: the report names no paper or field.
           throw valueWriteError(err);

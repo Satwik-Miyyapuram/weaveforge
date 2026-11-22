@@ -13,8 +13,6 @@ export type FileStore = {
    * given (the copy form of the row, e.g. `conflictOf` instead of `id`), else the same `data`.
    */
   store(path: string, data: string | Uint8Array, hash: string, copy?: { data: string; hash: string }): Promise<string>;
-  /** Writes a small sidecar only when nothing is at `path` yet. An existing file is never replaced. */
-  writeIfMissing(path: string, text: string): Promise<void>;
   /** Copies written, reused or kept this run. */
   readonly outputs: Outputs;
   /** Conflict copies this run wrote or reused. */
@@ -65,19 +63,28 @@ export async function createFileStore(sink: FileSink, prior: Outputs): Promise<F
         return candidate;
       }
     },
-    async writeIfMissing(path, text) {
-      const names = await existing();
-      if (!names.has(path)) {
-        await sink.write(path, text);
-        names.add(path);
-        outputs[path] = await sha256Hex(text);
-        return;
-      }
-      // Kept as it is: the output records what is actually on disk, or nothing when it cannot be read.
-      const current = await hashAt(path);
-      if (current !== null) outputs[path] = current;
-    },
     outputs,
     conflicts,
+  };
+}
+
+/**
+ * A FileSink whose writes go through the run's no-overwrite store, so every kind writer shares one rule.
+ * Settings files under `.weaveforge/` are shared documents saved by compare-and-retry, never copied, so they
+ * pass straight through.
+ */
+export function guardedSink(sink: FileSink, store: FileStore): FileSink {
+  return {
+    async write(path, data) {
+      if (path.startsWith(".weaveforge/")) return sink.write(path, data);
+      await store.store(path, data, await sha256Hex(data));
+    },
+    list: () => sink.list(),
+    readText: (path) => sink.readText(path),
+    readBytes: (path) => sink.readBytes(path),
+    rename: (from, to) => sink.rename(from, to),
+    remove: (path) => sink.remove(path),
+    // A compare-and-set replaces only the text the caller read, so it never loses a user edit: pass it through.
+    writeIf: (path, text, expected) => sink.writeIf(path, text, expected),
   };
 }
