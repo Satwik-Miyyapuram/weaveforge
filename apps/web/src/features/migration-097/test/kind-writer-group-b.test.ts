@@ -188,3 +188,37 @@ test("metrics: an orphan point (no experiment row) is rejected and the error nam
   const writer = createGroupBWriter(new MemorySink(), ROOT);
   await assert.rejects(() => writer.write("metrics", { ...METRIC_ROW, experimentId: "0123456789abcdff" }), /0123456789abcdff.*val_loss|val_loss.*0123456789abcdff/);
 });
+
+const OWNER = { userId: "user-1", projectId: "proj-1" };
+
+test("server-only owner columns never reach a file (guard, green today)", async () => {
+  const writer = createGroupBWriter(new MemorySink(), ROOT);
+  await writer.write("experiments", { ...EXPERIMENT_ROW, ...OWNER });
+  await writer.write("logEntries", { ...LOG_ROW, ...OWNER });
+  await writer.write("milestones", { ...MILESTONE_ROW, ...OWNER });
+  await writer.write("reportSections", { ...SECTION_ROW, ...OWNER });
+  await writer.write("aiProposals", { ...PROPOSAL_ROW, ...OWNER });
+  for (const kind of ["experiments", "logEntries", "milestones", "reportSections", "aiProposals"]) {
+    for (const back of await writer.readBack(kind)) {
+      assert.equal("userId" in back, false, `${kind} leaked userId`);
+      assert.equal("projectId" in back, false, `${kind} leaked projectId`);
+    }
+  }
+});
+
+test("server-only owner columns are stripped before the file write for every group (b) kind", async () => {
+  const writer = createGroupBWriter(new MemorySink(), ROOT);
+  await writer.write("experiments", { ...EXPERIMENT_ROW, ...OWNER });
+  await writer.write("metrics", { ...METRIC_ROW, ...OWNER });
+  const [point] = await writer.readBack("metrics");
+  assert.equal("userId" in point!, false);
+  assert.equal("projectId" in point!, false);
+});
+
+test("aiProposals: a non-owner column the row carries is kept (red now: writer maps fields)", async () => {
+  const writer = createGroupBWriter(new MemorySink(), ROOT);
+  await writer.write("aiProposals", { ...PROPOSAL_ROW, ...OWNER, note: "x" });
+  const [back] = await writer.readBack("aiProposals");
+  assert.equal(back!.note, "x");
+  assert.equal("userId" in back!, false);
+});

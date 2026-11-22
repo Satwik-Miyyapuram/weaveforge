@@ -2,8 +2,6 @@ import type {
   AiWriteProposal,
   Experiment,
   LogEntry,
-  LogKind,
-  LogLink,
   Milestone,
   MetricPoint,
   ReportSection,
@@ -16,6 +14,7 @@ import { FileMetricRepository } from "../../../backend/providers/files/file-metr
 import { FileReportSectionRepository } from "../../../backend/providers/files/file-report-section-repo";
 import { FileAiProposalStore } from "../../../backend/providers/files/file-ai-proposal-store";
 import { FileMilestoneRepository } from "../../plan/infrastructure/file-milestone-repo";
+import { SERVER_ONLY_FIELDS } from "../domain/server-only-fields";
 import { sinkAsWorkspaceFs } from "./sink-workspace-fs";
 
 interface KindRepo {
@@ -26,6 +25,12 @@ interface KindRepo {
 /** Drops undefined keys so absent optional fields stay absent in the row. */
 function defined(row: Row): Row {
   return Object.fromEntries(Object.entries(row).filter(([, value]) => value !== undefined));
+}
+
+/** The row minus the server-only columns of `kind`: what a file repo may store. */
+function withoutServerOnly(kind: string, row: Row): Row {
+  const skip = new Set(SERVER_ONLY_FIELDS[kind] ?? []);
+  return Object.fromEntries(Object.entries(row).filter(([key]) => !skip.has(key)));
 }
 
 /**
@@ -44,35 +49,17 @@ export function createGroupBWriter(sink: FileSink, projectRoot: string): KindWri
 
   const repos: Record<string, KindRepo> = {
     logEntries: {
-      write: (row) =>
-        logs.save({
-          id: row.id as string,
-          entryDate: row.entryDate as string,
-          kind: row.kind as LogKind,
-          body: row.body as string,
-          links: row.links as LogLink[],
-          createdAt: row.createdAt as string,
-        } satisfies LogEntry),
+      write: (row) => logs.save(withoutServerOnly("logEntries", row) as unknown as LogEntry),
       readBack: async () =>
         (await logs.list()).map((e) => defined({ ...e })),
     },
     milestones: {
-      write: (row) =>
-        milestones.save({
-          id: row.id as string,
-          title: row.title as string,
-          description: row.description as string | undefined,
-          status: row.status as Milestone["status"],
-          targetDate: row.targetDate as string | undefined,
-          dependencies: row.dependencies as Milestone["dependencies"],
-          compute: row.compute as Milestone["compute"],
-          createdAt: row.createdAt as string,
-        }),
+      write: (row) => milestones.save(withoutServerOnly("milestones", row) as unknown as Milestone),
       readBack: async () =>
         (await milestones.list()).map((m) => defined({ ...m })),
     },
     experiments: {
-      write: (row) => experiments.save({ ...row } as unknown as Experiment),
+      write: (row) => experiments.save(withoutServerOnly("experiments", row) as unknown as Experiment),
       readBack: async () => (await experiments.list()).map((e) => defined({ ...e })),
     },
     metrics: {
@@ -103,34 +90,12 @@ export function createGroupBWriter(sink: FileSink, projectRoot: string): KindWri
       },
     },
     reportSections: {
-      write: (row) =>
-        sections.save({
-          id: row.id as string,
-          title: row.title as string,
-          sectionNo: row.sectionNo as string | undefined,
-          status: row.status as ReportSection["status"],
-          wordCount: row.wordCount as number,
-          targetWords: row.targetWords as number | undefined,
-          deadline: row.deadline as string | undefined,
-          draftUrl: row.draftUrl as string | undefined,
-          notes: row.notes as string | undefined,
-          sortOrder: row.sortOrder as number,
-          createdAt: row.createdAt as string,
-        }),
+      write: (row) => sections.save(withoutServerOnly("reportSections", row) as unknown as ReportSection),
       readBack: async () =>
         (await sections.list()).map((s) => defined({ ...s })),
     },
     aiProposals: {
-      write: (row) =>
-        proposals.save({
-          id: row.id as string,
-          kind: row.kind as AiWriteProposal["kind"],
-          resourceId: row.resourceId as string,
-          content: row.content as string,
-          createdAt: row.createdAt as string,
-          status: row.status as AiWriteProposal["status"],
-          sourceLinks: row.sourceLinks as string[],
-        }),
+      write: (row) => proposals.save(withoutServerOnly("aiProposals", row) as unknown as AiWriteProposal),
       readBack: async () =>
         (await proposals.listAll()).map((p) => defined({ ...p })),
     },
