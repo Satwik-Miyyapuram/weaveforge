@@ -387,10 +387,11 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
         if (bad > 0) missing.push({ kind, id: "*", reason: `${bad} content_enc row(s) failed to decrypt` });
         written[kind] = 0;
         dbCount[kind] = rows.length;
-        // verify ignores syncState, so a row not yet synced (not 'local') is listed here rather than passed silently.
+        // verify ignores syncState, so a row not yet written back is listed here rather than passed silently.
+        // 'synced' is the normal state of a written-back annotation, so only 'pending' and 'conflict' are listed.
         for (const row of rows) {
-          if (kind === "annotations" && row.syncState !== undefined && row.syncState !== "local") {
-            missing.push({ kind, id: String(row.id), reason: `syncState ${String(row.syncState)}` });
+          if (kind === "annotations" && (row.syncState === "pending" || row.syncState === "conflict")) {
+            missing.push({ kind, id: String(row.id), reason: "unsynced (exported)" });
           }
         }
         trashCount[kind] = await exportTrash(kind, await source.listTrashed(kind), sink, store, codec, missing);
