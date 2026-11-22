@@ -313,6 +313,39 @@ test("undecryptable content_enc rows keep the export incomplete and name kind an
   assert.equal(calls.some((c) => c.startsWith("mark:")), false);
 });
 
+/** A blobs writer (group c shape): the blob loop feeds it, so the kind itself is never listed row by row. */
+const BLOB_WRITER: KindWriter = { kinds: ["blobs"], write: async () => {}, readBack: async () => [] };
+
+test("blobs with a writer still check the raw count against blob_objects", async () => {
+  const { source } = fakeServer({ rows: {}, rawCounts: { blobs: 5 } });
+  const result = await runWebExport({
+    runDeviceId: "dev-test",
+    kinds: ["blobs"],
+    codec: fakeCodec(SUPPORTED),
+    source,
+    sink: new MemorySink(),
+    now: NOW,
+    writers: () => [BLOB_WRITER],
+  });
+  assert.equal(result.state, "incomplete");
+  assert.ok(result.run.missing.some((m) => m.kind === "blobs" && /raw count 5 != listed 0/.test(m.reason)));
+});
+
+test("blobs with a writer still check undecryptable rows", async () => {
+  const { source } = fakeServer({ rows: {}, undecryptable: { blobs: 2 } });
+  const result = await runWebExport({
+    runDeviceId: "dev-test",
+    kinds: ["blobs"],
+    codec: fakeCodec(SUPPORTED),
+    source,
+    sink: new MemorySink(),
+    now: NOW,
+    writers: () => [BLOB_WRITER],
+  });
+  assert.equal(result.state, "incomplete");
+  assert.ok(result.run.missing.some((m) => m.kind === "blobs" && /2 content_enc row/.test(m.reason)));
+});
+
 test("report has verifiedAt when verified, no runs errors field, and is written atomically", async () => {
   const { source } = fakeServer({ rows: FIXTURE });
   const sink = new MemorySink();

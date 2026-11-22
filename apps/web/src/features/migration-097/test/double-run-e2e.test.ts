@@ -136,7 +136,8 @@ const WRITER_ROWS: Record<string, Row[]> = {
 function writerServer(): ServerSource {
   return {
     listRows: async (kind: string) => WRITER_ROWS[kind] ?? [],
-    countRows: async (kind: string) => (WRITER_ROWS[kind] ?? []).length,
+    // Group (c) claims blobs in this run, so the raw count is checked against listBlobs (one blob).
+    countRows: async (kind: string) => (kind === "blobs" ? 1 : (WRITER_ROWS[kind] ?? []).length),
     pendingOutbox: async () => 0,
     listTrashed: async (kind: string) => (kind === "logEntries" ? [TRASHED_LOG] : []),
     undecryptable: async () => 0,

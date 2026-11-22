@@ -356,8 +356,19 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
   try {
     for (const kind of kinds) {
       // A writer that claims blobs (group c) is fed by the blob loop below, which reads each blob back by sha256.
-      // Its sink listing must not be compared with the blob_objects rows, so such a kind is skipped here.
-      if (kind === "blobs" && writerFor(kind)) continue;
+      // Its sink listing is not compared with the rows, but the raw count and the undecryptable check still run.
+      if (kind === "blobs" && writerFor(kind)) {
+        try {
+          const raw = await source.countRows(kind);
+          const listed = (await source.listBlobs()).length;
+          if (raw !== listed) missing.push({ kind, id: "*", reason: `raw count ${raw} != listed ${listed}` });
+          const bad = await source.undecryptable(kind);
+          if (bad > 0) missing.push({ kind, id: "*", reason: `${bad} content_enc row(s) failed to decrypt` });
+        } catch {
+          missing.push({ kind, id: "*", reason: `${kind}: read failed` });
+        }
+        continue;
+      }
       current = kind;
       // One failing kind is listed missing; the later kinds still export.
       try {
