@@ -100,6 +100,15 @@ fn reading_list_file_holds_no_members() {
 }
 
 #[test]
+fn an_old_list_file_still_reads_its_members_for_the_rewrite() {
+    // A 0.9.6 list file: members and member-notes are read so the rewrite can move them.
+    let old = "---\nweaveforge-id: l1\nweaveforge-type: reading_list\ntitle: Core\ncreated-at: 2026-11-01T00:00:00Z\nmembers: [\"[[Smith 2024.paper]]\"]\nmember-notes: {\"paper:p1\": {\"id\": \"i1\", \"order\": 1}}\n---\n";
+    let r = parse_entity_row(EntityKind::ReadingList, old).expect("parses");
+    assert_eq!(r.get("members"), Some(&json!(["[[Smith 2024.paper]]"])));
+    assert_eq!(r.get("memberNotes"), Some(&json!({"paper:p1": {"id": "i1", "order": 1}})));
+}
+
+#[test]
 fn absent_optional_fields_stay_absent() {
     round_trip(
         EntityKind::Experiment,
