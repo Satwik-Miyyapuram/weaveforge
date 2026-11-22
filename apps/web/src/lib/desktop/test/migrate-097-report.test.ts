@@ -57,3 +57,34 @@ test("an unparsable or unknown state is not a summary", () => {
   assert.equal(summarizeMigrationReport("garbage"), null);
   assert.equal(summarizeMigrationReport({ version: 1, state: "maybe", runs: [] }), null);
 });
+
+test("with this device's id, the summary uses that device's run, not another device's latest run", () => {
+  const summary = summarizeMigrationReport(
+    { version: 1, state: "incomplete", runs: [{ ...RUN_OLD, deviceId: "dev-a" }, { ...RUN_LAST, deviceId: "dev-b" }] },
+    "dev-a",
+  );
+  assert.ok(summary);
+  assert.deepEqual(summary.kinds, [{ kind: "notes", db: 1, files: 0, written: 0, conflicts: [] }]);
+  assert.deepEqual(summary.missing, []);
+});
+
+test("with this device's id and no run from it, the summary has no kinds or missing rows", () => {
+  const summary = summarizeMigrationReport(
+    { version: 1, state: "incomplete", runs: [{ ...RUN_LAST, deviceId: "dev-b" }] },
+    "dev-a",
+  );
+  assert.ok(summary);
+  assert.deepEqual(summary.kinds, []);
+  assert.deepEqual(summary.missing, []);
+});
+
+test("the run's own backup is shown in preference to the top-level backup", () => {
+  const summary = summarizeMigrationReport({
+    version: 1,
+    state: "verified",
+    backup: "top.dump",
+    runs: [{ ...RUN_LAST, backup: "run-a.dump" }],
+  });
+  assert.ok(summary);
+  assert.equal(summary.backup, "run-a.dump");
+});
