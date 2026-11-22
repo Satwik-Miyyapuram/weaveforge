@@ -2,7 +2,7 @@
 //! Ported from Overleaf Workshop's `src/api/base.ts`, vendored (https://github.com/iamhyc/Overleaf-Workshop)
 //! under AGPL-3.0 (see `NOTICE`). Only the login, project, compile and download paths are kept.
 
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use reqwest::header::{CONTENT_RANGE, CONTENT_TYPE, COOKIE, SET_COOKIE};
 use serde_json::{Value, json};
@@ -22,6 +22,10 @@ const MAX_HTTP_RETRIES: u32 = 2;
 const MAX_DOWNLOAD_ROUNDS: usize = 100;
 /// Upper bound on PDF bytes kept across download rounds.
 const MAX_DOWNLOAD_BYTES: u64 = 256 * 1024 * 1024;
+/// Upper bound on the bytes of a JSON reply or the login page.
+const MAX_REPLY_BYTES: u64 = 16 * 1024 * 1024;
+/// The message for a JSON reply or login page past the reply cap.
+const TOO_LARGE: &str = "Overleaf sent a reply that is too large.";
 /// The message for a compile that names a PDF host outside the allowlist.
 const HOST_REFUSED: &str = "Overleaf named a PDF host that is not allowed.";
 /// The message for a PDF download that stopped before its end.
@@ -36,7 +40,7 @@ const EMPTY_REPLY: &str = "Overleaf sent an empty response.";
 const PROJECTS_MISSING: &str = "Overleaf sent an unexpected project list.";
 
 /// A logged-in Overleaf session: the CSRF token and the cookie header to send.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct Identity {
     /// The `ol-csrfToken` from the Overleaf page.
     pub csrf_token: String,
@@ -44,18 +48,68 @@ pub struct Identity {
     pub cookies: String,
 }
 
+/// Both fields are session secrets, so a debug print shows neither.
+impl std::fmt::Debug for Identity {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Identity")
+            .field("csrf_token", &"<redacted>")
+            .field("cookies", &"<redacted>")
+            .finish()
+    }
+}
+
+/// How long a request may take and how big a PDF may be.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Limits {
+    /// Time allowed to open the connection.
+    pub connect: Duration,
+    /// Time allowed for a whole request, body included (sized for a large PDF).
+    pub total: Duration,
+    /// Time allowed for a whole PDF download, all rounds together: no round starts after
+    /// it, and each later round is cut off when it runs out.
+    pub download_total: Duration,
+    /// Upper bound on PDF bytes kept across download rounds.
+    pub max_download_bytes: u64,
+    /// Upper bound on the bytes of a JSON reply or the login page.
+    pub max_reply_bytes: u64,
+}
+
+impl Default for Limits {
+    fn default() -> Self {
+        Self {
+            connect: Duration::from_secs(10),
+            total: Duration::from_secs(120),
+            download_total: Duration::from_secs(300),
+            max_download_bytes: MAX_DOWNLOAD_BYTES,
+            max_reply_bytes: MAX_REPLY_BYTES,
+        }
+    }
+}
+
 /// The Overleaf HTTP client, pointed at one base URL.
 pub struct OverleafApi {
     client: reqwest::Client,
     base: String,
     retry_ms: u64,
+    request_total: Duration,
+    download_total: Duration,
+    max_download_bytes: u64,
+    max_reply_bytes: u64,
 }
 
 impl OverleafApi {
-    /// Client with redirects off; `base` gets a trailing '/' when missing.
+    /// Client with redirects off and the default [`Limits`]; `base` gets a trailing '/' when
+    /// missing.
     pub fn new(base: &str, retry_ms: u64) -> Result<Self, String> {
+        Self::with_limits(base, retry_ms, Limits::default())
+    }
+
+    /// As [`OverleafApi::new`], with the given time and size limits.
+    pub fn with_limits(base: &str, retry_ms: u64, limits: Limits) -> Result<Self, String> {
         let client = reqwest::Client::builder()
             .redirect(reqwest::redirect::Policy::none())
+            .connect_timeout(limits.connect)
+            .timeout(limits.total)
             .build()
             .map_err(|_| {
                 // A local setup fault (TLS backend), not Overleaf being unreachable.
@@ -71,19 +125,24 @@ impl OverleafApi {
             client,
             base,
             retry_ms,
+            request_total: limits.total,
+            download_total: limits.download_total,
+            max_download_bytes: limits.max_download_bytes,
+            max_reply_bytes: limits.max_reply_bytes,
         })
     }
 
     /// Logs in with `cookies`; `None` when the project page has no user meta.
     pub async fn cookies_login(&self, cookies: &str) -> Result<Option<Identity>, String> {
-        let page = self
+        let mut page = self
             .client
             .get(format!("{}project", self.base))
             .header(COOKIE, cookies)
             .send()
             .await
             .map_err(|err| unreached(&err))?;
-        let html = page.text().await.map_err(|err| unreached(&err))?;
+        let html = body_within(&mut page, self.max_reply_bytes).await?;
+        let html = String::from_utf8_lossy(&html);
         let Some(meta) = parse_overleaf_meta(&html) else {
             return Ok(None);
         };
@@ -241,10 +300,10 @@ impl OverleafApi {
         for (name, value) in extra {
             request = request.header(*name, *value);
         }
-        let response = request.send().await.map_err(|err| unreached(&err))?;
+        let mut response = request.send().await.map_err(|err| unreached(&err))?;
         let status = response.status().as_u16();
-        let bytes = response.bytes().await.map_err(|err| unreached(&err))?;
-        Ok((status, bytes.to_vec()))
+        let bytes = body_within(&mut response, self.max_reply_bytes).await?;
+        Ok((status, bytes))
     }
 
     /// Sleeps `retry_ms * 2^attempt`, capped at `4 * retry_ms`.
@@ -257,13 +316,16 @@ impl OverleafApi {
         tokio::time::sleep(Duration::from_millis(ms)).await;
     }
 
-    /// Fetches `url` in rounds: 200 ends it, 206 appends and repeats.
+    /// Fetches `url` in rounds: a first 200 is the whole PDF, 206 appends and repeats.
     ///
     /// A first reply that is neither gives an empty result (nothing was compiled). Once bytes
-    /// have arrived, any other status, a length that misses the `Content-Range` total, a chunk
-    /// that does not start where the last one ended, a bad or changed `Content-Range`, the byte
-    /// cap or the round cap is an error: a truncated or spliced PDF never passes as a whole one.
+    /// have arrived, any other status, a 200 (a whole body cannot follow part of one), a length
+    /// that misses the `Content-Range` total, a chunk that does not start where the last one
+    /// ended, a missing, bad or changed `Content-Range` on a 206, a broken or timed-out reply,
+    /// the byte cap, the round cap or the whole-download time budget is an error: a truncated
+    /// or spliced PDF never passes as a whole one.
     async fn download(&self, url: &str, cookies: Option<&str>) -> Result<Vec<u8>, String> {
+        let started = Instant::now();
         let mut out = Vec::new();
         let mut total: Option<u64> = None;
         for round in 0..MAX_DOWNLOAD_ROUNDS {
@@ -271,7 +333,22 @@ impl OverleafApi {
             if let Some(cookies) = cookies {
                 request = request.header(COOKIE, cookies);
             }
-            let response = request.send().await.map_err(|err| unreached(&err))?;
+            if round > 0 {
+                // The first round is held to the per-request limit; later ones share what is left.
+                let left = self.download_total.saturating_sub(started.elapsed());
+                if left.is_zero() {
+                    return Err(incomplete("ran out of time"));
+                }
+                request = request.timeout(left.min(self.request_total));
+            }
+            // Before any reply was taken, a failure is Overleaf out of reach; after, a cut-off PDF.
+            let response = request.send().await.map_err(|err| {
+                if round == 0 {
+                    unreached(&err)
+                } else {
+                    incomplete_after(&err)
+                }
+            })?;
             let status = response.status().as_u16();
             if status != 200 && status != 206 {
                 if round == 0 {
@@ -279,25 +356,21 @@ impl OverleafApi {
                 }
                 return Err(incomplete(&format!("stopped at HTTP {status}")));
             }
-            let received = u64::try_from(out.len()).unwrap_or(u64::MAX);
-            let Some((start, range_total)) = content_range(&response) else {
-                return Err(incomplete("sent a bad Content-Range"));
-            };
-            if start.is_some_and(|start| start != received) {
-                return Err(incomplete("chunk out of order"));
+            if status == 200 && round > 0 {
+                return Err(incomplete("sent a whole reply after a partial one"));
             }
-            match (total, range_total) {
-                (Some(known), Some(new)) if known != new => {
-                    return Err(incomplete("changed its total"));
-                }
-                (None, Some(_)) => total = range_total,
-                _ => {}
-            }
+            check_range(&response, status, out.len(), &mut total)?;
             // Read piece by piece so the byte cap stops a huge body before it is all held.
             let mut response = response;
-            while let Some(piece) = response.chunk().await.map_err(|err| unreached(&err))? {
+            loop {
+                let piece = match response.chunk().await {
+                    Ok(Some(piece)) => piece,
+                    Ok(None) => break,
+                    Err(err) if round == 0 && out.is_empty() => return Err(unreached(&err)),
+                    Err(err) => return Err(incomplete_after(&err)),
+                };
                 out.extend_from_slice(&piece);
-                if u64::try_from(out.len()).unwrap_or(u64::MAX) > MAX_DOWNLOAD_BYTES {
+                if u64::try_from(out.len()).unwrap_or(u64::MAX) > self.max_download_bytes {
                     return Err(incomplete("passed the size cap"));
                 }
             }
@@ -312,6 +385,47 @@ impl OverleafApi {
         }
         Err(incomplete("hit the round cap"))
     }
+}
+
+/// Checks a reply's `Content-Range` against the `received` bytes and the `total` seen so far
+/// (set from the first total named). A 206 must carry one, starting where the last part ended.
+fn check_range(
+    response: &reqwest::Response,
+    status: u16,
+    received: usize,
+    total: &mut Option<u64>,
+) -> Result<(), String> {
+    let Some((start, range_total)) = content_range(response) else {
+        return Err(incomplete("sent a bad Content-Range"));
+    };
+    if status == 206 && start.is_none() {
+        return Err(incomplete("sent a part without a Content-Range"));
+    }
+    let received = u64::try_from(received).unwrap_or(u64::MAX);
+    if start.is_some_and(|start| start != received) {
+        return Err(incomplete("chunk out of order"));
+    }
+    match (*total, range_total) {
+        (Some(known), Some(new)) if known != new => Err(incomplete("changed its total")),
+        (None, Some(_)) => {
+            *total = range_total;
+            Ok(())
+        }
+        _ => Ok(()),
+    }
+}
+
+/// Reads a reply body piece by piece, stopping once it passes `cap` bytes.
+async fn body_within(response: &mut reqwest::Response, cap: u64) -> Result<Vec<u8>, String> {
+    let mut out = Vec::new();
+    while let Some(piece) = response.chunk().await.map_err(|err| unreached(&err))? {
+        out.extend_from_slice(&piece);
+        if u64::try_from(out.len()).unwrap_or(u64::MAX) > cap {
+            eprintln!("[{CONTEXT}] reply passed the size cap");
+            return Err(TOO_LARGE.to_string());
+        }
+    }
+    Ok(out)
 }
 
 /// The start and total of a `Content-Range: bytes a-b/total` header (total `None` for `*`).
@@ -336,6 +450,12 @@ fn content_range(response: &reqwest::Response) -> Option<(Option<u64>, Option<u6
 /// Logs why a download stopped short and returns the fixed message.
 fn incomplete(why: &str) -> String {
     eprintln!("[{CONTEXT}] download {why}");
+    INCOMPLETE.to_string()
+}
+
+/// A request or body that failed once part of the PDF was taken: logged by kind, cut-off message.
+fn incomplete_after(err: &reqwest::Error) -> String {
+    eprintln!("{}", transport_log_line(err, CONTEXT));
     INCOMPLETE.to_string()
 }
 
