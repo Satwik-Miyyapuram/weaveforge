@@ -8,6 +8,7 @@ import { DesktopWorkspaceFs, type VaultFileBridge } from "@/features/workspace/i
 import { systemClock } from "@/lib/parts";
 import type { WiredBackend } from "./parts";
 import { overlayFileRepositories } from "./with-file-repositories";
+import { readOnlyDb } from "./read-only-repositories";
 
 /**
  * Integration credentials for the desktop window, held in memory for this
@@ -45,8 +46,11 @@ export function wireDesktopFileBackend(
       secrets: new SessionSecretsStore(),
     });
     // Settings writes must reach the folder: the use case is rebuilt over the file repository.
+    // The database client stays live for org and sharing tables only: personal table writes and
+    // non-org rpcs are refused (readOnlyDb's rule), so no personal write can reach the server.
     return {
       ...overlayFileRepositories(postgrest, files),
+      db: readOnlyDb(postgrest.db),
       manageSettings: new ManageSettingsUseCase({ repository: files.settingsRepository, clock: systemClock }),
     };
   };
