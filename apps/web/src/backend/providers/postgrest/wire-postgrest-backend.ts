@@ -164,6 +164,14 @@ function rustProjectZoteroStore(db: SupabaseClient): IProjectBibliographyCollect
 }
 
 // --- wire-postgrest-backend ---
+/**
+ * A repository that re-tags its records when a project folder moves. Only the
+ * file repositories have one; the overlay supplies it in files mode.
+ */
+export interface ProjectFolderMovable {
+  moveProjectFolder?(from: string, to: string): Promise<void>;
+}
+
 export interface WiredPostgrestBackend {
   readonly config: BackendConfig;
   readonly db: SupabaseClient;
@@ -209,7 +217,7 @@ export interface WiredPostgrestBackend {
     IReaderAnnotationSink &
     IReaderAnnotationSyncRecorder &
     IReaderAnnotationProjectSource;
-  readonly paperFieldRepository: IPaperFieldRepository;
+  readonly paperFieldRepository: IPaperFieldRepository & ProjectFolderMovable;
   /** Release what this wiring subscribed to (the session's auth listener). */
   dispose(): void;
 }

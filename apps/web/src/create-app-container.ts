@@ -60,7 +60,6 @@ import { LoadReadingListsScreenUseCase } from "@/features/reading-lists/applicat
 import { DuplicateSharedVaultPageUseCase } from "@/features/library/application/duplicate-shared-vault.use-case";
 import { LoadSharedWithMeScreenUseCase } from "@/features/sharing/application/parts";
 import { rustShareLinkRepository } from "@/backend/providers/postgrest/rust-repository";
-import { FilePaperFieldRepository } from "@/backend/providers/files/file-paper-field-repo";
 import { FileAiProposalStore } from "@/backend/providers/files/file-ai-proposal-store";
 import {
   FILES_MODE_CRDT_TYPES,
@@ -623,10 +622,8 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
     }),
     paperFields: new PaperFieldsFacade({
       paperFields: managePaperFields,
-      moveProjectFolder:
-        fieldRepo instanceof FilePaperFieldRepository
-          ? (from, to) => fieldRepo.moveProjectFolder(from, to)
-          : undefined,
+      // Present only in files mode (the overlay supplies it); PostgREST leaves it undefined.
+      moveProjectFolder: fieldRepo.moveProjectFolder?.bind(fieldRepo),
     }),
     libraryTidy: createLibraryTidy({ papers: paperRepository, updatePaper, resolver, backend, bibliography, newId: uuidIds.newId }),
     zotero: new ZoteroFacade({
