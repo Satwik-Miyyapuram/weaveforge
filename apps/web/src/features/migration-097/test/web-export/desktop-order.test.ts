@@ -1,7 +1,7 @@
 import { onlyReportPath } from "../own-report";
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import type { RunReport } from "../../domain/report";
+import { REPORT_PATH, type RunReport } from "../../domain/report";
 import type { FileCodec, Row } from "../../domain/ports";
 import { runWebExport } from "../../application/run-web-export";
 import { MemorySink } from "../../infrastructure/memory-sink";
@@ -57,6 +57,24 @@ test("desktop: a bridge without migrate097Backup refuses before any server read 
   assert.match(result.run.missing[0]!.reason, /migrate097Backup missing/);
   assert.deepEqual(calls, []);
   assert.deepEqual(await sink.list(), []);
+});
+
+test("desktop: a pre-backup refusal writes nothing, even when the run names a device id", async () => {
+  const sink = new MemorySink();
+  await sink.write(REPORT_PATH, "{ not json");
+  const before = await sink.list();
+  const { source, calls } = fakeServer({ rows: FIXTURE });
+  const result = await runWebExport({ runDeviceId: "dev-test",
+    kinds: KINDS,
+    codec: fakeCodec(SUPPORTED),
+    source,
+    sink,
+    now: NOW,
+    desktop: { folder: "C:/ws", bridge: fakeDesktop(calls) },
+  });
+  assert.notEqual(result.state, "verified");
+  assert.deepEqual(calls, []);
+  assert.deepEqual(await sink.list(), before, "no report is written before the dump");
 });
 
 test("desktop: a failed backup aborts the export: no server read, no write, no marker, no mark-exported", async () => {
