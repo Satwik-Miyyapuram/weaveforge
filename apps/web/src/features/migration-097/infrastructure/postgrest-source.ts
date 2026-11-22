@@ -137,14 +137,9 @@ export class PostgrestSource implements ServerSource {
     }, PAGE_SIZE);
   }
 
-  async countRows(kind: string): Promise<number> {
-    if (FILE_ONLY_KINDS.includes(kind)) return 0;
-    const table = tableFor(kind);
-    const res = await this.request(
-      this.filter(table),
-      { method: "HEAD", extra: { Prefer: "count=exact" } },
-      table,
-    );
+  /** HEAD count of the rows matching url; fails closed when the response carries no total. */
+  private async headCount(url: string, table: string): Promise<number> {
+    const res = await this.request(url, { method: "HEAD", extra: { Prefer: "count=exact" } }, table);
     const range = res.headers.get("content-range") ?? "";
     const total = Number(range.split("/")[1]);
     if (range.split("/").length < 2 || !Number.isInteger(total)) {
@@ -153,14 +148,26 @@ export class PostgrestSource implements ServerSource {
     return total;
   }
 
+  async countRows(kind: string): Promise<number> {
+    if (FILE_ONLY_KINDS.includes(kind)) return 0;
+    const table = tableFor(kind);
+    return this.headCount(this.filter(table), table);
+  }
+
   async pendingOutbox(): Promise<number> {
     if (!this.opts.pendingOutbox) throw new Error(`pendingOutbox ${NOT_WIRED}`);
     return this.opts.pendingOutbox();
   }
 
+  /**
+   * Rows that cannot be turned into plaintext. The browser has no decrypt path, so every row whose
+   * content_enc is set counts (trash included, no silent drop). An injected check replaces this.
+   */
   async undecryptable(kind: string): Promise<number> {
-    if (!this.opts.undecryptable) throw new Error(`undecryptable ${NOT_WIRED}`);
-    return this.opts.undecryptable(kind);
+    if (this.opts.undecryptable) return this.opts.undecryptable(kind);
+    if (FILE_ONLY_KINDS.includes(kind)) return 0;
+    const table = tableFor(kind);
+    return this.headCount(`${this.opts.baseUrl}/${table}?user_id=eq.${this.opts.userId}&content_enc=not.is.null`, table);
   }
 
   /** The owner's blob_objects rows. blob_objects has no sha256 column, so only size_bytes comes back. */

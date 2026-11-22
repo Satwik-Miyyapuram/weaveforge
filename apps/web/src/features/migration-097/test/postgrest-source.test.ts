@@ -211,11 +211,31 @@ test("non-2xx GET throws with status and table, never the body", async () => {
   );
 });
 
-test("pendingOutbox and undecryptable default to not wired, injected values pass through", async () => {
+test("undecryptable counts non-null content_enc rows with a HEAD count, ignoring trash", async () => {
+  const { fetch, calls } = fakeFetch(() => new Response(null, { status: 200, headers: { "content-range": "*/2" } }));
+  const bare = sourceWith(fetch);
+  assert.equal(await bare.undecryptable("logEntries"), 2);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].method, "HEAD");
+  assert.match(calls[0].url, /\/log_entries\?user_id=eq\./);
+  assert.match(calls[0].url, /&content_enc=not\.is\.null$/);
+  assert.doesNotMatch(calls[0].url, /deleted_at/);
+});
+
+test("a kind with no content_enc rows counts zero, so the switch is not blocked", async () => {
+  const { fetch } = fakeFetch(() => new Response(null, { status: 200, headers: { "content-range": "*/0" } }));
+  assert.equal(await sourceWith(fetch).undecryptable("notes"), 0);
+});
+
+test("an undecryptable count with no total in content-range fails closed", async () => {
+  const { fetch } = fakeFetch(() => new Response(null, { status: 204 }));
+  await assert.rejects(() => sourceWith(fetch).undecryptable("notes"), /no total/);
+});
+
+test("pendingOutbox defaults to not wired; injected undecryptable replaces the default count", async () => {
   const { fetch } = fakeFetch(() => Response.json([]));
   const bare = sourceWith(fetch);
   await assert.rejects(() => bare.pendingOutbox(), /not wired/);
-  await assert.rejects(() => bare.undecryptable("logEntries"), /not wired/);
   const wired = sourceWith(fetch, {
     pendingOutbox: async () => 3,
     undecryptable: async (kind: string) => (kind === "logEntries" ? 2 : 0),
