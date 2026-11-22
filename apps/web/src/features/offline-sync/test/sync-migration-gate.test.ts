@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { afterEach, test } from "node:test";
 
-import { syncAllowedHere, syncMayRun } from "@/features/offline-sync/ui/sync-gate";
+import { runCycleIfAllowed, syncAllowedHere, syncMayRun } from "@/features/offline-sync/ui/sync-gate";
 import type { Migrate097Resolved } from "@/lib/desktop/migrate-097";
 
 /**
@@ -73,4 +73,16 @@ test("a shell that cannot answer keeps sync off", async () => {
 
 test("outside the desktop shell there is no folder migration, so the gate does not apply", async () => {
   assert.equal(await syncAllowedHere(), true);
+});
+
+test("a cycle runs only while the gate allows it, so a folder that migrates mid-session stops syncing", async () => {
+  let allowed = true;
+  let cycles = 0;
+  const cycle = async () => {
+    cycles += 1;
+  };
+  assert.equal(await runCycleIfAllowed(async () => allowed, cycle), true);
+  allowed = false;
+  assert.equal(await runCycleIfAllowed(async () => allowed, cycle), false);
+  assert.equal(cycles, 1, "the refused cycle never ran");
 });

@@ -9,6 +9,8 @@ export function syncMayRun(state: Migrate097Resolved): boolean {
 /**
  * Whether sync may run in the folder this window has open. Outside the desktop
  * shell there is no folder migration to wait for, so the gate does not apply.
+ * Assumption: only the desktop shell has a folder migration; the web build never
+ * reaches the "unavailable" answer, so the fail-closed branch is shell-only.
  */
 export async function syncAllowedHere(): Promise<boolean> {
   const shell = desktop();
@@ -21,4 +23,14 @@ export async function syncAllowedHere(): Promise<boolean> {
     folder = null;
   }
   return syncMayRun(await migrate097Status(shell, folder));
+}
+
+/**
+ * Runs one sync cycle only while `allowed()` says so, checked on every cycle
+ * (the folder can migrate while the loop runs). Resolves true when the cycle ran.
+ */
+export async function runCycleIfAllowed(allowed: () => Promise<boolean>, cycle: () => Promise<void>): Promise<boolean> {
+  if (!(await allowed())) return false;
+  await cycle();
+  return true;
 }

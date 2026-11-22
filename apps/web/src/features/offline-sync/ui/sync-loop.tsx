@@ -17,7 +17,7 @@ import { LOCAL_USER_ID } from "@weaveforge/core";
 import { SyncStateStore } from "../domain/parts-3";
 import type { CycleResult } from "../domain/parts-3";
 import { enableSync, liveAccessToken } from "./enable-sync";
-import { syncAllowedHere } from "./sync-gate";
+import { runCycleIfAllowed, syncAllowedHere } from "./sync-gate";
 import { syncEngine } from "./use-sync";
 
 /**
@@ -314,16 +314,20 @@ function startSync(): (() => void) | undefined {
 
     let lastRun = 0;
     const cycle = createCycleRunner(async () => {
-      lastRun = Date.now();
-      setLiveSyncState({ phase: "syncing" });
-      await syncOnce({
-        cycle: () => engine.cycle(),
-        settle,
-        setState: setLiveSyncState,
-        online: () => typeof navigator === "undefined" || navigator.onLine,
-        log: logSyncFailure,
+      // Re-checked every cycle: the folder can migrate to files while the loop runs.
+      const ran = await runCycleIfAllowed(syncAllowedHere, async () => {
+        lastRun = Date.now();
+        setLiveSyncState({ phase: "syncing" });
+        await syncOnce({
+          cycle: () => engine.cycle(),
+          settle,
+          setState: setLiveSyncState,
+          online: () => typeof navigator === "undefined" || navigator.onLine,
+          log: logSyncFailure,
+        });
+        void updateConflicts();
       });
-      void updateConflicts();
+      if (!ran) setLiveSyncState({ enabled: false, phase: "idle" });
     });
 
     const unregisterTrigger = registerSyncTrigger(() => void cycle());
