@@ -4,7 +4,7 @@ import { guardOrgDb } from "../org-db-guard";
 
 function spyDb() {
   const calls: string[] = [];
-  const db = {
+  const inner = {
     from(table: string) {
       calls.push(`from:${table}`);
       return { select: () => ({ table }) };
@@ -12,6 +12,13 @@ function spyDb() {
     rpc(name: string) {
       calls.push(`rpc:${name}`);
       return { name };
+    },
+  };
+  const db = {
+    ...inner,
+    schema(name: string) {
+      calls.push(`schema:${name}`);
+      return inner;
     },
     other: 1,
   };
@@ -39,5 +46,14 @@ describe("org db guard", () => {
   it("leaves other members of the db untouched", () => {
     const { db } = spyDb();
     assert.equal(guardOrgDb(db).other, 1);
+  });
+
+  it("guards the clients returned by schema() too", () => {
+    const { db, calls } = spyDb();
+    const guarded = guardOrgDb(db);
+    assert.throws(() => guarded.schema("public").from("papers"), /not allowed on the org server: papers/);
+    assert.throws(() => guarded.schema("public").rpc("delete_everything"), /not allowed/);
+    assert.deepEqual(guarded.schema("public").from("share_links").select(), { table: "share_links" });
+    assert.ok(!calls.includes("from:papers") && !calls.includes("rpc:delete_everything"));
   });
 });

@@ -81,6 +81,18 @@ test("with the browser file overlay, a personal round trip makes zero network ca
   }
 });
 
+test("the container db refuses personal tables and rpcs, including through schema()", async () => {
+  const wire = await wireBrowserFiles(new MemoryWorkspaceFs());
+  const backend = wire(config, { projectId: null }, () => null);
+  try {
+    assert.throws(() => backend.db.from("papers"), /not allowed on the org server: papers/);
+    assert.throws(() => backend.db.schema("public").from("notes"), /not allowed on the org server/);
+    assert.throws(() => backend.db.rpc("delete_everything"), /not allowed on the org server/);
+  } finally {
+    backend.dispose();
+  }
+});
+
 test("with the overlay, org and sharing reads still go to PostgREST", async () => {
   const fs = new MemoryWorkspaceFs();
   const wire = await wireBrowserFiles(fs);

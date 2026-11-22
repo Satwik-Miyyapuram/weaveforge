@@ -7,6 +7,7 @@ import { wirePostgrestBackend } from "@/backend/providers/postgrest/wire-postgre
 import { BrowserWorkspaceFs } from "@/features/workspace/infrastructure/parts";
 import { browserReportVerified } from "@/features/migration-097/domain/report";
 import type { WiredBackend } from "./parts";
+import { guardOrgDb } from "./org-db-guard";
 import { overlayFileRepositories } from "./with-file-repositories";
 
 export type BrowserFileWiring = (
@@ -25,7 +26,9 @@ export async function wireBrowserFiles(fs: IWorkspaceFs): Promise<BrowserFileWir
   return (config, projectContext, pid) => {
     const postgrest = wirePostgrestBackend(config, projectContext, pid);
     const files = wireFileBackend({ fs, settings, secrets: new RefusingSecretsStore() });
-    return overlayFileRepositories(postgrest, files);
+    // The container reaches the server only through `db`, so the guard sits there: personal
+    // tables and rpcs throw before any request. Org and share tables stay reachable.
+    return { ...overlayFileRepositories(postgrest, files), db: guardOrgDb(postgrest.db) };
   };
 }
 
