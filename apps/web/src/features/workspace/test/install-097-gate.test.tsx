@@ -22,6 +22,7 @@ function stubBridge(bridge: Record<string, unknown>) {
       fetchTitle: () => Promise.resolve({}),
       vaultRoot: () => Promise.resolve(null),
       pickFolder: () => Promise.resolve(null),
+      setVaultRoot: () => Promise.resolve(),
       ...bridge,
     },
   };
@@ -230,6 +231,10 @@ test("unknown: legacy check rejects -> CHECK code shown with retry, no children"
   assert.ok(text.includes("LEGACY_CHECK_FAILED"));
   assert.ok(!text.includes(INSTALL_097_NOTICE.title), "unknown is not the install notice");
   buttonWith(tree, "Try again");
+  // Unknown also offers the download and the picker, so a person can still move the export.
+  const link = tree.root.findAll((n) => n.type === "a" && n.props.href === INSTALL_097_URL);
+  assert.equal(link.length, 1, "unknown screen shows the 0.9.7 download link");
+  buttonWith(tree, "Choose the folder you exported to");
   tree.unmount();
 });
 
@@ -289,5 +294,107 @@ test("retry re-runs the check and mounts the app once it passes", async () => {
   failing = false;
   await press(buttonWith(tree, "Try again"));
   assert.equal(childCount(tree), 1);
+  tree.unmount();
+});
+
+test("picker: a dismissed dialog says 'No folder chosen' and changes nothing", async () => {
+  let setCalls = 0;
+  stubBridge({
+    vaultRoot: () => Promise.resolve({ path: "/ws/old" }),
+    legacyDbPresent: () => Promise.resolve(true),
+    migrationReportVerified: () => Promise.resolve(false),
+    pickFolder: () => Promise.resolve(null),
+    setVaultRoot: () => {
+      setCalls += 1;
+      return Promise.resolve();
+    },
+  });
+  const tree = await mount();
+  await press(buttonWith(tree, "Choose the folder you exported to"));
+  assert.ok(textOf(tree.root).includes("No folder chosen"));
+  assert.equal(childCount(tree), 0);
+  assert.equal(setCalls, 0);
+  tree.unmount();
+});
+
+test("picker: a verified pick sets that folder as the vault root once, then the app mounts", async () => {
+  const set: string[] = [];
+  stubBridge({
+    vaultRoot: () => Promise.resolve({ path: "/ws/old" }),
+    legacyDbPresent: () => Promise.resolve(true),
+    migrationReportVerified: (folder: string) => Promise.resolve(folder === "/ws/moved"),
+    pickFolder: () => Promise.resolve("/ws/moved"),
+    setVaultRoot: (folder: string) => {
+      set.push(folder);
+      return Promise.resolve();
+    },
+  });
+  const tree = await mount();
+  await press(buttonWith(tree, "Choose the folder you exported to"));
+  assert.deepEqual(set, ["/ws/moved"], "the setter runs once, after verification, so the next launch passes");
+  assert.equal(childCount(tree), 1);
+  tree.unmount();
+});
+
+test("picker: an unverified pick never sets the vault root", async () => {
+  let setCalls = 0;
+  stubBridge({
+    vaultRoot: () => Promise.resolve({ path: "/ws/old" }),
+    legacyDbPresent: () => Promise.resolve(true),
+    migrationReportVerified: () => Promise.resolve(false),
+    pickFolder: () => Promise.resolve("/ws/wrong"),
+    setVaultRoot: () => {
+      setCalls += 1;
+      return Promise.resolve();
+    },
+  });
+  const tree = await mount();
+  await press(buttonWith(tree, "Choose the folder you exported to"));
+  assert.equal(setCalls, 0);
+  assert.equal(childCount(tree), 0);
+  tree.unmount();
+});
+
+test("picker: a shell without setVaultRoot cannot keep the verified folder -> SET_FOLDER_UNAVAILABLE", async () => {
+  stubBridge({
+    vaultRoot: () => Promise.resolve({ path: "/ws/old" }),
+    legacyDbPresent: () => Promise.resolve(true),
+    migrationReportVerified: (folder: string) => Promise.resolve(folder === "/ws/moved"),
+    pickFolder: () => Promise.resolve("/ws/moved"),
+    setVaultRoot: undefined,
+  });
+  const tree = await mount();
+  await press(buttonWith(tree, "Choose the folder you exported to"));
+  assert.equal(childCount(tree), 0);
+  assert.ok(textOf(tree.root).includes("SET_FOLDER_UNAVAILABLE"));
+  tree.unmount();
+});
+
+test("stale check: a first check that answers after its timeout and a retry cannot flip the newer check", async () => {
+  const pending: Array<(v: boolean) => void> = [];
+  stubBridge({
+    legacyDbPresent: () => new Promise<boolean>((resolve) => pending.push(resolve)),
+  });
+  let tree!: ReactTestRenderer;
+  await act(async () => {
+    tree = create(createElement(Install097Gate, { checkTimeoutMs: 10, children: createElement(Child) }));
+  });
+  await act(async () => {
+    await new Promise((r) => setTimeout(r, 40));
+  });
+  assert.ok(textOf(tree.root).includes("CHECK_TIMEOUT"));
+  await press(buttonWith(tree, "Try again"));
+  // The first check answers "not installed" late; it belongs to a request that is gone.
+  await act(async () => {
+    pending[0]?.(false);
+    await new Promise((r) => setTimeout(r, 5));
+  });
+  assert.equal(childCount(tree), 0, "a stale answer must not open the app");
+  // The newer check is the one that counts.
+  await act(async () => {
+    pending[1]?.(true);
+    await new Promise((r) => setTimeout(r, 5));
+  });
+  assert.equal(childCount(tree), 0, "the newer check says the old database is present and unverified");
   tree.unmount();
 });

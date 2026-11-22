@@ -208,6 +208,12 @@ export interface DesktopBridge {
    * that predate it; the gate then fails closed.
    */
   pickFolder?(): Promise<string | null>;
+  /**
+   * Makes the folder the workspace folder, so the next launch opens it. The install gate calls
+   * it only after the folder's 0.9.7 report verified. Absent on shells that predate it; the
+   * gate then blocks rather than open a folder it cannot keep.
+   */
+  setVaultRoot?(path: string): Promise<void>;
   /** The folder currently in use, or null when none has been chosen. */
   vaultRoot(): Promise<DesktopVaultRoot | null>;
   /**
