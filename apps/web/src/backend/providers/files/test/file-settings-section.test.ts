@@ -85,3 +85,15 @@ describe("file settings section: secret guard", () => {
     assert.doesNotThrow(() => s.set(["paper", "authorName"], "B"));
   });
 });
+
+describe("file settings section: browser root", () => {
+  it("with the empty OPFS root, writes .weaveforge/settings.json without a leading slash", async () => {
+    const fs = new MemoryWorkspaceFs();
+    const s = await openFileSettingsSection(fs, "");
+    s.set(["theme"], "dark");
+    await s.flush();
+    assert.equal(await fs.stat(".weaveforge/settings.json") !== null, true);
+    const again = await openFileSettingsSection(fs, "");
+    assert.equal(again.get(["theme"]), "dark");
+  });
+});

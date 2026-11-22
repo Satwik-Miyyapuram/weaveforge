@@ -69,7 +69,7 @@ function parseObject(text: string): Json | null {
  * discarded. A corrupt settings.json is moved aside as `settings.json.bad-<ts>` and the section starts empty.
  */
 export async function openFileSettingsSection(fs: IWorkspaceFs, root: string): Promise<FileSettingsSection> {
-  const dir = `${root}/.weaveforge`;
+  const dir = root === "" ? ".weaveforge" : `${root}/.weaveforge`;
   const path = `${dir}/settings.json`;
   const partPath = `${path}.part`;
   let notice: string | undefined;
