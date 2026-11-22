@@ -477,7 +477,7 @@ mod tests {
         let report = json!({
             "version": 1,
             "state": "verified",
-            "runs": [{ "deviceId": "device-a", "state": "verified" }],
+            "runs": [{ "deviceId": "device-a", "state": "verified", "finishedAt": "2026-11-01T00:00:00Z" }],
         })
         .to_string();
         fs::write(dir.join("report.json"), report).expect("report");
