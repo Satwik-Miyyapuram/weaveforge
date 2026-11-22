@@ -43,7 +43,11 @@ export class FileCitationAlertTrackRepository implements ICitationAlertTrackRepo
   }
 
   async track(input: NewCitationAlertTrackInput): Promise<CitationAlertTrack> {
-    const existing = this.read(input.paperId);
+    const raw = this.settings.get(["citationAlerts", input.paperId]);
+    if (raw !== undefined && !this.check(input.paperId, raw)) {
+      throw new Error(`Citation watch for paper "${input.paperId}" is malformed; it was left as stored.`);
+    }
+    const existing = raw === undefined ? null : (raw as Stored);
     const now = new Date().toISOString();
     const stored: Stored = {
       id: existing?.id ?? crypto.randomUUID(),
