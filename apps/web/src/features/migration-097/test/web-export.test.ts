@@ -406,7 +406,7 @@ test("per-row failure: one bad row is listed missing, the other rows are exporte
   const sink = new MemorySink();
   const { state, run } = await runWebExport({ kinds: ["experiments"], codec, source, sink, now: NOW });
   assert.equal(state, "incomplete");
-  assert.ok(run.missing.some((m) => m.kind === "experiments" && m.id === "bad" && m.reason.includes("cannot encode")));
+  assert.ok(run.missing.some((m) => m.kind === "experiments" && m.id === "bad" && m.reason === "codec-failed:experiments"));
   assert.equal(run.kinds.experiments?.written, 2);
   assert.ok(await sink.readText("experiments/e1.json").then(() => true, () => false));
   assert.ok(await sink.readText("experiments/e2.json").then(() => true, () => false));
@@ -773,7 +773,8 @@ test("verify listing throw: a missing entry and an incomplete report, no marker"
   };
   const result = await runWebExport({ kinds: KINDS, codec: fakeCodec(SUPPORTED), source, sink, now: NOW });
   assert.equal(result.state, "incomplete");
-  assert.ok(result.run.missing.some((m) => m.reason.includes("sink listing failed")));
+  assert.ok(result.run.missing.some((m) => m.reason === "verify-failed"));
+  assert.equal(JSON.stringify(result.run.missing).includes("sink listing failed"), false);
   const report = JSON.parse(await sink.readText(REPORT_PATH));
   assert.equal(report.state, "incomplete");
   assert.deepEqual(
@@ -857,6 +858,45 @@ test("re-run conflict: a writer conflict is listed on the kind and the run is in
   assert.equal(result.state, "incomplete");
   assert.deepEqual(result.run.kinds.logEntries?.conflicts, ["l2"]);
   assert.equal(JSON.parse(await sink.readText(REPORT_PATH)).state, "incomplete");
+});
+
+test("failure reasons: a writer error is a fixed code; its message stays out of report.json and goes to the debug log", async () => {
+  const { source } = fakeServer({ rows: FIXTURE });
+  const sink = new MemorySink();
+  const logs: string[] = [];
+  const writer: KindWriter = {
+    kinds: ["logEntries"],
+    write: async (_k, row) => {
+      if (row.id === "l1") throw new Error("SECRET body /home/x/private.md");
+    },
+    readBack: async () => (FIXTURE.logEntries ?? []).filter((r) => r.id !== "l1"),
+  };
+  const result = await runWebExport({
+    kinds: KINDS, codec: fakeCodec(SUPPORTED), source, sink, now: NOW, writers: [writer],
+    debugLog: (line) => logs.push(line),
+  });
+  const miss = result.run.missing.find((m) => m.kind === "logEntries" && m.id === "l1");
+  assert.equal(miss?.reason, "write-failed:logEntries");
+  assert.equal((await sink.readText(REPORT_PATH)).includes("SECRET"), false);
+  assert.equal(logs.some((l) => l.includes("SECRET body /home/x/private.md")), true);
+});
+
+test("failure reasons: a codec error and a readBack error are fixed codes, never the error text", async () => {
+  const { source } = fakeServer({ rows: FIXTURE });
+  const sink = new MemorySink();
+  const codec: FileCodec = { ...fakeCodec(SUPPORTED), toFile: () => { throw new Error("SECRET codec /home/x"); } };
+  const writer: KindWriter = {
+    kinds: ["logEntries"],
+    write: async () => {},
+    readBack: async () => { throw new Error("SECRET readBack /home/x"); },
+  };
+  source.listBlobs = async () => { throw new Error("SECRET list /home/x"); };
+  const result = await runWebExport({ kinds: KINDS, codec, source, sink, now: NOW, writers: [writer] });
+  const reasons = result.run.missing.map((m) => m.reason);
+  assert.equal(reasons.some((r) => r.startsWith("codec-failed:")), true);
+  assert.equal(reasons.includes("logEntries: read failed"), true);
+  assert.equal(reasons.includes("run-failed:blobs"), true);
+  assert.equal((await sink.readText(REPORT_PATH)).includes("SECRET"), false);
 });
 
 test("blobs: a listBlobs failure makes the run incomplete, the report is not verified, no marker", async () => {

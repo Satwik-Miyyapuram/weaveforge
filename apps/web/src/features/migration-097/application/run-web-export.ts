@@ -35,6 +35,8 @@ export type ExportOptions = {
   secretsPresent?: boolean;
   /** Web only: the stable per-browser id (OPFS settings). Desktop takes its id from the backup. */
   runDeviceId?: string;
+  /** Receives the raw error text of each failure. It never reaches report.json, which carries fixed codes only. */
+  debugLog?: (line: string) => void;
 };
 
 export type ExportResult = { state: MigrationState; run: RunReport };
@@ -135,7 +137,7 @@ async function exportTrash(kind: string, rows: Row[], sink: FileSink, codec: Fil
 }
 
 export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
-  const { kinds, codec, source, sink, now, onProgress, desktop, writers = [], moveSecrets, secretsPresent, runDeviceId } = opts;
+  const { kinds, codec, source, sink, now, onProgress, desktop, writers = [], moveSecrets, secretsPresent, runDeviceId, debugLog } = opts;
   const target: MigrationTarget = desktop ? "folder" : "opfs";
   const writerFor = (kind: string) => writers.find((w) => w.kinds.includes(kind));
   const dbCount: Record<string, number> = {};
@@ -229,9 +231,11 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
               await writer.write(kind, row);
               written[kind]++;
             } catch (err) {
-              const reason = (err as Error).message;
-              if (reason.startsWith("conflict:")) (conflicts[kind] ??= []).push(String(row.id));
-              missing.push({ kind, id: String(row.id), reason });
+              const message = (err as Error).message;
+              debugLog?.(`write ${kind} ${String(row.id)}: ${message}`);
+              const conflict = message.startsWith("conflict:");
+              if (conflict) (conflicts[kind] ??= []).push(String(row.id));
+              missing.push({ kind, id: String(row.id), reason: conflict ? `conflict:${kind}` : `write-failed:${kind}` });
             }
             onProgress?.({ kind, done: written[kind] ?? 0, total: rows.length });
           }
@@ -262,7 +266,8 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
             await sink.write(file.path, file.text);
             written[kind]++;
           } catch (err) {
-            missing.push({ kind, id: String(row.id), reason: (err as Error).message });
+            debugLog?.(`codec ${kind} ${String(row.id)}: ${(err as Error).message}`);
+            missing.push({ kind, id: String(row.id), reason: `codec-failed:${kind}` });
           }
           onProgress?.({ kind, done: written[kind] ?? 0, total: rows.length });
         }
@@ -299,11 +304,13 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
           missing.push({ kind: "blobs", id: ref.path, reason: "read-back sha256 mismatch" });
         }
       } catch (err) {
-        missing.push({ kind: "blobs", id: ref.path, reason: (err as Error).message });
+        debugLog?.(`blob ${ref.path}: ${(err as Error).message}`);
+        missing.push({ kind: "blobs", id: ref.path, reason: "blob-failed" });
       }
     }
   } catch (err) {
-    missing.push({ kind: current, id: "*", reason: (err as Error).message });
+    debugLog?.(`run ${current}: ${(err as Error).message}`);
+    missing.push({ kind: current, id: "*", reason: `run-failed:${current}` });
   }
 
   // Writer kinds are compared by readBack above; verify decodes the raw codec files only.
@@ -313,7 +320,8 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
     verdict = await verifyExport({ kinds: codecKinds, codec, source, sink });
   } catch (err) {
     verdict = { state: "incomplete", kinds: {}, blobs: { db: 0, verified: 0 }, errors: [] };
-    missing.push({ kind: "verify", id: "*", reason: `verify failed: ${(err as Error).message}` });
+    debugLog?.(`verify: ${(err as Error).message}`);
+    missing.push({ kind: "verify", id: "*", reason: "verify-failed" });
   }
   for (const reason of verdict.errors) missing.push({ kind: "verify", id: "*", reason });
 
