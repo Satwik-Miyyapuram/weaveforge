@@ -11,10 +11,17 @@ export function authedFetch(
 ): typeof fetch {
   return async (input, init) => {
     const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
-    if (!url.startsWith(baseUrl)) return inner(input, init);
+    if (!isUnder(url, baseUrl)) return inner(input, init);
     const token = await accessToken();
-    const headers = new Headers(init?.headers);
+    // As fetch does: an init headers object replaces the Request's headers; otherwise the Request's own are kept.
+    const headers = new Headers(init?.headers ?? (input instanceof Request ? input.headers : undefined));
     if (token) headers.set("Authorization", `Bearer ${token}`);
     return inner(input, { ...init, headers });
   };
+}
+
+/** True for the base itself or a path or query under it, on the same origin. `rest/v1.evil` is not under `rest/v1`. */
+function isUnder(url: string, baseUrl: string): boolean {
+  if (!(url === baseUrl || url.startsWith(`${baseUrl}/`) || url.startsWith(`${baseUrl}?`))) return false;
+  return new URL(url).origin === new URL(baseUrl).origin;
 }
