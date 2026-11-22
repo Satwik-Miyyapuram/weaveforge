@@ -1266,3 +1266,37 @@ fn a_kind_with_a_non_array_conflicts_value_fails_closed() {
     assert!(err.contains("this device's export left conflict copies"), "{err}");
     f.assert_untouched();
 }
+
+// ---- item P-d: another device's top-level state is left alone; the PID check is by image ----
+
+#[test]
+fn another_devices_incomplete_or_exporting_top_level_state_is_left_alone() {
+    for other_state in ["incomplete", "exporting"] {
+        let f = Fixture::new("other-state", Some("verified"), Some(good_dump().as_slice()));
+        f.set_report(&format!(
+            r#"{{"version":1,"state":"{other_state}","backup":"{BACKUP_NAME}","verifiedAt":"{NOW}","runs":[{RUN_CLEAN}]}}"#
+        ));
+        // The top-level gate refuses first: an export in progress elsewhere is not a verified migration.
+        let err = f.run(&mut never_stop()).expect_err("a non-verified top level must refuse");
+        assert!(err.contains("not verified"), "{other_state}: {err}");
+        f.assert_untouched();
+        let report = f.report();
+        assert_eq!(report["state"], other_state, "another device's top-level state must stay");
+        assert!(report["removals"].get(DEVICE).is_none(), "no removal entry may be written");
+    }
+}
+
+#[cfg(windows)]
+#[test]
+fn a_reused_pid_of_a_non_postgres_program_does_not_block_removal_on_windows() {
+    let f = Fixture::new("reused-pid", Some("verified"), Some(good_dump().as_slice()));
+    // This test process is alive but is not postgres.exe, so its PID must count as dead.
+    fs::write(
+        f.pg_root.join("data/postmaster.pid"),
+        format!("{}\n", std::process::id()),
+    )
+    .unwrap();
+    let mut stop = || Ok(());
+    f.run(&mut stop).expect("a non-postgres PID must not block the removal");
+    assert!(!f.pg_root.exists(), "cluster dir must be deleted");
+}

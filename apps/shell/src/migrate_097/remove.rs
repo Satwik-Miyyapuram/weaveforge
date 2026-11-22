@@ -564,3 +564,52 @@ fn is_reparse(meta: &fs::Metadata) -> bool {
 fn is_reparse(meta: &fs::Metadata) -> bool {
     meta.file_type().is_symlink()
 }
+
+#[cfg(test)]
+mod update_report_tests {
+    use super::*;
+    use std::cell::Cell;
+
+    fn scratch_report(name: &str, text: &str) -> std::path::PathBuf {
+        let dir = std::env::temp_dir().join(format!("wf-m097-report-{name}-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("report.json");
+        fs::write(&path, text).unwrap();
+        path
+    }
+
+    #[test]
+    fn a_write_raced_by_another_device_is_retried_and_keeps_both_changes() {
+        let path = scratch_report("race", r#"{"version":1,"state":"verified","runs":[]}"#);
+        let raced = Cell::new(false);
+        let result = update_report(&path, |r| {
+            if !raced.replace(true) {
+                // Another device writes between this read and the write.
+                fs::write(&path, r#"{"version":1,"state":"verified","runs":[],"other":"dev-b"}"#).unwrap();
+            }
+            r["removals"]["dev-a"] = serde_json::json!({ "state": "removing" });
+        });
+        let text = fs::read_to_string(&path).unwrap();
+        let value: serde_json::Value = serde_json::from_str(&text).unwrap();
+        let _ = fs::remove_dir_all(path.parent().unwrap());
+        result.expect("the retry lands the change");
+        assert_eq!(value["other"], "dev-b", "the other device's change must survive");
+        assert_eq!(value["removals"]["dev-a"]["state"], "removing");
+    }
+
+    #[test]
+    fn a_report_that_keeps_moving_is_refused_after_the_tries() {
+        let path = scratch_report("churn", r#"{"version":1,"state":"verified","runs":[]}"#);
+        let calls = Cell::new(0_usize);
+        let result = update_report(&path, |_| {
+            let n = calls.get();
+            calls.set(n + 1);
+            fs::write(&path, format!(r#"{{"version":1,"state":"verified","runs":[],"n":{n}}}"#)).unwrap();
+        });
+        let _ = fs::remove_dir_all(path.parent().unwrap());
+        let err = result.expect_err("a report that keeps moving must refuse");
+        assert!(err.starts_with("refused: report.json kept changing"), "{err}");
+        assert_eq!(calls.get(), REPORT_WRITE_TRIES);
+    }
+}
