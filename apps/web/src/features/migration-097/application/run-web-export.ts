@@ -186,7 +186,8 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
   }
 
   // The pre-migration dump comes first: nothing is read or written without it.
-  let deviceId: string | undefined = desktop ? undefined : runDeviceId;
+  // Web always has a device id: the caller's stable one, or a fresh one so the run still counts per device.
+  let deviceId: string | undefined = desktop ? undefined : (runDeviceId ?? globalThis.crypto.randomUUID());
   let dumpName: string | null = null;
   if (desktop && typeof desktop.bridge?.backup !== "function") {
     return refused(sink, now, "desktop migrate097Backup missing: the shell cannot make the pre-migration dump", target);

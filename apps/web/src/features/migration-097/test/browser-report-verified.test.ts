@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { MemorySink } from "../infrastructure/memory-sink";
 import { MIGRATION_KINDS, REPORT_PATH, type MigrationReport, type RunReport } from "../domain/report";
-import { browserReportVerified, readMigrationReport } from "../domain/report";
+import { browserReportVerified, readMigrationReport, unverifiedDevices } from "../domain/report";
 
 const KIND_OK = { db: 2, files: 2, written: 2, conflicts: [], trash: 0 };
 
@@ -113,6 +113,25 @@ test("browserReportVerified: false when the blobs verified count is short of the
 test("browserReportVerified: a clean verified report with matching kinds and blobs is true", async () => {
   const clean = report({ runs: [{ ...RUN, blobs: { db: 2, verified: 2 } }] });
   assert.equal(await browserReportVerified(await sinkWith(JSON.stringify(clean))), true);
+});
+
+test("browserReportVerified: the latest run per device counts, so an older failed run from that device does not block", async () => {
+  const oldFailed = { ...RUN, startedAt: "2026-11-01T00:00:00.000Z", deviceId: "dev-a", missing: [{ kind: "notes", id: "n1", reason: "x" }] };
+  const newClean = { ...RUN, startedAt: "2026-11-02T00:00:00.000Z", deviceId: "dev-a" };
+  assert.equal(await browserReportVerified(await sinkWith(JSON.stringify(report({ runs: [oldFailed, newClean] })))), true);
+});
+
+test("browserReportVerified: a failed latest run from another device still blocks", async () => {
+  const clean = { ...RUN, deviceId: "dev-a" };
+  const failed = { ...RUN, startedAt: "2026-11-02T00:00:00.000Z", deviceId: "dev-b", missing: [{ kind: "notes", id: "n1", reason: "x" }] };
+  assert.equal(await browserReportVerified(await sinkWith(JSON.stringify(report({ runs: [clean, failed] })))), false);
+});
+
+test("unverifiedDevices: names the device whose latest run is not clean, so the status UI can say where to re-run", () => {
+  const clean = { ...RUN, deviceId: "dev-a" };
+  const failed = { ...RUN, startedAt: "2026-11-02T00:00:00.000Z", deviceId: "dev-b", missing: [{ kind: "notes", id: "n1", reason: "x" }] };
+  assert.deepEqual(unverifiedDevices(report({ runs: [clean, failed] })), ["dev-b"]);
+  assert.deepEqual(unverifiedDevices(report({ runs: [clean] })), []);
 });
 
 test("browserReportVerified: false when a run's kinds is empty (every MIGRATION_KINDS key must be present)", async () => {

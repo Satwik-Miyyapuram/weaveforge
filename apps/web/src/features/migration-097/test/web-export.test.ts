@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { test } from "node:test";
-import { REPORT_PATH, readMigrationReport, writesOff, type RunReport } from "../domain/report";
+import { REPORT_PATH, readMigrationReport, unverifiedDevices, writesOff, type RunReport } from "../domain/report";
 import { SERVER_ONLY_FIELDS } from "../domain/server-only-fields";
 import type { BlobRef, FileCodec, Row, ServerSource } from "../domain/ports";
 import type { KindWriter } from "../domain/kind-writer";
@@ -530,12 +530,13 @@ test("desktop: an incomplete run does not call mark-exported", async () => {
   assert.equal(calls.some((c) => c.startsWith("desktop-mark")), false);
 });
 
-test("web: no desktop bridge means no deviceId key in report.json", async () => {
+test("web: no desktop bridge still records a deviceId in report.json (a fresh one when none is given)", async () => {
   const { source } = fakeServer({ rows: FIXTURE });
   const sink = new MemorySink();
   await runWebExport({ kinds: KINDS, codec: fakeCodec(SUPPORTED), source, sink, now: NOW });
-  const report = JSON.parse(await sink.readText(REPORT_PATH)) as Record<string, unknown>;
-  assert.equal("deviceId" in report, false);
+  const report = JSON.parse(await sink.readText(REPORT_PATH)) as { deviceId?: unknown; runs: RunReport[] };
+  assert.equal(typeof report.deviceId, "string");
+  assert.equal(report.runs[0]?.deviceId, report.deviceId);
 });
 
 test("verify: a null server contentType and application/octet-stream in the file are the same blob type", async () => {
@@ -1192,6 +1193,37 @@ test("runs: a run replaces this device's entry and keeps another device's entry,
   const second = (JSON.parse(await sink.readText(REPORT_PATH)) as { runs: RunReport[] }).runs;
   assert.equal(second.length, 2, "the same device is replaced, never duplicated");
   assert.deepEqual(second[0], other);
+});
+
+test("runs: a web run with no runDeviceId still records a deviceId", async () => {
+  const { source } = fakeServer({ rows: FIXTURE });
+  const sink = new MemorySink();
+  await runWebExport({ kinds: KINDS, codec: fakeCodec(SUPPORTED), source, sink, now: NOW });
+  const runs = (JSON.parse(await sink.readText(REPORT_PATH)) as { runs: RunReport[] }).runs;
+  assert.equal(typeof runs[0]?.deviceId, "string");
+  assert.notEqual(runs[0]?.deviceId, "");
+});
+
+test("runs: a device's run replaces only its own older runs; another device's failed run stays and is named", async () => {
+  const other: RunReport = {
+    startedAt: "2026-11-01T00:00:00.000Z",
+    finishedAt: "2026-11-01T00:00:01.000Z",
+    sources: ["server"],
+    kinds: {},
+    blobs: { db: 0, verified: 0 },
+    missing: [{ kind: "notes", id: "n1", reason: "x" }],
+    deviceId: "dev-other",
+  };
+  const mineOld: RunReport = { ...other, deviceId: "web-me", startedAt: "2026-11-02T00:00:00.000Z" };
+  const sink = new MemorySink();
+  await sink.write(REPORT_PATH, JSON.stringify({ version: 1, state: "incomplete", backup: null, runs: [other, mineOld] }));
+  const { source } = fakeServer({ rows: FIXTURE });
+  await runWebExport({ kinds: KINDS, codec: fakeCodec(SUPPORTED), source, sink, now: NOW, runDeviceId: "web-me" });
+  const report = JSON.parse(await sink.readText(REPORT_PATH)) as { runs: RunReport[] };
+  assert.equal(report.runs.filter((r) => r.deviceId === "web-me").length, 1, "own older run replaced");
+  assert.equal(report.runs.filter((r) => r.deviceId === "dev-other").length, 1, "other device's run kept");
+  // KINDS is a subset here, so web-me's own run is not clean either; the point is that dev-other is named.
+  assert.ok(unverifiedDevices(report as Parameters<typeof unverifiedDevices>[0]).includes("dev-other"));
 });
 
 test("per-kind failure: a failed kind is listed missing and the later kinds still export", async () => {

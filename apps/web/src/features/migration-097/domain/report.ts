@@ -105,20 +105,52 @@ function isRunReport(run: unknown): run is RunReport {
   return typeof r.blobs === "object" && r.blobs !== null && isCount(r.blobs.db) && isCount(r.blobs.verified);
 }
 
+/** A run is clean when it covers every MIGRATION_KINDS key and nothing in it is missing, conflicting or unverified. */
+function runIsClean(run: RunReport): boolean {
+  return (
+    MIGRATION_KINDS.every((kind) => Object.prototype.hasOwnProperty.call(run.kinds, kind)) &&
+    run.missing.length === 0 &&
+    run.blobs.db === run.blobs.verified &&
+    Object.values(run.kinds).every((k) => k.db === k.files && k.conflicts.length === 0)
+  );
+}
+
 /**
- * True only when the OPFS repos hold a clean verified export: state verified, target opfs, and in
- * every run every MIGRATION_KINDS key is present, no row is missing, every kind's files match its
- * db rows with no conflicts, and every blob is verified. A run that covers only some kinds is not
- * a full export, so it is false. Anything else (absent, corrupt, incomplete, folder, zip) is false.
+ * The newest run of each device, ISO start times order them. A run with no deviceId cannot be
+ * attributed, so every such run is kept: each one must be clean.
+ */
+function latestRunPerDevice(runs: RunReport[]): RunReport[] {
+  const latest = new Map<string, RunReport>();
+  const unattributed: RunReport[] = [];
+  for (const run of runs) {
+    if (run.deviceId === undefined) {
+      unattributed.push(run);
+      continue;
+    }
+    const seen = latest.get(run.deviceId);
+    if (!seen || run.startedAt > seen.startedAt) latest.set(run.deviceId, run);
+  }
+  return [...latest.values(), ...unattributed];
+}
+
+/**
+ * Devices whose newest run is not clean, by deviceId ("" for a run with no id). The status UI names
+ * these so the user can re-run the export on that device. Empty when every device's newest run is clean.
+ */
+export function unverifiedDevices(report: MigrationReport): string[] {
+  return latestRunPerDevice(report.runs)
+    .filter((run) => !runIsClean(run))
+    .map((run) => run.deviceId ?? "");
+}
+
+/**
+ * True only when the OPFS repos hold a clean verified export: state verified, target opfs, and the
+ * newest run of every device is clean (every MIGRATION_KINDS key present, no row missing, every kind's
+ * files matching its db rows with no conflicts, every blob verified). A failed run from any device
+ * blocks. Anything else (absent, corrupt, incomplete, folder, zip) is false.
  */
 export async function browserReportVerified(fs: Pick<FileSink, "readText">): Promise<boolean> {
   const report = await readMigrationReport(fs);
   if (!report || report.state !== "verified" || report.target !== "opfs") return false;
-  return report.runs.every(
-    (run) =>
-      MIGRATION_KINDS.every((kind) => Object.prototype.hasOwnProperty.call(run.kinds, kind)) &&
-      run.missing.length === 0 &&
-      run.blobs.db === run.blobs.verified &&
-      Object.values(run.kinds).every((k) => k.db === k.files && k.conflicts.length === 0),
-  );
+  return unverifiedDevices(report).length === 0;
 }
