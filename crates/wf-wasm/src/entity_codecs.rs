@@ -68,3 +68,10 @@ pub fn entity_path_js(
     entity_codecs::entity_path(kind, &row, project_root.as_deref().unwrap_or(""))
         .map_err(|e| js_error(&e))
 }
+
+/// [`entity_id_from_text`](entity_codecs::entity_id_from_text): the `weaveforge-id` of any
+/// file's text, or `undefined` when it has none.
+#[wasm_bindgen(js_name = entityIdFromText)]
+pub fn entity_id_from_text_js(text: &str) -> Option<String> {
+    entity_codecs::entity_id_from_text(text)
+}
