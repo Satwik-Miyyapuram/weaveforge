@@ -415,7 +415,7 @@ describe("no keychain on this machine (Linux without a Secret Service)", () => {
     const shown: string[] = [];
     await desktopMoveSecrets(bridge, (message) => shown.push(message))();
     assert.deepEqual(shown, [
-      "These keys were not moved to the keychain: Overleaf git token, Zotero API key. Re-enter them in Settings.",
+      "These keys were not moved to the keychain: Overleaf git token, Zotero key. Re-enter them in Settings.",
     ]);
   });
 

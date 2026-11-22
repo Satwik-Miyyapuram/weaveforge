@@ -302,16 +302,20 @@ export function desktopMoveSecrets(
   };
 }
 
-/** Settings label for each old secret's top-level name (the part before any ".sub"). */
+/** The legacy secret keys the move can leave behind (the top-level name, before any ".sub"). */
+export const LEGACY_SECRET_KEYS: readonly string[] = ["zoteroApiKey", "overleafToken", "gitSyncToken", "notesToken"];
+
+/** Settings field text for each legacy secret's top-level name. A key with no field gets no entry. */
 const SETTINGS_LABELS: Readonly<Record<string, string>> = {
-  zoteroApiKey: "Zotero API key",
+  zoteroApiKey: "Zotero key",
   overleafToken: "Overleaf git token",
+  gitSyncToken: "Access token",
 };
 
 /** The name a user sees in Settings for an internal secret key, e.g. `overleafToken.extra` → "Overleaf git token". */
 export function settingsLabelFor(key: string): string {
   const top = key.split(".")[0] ?? key;
-  return SETTINGS_LABELS[top] ?? top;
+  return SETTINGS_LABELS[top] ?? "a saved key";
 }
 
 /** Thrown when the index lists a field the keychain does not hold. Only the key name is in the message. */
