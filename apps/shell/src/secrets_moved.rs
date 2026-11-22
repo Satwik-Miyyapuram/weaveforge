@@ -483,12 +483,24 @@ fn write_atomic(path: &Path, body: &[u8]) -> io::Result<()> {
         let _ = fs::remove_file(&part);
         return Err(err);
     }
-    let renamed = fs::rename(&part, path);
+    let mut renamed = fs::rename(&part, path);
+    // Windows refuses a replace (access denied) while another writer has the marker open. The
+    // synced temp file is intact, so a short bounded retry lands the write.
+    for _ in 0..RENAME_RETRIES {
+        if !matches!(&renamed, Err(err) if err.kind() == io::ErrorKind::PermissionDenied) {
+            break;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(5));
+        renamed = fs::rename(&part, path);
+    }
     if renamed.is_err() {
         let _ = fs::remove_file(&part);
     }
     renamed
 }
+
+/// How many times a rename that Windows refuses with access denied is retried.
+const RENAME_RETRIES: usize = 40;
 
 /// A temp name unique to this write: pid, nanos and a process-wide counter.
 fn unique_part(path: &Path) -> PathBuf {
