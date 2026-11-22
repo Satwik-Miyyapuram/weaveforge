@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { test } from "node:test";
-import { REPORT_PATH } from "../domain/report";
+import { REPORT_PATH, type RunReport } from "../domain/report";
 import { SERVER_ONLY_FIELDS } from "../domain/server-only-fields";
 import type { BlobRef, FileCodec, Row, ServerSource } from "../domain/ports";
 import type { KindWriter } from "../domain/kind-writer";
@@ -1057,4 +1057,34 @@ test("keys: copy-only mover; a failed marker then a re-run copies each secret on
   assert.deepEqual([...sec.keys()], ["k1", "k2"], "old secrets still present");
   const report = JSON.parse(await sink.readText(REPORT_PATH)) as { state: string };
   assert.equal(report.state, "verified");
+});
+
+test("runs: a run replaces this device's entry and keeps another device's entry, twice over", async () => {
+  const other: RunReport = {
+    startedAt: "2026-11-01T00:00:00.000Z",
+    finishedAt: "2026-11-01T00:00:01.000Z",
+    sources: ["server"],
+    kinds: {},
+    blobs: { db: 0, verified: 0 },
+    missing: [],
+    deviceId: "dev-other",
+  };
+  const sink = new MemorySink();
+  const stale: RunReport = { ...other, deviceId: "web-me", startedAt: "2026-11-02T00:00:00.000Z" };
+  await sink.write(REPORT_PATH, JSON.stringify({ version: 1, state: "incomplete", backup: null, runs: [other, stale] }));
+  const { source } = fakeServer({ rows: FIXTURE });
+  const exportOnce = () =>
+    runWebExport({ kinds: KINDS, codec: fakeCodec(SUPPORTED), source, sink, now: NOW, runDeviceId: "web-me" });
+
+  await exportOnce();
+  const first = (JSON.parse(await sink.readText(REPORT_PATH)) as { runs: RunReport[] }).runs;
+  assert.equal(first.length, 2);
+  assert.deepEqual(first[0], other);
+  assert.equal(first[1]?.deviceId, "web-me");
+  assert.equal(first[1]?.startedAt, NOW);
+
+  await exportOnce();
+  const second = (JSON.parse(await sink.readText(REPORT_PATH)) as { runs: RunReport[] }).runs;
+  assert.equal(second.length, 2, "the same device is replaced, never duplicated");
+  assert.deepEqual(second[0], other);
 });

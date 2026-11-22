@@ -37,6 +37,8 @@ export type RunReport = {
   kinds: Record<string, KindCount>;
   blobs: { db: number; verified: number };
   missing: MissingRow[];
+  /** The device that made this run: one entry per device in report.json. Absent when no id is known. */
+  deviceId?: string;
 };
 
 export type MigrationReport = {

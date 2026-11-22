@@ -30,6 +30,8 @@ export type ExportOptions = {
   moveSecrets?: () => Promise<void>;
   /** True when the source holds secrets: the run is refused unless a moveSecrets hook is given. */
   secretsPresent?: boolean;
+  /** Web only: the stable per-browser id (OPFS settings). Desktop takes its id from the backup. */
+  runDeviceId?: string;
 };
 
 export type ExportResult = { state: MigrationState; run: RunReport };
@@ -40,10 +42,23 @@ export type DesktopMigration = {
   markExported(folder: string): Promise<void>;
 };
 
-/** Writes report.json via a .part file and rename, so a half-written report is never seen. */
+/**
+ * Writes report.json via a .part file and rename, so a half-written report is never seen.
+ * The runs of other devices already in report.json are kept; this device's entry is replaced.
+ */
 async function writeReport(sink: FileSink, report: MigrationReport): Promise<void> {
+  let existing: RunReport[] = [];
+  try {
+    const parsed = JSON.parse(await sink.readText(REPORT_PATH)) as Partial<MigrationReport>;
+    if (Array.isArray(parsed.runs)) existing = parsed.runs;
+  } catch {
+    existing = [];
+  }
+  const device = report.runs[0]?.deviceId;
+  const kept = existing.filter((r) => r.deviceId !== device);
+  const merged: MigrationReport = { ...report, runs: [...kept, ...report.runs] };
   const part = `${REPORT_PATH}.part`;
-  await sink.write(part, JSON.stringify(report, null, 2));
+  await sink.write(part, JSON.stringify(merged, null, 2));
   await sink.rename(part, REPORT_PATH);
 }
 
@@ -61,6 +76,7 @@ async function refused(
     kinds: {},
     blobs: { db: 0, verified: 0 },
     missing: [{ kind: "*", id: "*", reason }],
+    deviceId: extra.deviceId,
   };
   await writeReport(sink, { version: 1, state: "incomplete", backup: extra.backup ?? null, deviceId: extra.deviceId, runs: [run] });
   return { state: "incomplete", run };
@@ -73,7 +89,7 @@ async function refused(
  * Never deletes or changes a server personal row.
  */
 export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
-  const { kinds, codec, source, sink, now, onProgress, desktop, writers = [], moveSecrets, secretsPresent } = opts;
+  const { kinds, codec, source, sink, now, onProgress, desktop, writers = [], moveSecrets, secretsPresent, runDeviceId } = opts;
   const writerFor = (kind: string) => writers.find((w) => w.kinds.includes(kind));
   const dbCount: Record<string, number> = {};
   const backCount: Record<string, number> = {};
@@ -87,7 +103,7 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
   }
 
   // The pre-migration dump comes first: nothing is read or written without it.
-  let deviceId: string | undefined;
+  let deviceId: string | undefined = desktop ? undefined : runDeviceId;
   let dumpName: string | null = null;
   if (desktop && typeof desktop.bridge?.backup !== "function") {
     return refused(sink, now, "desktop migrate097Backup missing: the shell cannot make the pre-migration dump");
@@ -115,6 +131,7 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
       kinds: {},
       blobs: { db: 0, verified: 0 },
       missing: [{ kind: "outbox", id: "*", reason }],
+      deviceId,
     };
     await writeReport(sink, { version: 1, state: "incomplete", backup: dumpName, deviceId, runs: [run] });
     return { state: "incomplete", run };
@@ -137,6 +154,7 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
         kinds: {},
         blobs: { db: 0, verified: 0 },
         missing: [{ kind: "*", id: "*", reason: "export in progress" }],
+        deviceId,
       },
     ],
   });
@@ -246,6 +264,7 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
       kinds: kindCounts,
       blobs: { db: verdict.blobs.db, verified: verdict.blobs.verified },
       missing,
+      deviceId,
     };
     const report: MigrationReport = {
       version: 1,
