@@ -27,10 +27,9 @@ export type FileStore = {
  * matches the hash that run recorded is ours and unchanged, so the new DB version may replace it.
  */
 export async function createFileStore(sink: FileSink, prior: Outputs): Promise<FileStore> {
-  // Read on first write, so a failed listing throws inside the caller's write try, never here.
-  let existingNames: Set<string> | null = null;
-  const existing = async (): Promise<Set<string>> => (existingNames ??= new Set(await sink.list()));
   const outputs: Outputs = {};
+  /** Checked right before each write, never from a listing taken earlier in the run: a file the user made mid-run is seen. */
+  const present = (path: string): Promise<boolean> => sink.readBytes(path).then(() => true, () => false);
   const conflicts: string[] = [];
 
   /** sha256 of what is at `path`, or null when it cannot be read: an unreadable file is never overwritten. */
@@ -45,13 +44,11 @@ export async function createFileStore(sink: FileSink, prior: Outputs): Promise<F
   return {
     async store(path, data, hash, copy) {
       // Candidate 0 is the path itself; candidate n (n >= 1) is its nth conflict copy.
-      const names = await existing();
       for (let n = 0; ; n++) {
         const candidate = n === 0 ? path : conflictCopyPath(path, n);
         const out = n === 0 || !copy ? { data, hash } : copy;
-        if (!names.has(candidate)) {
+        if (!(await present(candidate))) {
           await sink.write(candidate, out.data);
-          names.add(candidate);
         } else {
           const current = await hashAt(candidate);
           if (current === null) continue;
@@ -89,6 +86,7 @@ export function guardedSink(sink: FileSink, store: FileStore): FileSink {
     readText: (path) => sink.readText(path),
     readBytes: (path) => sink.readBytes(path),
     async rename(from, to) {
+      // Known gap until (c): the list-then-rename window is not atomic. (c) adds a refuse-to-replace rename on the real sinks.
       if ((await sink.list()).includes(to)) throw new Error(`refusing to replace an existing file: ${to}`);
       return sink.rename(from, to);
     },

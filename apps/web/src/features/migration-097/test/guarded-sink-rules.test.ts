@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { createFileStore, guardedSink } from "../application/file-store";
 import { conflictCopyPath } from "../domain/conflict-path";
+import { sha256Hex } from "../domain/hash";
 import { MemorySink } from "../infrastructure/memory-sink";
 
 test("guarded write under .weaveforge/ keeps a differing user file and writes a conflict copy", async () => {
@@ -38,4 +39,14 @@ test("a refused add-keys merge is a conflict: the DB text lands in a copy, the u
   await assert.rejects(guarded.writeIf("notes/a.md", "other body", "user body"), (err: Error) => err.message.startsWith("conflict:") && err.message.includes("changed on disk, not add-keys-only"));
   assert.equal(await sink.readText("notes/a.md"), "user body", "the user's file is not overwritten");
   assert.equal(await sink.readText(conflictCopyPath("notes/a.md", 1)), "other body");
+});
+test("a file the user creates mid-run is never overwritten: the DB version goes to a conflict copy", async () => {
+  const sink = new MemorySink();
+  const store = await createFileStore(sink, {});
+  await store.store("a.md", "db a", await sha256Hex(new TextEncoder().encode("db a")));
+  await sink.write("b.md", "user bytes");
+  const kept = await store.store("b.md", "db b", await sha256Hex(new TextEncoder().encode("db b")));
+  assert.equal(kept, conflictCopyPath("b.md", 1));
+  assert.equal(await sink.readText("b.md"), "user bytes", "the user's file is intact");
+  assert.equal(await sink.readText(kept), "db b");
 });
