@@ -24,6 +24,8 @@ interface Entry {
   pathKey: string;
   /** The file's workspace path minus `.md`. */
   path: string;
+  /** The file's workspace path. */
+  file: string;
 }
 
 function idOf(target: LinkTarget): string {
@@ -46,12 +48,26 @@ export class Links {
 
   /** The link to the paper or note, or null when it has no file. */
   linkFor(target: LinkTarget): string | null {
-    const kind = "paperId" in target ? "paperId" : "vaultPageId";
-    const id = idOf(target);
-    const hit = this.entries.find((e) => kind in e.target && idOf(e.target) === id);
+    const hit = this.entryFor(target);
     if (!hit) return null;
     const shared = this.entries.some((e) => e !== hit && e.key === hit.key);
     return `[[${shared ? hit.path : hit.path.slice(hit.path.lastIndexOf("/") + 1)}]]`;
+  }
+
+  /** The workspace path of the paper's or note's file, or null when it has none. */
+  fileFor(target: LinkTarget): string | null {
+    return this.entryFor(target)?.file ?? null;
+  }
+
+  /** Every paper and note file, with the target it holds. */
+  all(): { target: LinkTarget; file: string }[] {
+    return this.entries.map((e) => ({ target: e.target, file: e.file }));
+  }
+
+  private entryFor(target: LinkTarget): Entry | undefined {
+    const kind = "paperId" in target ? "paperId" : "vaultPageId";
+    const id = idOf(target);
+    return this.entries.find((e) => kind in e.target && idOf(e.target) === id);
   }
 }
 
@@ -100,7 +116,7 @@ export class LinkIndex {
       const key = core.listItemKey(`[[${path.slice(path.lastIndexOf("/") + 1)}]]`);
       const pathKey = core.listItemKey(`[[${path}]]`);
       if (key === undefined || pathKey === undefined) continue;
-      out.push({ target: kind === "paper" ? { paperId: id } : { vaultPageId: id }, key, pathKey, path });
+      out.push({ target: kind === "paper" ? { paperId: id } : { vaultPageId: id }, key, pathKey, path, file: entry.path });
     }
     return out;
   }

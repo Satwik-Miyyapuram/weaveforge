@@ -5,6 +5,7 @@ import { MemoryWorkspaceFs } from "@core-test/memory-workspace-fs";
 import { typedCore } from "@/lib/rust-core";
 import { loadTestCore } from "@/lib/test/load-test-core";
 import { FileReadingListItemRepository, FileReadingListRepository } from "../file-reading-list-repo";
+import { objectOf } from "../reading-list-tags";
 
 before(loadTestCore);
 
@@ -31,6 +32,20 @@ async function listFile(fs: MemoryWorkspaceFs): Promise<string[]> {
   const out: string[] = [];
   for await (const e of fs.walk(`${ROOT}/reading-lists`)) if (e.kind === "file") out.push(e.path);
   return out;
+}
+
+/** The `[[list file name]]` link a member file carries in its `lists` tag. */
+async function listLink(fs: MemoryWorkspaceFs): Promise<string> {
+  const [path] = await listFile(fs);
+  return `[[${path!.split("/").pop()!.slice(0, -".md".length)}]]`;
+}
+
+function frontmatterOf(text: string): Record<string, unknown> {
+  return typedCore().readFrontmatter(text).frontmatter as Record<string, unknown>;
+}
+
+function tagsOf(text: string): unknown {
+  return frontmatterOf(text).lists;
 }
 
 test("T4: a list round-trips; unicode and duplicate names are two files", async () => {
@@ -62,7 +77,7 @@ test("list filters top level and name; orders by sortOrder then name; getTree ne
   assert.deepEqual(tree[1]!.children.map((n) => n.list.id), [c1.id, c2.id]);
 });
 
-test("add and find keep the item's id; items order by sortOrder; members name papers by link", async () => {
+test("add and find keep the item's id; items order by sortOrder; each member carries a lists tag", async () => {
   const { fs, lists, items } = await setup();
   const l = list();
   await lists.save(l);
@@ -75,10 +90,8 @@ test("add and find keep the item's id; items order by sortOrder; members name pa
   assert.equal((await items.find(l.id, "p1"))?.id, "a");
   assert.equal((await items.findNote(l.id, "n1"))?.note, "key");
   assert.equal(await items.find(l.id, "p2"), null);
-  const [path] = await listFile(fs);
-  const text = await fs.readText(path!);
-  const row = typedCore().entityRowFromFile("reading_list", text) as { members: unknown };
-  assert.deepEqual(row.members, ["[[paper-one.paper]]", "[[Ünïcode note.note]]"]);
+  assert.deepEqual(tagsOf(await fs.readText(`${ROOT}/papers/paper-one.paper.md`)), [await listLink(fs)]);
+  assert.deepEqual(tagsOf(await fs.readText(`${ROOT}/notes/Ünïcode note.note.md`)), [await listLink(fs)]);
 });
 
 test("add upserts one membership per paper; saving the list keeps its members", async () => {
@@ -163,32 +176,30 @@ test("a hand-written member, an unresolved link and the screening items key surv
   assert.match(after, /Gone paper/);
   assert.match(after, /"reviewer":"ana"|reviewer: ana/);
   assert.equal((await items.listItems(l.id)).length, 2);
-  await items.remove(`${l.id}:p2`);
-  assert.deepEqual((await items.listItems(l.id)).map((i) => i.id), ["a"]);
+  await assert.rejects(items.remove(`${l.id}:p2`), /read-only/);
+  assert.deepEqual((await items.listItems(l.id)).map((i) => i.id), [`${l.id}:p2`, "a"]);
 });
 
-test("members are plain links; each item's id, order and note sit in member-notes", async () => {
+test("a membership is a lists tag on the member; its id, order and note sit in list-notes", async () => {
   const { fs, lists, items } = await setup();
   const l = list();
   await lists.save(l);
   await items.add({ id: "b", listId: l.id, vaultPageId: "n1", sortOrder: 4, note: "key", duplicateOfItemId: "y" });
-  const text = await fs.readText((await listFile(fs))[0]!);
-  const row = typedCore().entityRowFromFile("reading_list", text) as { members: unknown; memberNotes: unknown };
-  assert.deepEqual(row.members, ["[[Ünïcode note.note]]"]);
-  assert.deepEqual(row.memberNotes, { "note:n1": { id: "b", order: 4, note: "key", "duplicate-of": "y" } });
+  const fm = frontmatterOf(await fs.readText(`${ROOT}/notes/Ünïcode note.note.md`));
+  assert.deepEqual(fm.lists, [await listLink(fs)]);
+  // The codec reads a mapping back as its JSON text; objectOf is the app's reader for it.
+  assert.deepEqual(objectOf(fm["list-notes"]), { [l.id]: { id: "b", order: 4, note: "key", "duplicate-of": "y" } });
 });
 
-test("a note renamed outside the app, with its link rewritten, keeps its item", async () => {
+test("a note renamed outside the app keeps its item; the tag travels with the file", async () => {
   const { fs, lists, items } = await setup();
   const l = list();
   await lists.save(l);
   await items.add({ id: "b", listId: l.id, vaultPageId: "n1", sortOrder: 4, note: "key" });
-  // What Obsidian does on a rename: move the file and rewrite every link to it.
+  // What Obsidian does on a rename: move the file (its lists tag moves with it).
   const note = await fs.readText(`${ROOT}/notes/Ünïcode note.note.md`);
   await fs.writeFile(`${ROOT}/notes/Renamed note.note.md`, note);
   await fs.remove(`${ROOT}/notes/Ünïcode note.note.md`);
-  const path = (await listFile(fs))[0]!;
-  await fs.writeFile(path, (await fs.readText(path)).replace("[[Ünïcode note.note]]", "[[Renamed note.note]]"));
   assert.deepEqual(await items.listItems(l.id), [
     { id: "b", listId: l.id, vaultPageId: "n1", sortOrder: 4, note: "key" },
   ]);
@@ -203,23 +214,55 @@ test("an older object-form member still reads, and the next write makes it a pla
     path,
     (await fs.readText(path)).replace(
       /^---\n/,
-      '---\nmembers: [{"link":"[[paper-one.paper]]","id":"a","order":3,"note":"old","from":"' + l.id + '"}]\n',
+      '---\nmembers:\n  - {"link":"[[paper-one.paper]]","id":"a","order":3,"note":"old","from":"' + l.id + '"}\n',
     ),
   );
   assert.deepEqual(await items.listItems(l.id), [
     { id: "a", listId: l.id, paperId: "p1", sortOrder: 3, note: "old", inheritedFromListId: l.id },
   ]);
   await items.add({ id: "c", listId: l.id, paperId: "p2", sortOrder: 5 });
-  const row = typedCore().entityRowFromFile("reading_list", await fs.readText(path)) as { members: unknown; memberNotes: unknown };
-  assert.deepEqual(row.members, ["[[paper-one.paper]]", "[[paper-two.paper]]"]);
-  assert.deepEqual(row.memberNotes, {
-    "paper:p1": { id: "a", order: 3, note: "old", from: l.id },
-    "paper:p2": { id: "c", order: 5 },
-  });
-  await items.remove("a");
-  const left = typedCore().entityRowFromFile("reading_list", await fs.readText(path)) as { members: unknown; memberNotes: unknown };
-  assert.deepEqual(left.members, ["[[paper-two.paper]]"]);
-  assert.deepEqual(left.memberNotes, { "paper:p2": { id: "c", order: 5 } });
+  assert.deepEqual(tagsOf(await fs.readText(`${ROOT}/papers/paper-two.paper.md`)), [await listLink(fs)]);
+  assert.match(await fs.readText(path), /"id":"a"|id: a/);
+  await assert.rejects(items.remove("a"), /read-only/);
+  assert.equal((await items.listItems(l.id)).length, 2);
+});
+
+test("a tag on a member overrides the legacy member for its paper", async () => {
+  const { fs, lists, items } = await setup();
+  const l = list();
+  await lists.save(l);
+  const path = (await listFile(fs))[0]!;
+  await fs.writeFile(path, (await fs.readText(path)).replace(/^---\n/, '---\nmembers: ["[[paper-one.paper]]"]\n'));
+  await items.add({ id: "t", listId: l.id, paperId: "p1", sortOrder: 2 });
+  assert.deepEqual((await items.listItems(l.id)).map((i) => i.id), ["t"]);
+  assert.match(await fs.readText(path), /members: \["\[\[paper-one\.paper\]\]"\]/);
+});
+
+test("retries a lost compare-and-set three times, then refuses without writing", async () => {
+  const { fs, lists, items } = await setup();
+  const l = list();
+  await lists.save(l);
+  let attempts = 0;
+  fs.writeTextIf = async () => {
+    attempts += 1;
+    return false;
+  };
+  await assert.rejects(items.add({ id: "a", listId: l.id, paperId: "p1", sortOrder: 0 }), /changed on disk/);
+  assert.equal(attempts, 3);
+  assert.equal(tagsOf(await fs.readText(`${ROOT}/papers/paper-one.paper.md`)), undefined);
+});
+
+test("a legacy members entry reads as a membership, and removing it is refused", async () => {
+  const { fs, lists, items } = await setup();
+  const l = list();
+  await lists.save(l);
+  const path = (await listFile(fs))[0]!;
+  const before = await fs.readText(path);
+  await fs.writeFile(path, before.replace(/^---\n/, '---\nmembers: ["[[paper-one.paper]]"]\n'));
+  const legacy = await fs.readText(path);
+  assert.deepEqual((await items.listItems(l.id)).map((i) => i.paperId), ["p1"]);
+  await assert.rejects(items.remove(`${l.id}:p1`), /read-only/);
+  assert.equal(await fs.readText(path), legacy);
 });
 
 test("an empty list file reads as no members; delete moves the list to the trash", async () => {
