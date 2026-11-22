@@ -82,3 +82,13 @@ export async function readMigrationReport(fs: Pick<FileSink, "readText">): Promi
   const state = (parsed as { state?: unknown } | null)?.state;
   return state === "verified" || state === "incomplete" || state === "none" ? (parsed as MigrationReport) : null;
 }
+
+/**
+ * True only when the OPFS repos hold a clean verified export: state verified, target opfs, and no
+ * run lists a missing row. Anything else (absent, corrupt, incomplete, folder, zip) is false.
+ */
+export async function browserReportVerified(fs: Pick<FileSink, "readText">): Promise<boolean> {
+  const report = await readMigrationReport(fs);
+  if (!report || report.state !== "verified" || report.target !== "opfs") return false;
+  return report.runs.every((run) => run.missing.length === 0);
+}
