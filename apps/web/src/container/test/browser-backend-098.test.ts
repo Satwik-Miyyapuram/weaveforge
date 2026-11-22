@@ -1,30 +1,104 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { chooseBrowserBackend, opfsVerified } from "../browser-backend-098";
+import { browserReportVerified, REPORT_PATH } from "@/features/migration-097/domain/report";
+import { chooseBrowserBackend } from "../browser-backend-098";
 
-test("verified report with target opfs selects the OPFS file backend", () => {
-  assert.equal(chooseBrowserBackend({ state: "verified", target: "opfs" }), "files");
-  assert.equal(opfsVerified({ state: "verified", target: "opfs" }), true);
+/** A folder that holds only what the test puts in it; any other path is absent. */
+function reportFs(text: string | null) {
+  return {
+    async readText(path: string): Promise<string> {
+      if (path !== REPORT_PATH || text === null) throw new Error(`no file: ${path}`);
+      return text;
+    },
+  };
+}
+
+test("browser report is verified only when opfs, verified and no run misses a row", async () => {
+  const ok = JSON.stringify({ state: "verified", target: "opfs", runs: [{ kinds: {}, missing: [] }] });
+  assert.equal(await browserReportVerified(reportFs(ok)), true);
+  const missing = JSON.stringify({ state: "verified", target: "opfs", runs: [{ missing: ["p-1"] }] });
+  assert.equal(await browserReportVerified(reportFs(missing)), false);
 });
 
-test("a zip-only or folder export never selects files: the user is sent to export first", () => {
-  assert.equal(chooseBrowserBackend({ state: "verified", target: "folder" }), "export-first");
-  assert.equal(opfsVerified({ state: "verified", target: "folder" }), false);
+test("zip-only or absent export keeps writes on PostgREST (no report file)", async () => {
+  assert.equal(await browserReportVerified(reportFs(null)), false);
 });
 
-test("a verified report without a target never selects files", () => {
-  assert.equal(chooseBrowserBackend({ state: "verified" }), "export-first");
+test("incomplete or folder-target report keeps writes on PostgREST", async () => {
+  const incomplete = JSON.stringify({ state: "incomplete", target: "opfs", runs: [{ missing: [] }] });
+  assert.equal(await browserReportVerified(reportFs(incomplete)), false);
+  const folder = JSON.stringify({ state: "verified", target: "folder", runs: [{ missing: [] }] });
+  assert.equal(await browserReportVerified(reportFs(folder)), false);
 });
 
-test("any state other than verified shows export-first, even with target opfs", () => {
-  for (const state of ["incomplete", "none", "unavailable", "running"]) {
-    assert.equal(chooseBrowserBackend({ state, target: "opfs" }), "export-first", state);
-  }
+const verified = () => true;
+const notVerified = () => false;
+
+test("a fresh install (no legacy data) reaches files, without reading any report", () => {
+  let asked = 0;
+  assert.equal(
+    chooseBrowserBackend(false, () => {
+      asked += 1;
+      return false;
+    }),
+    "files",
+  );
+  assert.equal(asked, 0);
 });
 
-test("missing or malformed reports show export-first", () => {
-  for (const report of [undefined, null, "verified", 42, {}]) {
-    assert.equal(chooseBrowserBackend(report), "export-first", JSON.stringify(report));
-  }
+test("legacy data present with no verified OPFS report: export first", () => {
+  assert.equal(chooseBrowserBackend(true, notVerified), "export-first");
+});
+
+test("legacy data present with a verified OPFS report: files", () => {
+  assert.equal(chooseBrowserBackend(true, verified), "files");
+});
+
+test("unknown legacy state fails closed to export first, even with a verified report", () => {
+  assert.equal(chooseBrowserBackend("unknown", verified), "export-first");
+  assert.equal(chooseBrowserBackend("unknown", notVerified), "export-first");
+});
+
+/** A clean run in the shape the export writes: every kind a known migration kind, no missing rows. */
+const cleanRun = {
+  kinds: { notes: { db: 2, files: 2, written: 2, conflicts: [], trash: 0 } },
+  missing: [],
+};
+const verifiedReport = (runs: unknown) => JSON.stringify({ state: "verified", target: "opfs", runs });
+
+test("a hand-edited report with a clean run and known kinds is verified", async () => {
+  assert.equal(await browserReportVerified(reportFs(verifiedReport([cleanRun]))), true);
+});
+
+test("a hand-edited report with an unknown kind is not verified", async () => {
+  const run = { kinds: { notAKind: { db: 1, files: 1, written: 1, conflicts: [], trash: 0 } }, missing: [] };
+  assert.equal(await browserReportVerified(reportFs(verifiedReport([run]))), false);
+});
+
+test("a hand-edited report whose runs is not a list is not verified, and does not throw", async () => {
+  const text = JSON.stringify({ state: "verified", target: "opfs", runs: "none" });
+  assert.equal(await browserReportVerified(reportFs(text)), false);
+});
+
+test("a hand-edited run without a missing list is not verified, and does not throw", async () => {
+  assert.equal(await browserReportVerified(reportFs(verifiedReport([{ kinds: cleanRun.kinds }]))), false);
+});
+
+test("a hand-edited run without a kinds object is not verified", async () => {
+  assert.equal(await browserReportVerified(reportFs(verifiedReport([{ missing: [] }]))), false);
+});
+
+test("a hand-edited run that lists a missing row is not verified", async () => {
+  const run = { ...cleanRun, missing: [{ kind: "notes", id: "n-1", reason: "x" }] };
+  assert.equal(await browserReportVerified(reportFs(verifiedReport([run]))), false);
+});
+
+test("the chooser asks the report only when legacy data is present", () => {
+  let asked = 0;
+  chooseBrowserBackend("unknown", () => {
+    asked += 1;
+    return true;
+  });
+  assert.equal(asked, 0, "unknown legacy state must not read the OPFS report");
 });

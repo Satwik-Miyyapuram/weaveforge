@@ -1,0 +1,75 @@
+import assert from "node:assert/strict";
+import { test } from "node:test";
+
+import type { BackendConfig } from "../../backend/parts";
+import { wireFileBackend, type FileRepositories } from "../../backend/providers/files/wire-file-backend";
+import { wirePostgrestBackend } from "../../backend/providers/postgrest/wire-postgrest-backend";
+import {
+  PERSONAL_REPOSITORY_KEYS,
+  SERVER_BACKEND_KEYS,
+  overlayFileRepositories,
+  unclassifiedKeys,
+} from "../with-file-repositories";
+
+const parts = {
+  fs: {} as never,
+  settings: {} as never,
+  secrets: {} as never,
+};
+
+const config = {
+  provider: "postgrest",
+  supabaseUrl: "http://127.0.0.1:9",
+  supabaseAnonKey: "test-anon-key",
+  dataUrl: "http://127.0.0.1:9",
+} as BackendConfig;
+
+test("the personal-key list names exactly the repositories wireFileBackend builds", () => {
+  const built = Object.keys(wireFileBackend(parts)).sort();
+  assert.deepEqual(Object.keys(PERSONAL_REPOSITORY_KEYS).sort(), built);
+});
+
+test("every personal key replaces its counterpart and org keys stay on PostgREST", () => {
+  const files = wireFileBackend(parts);
+  const wired: Record<string, { from: string; key: string }> = {
+    ...Object.fromEntries(Object.keys(PERSONAL_REPOSITORY_KEYS).map((key) => [key, { from: "postgrest", key }])),
+    shareRepository: { from: "postgrest", key: "shareRepository" },
+    db: { from: "postgrest", key: "db" },
+  };
+  const out = overlayFileRepositories(wired, files);
+  for (const key of Object.keys(PERSONAL_REPOSITORY_KEYS) as (keyof FileRepositories)[]) {
+    assert.equal(out[key], files[key], `${key} must be the file repository`);
+    assert.notEqual(out[key], wired[key], `${key} must not stay on PostgREST`);
+  }
+  assert.equal(out.shareRepository, wired.shareRepository);
+  assert.equal(out.db, wired.db);
+});
+
+test("every key of the wired PostgREST backend is a personal key or a listed server key", () => {
+  const wired = wirePostgrestBackend(config, { projectId: null }, () => null);
+  try {
+    assert.deepEqual(unclassifiedKeys(Object.keys(wired)), []);
+  } finally {
+    wired.dispose();
+  }
+});
+
+test("an unlisted new key on the PostgREST backend is reported, not silently kept", () => {
+  assert.deepEqual(unclassifiedKeys(["projectRepository", "brandNewRepository"]), ["brandNewRepository"]);
+});
+
+test("the overlay overrides every personal key of the wired backend", () => {
+  const wired = wirePostgrestBackend(config, { projectId: null }, () => null);
+  try {
+    const files = wireFileBackend(parts);
+    const out = overlayFileRepositories(wired, files);
+    for (const key of Object.keys(PERSONAL_REPOSITORY_KEYS) as (keyof FileRepositories)[]) {
+      assert.equal(out[key], files[key], `${key} must be overridden`);
+    }
+    for (const key of SERVER_BACKEND_KEYS) {
+      if (key in wired) assert.equal(out[key as keyof typeof out], wired[key as keyof typeof wired], `${key} must stay`);
+    }
+  } finally {
+    wired.dispose();
+  }
+});

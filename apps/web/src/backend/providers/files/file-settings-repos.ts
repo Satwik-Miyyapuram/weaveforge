@@ -170,19 +170,32 @@ export class FileSettingsRepository implements ISettingsRepository, SettingsWrit
 
   /** Full replace of the given fields; an unset disclaimer, appearance or AI access keeps the stored one. */
   async save(settings: UserSettings): Promise<void> {
-    await this.secrets.save({
-      zoteroApiKey: settings.zoteroApiKey,
-      semanticScholarKey: settings.semanticScholarKey,
-      integrations: settings.integrations,
-    });
-    const s = this.settings;
-    s.set(["zoteroLibrary"], settings.zoteroLibrary || undefined);
-    if (settings.disclaimerAcceptedAt !== undefined || settings.disclaimerVersion !== undefined) {
-      s.set(["disclaimer"], { acceptedAt: settings.disclaimerAcceptedAt, version: settings.disclaimerVersion });
+    // Only a real key reaches the secrets store (which refuses in the browser). A save with no keys
+    // must not throw, and keys never go to a settings file either way.
+    // Integrations also carry non-secret fields (e.g. zotero library), so only secret-named values count.
+    const SECRET_NAME = /key|token|secret|password/i;
+    const holdsSecret = (v: unknown, name: string): boolean =>
+      typeof v === "string" ? v.length > 0 && SECRET_NAME.test(name) : isObject(v) && Object.entries(v).some(([k, x]) => holdsSecret(x, k));
+    if (
+      holdsSecret(settings.zoteroApiKey, "zoteroApiKey") ||
+      holdsSecret(settings.semanticScholarKey, "semanticScholarKey") ||
+      holdsSecret(settings.integrations, "integrations")
+    ) {
+      await this.secrets.save({
+        zoteroApiKey: settings.zoteroApiKey,
+        semanticScholarKey: settings.semanticScholarKey,
+        integrations: settings.integrations,
+      });
     }
-    if (settings.appearance) s.set(["appearance"], clone(settings.appearance));
-    if (settings.aiAccess) s.set(["aiAccess"], clone(settings.aiAccess));
-    if (settings.search) s.set(["search"], clone(settings.search));
+    const s = this.settings;
+    // Awaited: each set resolves only once its write has reached settings.json.
+    await s.set(["zoteroLibrary"], settings.zoteroLibrary || undefined);
+    if (settings.disclaimerAcceptedAt !== undefined || settings.disclaimerVersion !== undefined) {
+      await s.set(["disclaimer"], { acceptedAt: settings.disclaimerAcceptedAt, version: settings.disclaimerVersion });
+    }
+    if (settings.appearance) await s.set(["appearance"], clone(settings.appearance));
+    if (settings.aiAccess) await s.set(["aiAccess"], clone(settings.aiAccess));
+    if (settings.search) await s.set(["search"], clone(settings.search));
   }
 
   saveDisclaimer(acceptedAt: string, version: number): Promise<void> {

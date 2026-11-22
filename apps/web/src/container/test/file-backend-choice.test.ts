@@ -3,23 +3,35 @@ import { test } from "node:test";
 
 import { chooseFileBackend } from "../file-backend-choice";
 
-const files = () => "files" as const;
-const old = () => "postgrest" as const;
+const choices = {
+  files: () => "files" as const,
+  old: () => "postgrest-writes-on" as const,
+  readOnly: () => "readonly-old-db" as const,
+};
 
-test("a verified migration wires the file backend", () => {
-  assert.equal(chooseFileBackend("verified", files, old), "files");
+test("a verified migration with a file wiring selects files, on web and desktop", () => {
+  assert.equal(chooseFileBackend("verified", choices, false), "files");
+  assert.equal(chooseFileBackend("verified", choices, true), "files");
 });
 
-test("any state other than verified keeps the old backend with writes on", () => {
-  assert.equal(chooseFileBackend("incomplete", files, old), "postgrest");
-  assert.equal(chooseFileBackend("none", files, old), "postgrest");
-  assert.equal(chooseFileBackend("unavailable", files, old), "postgrest");
+test("verified with no file wiring falls back, and desktop fails closed to read-only", () => {
+  const noFiles = { old: choices.old, readOnly: choices.readOnly };
+  assert.equal(chooseFileBackend("verified", noFiles, false), "postgrest-writes-on");
+  assert.equal(chooseFileBackend("verified", noFiles, true), "readonly-old-db");
 });
 
-test("no migration state keeps the old backend", () => {
-  assert.equal(chooseFileBackend(undefined, files, old), "postgrest");
+test("web and Android keep PostgREST with writes on for every non-verified state", () => {
+  for (const state of ["none", "incomplete", "unavailable", undefined] as const) {
+    assert.equal(chooseFileBackend(state, choices, false), "postgrest-writes-on", `web, ${String(state)}`);
+  }
 });
 
-test("without an injected file wiring the old backend is used even when verified", () => {
-  assert.equal(chooseFileBackend("verified", undefined, old), "postgrest");
+test("desktop: a genuine none keeps writes on", () => {
+  assert.equal(chooseFileBackend("none", choices, true), "postgrest-writes-on");
+});
+
+test("desktop: incomplete, unavailable or unknown fail closed to read-only, never writes-on", () => {
+  for (const state of ["incomplete", "unavailable", undefined] as const) {
+    assert.equal(chooseFileBackend(state, choices, true), "readonly-old-db", `desktop, ${String(state)}`);
+  }
 });
