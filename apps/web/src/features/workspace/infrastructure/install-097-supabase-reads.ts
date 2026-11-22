@@ -2,8 +2,9 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { LegacyTable } from "../application/install-097-legacy-tables";
 import { type Install097Reads, TABLE_ARCHIVED, type TableCount } from "./install-097-web-port";
 
-/** Postgres undefined_column, and PostgREST's unknown-column code. Both mean the 0164 mark is not deployed yet. */
+/** Postgres undefined_column, and PostgREST's unknown-column code. Only a miss on the 0164 mark column counts as "not deployed yet". */
 const MISSING_COLUMN_CODES = new Set(["42703", "PGRST204"]);
+const MARK_COLUMN = "exported_097_at";
 /** PostgREST's unknown-table code and Postgres undefined_table. 0165 archives a table, so it is gone from public. */
 const MISSING_TABLE_CODES = new Set(["PGRST205", "42P01"]);
 
@@ -16,7 +17,7 @@ export function supabaseReads(client: SupabaseClient): Install097Reads {
     async exportedAt(userId) {
       const { data, error } = await client.from("profiles").select("exported_097_at").eq("user_id", userId).maybeSingle();
       if (error) {
-        if (MISSING_COLUMN_CODES.has(error.code)) return null;
+        if (MISSING_COLUMN_CODES.has(error.code) && error.message?.includes(MARK_COLUMN)) return null;
         throw new Error(`profiles mark read failed: ${error.code}`);
       }
       return (data?.exported_097_at as string | null | undefined) ?? null;

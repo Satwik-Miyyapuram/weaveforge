@@ -163,7 +163,7 @@ test("P1: a new account with archived tables and rpc false: open, never gated", 
 
 test("mark column missing (42703) and every table empty: open, never gated", async () => {
   const port = createWebOldUserPort(
-    supabaseReads(fakeSupabase({ profile: { data: null, error: { code: "42703", message: "column does not exist" } } })),
+    supabaseReads(fakeSupabase({ profile: { data: null, error: { code: "42703", message: "column profiles.exported_097_at does not exist" } } })),
     "user-1",
   );
   assert.deepEqual(await install097Check(null, null, port), { kind: "open" });
@@ -200,13 +200,23 @@ test("a positive table gates even when another probe fails", async () => {
 
 // ---- supabaseReads mapping ----
 
-test("exportedAt: value returned; 42703 and PGRST204 read as null; other codes throw", async () => {
+test("exportedAt: value returned; a missing exported_097_at column reads as null; other errors throw", async () => {
   const value = await supabaseReads(fakeSupabase({ profile: { data: { exported_097_at: "2026" }, error: null } })).exportedAt("u");
   assert.equal(value, "2026");
-  for (const code of ["42703", "PGRST204"]) {
-    assert.equal(await supabaseReads(fakeSupabase({ profile: { data: null, error: { code, message: "" } } })).exportedAt("u"), null);
+  // The mark is not deployed yet: the error names the column (Postgres 42703 or PostgREST PGRST204).
+  const missingMark = [
+    { code: "42703", message: "column profiles.exported_097_at does not exist" },
+    { code: "PGRST204", message: "Could not find the 'exported_097_at' column of 'profiles' in the schema cache" },
+  ];
+  for (const error of missingMark) {
+    assert.equal(await supabaseReads(fakeSupabase({ profile: { data: null, error } })).exportedAt("u"), null);
   }
   await assert.rejects(supabaseReads(fakeSupabase({ profile: { data: null, error: { code: "08006", message: "" } } })).exportedAt("u"));
+});
+
+test("exportedAt: a missing column that is not exported_097_at throws, so a wrong filter column is not hidden", async () => {
+  const wrongColumn = { code: "42703", message: "column profiles.user_uuid does not exist" };
+  await assert.rejects(supabaseReads(fakeSupabase({ profile: { data: null, error: wrongColumn } })).exportedAt("u"), /profiles mark read failed: 42703/);
 });
 
 test("countRows: counts only the owner's rows", async () => {
