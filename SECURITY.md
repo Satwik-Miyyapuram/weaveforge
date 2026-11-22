@@ -16,12 +16,16 @@ self-hosting guidance — is in [`docs/SECURITY.md`](docs/SECURITY.md).
 
 ## Data protection model
 
-WeaveForge protects your research data with **encryption at rest** (OCI block-volume
-encryption on the server's disks) plus **Postgres Row-Level Security** as the
-access-control boundary — a row is readable only by its owner or someone it is
-explicitly shared with (`shared_to_me`). Third-party integration secrets (Overleaf
-git token, Zotero / Semantic Scholar keys) are additionally encrypted with a
-server-held key.
+WeaveForge does **no encryption at rest of its own**. Your workspace is plain
+files on your disk (and in your Git repo if you sync it); protect them with your
+operating system's disk encryption (BitLocker, FileVault, LUKS). What the server
+keeps (orgs, shared items, relay data) sits in Postgres with no database-level
+encryption: the hosted instance relies on OCI's default block-volume encryption,
+and a self-hosted one has whatever its disks have. **Postgres Row-Level
+Security** is the access-control boundary — a row is readable only by its owner
+or someone it is explicitly shared with (`shared_to_me`). Third-party
+integration secrets (Overleaf git token, Zotero / Semantic Scholar keys) are
+encrypted with a server-held key.
 
 This is **not** end-to-end / zero-knowledge encryption: an operator with database
 access can technically read your content. Earlier versions shipped client-side

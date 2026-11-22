@@ -41,10 +41,10 @@ export class FileCommentRepository implements ICommentRepository {
     const path = await this.sidecarOf(input.resourceType, input.resourceId);
     if (!path) throw new NotFoundError(`${input.resourceType} ${input.resourceId} not found`);
     const row: JsonRow = {
-      id: `comment-${crypto.randomUUID()}`,
+      id: input.id ?? `comment-${crypto.randomUUID()}`,
       authorId: "",
       body: input.body,
-      createdAt: new Date().toISOString(),
+      createdAt: input.createdAt ?? new Date().toISOString(),
       ...(input.anchor ? { anchor: input.anchor } : {}),
       ...(input.parentId ? { parentId: input.parentId } : {}),
     };

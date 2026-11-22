@@ -8,7 +8,8 @@ use serde_json::{Map, Value};
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::{JsError, wasm_bindgen};
 use wf_core::papers::paper_file::{
-    ExtrasChange, paper_extras, paper_row, parse_paper_file, write_paper_extras, write_paper_row,
+    ExtrasChange, paper_extras, paper_pinned, paper_row, parse_paper_file, write_paper_extras,
+    write_paper_pinned, write_paper_row,
 };
 use wf_core::reader::annotations_file::{
     AnnotationRow, annotations_file_path, parse_annotations, render_annotations,
@@ -123,4 +124,24 @@ pub fn annotations_file_path_js(paper_path: &str) -> String {
 #[wasm_bindgen(js_name = commentsFilePath)]
 pub fn comments_file_path_js(item_path: &str) -> String {
     comments_path(item_path)
+}
+
+/// [`paper_pinned`]: true when the file's frontmatter says `pinned: true`.
+///
+/// # Errors
+///
+/// Fails when the text is not a paper file.
+#[wasm_bindgen(js_name = paperPinnedFromFile)]
+pub fn paper_pinned_from_file_js(text: &str) -> Result<bool, JsError> {
+    paper_pinned(text).map_err(js_error)
+}
+
+/// [`write_paper_pinned`]: the file text with the library pin set or cleared.
+///
+/// # Errors
+///
+/// Fails when the text is not a paper file or is from a newer app.
+#[wasm_bindgen(js_name = writePaperPinned)]
+pub fn write_paper_pinned_js(text: &str, pinned: bool) -> Result<String, JsError> {
+    write_paper_pinned(text, pinned).map_err(js_error)
 }

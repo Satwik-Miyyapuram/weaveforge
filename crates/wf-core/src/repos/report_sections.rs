@@ -2,8 +2,8 @@
 //!
 //! Ported from `PostgrestReportSectionRepository` and `report-section-rows` in
 //! `apps/web/src/features/report/infrastructure/parts.ts`. The outline tree is
-//! [`build_section_tree`]. Titles are end-to-end encrypted, so `titleContains` has
-//! no server filter: the decrypting repository filters after the read.
+//! [`build_section_tree`]. `titleContains` has no server filter: it is
+//! matched after the read.
 
 use std::collections::HashSet;
 

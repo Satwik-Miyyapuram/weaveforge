@@ -109,11 +109,15 @@ export interface Comment extends Identifiable {
 }
 
 export interface NewCommentInput {
+  /** Given by the caller (an export); minted when absent. */
+  id?: string;
   resourceType: string;
   resourceId: string;
   body: string;
   anchor?: CommentAnchor | null;
   parentId?: string | null;
+  /** Given by the caller (an export); set to now when absent. */
+  createdAt?: string;
 }
 
 /** Personalized PageRank over the wiki graph (Rust wf-core, exposed by wf-wasm). */

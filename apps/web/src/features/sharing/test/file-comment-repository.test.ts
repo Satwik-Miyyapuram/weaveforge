@@ -121,3 +121,19 @@ test("law: list returns exactly the added, not removed comments of that item", a
     { numRuns: 40 },
   );
 });
+
+test("a caller's id and createdAt are kept; the repository mints only when absent", async () => {
+  const { repo } = repoOn();
+  const given = await repo.add({
+    resourceType: "paper",
+    resourceId: "p-1",
+    body: "From the export.",
+    id: "comment-from-export",
+    createdAt: "2026-01-02T03:04:05.000Z",
+  });
+  assert.equal(given.id, "comment-from-export");
+  assert.equal(given.createdAt, "2026-01-02T03:04:05.000Z");
+  const minted = await repo.add({ resourceType: "paper", resourceId: "p-1", body: "New." });
+  assert.match(minted.id, /^comment-/);
+  assert.notEqual(minted.createdAt, undefined);
+});

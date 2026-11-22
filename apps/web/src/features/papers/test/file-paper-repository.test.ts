@@ -400,3 +400,78 @@ test("law: delete moves exactly that paper's file to the trash and changes no ot
 function stripUndefined(row: Record<string, unknown>): Record<string, unknown> {
   return Object.fromEntries(Object.entries(row).filter(([, v]) => v !== undefined));
 }
+
+test("setPinned writes pinned into the file; listPinnedIds reads it back; clearing removes it", async () => {
+  const { fs, repo } = setup();
+  await repo.save(paper({ id: "p-1", title: "One" }));
+  await repo.save(paper({ id: "p-2", title: "Two" }));
+  const before = await repo.getById("p-1");
+  assert.deepEqual(await repo.listPinnedIds(), []);
+  assert.equal(await repo.setPinned("p-1", true), true);
+  assert.deepEqual(await repo.listPinnedIds(), ["p-1"]);
+  assert.match(await fs.readText((await repo.pathOf("p-1"))!), /pinned: true/);
+  assert.deepEqual(await repo.getById("p-1"), before);
+  assert.equal(await repo.setPinned("p-1", false), true);
+  assert.deepEqual(await repo.listPinnedIds(), []);
+});
+
+test("setPinned keeps the body and the keys the app does not own", async () => {
+  const { fs, repo } = setup();
+  await repo.save(paper());
+  const path = (await repo.pathOf("p-1"))!;
+  await fs.writeFile(path, (await fs.readText(path)).replace("---\n", "---\nmy-key: kept\n") + "\nMy notes.\n");
+  await repo.setPinned("p-1", true);
+  const text = await fs.readText(path);
+  assert.match(text, /my-key: kept/);
+  assert.match(text, /My notes\./);
+  assert.match(text, /pinned: true/);
+});
+
+test("setPinned on an unknown id returns false and writes nothing", async () => {
+  const { fs, repo } = setup();
+  await repo.save(paper());
+  const path = (await repo.pathOf("p-1"))!;
+  const before = await fs.readText(path);
+  assert.equal(await repo.setPinned("missing", true), false);
+  assert.equal(await fs.readText(path), before);
+  assert.deepEqual(await repo.listPinnedIds(), []);
+});
+
+test("one unreadable file: listPinnedIds keeps the readable pinned paper and skips the bad one", async () => {
+  const { fs, repo } = setup();
+  await repo.save(paper({ id: "p-1", title: "One" }));
+  await repo.save(paper({ id: "p-2", title: "Two" }));
+  await repo.setPinned("p-1", true);
+  await repo.setPinned("p-2", true);
+  const badPath = (await repo.pathOf("p-2"))!;
+  const readText = fs.readText.bind(fs);
+  fs.readText = async (path: string) => {
+    if (path === badPath) throw new Error("EACCES: permission denied");
+    return readText(path);
+  };
+  assert.deepEqual(await repo.listPinnedIds(), ["p-1"]);
+  assert.deepEqual((await repo.failures()).map((f) => f.path), [badPath]);
+});
+
+test("setPinned on an unreadable paper file returns false and leaves the file untouched", async () => {
+  const { fs, repo } = setup();
+  await repo.save(paper({ id: "p-1", title: "One" }));
+  await repo.save(paper({ id: "p-2", title: "Two" }));
+  const badPath = (await repo.pathOf("p-2"))!;
+  const original = await fs.readText(badPath);
+  const readText = fs.readText.bind(fs);
+  const writeFile = fs.writeFile.bind(fs);
+  let written = 0;
+  fs.readText = async (path: string) => {
+    if (path === badPath) throw new Error("EACCES: permission denied");
+    return readText(path);
+  };
+  fs.writeFile = async (path: string, text: string) => {
+    if (path === badPath) written += 1;
+    return writeFile(path, text);
+  };
+  assert.equal(await repo.setPinned("p-2", true), false);
+  assert.equal(written, 0);
+  assert.equal(await readText(badPath), original);
+  assert.doesNotMatch(original, /pinned: true/);
+});

@@ -4,7 +4,7 @@
 
 use serde_json::{Map, Value, json};
 use wf_core::entity_codecs::{
-    CodecError, EntityKind, entity_path, parse_entity_row, render_entity_row,
+    CodecError, EntityKind, entity_id_from_text, entity_path, parse_entity_row, render_entity_row,
 };
 
 fn row(value: Value) -> Map<String, Value> {
@@ -81,11 +81,22 @@ fn report_section_and_reading_list_round_trip() {
         EntityKind::ReadingList,
         json!({
             "id": "l1", "name": "Core", "description": "Must read", "parentId": "l0",
-            "sortOrder": 1, "color": "#ff0000", "createdAt": "2026-11-01T00:00:00Z",
-            "members": ["[[Smith 2024.paper]]", "[[My note]]"],
-            "memberNotes": {"[[Smith 2024.paper]]": "key paper"}
+            "sortOrder": 1, "color": "#ff0000", "createdAt": "2026-11-01T00:00:00Z"
         }),
     );
+}
+
+#[test]
+fn reading_list_file_holds_no_members() {
+    // Membership lives on each member (lists / list-notes frontmatter), not on the list.
+    let input = row(json!({
+        "id": "l1", "name": "Core", "createdAt": "2026-11-01T00:00:00Z",
+        "members": ["[[Smith 2024.paper]]"],
+        "memberNotes": {"[[Smith 2024.paper]]": "key paper"}
+    }));
+    let text = render_entity_row(EntityKind::ReadingList, None, &input).expect("renders");
+    assert!(!text.contains("members"), "{text}");
+    assert!(!text.contains("member-notes"), "{text}");
 }
 
 #[test]
@@ -94,6 +105,14 @@ fn absent_optional_fields_stay_absent() {
         EntityKind::Experiment,
         json!({"id": "e", "name": "x", "status": "planned", "config": {}, "metrics": {},
                "artifacts": [], "createdAt": "2026-01-01T00:00:00Z"}),
+    );
+}
+
+#[test]
+fn a_whitespace_only_text_field_round_trips() {
+    round_trip(
+        EntityKind::Experiment,
+        json!({"id": "exp-2", "name": " ", "hypothesis": "\t", "status": "planned"}),
     );
 }
 
@@ -161,6 +180,11 @@ fn refuses_other_kinds_newer_files_and_rows_without_id() {
         parse_entity_row(EntityKind::LogEntry, ""),
         Err(CodecError::NotThisKind)
     ));
+    let blank_id = "---\nweaveforge-id: \" \"\nweaveforge-type: experiment\n---\n";
+    assert!(matches!(
+        parse_entity_row(EntityKind::Experiment, blank_id),
+        Err(CodecError::NotThisKind)
+    ));
     let newer = "---\nweaveforge-id: e1\nweaveforge-type: experiment\nwf: 99\n---\n";
     assert!(matches!(
         parse_entity_row(EntityKind::Experiment, newer),
@@ -205,5 +229,31 @@ fn paths_follow_the_folder_layout() {
     assert_ne!(
         entity_path(EntityKind::ReportSection, &a, "").expect("path"),
         entity_path(EntityKind::ReportSection, &b, "").expect("path")
+    );
+}
+
+#[test]
+fn entity_id_from_text_reads_quoted_and_bare_ids_and_none_without_one() {
+    assert_eq!(
+        entity_id_from_text("---\nweaveforge-id: 'abc-1'\nweaveforge-type: experiment\n---\n").as_deref(),
+        Some("abc-1"),
+    );
+    assert_eq!(
+        entity_id_from_text("---\nweaveforge-id: \"abc-2\"\n---\n").as_deref(),
+        Some("abc-2"),
+    );
+    assert_eq!(entity_id_from_text("---\nweaveforge-id: \"\"\n---\n"), None);
+    assert_eq!(entity_id_from_text("# just a note\n"), None);
+}
+
+#[test]
+fn entity_id_from_text_keeps_the_id_of_broken_frontmatter_and_trims_it() {
+    assert_eq!(
+        entity_id_from_text("---\nweaveforge-id: kept-9\nweaveforge-type: experiment\ntitle: [unclosed\n").as_deref(),
+        Some("kept-9"),
+    );
+    assert_eq!(
+        entity_id_from_text("---\nweaveforge-id:  abc\n---\n").as_deref(),
+        Some("abc"),
     );
 }

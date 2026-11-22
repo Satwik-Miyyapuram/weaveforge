@@ -263,9 +263,13 @@ export interface AnnotationPin extends Identifiable {
 }
 
 export interface SaveAnnotationPinInput {
+  /** Given by the caller (an export); minted when absent and the pin is new. */
+  id?: string;
   paperId: string;
   annotationKey: string;
   reportSectionId: string;
+  /** Given by the caller (an export); set to now when absent and the pin is new. */
+  createdAt?: string;
 }
 
 // --- annotation-pin-repository ---

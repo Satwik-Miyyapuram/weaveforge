@@ -9,6 +9,7 @@
  * - A save never overwrites a file changed on disk since it was read.
  * - A delete moves the file to `.weaveforge/trash/<day>/`; nothing is unlinked.
  * - One bad file (unreadable, newer format) is skipped and reported, never fatal.
+ * - A bad file is kept as it is: a save never takes its path or (when its header shows it) its id.
  */
 import type { IWorkspaceFs } from "@weaveforge/core";
 import { readyCore } from "@/lib/rust-core";
@@ -56,6 +57,18 @@ export async function writeIfUnchanged(
   }
 }
 
+/** A file that could not be read: kept as it is; its id (when its header shows one) is never reused. */
+interface HeldFile {
+  path: string;
+  id: string | null;
+}
+
+/** One scan of the entity folder: the readable rows, and the files that could not be read. */
+interface Scan<T> {
+  found: FoundEntity<T>[];
+  held: HeldFile[];
+}
+
 export class FileEntityStore<T extends { id: string }> {
   constructor(
     private readonly fs: IWorkspaceFs,
@@ -65,24 +78,41 @@ export class FileEntityStore<T extends { id: string }> {
 
   /** Every file of this kind under the project's entity folder, sorted by path. */
   async readAll(): Promise<FoundEntity<T>[]> {
+    return (await this.scan()).found;
+  }
+
+  /** Reads the folder. The held list is returned, never kept on the instance, so a concurrent scan cannot clear it. */
+  private async scan(): Promise<Scan<T>> {
     const core = readyCore();
     const dir = core.entityDir(this.kind, this.root());
-    if (!(await this.fs.stat(dir))) return [];
+    const held: HeldFile[] = [];
+    if (!(await this.fs.stat(dir))) return { found: [], held };
     const found: FoundEntity<T>[] = [];
     for await (const entry of this.fs.walk(dir)) {
       if (entry.kind !== "file" || !entry.path.endsWith(".md")) continue;
       let row: Record<string, unknown> | null;
-      let text: string;
+      let text = "";
       try {
         text = await this.fs.readText(entry.path);
         row = core.entityRowFromFile(this.kind, text);
       } catch (error) {
         console.warn(`Skipped ${entry.path}: could not read it.`, error);
+        held.push({ path: entry.path, id: core.entityIdFromText(text) ?? null });
         continue;
       }
       if (row) found.push({ path: entry.path, text, row: row as T });
     }
-    return found.sort((a, b) => a.path.localeCompare(b.path));
+    return { found: found.sort((a, b) => a.path.localeCompare(b.path)), held };
+  }
+
+  /** A path no file holds yet (readable or not): the codec's, or `…--id-2.<kind>.md`, `-3`… */
+  private async freePath(path: string): Promise<string> {
+    const at = path.lastIndexOf("--");
+    for (let n = 1; ; n += 1) {
+      const candidate = n === 1 ? path : `${path.slice(0, at)}-${n}${path.slice(at)}`;
+      if (!(await this.fs.stat(candidate))) return candidate;
+      if (n >= TRASH_NAME_ATTEMPTS) throw new Error(`${path}: no free name; not saved.`);
+    }
   }
 
   async all(): Promise<T[]> {
@@ -100,11 +130,25 @@ export class FileEntityStore<T extends { id: string }> {
   /** Writes the row to its file (a new one at the codec's path). */
   async save(row: T): Promise<void> {
     const core = readyCore();
-    const found = await this.find(row.id);
+    const { found: rows, held } = await this.scan();
+    const found = rows.find((f) => f.row.id === row.id) ?? null;
+    const blocked = held.find((h) => h.id === row.id);
+    if (blocked && !found) {
+      throw new Error(`${blocked.path} could not be read; not saved over or duplicated. Fix or move that file first.`);
+    }
     const plain = JSON.parse(JSON.stringify(row)) as Record<string, unknown>;
-    const path = found?.path ?? core.entityPath(this.kind, plain, this.root());
     const text = core.entityFileFromRow(this.kind, found?.text ?? null, plain);
-    await writeIfUnchanged(this.fs, path, text, found?.text ?? null);
+    if (found) {
+      await writeIfUnchanged(this.fs, found.path, text, found.text);
+      return;
+    }
+    const base = core.entityPath(this.kind, plain, this.root());
+    // A file at the codec's path that could not be read may hold this row's id: never write a numbered twin.
+    if (held.some((h) => h.id === null && h.path === base)) {
+      throw new Error(`${base} could not be read; not saved over or duplicated. Fix or move that file first.`);
+    }
+    const path = await this.freePath(base);
+    await writeIfUnchanged(this.fs, path, text, null);
   }
 
   /** Moves the row's file to the trash; a missing id is not an error. */
