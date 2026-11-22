@@ -34,6 +34,7 @@ import { EmailRecoveryScreen } from "@/components/email-recovery-screen";
 import { PasswordResetScreen } from "@/components/password-reset-screen";
 import { ToastHost } from "@/components/toast-host";
 import { ReleaseNoticeBanner } from "@/features/release-notices/ui/release-notice-banner";
+import { SwitchRetryBanner } from "./switch-retry-banner";
 import { AppUpdateNotice } from "@/features/app-update/ui/app-update-notice";
 import { LostDbNotice } from "@/features/workspace/ui/lost-db-notice";
 import { ContextMenuHost } from "@/components/context-menu";
@@ -131,6 +132,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 <ContextMenuHost />
                 {expired && <SessionExpiredPrompt />}
                 <ReleaseNoticeBanner />
+                <SwitchRetryBanner />
                 <AppUpdateNotice />
                 <LostDbNotice />
                 {/* Keyed on the session epoch: after signing back in, every

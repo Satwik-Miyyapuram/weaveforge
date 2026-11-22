@@ -63,7 +63,7 @@ import { rustAiStores, rustShareLinkRepository } from "@/backend/providers/postg
 import { PrefetchProjectUseCase } from "@/application/prefetch-project.use-case";
 import { readBackendConfig } from "@/backend/parts";
 import { decideBrowserSwitchFromConfig, openMarkedBrowserFiles } from "./container/browser-switch-wiring";
-import { runBrowserSwitchInBackground } from "./container/browser-switch-background";
+import { retrySwitch } from "./container/browser-switch-retry";
 import {
   PapersFacade,
   PaperFieldsFacade,
@@ -176,10 +176,9 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
   // A missing session, failed run or timeout keeps the server backend for this start.
   const browserFiles = shell ? undefined : ((await openMarkedBrowserFiles()) ?? undefined);
   if (!shell && !browserFiles) {
-    void runBrowserSwitchInBackground(() => decideBrowserSwitchFromConfig(readBackendConfig(), shell)).then(
-      (decision) => {
-        if (decision?.switch) window.location.reload();
-      },
+    void retrySwitch(
+      () => decideBrowserSwitchFromConfig(readBackendConfig(), shell),
+      () => window.location.reload(),
     );
   }
   const backend = wireBackend(readBackendConfig(), projectContext, pid, {
