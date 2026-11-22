@@ -27,15 +27,11 @@ import {
 import { readyCore } from "@/lib/rust-core";
 import { FileEntityStore, type ProjectRoot, writeIfUnchanged } from "./file-entity-store";
 import { LinkIndex, type LinkTarget } from "./link-index";
-import { addListMembership, readMemberFields, removeListMembership } from "./member-frontmatter";
+import { addListMembership, listLinkFor, readMemberFields, removeListMembership } from "./member-frontmatter";
+import { migrateLegacyLists } from "./legacy-list-members";
 
 /** A list row as the codec reads it; `members` and `memberNotes` are the 0.9.6 keys, read only for the rewrite. */
 type ListRow = ReadingList & { members?: unknown; memberNotes?: unknown };
-
-/** A list's `[[L]]`: its file's name minus `.md`. */
-function listLinkOf(path: string): string {
-  return `[[${path.slice(path.lastIndexOf("/") + 1, -".md".length)}]]`;
-}
 
 function targetIdOf(t: LinkTarget): string {
   return "paperId" in t ? t.paperId : t.vaultPageId;
@@ -59,22 +55,27 @@ function byPath(a: { path: string }, b: { path: string }): number {
 
 export class FileReadingListRepository implements IReadingListRepository {
   private readonly store: FileEntityStore<ListRow>;
+  private readonly migrate: () => Promise<void>;
 
   constructor(fs: IWorkspaceFs, root: ProjectRoot) {
     this.store = new FileEntityStore<ListRow>(fs, root, "reading_list");
+    this.migrate = () => migrateLegacyLists(fs, root);
   }
 
   async getById(id: string): Promise<ReadingList | null> {
+    await this.migrate();
     const row = await this.store.get(id);
     return row ? plainList(row) : null;
   }
 
   async listByIds(ids: readonly string[]): Promise<ReadingList[]> {
+    await this.migrate();
     const wanted = new Set(ids);
     return (await this.store.all()).filter((l) => wanted.has(l.id)).map(plainList);
   }
 
   async list(filter: ReadingListFilter = {}): Promise<ReadingList[]> {
+    await this.migrate();
     const needle = filter.nameContains?.toLowerCase();
     return (await this.store.all())
       .map(plainList)
@@ -87,6 +88,7 @@ export class FileReadingListRepository implements IReadingListRepository {
   }
 
   async getTree(): Promise<ReadingListTreeNode[]> {
+    await this.migrate();
     const lists = (await this.store.all()).map(plainList).sort(byOrderThenName);
     return readyCore().buildListTree(lists) as unknown as ReadingListTreeNode[];
   }
@@ -107,6 +109,7 @@ export class FileReadingListRepository implements IReadingListRepository {
 export class FileReadingListItemRepository implements IReadingListItemRepository {
   private readonly lists: FileEntityStore<ListRow>;
   private readonly links: LinkIndex;
+  private readonly migrate: () => Promise<void>;
 
   constructor(
     private readonly fs: IWorkspaceFs,
@@ -114,6 +117,7 @@ export class FileReadingListItemRepository implements IReadingListItemRepository
   ) {
     this.lists = new FileEntityStore<ListRow>(fs, root, "reading_list");
     this.links = new LinkIndex(fs, root);
+    this.migrate = () => migrateLegacyLists(fs, root);
   }
 
   async listItems(listId: string): Promise<ReadingListItem[]> {
@@ -155,7 +159,7 @@ export class FileReadingListItemRepository implements IReadingListItemRepository
     const file = snapshot.pathFor(target);
     if (!file) throw new NotFoundError(`No file for ${"paperId" in target ? "paper" : "note"} "${targetIdOf(target)}".`);
     const text = await this.fs.readText(file);
-    const next = addListMembership(text, listLinkOf(list.path), item.note);
+    const next = addListMembership(text, listLinkFor(list.path), item.note);
     if (next !== text) await writeIfUnchanged(this.fs, file, next, text);
   }
 
@@ -165,7 +169,7 @@ export class FileReadingListItemRepository implements IReadingListItemRepository
     if (at < 0) return;
     const list = await this.lists.find(id.slice(0, at));
     if (!list) return;
-    const link = listLinkOf(list.path);
+    const link = listLinkFor(list.path);
     const snapshot = await this.links.snapshot();
     for (const { target, path } of snapshot.all()) {
       if (itemIdOf(list.row.id, target) !== id) continue;
@@ -180,7 +184,8 @@ export class FileReadingListItemRepository implements IReadingListItemRepository
    * A member whose link names no live list is not listed; its frontmatter is kept.
    */
   private async memberships(): Promise<ReadingListItem[]> {
-    const listIdByLink = new Map((await this.lists.readAll()).map((f) => [listLinkOf(f.path), f.row.id]));
+    await this.migrate();
+    const listIdByLink = new Map((await this.lists.readAll()).map((f) => [listLinkFor(f.path), f.row.id]));
     const snapshot = await this.links.snapshot();
     const byList = new Map<string, ReadingListItem[]>();
     for (const { target, path } of snapshot.all().sort(byPath)) {

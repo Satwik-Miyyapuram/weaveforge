@@ -131,11 +131,18 @@ export function removeListMembership(text: string, link: string): string {
   return render(f, lines);
 }
 
-/** Drops top-level frontmatter keys (for the legacy list keys); the rest is kept byte for byte. */
-export function dropFrontmatterKeys(text: string, keys: readonly string[]): string {
+/** A list's `[[L]]`: its file's name minus `.md`. */
+export function listLinkFor(path: string): string {
+  return `[[${path.slice(path.lastIndexOf("/") + 1, -".md".length)}]]`;
+}
+
+/** Sets top-level keys to JSON values (null removes the key); every other line is kept byte for byte. */
+export function setFrontmatterKeys(text: string, values: Record<string, unknown>): string {
   const f = splitFront(text);
   if (!f) return text;
   const lines = [...f.lines];
-  for (const key of keys) setLine(lines, key, null);
+  for (const [key, value] of Object.entries(values)) {
+    setLine(lines, key, value === null ? null : JSON.stringify(value));
+  }
   return render(f, lines);
 }
