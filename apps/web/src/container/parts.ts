@@ -40,6 +40,8 @@ import {
 } from "@weaveforge/core";
 import type { OpenAlexWork, ResourceType } from "@weaveforge/wasm";
 import { type BackendConfig, readBackendConfig } from "../backend/parts";
+import type { Migrate097Resolved } from "@/lib/desktop/migrate-097";
+import { chooseFileBackend } from "./file-backend-choice";
 import { localFirstParts } from "../backend/providers/local/local-first";
 import { localFirstActive } from "../backend/providers/local/local-first-marker";
 import {
@@ -347,20 +349,39 @@ export class WebCryptoShareLinkTokenHasher implements IShareLinkTokenHasher {
 // --- wire-backend ---
 export type WiredBackend = WiredPostgrestBackend;
 
+/** Personal-data file wiring for the 0.9.7 kill switch. Absent means PostgREST as before. */
+export interface PersonalFileWiring {
+  /** From migrate097Status for this folder; only "verified" wires files. */
+  migration?: Migrate097Resolved;
+  /** Supplied by the browser/Android container lane. */
+  wireBrowserFileBackend?: (
+    config: BackendConfig,
+    projectContext: { projectId: string | null },
+    pid: () => string | null,
+  ) => WiredBackend;
+}
+
 export function wireBackend(
   config: BackendConfig = readBackendConfig(),
   projectContext = { projectId: null as string | null },
   pid: () => string | null = () => projectContext.projectId,
+  files?: PersonalFileWiring,
 ): WiredBackend {
   // 0.9.7: local mode (PGlite) is never selected at runtime on web, desktop or
-  // Android.
+  // Android. The personal-data choice below is the only runtime switch.
   // A signed-in desktop that has its account's data on disk works on that copy.
   const account = localFirstActive();
   if (account) return wirePostgrestBackend(config, projectContext, pid, localFirstParts(config, account));
 
   switch (config.provider) {
-    case "postgrest":
-      return wirePostgrestBackend(config, projectContext, pid);
+    case "postgrest": {
+      const wire = files?.wireBrowserFileBackend;
+      return chooseFileBackend(
+        files?.migration,
+        wire ? () => wire(config, projectContext, pid) : undefined,
+        () => wirePostgrestBackend(config, projectContext, pid),
+      );
+    }
     // `postgres` selects the server-side blob registry (storage/server/blob-api.ts),
     // never a browser data layer: these repositories reach the database over
     // PostgREST, which a connection string cannot replace. Point them at your own
