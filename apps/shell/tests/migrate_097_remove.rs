@@ -6,7 +6,7 @@ use std::io;
 use std::path::{Path, PathBuf};
 
 use weaveforge_shell_lib::migrate_097::remove::{
-    record_exported_to, remove_old_data, write_verified_empty_report,
+    record_exported_to, remove_old_data,
 };
 
 const DIR: &str = ".weaveforge/migration-0.9.7";
@@ -414,6 +414,16 @@ fn stop_failure_keeps_the_cluster() {
 }
 
 #[test]
+fn postmaster_pid_left_after_stop_keeps_the_cluster() {
+    let f = Fixture::new("pid-left", Some("verified"), Some(good_dump().as_slice()));
+    fs::write(f.pg_root.join("data/postmaster.pid"), "4242\n").unwrap();
+    let mut stop = || Ok(());
+    let err = f.run(&mut stop).expect_err("a live postmaster must refuse the delete");
+    assert!(err.contains("postmaster.pid"), "{err}");
+    f.assert_untouched();
+}
+
+#[test]
 fn deletes_only_the_cluster_dir_and_records_removed_at() {
     let f = Fixture::new("happy", Some("verified"), Some(good_dump().as_slice()));
     let mut stopped = 0;
@@ -651,36 +661,6 @@ fn record_exported_to_names_this_folder() {
     let text = fs::read_to_string(f.pg_root.join("exported-to.json")).unwrap();
     let value: serde_json::Value = serde_json::from_str(&text).unwrap();
     assert_eq!(value["folder"], canonical(&f.folder));
-}
-
-#[test]
-fn verified_empty_report_for_a_folder_with_no_old_data() {
-    let f = Fixture::new("empty", None, None);
-    write_verified_empty_report(&f.folder, NOW).expect("empty report must write");
-    let value = f.report();
-    assert_eq!(value["state"], "verified");
-    assert_eq!(value["runs"], serde_json::json!([]));
-    assert!(
-        value["backup"].is_null(),
-        "no backup when there was no data"
-    );
-    assert!(
-        !f.folder.join(format!("{REPORT}.part")).exists(),
-        "no partial file left behind"
-    );
-}
-
-#[test]
-fn verified_empty_report_refuses_to_overwrite_a_report() {
-    let f = Fixture::new("empty-overwrite", Some("incomplete"), Some(good_dump().as_slice()));
-    let err =
-        write_verified_empty_report(&f.folder, NOW).expect_err("existing report must not be replaced");
-    assert!(err.contains("already exists"), "{err}");
-    assert_eq!(
-        f.report()["state"],
-        "incomplete",
-        "existing report untouched"
-    );
 }
 
 // ---- migrate_097_status wire shape (camelCase, optional fields omitted when absent) ----

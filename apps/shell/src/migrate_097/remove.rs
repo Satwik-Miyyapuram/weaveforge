@@ -44,26 +44,6 @@ pub fn record_exported_to(pg_root: &Path, folder: &Path) -> Result<(), String> {
     )
 }
 
-/// Writes a `verified` report with no runs and no backup, for a folder that had no old data.
-/// `verified_at` is the time of that check (the removal gate needs it fresh). Refuses if a report
-/// already exists, so a real migration report is never overwritten.
-pub fn write_verified_empty_report(folder: &Path, verified_at: &str) -> Result<(), String> {
-    let path = folder.join(REPORT_REL);
-    if path.exists() {
-        return Err("refused: report.json already exists".to_owned());
-    }
-    write_json_atomic(
-        &path,
-        &serde_json::json!({
-            "version": 1,
-            "state": "verified",
-            "backup": null,
-            "verifiedAt": verified_at,
-            "runs": [],
-        }),
-    )
-}
-
 /// The dump file the report names (`backup`), as a plain name inside the migration folder. A
 /// report without the field predates it and uses `pre-migration.dump`. A null field has nothing to
 /// remove. A name with a path separator or `..` is refused.
@@ -154,6 +134,12 @@ pub fn remove_old_data(
         report["state"] = "removing".into();
         report["removingDeviceId"] = device_id.into();
         write_json_atomic(&report_path, &report)?;
+    }
+    if pg_root.join("data").join("postmaster.pid").exists() {
+        return Err(
+            "refused: postgres still running (data/postmaster.pid present); stop it, then remove again"
+                .to_owned(),
+        );
     }
     if pg_root.exists() {
         fs::remove_dir_all(pg_root)

@@ -175,7 +175,7 @@ pub fn run() -> tauri::Result<()> {
     app.run(|handle, event| {
         if let tauri::RunEvent::Exit = event {
             stop_local_api(handle);
-            stop_local_db(handle);
+            let _ = stop_local_db(handle);
             stop_helpers(handle);
         }
     });
@@ -552,16 +552,20 @@ fn stop_local_api(app: &tauri::AppHandle) {
     }
 }
 
-/// Stops Postgres, then drops the database lock.
-fn stop_local_db(app: &tauri::AppHandle) {
+/// Stops Postgres, then drops the database lock. Errs (keeping the lock) while the cluster's
+/// `postmaster.pid` is still there, so callers never delete a cluster a server is running in.
+fn stop_local_db(app: &tauri::AppHandle) -> Result<(), String> {
     use tauri::Manager;
     if let Some(db) = app.try_state::<commands::LocalDb>() {
         tauri::async_runtime::block_on(db.shutdown());
     }
-    // Drops only this process's lock, after Postgres stopped; a no-op when it never opened.
-    if let Ok(data) = app.path().app_data_dir() {
-        db_lock::release(&native_root(&data));
+    let data = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    if native_root(&data).join("data").join("postmaster.pid").exists() {
+        return Err("refused: postgres did not stop (data/postmaster.pid still present)".to_owned());
     }
+    // Drops only this process's lock, after Postgres stopped; a no-op when it never opened.
+    db_lock::release(&native_root(&data));
+    Ok(())
 }
 
 /// Makes the `app://` routes' folders and clients; the folders sit in app data, as in Electron.
