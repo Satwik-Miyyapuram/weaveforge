@@ -42,14 +42,6 @@ pub fn legacy_db_present(db: tauri::State<'_, LocalDb>) -> bool {
     db.legacy_db_present()
 }
 
-/// The inverse of `legacy_db_present`: true when the old database folder is missing, so the page's
-/// legacy read can report "no old secrets" without an error.
-#[tauri::command]
-#[specta::specta]
-pub fn legacy_dir_missing(db: tauri::State<'_, LocalDb>) -> bool {
-    !db.legacy_db_present()
-}
-
 /// Moves the old rows into the keychain and records the move. The workspace folder is the vault
 /// root on this side, never a value from the page. EXPORT calls it after the export is verified and
 /// before remove-old.
@@ -119,22 +111,23 @@ pub fn move_into_keychain(
     if rows.len() > 1 {
         return Err(SecretError::SeveralRows);
     }
-    let marker =
-        || record_secrets_moved(folder, device, rows.len()).map_err(|_| SecretError::MarkerFailed);
-    let (fields, mut skipped) = row_fields(rows)?;
+    let marker = |unmoved: &[String]| {
+        record_secrets_moved(folder, device, rows.len(), unmoved)
+            .map_err(|_| SecretError::MarkerFailed)
+    };
+    let (fields, skipped) = row_fields(rows)?;
     match index_source(secrets)? {
         IndexSource::Save => {
             // The save index is the truth: a key it does not list was deleted by the user and stays
             // deleted. Only a listed key whose entry is missing gets its old value back. A routed
             // token lives under its own entry name: its old value comes back only when that entry is
-            // gone, and when the page already saved a newer one the old value is skipped instead.
+            // gone. When the page already saved a newer one, the old value is left alone: that is
+            // not loss, so it is not reported.
             let listed = listed_keys(secrets)?;
             let mut restore = Vec::new();
             for (key, text) in &fields {
                 if routed_name(key).is_some() {
-                    if secrets.read(&entry_name(key))?.is_some() {
-                        skipped.push(key.clone());
-                    } else {
+                    if secrets.read(&entry_name(key))?.is_none() {
                         restore.push((key.clone(), text.clone()));
                     }
                 } else if listed.contains(key) && secrets.read(&field_name(key))?.is_none() {
@@ -142,7 +135,7 @@ pub fn move_into_keychain(
                 }
             }
             store_fields(secrets, &restore)?;
-            marker()?;
+            marker(&skipped)?;
             return Ok(skipped);
         }
         IndexSource::Move | IndexSource::Absent => {}
@@ -157,7 +150,7 @@ pub fn move_into_keychain(
     check_index_fits(&keys)?;
     store_move_fields(secrets, &fields)?;
     write_index(secrets, "move", &keys)?;
-    marker()?;
+    marker(&skipped)?;
     clear_verified_copies(secrets);
     Ok(skipped)
 }
@@ -448,17 +441,26 @@ fn keychain_backs_index(secrets: &Secrets) -> bool {
     })
 }
 
-/// Writes this device's marker, `{count, deviceId}`, atomically. `count` is the number of rows the
-/// marker covers. The marker holds no secret value.
+/// Writes this device's marker, `{count, deviceId}` plus `unmoved` when any write-only field was
+/// left behind, atomically. `count` is the number of rows the marker covers. `unmoved` lists field
+/// NAMES only. The marker holds no secret value.
 ///
 /// # Errors
 /// Fails when the marker folder cannot be created or the marker cannot be written.
-pub fn record_secrets_moved(folder: &Path, device: &str, count: usize) -> io::Result<()> {
-    let body = serde_json::to_vec(&serde_json::json!({
+pub fn record_secrets_moved(
+    folder: &Path,
+    device: &str,
+    count: usize,
+    unmoved: &[String],
+) -> io::Result<()> {
+    let mut body = serde_json::json!({
         "count": count,
         "deviceId": device,
-    }))
-    .map_err(io::Error::other)?;
+    });
+    if !unmoved.is_empty() {
+        body["unmoved"] = serde_json::json!(unmoved);
+    }
+    let body = serde_json::to_vec(&body).map_err(io::Error::other)?;
     let path = marker_path(folder, device);
     write_atomic(&path, &body)
 }
@@ -685,7 +687,7 @@ mod tests {
         secrets
             .write("device-secrets/plainToken", "kept")
             .expect("field");
-        record_secrets_moved(&dir.0, DEVICE, 1).expect("marker");
+        record_secrets_moved(&dir.0, DEVICE, 1, &[]).expect("marker");
         move_now(&secrets, &dir.0, &[old_row(r#"{"plainToken":"tok"}"#)]).expect("no-op");
         assert_eq!(
             secrets.read("device-secrets/plainToken").expect("read"),
@@ -697,7 +699,7 @@ mod tests {
     fn a_marker_for_another_device_does_not_count_as_moved() {
         let dir = Scratch::new("other-device");
         let secrets = fake_keychain(&store());
-        record_secrets_moved(&dir.0, "device-b", 1).expect("marker");
+        record_secrets_moved(&dir.0, "device-b", 1, &[]).expect("marker");
         move_now(&secrets, &dir.0, &[old_row(r#"{"plainToken":"tok"}"#)]).expect("moves here");
         assert_eq!(
             secrets.read("device-secrets/plainToken").expect("read"),
@@ -986,7 +988,11 @@ mod tests {
             secrets.read("overleaf-token").expect("read"),
             Some("newer".to_owned())
         );
-        assert_eq!(skipped, vec!["overleafToken".to_owned()]);
+        // The page already saved a newer token: that is not loss, so nothing is reported.
+        assert!(
+            skipped.is_empty(),
+            "a newer native token is not a skipped field"
+        );
         assert_eq!(
             read_marker(&dir.0),
             serde_json::json!({ "count": 1, "deviceId": DEVICE })
@@ -1054,7 +1060,7 @@ mod tests {
     #[test]
     fn a_marker_with_a_cleared_keychain_moves_the_rows_again() {
         let dir = Scratch::new("cleared-keychain");
-        record_secrets_moved(&dir.0, DEVICE, 1).expect("marker");
+        record_secrets_moved(&dir.0, DEVICE, 1, &[]).expect("marker");
         // An empty keychain: the index and every field were cleared after the marker was written.
         let secrets = fake_keychain(&store());
         move_now(&secrets, &dir.0, &[old_row(r#"{"plainToken":"tok"}"#)]).expect("moves again");
@@ -1095,7 +1101,7 @@ mod tests {
                     let (folder, barrier) = (dir.0.clone(), Arc::clone(&barrier));
                     std::thread::spawn(move || {
                         let _ = barrier.wait();
-                        record_secrets_moved(&folder, DEVICE, 1)
+                        record_secrets_moved(&folder, DEVICE, 1, &[])
                     })
                 })
                 .collect();
@@ -1143,9 +1149,14 @@ mod tests {
         let row = old_row(r#"{"overleafToken":{"extra":"SECRET-SUB"},"notesToken":"n"}"#);
         let skipped = move_into_keychain(&secrets, &dir.0, DEVICE, &[row]).expect("moves");
         assert_eq!(skipped, vec!["overleafToken.extra".to_owned()]);
+        // The marker keeps the unmoved names (never values) so a status view can list them.
         assert_eq!(
             read_marker(&dir.0),
-            serde_json::json!({ "count": 1, "deviceId": DEVICE })
+            serde_json::json!({
+                "count": 1,
+                "deviceId": DEVICE,
+                "unmoved": ["overleafToken.extra"],
+            })
         );
         let index = secrets.read(INDEX).expect("read").expect("index");
         assert!(!index.contains("overleafToken") && !index.contains("SECRET-SUB"));
