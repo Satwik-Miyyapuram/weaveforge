@@ -1,0 +1,88 @@
+import { test } from "node:test";
+import assert from "node:assert/strict";
+
+import { makeWebUpgradeRunner } from "../application/web-upgrade-runner";
+import { webUpgradeFor, type WebUpgradeInputs } from "../application/web-upgrade-options";
+import type { ExportResult } from "../application/run-web-export";
+import type { FileCodec, FileSink } from "../domain/ports";
+
+const sink: FileSink = {
+  write: async () => {},
+  list: async () => [],
+  readText: async () => "",
+  readBytes: async () => new Uint8Array(),
+  exists: async () => false,
+  rename: async () => {},
+  remove: async () => {},
+  writeIf: async () => true,
+};
+const codec: FileCodec = {
+  supports: () => false,
+  toFile: () => ({ path: "", text: "" }),
+  toRow: () => null,
+} as unknown as FileCodec;
+
+function inputs(overrides: Partial<WebUpgradeInputs> = {}): WebUpgradeInputs {
+  return {
+    baseUrl: "https://api.example.test/rest/v1",
+    userId: "u1",
+    anonKey: "anon",
+    accessToken: async () => "tok",
+    fetch: globalThis.fetch,
+    sink,
+    codec,
+    kinds: ["notes", "papers"],
+    pendingOutbox: async () => 0,
+    now: "2026-11-22T00:00:00.000Z",
+    runDeviceId: "dev-1",
+    ...overrides,
+  };
+}
+
+const verified: ExportResult = {
+  state: "verified",
+  run: { missing: [] },
+} as unknown as ExportResult;
+
+test("desktop gets no web runner: the options are null", () => {
+  assert.equal(webUpgradeFor(true, inputs()), null);
+});
+
+test("web with a signed-in user gets options that build a non-null runExport", () => {
+  const opts = webUpgradeFor(false, inputs());
+  assert.notEqual(opts, null);
+  assert.equal(typeof makeWebUpgradeRunner(opts!), "function");
+});
+
+test("web without a session gets no runner", () => {
+  assert.equal(webUpgradeFor(false, null), null);
+});
+
+test("a verified run calls onVerified once; a stopped run does not", async () => {
+  const seen: string[] = [];
+  const opts = webUpgradeFor(
+    false,
+    inputs({
+      onVerified: () => seen.push("verified"),
+      run: async () => {
+        seen.push("ran");
+        return verified;
+      },
+    }),
+  )!;
+  await opts.run(opts, undefined);
+  assert.deepEqual(seen, ["ran", "verified"]);
+
+  const stopped = webUpgradeFor(
+    false,
+    inputs({
+      onVerified: () => seen.push("verified"),
+      run: async () => {
+        seen.push("stopped-run");
+        return { state: "incomplete", run: { missing: [] } } as unknown as ExportResult;
+      },
+    }),
+  )!;
+  await stopped.run(stopped, undefined);
+  assert.deepEqual(seen, ["ran", "verified", "stopped-run"], "a stopped run must not set the marker");
+});
