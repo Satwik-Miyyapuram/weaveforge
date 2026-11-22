@@ -64,24 +64,39 @@ pub fn old_pglite_dir(data_dir: &Path) -> Option<PathBuf> {
     }
 }
 
-/// The 0.9.7 native Postgres data dir, under the app data dir. Read-only use only.
+/// The old native Postgres folder, `<app data>/local-pg`: its `data`, `data.failed-*`, moved-aside
+/// dirs and dumps all live here. Read-only use only.
 #[must_use]
-pub fn legacy_pg_data_dir(app_data: &Path) -> PathBuf {
-    app_data.join("local-pg").join("data")
+pub fn legacy_pg_dir(app_data: &Path) -> PathBuf {
+    app_data.join("local-pg")
 }
 
-/// True when the old native Postgres data dir exists and holds `PG_VERSION`. Never starts
-/// Postgres and never writes.
-#[must_use]
-pub fn legacy_pg_data_present(app_data: &Path) -> bool {
-    legacy_pg_data_dir(app_data).join("PG_VERSION").is_file()
+/// True when the old native Postgres folder holds any entry. A missing folder is absent. Any other
+/// read error is an error, so the gate fails closed. Never starts Postgres and never writes.
+pub fn legacy_pg_data_present(app_data: &Path) -> Result<bool, ShellError> {
+    let mut entries = match fs::read_dir(legacy_pg_dir(app_data)) {
+        Ok(entries) => entries,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(false),
+        Err(e) => return Err(legacy_pg_unreadable(&e)),
+    };
+    match entries.next() {
+        None => Ok(false),
+        Some(Ok(_)) => Ok(true),
+        Some(Err(e)) => Err(legacy_pg_unreadable(&e)),
+    }
+}
+
+fn legacy_pg_unreadable(e: &std::io::Error) -> ShellError {
+    ShellError::coded(
+        "legacy_pg_unreadable",
+        &format!("cannot read the old local Postgres folder: {e}"),
+    )
 }
 
 /// True when any old local database (native Postgres or PGlite) may be on disk under `app_data`.
 /// A missing or unplugged workspace counts: its database may be there, so the gate fails closed.
-#[must_use]
-pub fn legacy_db_in(app_data: &Path) -> bool {
-    legacy_pg_data_present(app_data) || !matches!(old_db_state(app_data), OldDb::None)
+pub fn legacy_db_in(app_data: &Path) -> Result<bool, ShellError> {
+    Ok(legacy_pg_data_present(app_data)? || !matches!(old_db_state(app_data), OldDb::None))
 }
 
 /// Whether old local-database data is on this device. Fails closed: an Electron data dir counts as
@@ -94,7 +109,7 @@ pub fn legacy_db_from(app_data: Option<&Path>, electron: Option<&Path>) -> Resul
     let dir = app_data.ok_or_else(|| {
         ShellError::coded("app_data_unavailable", "cannot locate the app data folder")
     })?;
-    Ok(legacy_db_in(dir))
+    legacy_db_in(dir)
 }
 
 /// Bridge: whether old local-database data is on this device (`legacyDbPresent`).
@@ -336,44 +351,69 @@ mod tests {
     }
 
     #[test]
-    fn legacy_pg_data_is_absent_when_the_dir_is_missing() {
+    fn legacy_pg_is_absent_when_the_dir_is_missing() {
         let (data, _) = temp("legacy-missing");
-        assert!(!legacy_pg_data_present(&data));
+        assert_eq!(legacy_pg_data_present(&data), Ok(false));
     }
 
     #[test]
-    fn legacy_pg_data_is_absent_when_the_dir_is_empty() {
+    fn legacy_pg_is_absent_when_the_dir_is_empty() {
         let (data, _) = temp("legacy-empty");
-        fs::create_dir_all(legacy_pg_data_dir(&data)).unwrap();
-        assert!(!legacy_pg_data_present(&data));
+        fs::create_dir_all(legacy_pg_dir(&data)).unwrap();
+        assert_eq!(legacy_pg_data_present(&data), Ok(false));
     }
 
     #[test]
-    fn legacy_pg_data_is_present_when_the_dir_has_files() {
+    fn legacy_pg_is_present_for_a_data_dir_with_pg_version() {
         let (data, _) = temp("legacy-populated");
-        fs::create_dir_all(legacy_pg_data_dir(&data)).unwrap();
-        fs::write(legacy_pg_data_dir(&data).join("PG_VERSION"), "18").unwrap();
-        assert!(legacy_pg_data_present(&data));
+        fs::create_dir_all(legacy_pg_dir(&data).join("data")).unwrap();
+        fs::write(legacy_pg_dir(&data).join("data").join("PG_VERSION"), "18").unwrap();
+        assert_eq!(legacy_pg_data_present(&data), Ok(true));
+    }
+
+    #[test]
+    fn legacy_pg_is_present_when_only_a_dump_is_there() {
+        let (data, _) = temp("legacy-dump-only");
+        fs::create_dir_all(legacy_pg_dir(&data)).unwrap();
+        fs::write(legacy_pg_dir(&data).join("backup.sql"), "-- dump").unwrap();
+        assert_eq!(legacy_pg_data_present(&data), Ok(true));
+    }
+
+    #[test]
+    fn legacy_pg_is_present_when_only_a_failed_data_dir_is_there() {
+        let (data, _) = temp("legacy-failed-only");
+        fs::create_dir_all(legacy_pg_dir(&data).join("data.failed-x")).unwrap();
+        assert_eq!(legacy_pg_data_present(&data), Ok(true));
+    }
+
+    #[test]
+    fn legacy_pg_io_error_fails_closed() {
+        // `local-pg` as a plain file: reading it as a folder fails with an error other than not-found.
+        let (data, _) = temp("legacy-io-error");
+        fs::write(legacy_pg_dir(&data), "not a folder").unwrap();
+        let err = legacy_pg_data_present(&data).unwrap_err();
+        assert_eq!(err.code.as_deref(), Some("legacy_pg_unreadable"));
+        assert!(legacy_db_in(&data).is_err());
     }
 
     #[test]
     fn legacy_db_is_present_for_the_native_pg_dir() {
         let (data, _) = temp("legacy-db-pg");
-        fs::create_dir_all(legacy_pg_data_dir(&data)).unwrap();
-        fs::write(legacy_pg_data_dir(&data).join("PG_VERSION"), "18").unwrap();
-        assert!(legacy_db_in(&data));
+        fs::create_dir_all(legacy_pg_dir(&data).join("data")).unwrap();
+        fs::write(legacy_pg_dir(&data).join("data").join("PG_VERSION"), "18").unwrap();
+        assert_eq!(legacy_db_in(&data), Ok(true));
     }
 
     #[test]
     fn legacy_db_is_present_for_the_old_pglite_dir() {
         let (data, _) = data_with("legacy-db-pglite", true, false);
-        assert!(legacy_db_in(&data));
+        assert_eq!(legacy_db_in(&data), Ok(true));
     }
 
     #[test]
     fn legacy_db_is_absent_when_nothing_is_there() {
         let (data, _) = temp("legacy-db-none");
-        assert!(!legacy_db_in(&data));
+        assert_eq!(legacy_db_in(&data), Ok(false));
     }
 
     /// A workspace folder whose 0.9.7 report holds `body`.
@@ -457,7 +497,7 @@ mod tests {
         let root = data.parent().unwrap().join("unplugged-legacy");
         let prefs = serde_json::json!({ "vault-root": root.to_string_lossy() });
         let _ = fs::write(data.join("preferences.json"), prefs.to_string());
-        assert!(legacy_db_in(&data));
+        assert_eq!(legacy_db_in(&data), Ok(true));
     }
 
     #[test]
@@ -494,10 +534,10 @@ mod tests {
     }
 
     #[test]
-    fn legacy_db_without_pg_version_is_absent() {
-        let (data, _) = temp("legacy-no-pg-version");
-        fs::create_dir_all(legacy_pg_data_dir(&data)).unwrap();
-        fs::write(legacy_pg_data_dir(&data).join("postmaster.pid"), "1").unwrap();
-        assert!(!legacy_pg_data_present(&data));
+    fn legacy_pg_with_only_a_pid_file_is_present() {
+        let (data, _) = temp("legacy-pid-only");
+        fs::create_dir_all(legacy_pg_dir(&data).join("data")).unwrap();
+        fs::write(legacy_pg_dir(&data).join("data").join("postmaster.pid"), "1").unwrap();
+        assert_eq!(legacy_pg_data_present(&data), Ok(true));
     }
 }
