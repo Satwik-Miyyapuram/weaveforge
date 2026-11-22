@@ -220,6 +220,13 @@ in `release-desktop.yml`) fails while `v0.9.7` is unpublished or still a draft. 
 (fail-safe): without the bridge the workflow refuses to write `latest.json`, so no 0.9.6 client is
 pointed at a newer release. Publish v0.9.7 first, then re-run the release.
 
+**The 0.9.7 gate.** The 0.9.7 `latest-v2.json` path depends on the install gate in
+`claim_install` (`apps/shell/src/app_update.rs`). A 0.9.7 install of a newer release is
+held until local data is exported and verified, or when there is none, so the data is never
+stranded. If that gate is removed, a 0.9.7 client can update past its local data.
+The release workflow also rejects any tag that is not `vX.Y.Z` (for example `v0.9.7-rc1`)
+in its `validate` job, before anything is built.
+
 1. PR: set the release version in `version` in `apps/shell/tauri.conf.json`. The
    release scripts read that file. The shell crate's `apps/shell/Cargo.toml`
    inherits its version (`version.workspace = true`); if it ever sets its own
