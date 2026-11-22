@@ -137,6 +137,7 @@ export interface DesktopCommands {
   planWidgetState(): Promise<Result<DesktopPlanWidget>>;
   planWidgetSet(on: boolean): Promise<Result<DesktopPlanWidget>>;
   planWidgetTheme(palette: unknown): Promise<Result<null>>;
+  installGateRequired(): Promise<Result<boolean>>;
   overleafRead(
     projectId: string,
     entryFile: string,
@@ -344,6 +345,7 @@ export type DesktopShim = Pick<
   | "planWidgetState"
   | "setPlanWidget"
   | "setPlanWidgetTheme"
+  | "installGateRequired"
 >;
 
 /** Wraps the generated commands as the desktop members of `DesktopBridge`. */
@@ -678,6 +680,7 @@ export function desktopShim(
     setPlanWidgetTheme: (palette) => {
       void cmds.planWidgetTheme(palette).catch(() => {});
     },
+    installGateRequired: async () => unwrap(await cmds.installGateRequired()),
   };
 }
 
