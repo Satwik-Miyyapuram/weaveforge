@@ -157,6 +157,7 @@ test("(P1-2) no in-flight tracker: wiring opens only after the gate's final read
   await decideBrowserSwitch(h.deps);
   assert.deepEqual(order, ["gate-done", "wiring"]);
 });
+
 test("the source the gate receives downloads blobs through the injected signedUrl", async () => {
   const fetched: string[] = [];
   let got: Uint8Array | undefined;

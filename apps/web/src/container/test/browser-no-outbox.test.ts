@@ -19,15 +19,17 @@ const BROWSER_SWITCH_MODULES = [
   "../../features/migration-097/application/opfs-switch-gate.ts",
 ];
 
-const FORBIDDEN = /offline-sync|backend\/providers\/local|LocalRunner|outbox/i;
+// `outbox` only as a path segment (outbox, outbox.ts, outbox/...), so a word inside a path never matches.
+const FORBIDDEN = /offline-sync|backend\/providers\/local|LocalRunner|(^|\/)outbox(\.|\/|$)/i;
 
 const STATIC_FROM = /\bfrom\s*["']([^"']+)["']/g;
-const DYNAMIC_IMPORT = /\bimport\(\s*["']([^"']+)["']/g;
+const SIDE_EFFECT_IMPORT = /\bimport\s*["']([^"']+)["']/g;
+const DYNAMIC_IMPORT = /\bimport\(\s*[`"']([^`"']+)[`"']/g;
 
-/** Every module specifier in the source: multi-line static imports and dynamic imports included. */
-export function moduleSpecifiers(source: string): string[] {
+/** Every module specifier in the source: static, side-effect and dynamic (quoted or template) imports. */
+function moduleSpecifiers(source: string): string[] {
   const found: string[] = [];
-  for (const re of [STATIC_FROM, DYNAMIC_IMPORT]) {
+  for (const re of [STATIC_FROM, SIDE_EFFECT_IMPORT, DYNAMIC_IMPORT]) {
     for (const match of source.matchAll(re)) if (match[1]) found.push(match[1]);
   }
   return found;
@@ -49,4 +51,18 @@ test("(P1-2) the guard catches a multi-line static import and a dynamic import",
   assert.deepEqual(moduleSpecifiers(dynamic), ["../backend/providers/local/runner"]);
   assert.match(moduleSpecifiers(multiLine)[0] ?? "", FORBIDDEN);
   assert.match(moduleSpecifiers(dynamic)[0] ?? "", FORBIDDEN);
+});
+
+test("(P3) the guard catches a bare side-effect import and a template-literal dynamic import", () => {
+  const sideEffect = 'import "../../offline-sync/outbox";\n';
+  const template = "const m = await import(`../backend/providers/local/runner`);\n";
+  assert.deepEqual(moduleSpecifiers(sideEffect), ["../../offline-sync/outbox"]);
+  assert.deepEqual(moduleSpecifiers(template), ["../backend/providers/local/runner"]);
+});
+
+test("(P3) the outbox check matches a path segment, not a word inside one", () => {
+  assert.match("../../features/outbox/queue", FORBIDDEN);
+  assert.match("../../features/outbox.ts", FORBIDDEN);
+  assert.doesNotMatch("../../features/outboxer/thing", FORBIDDEN);
+  assert.doesNotMatch("../../features/saved-outboxes-view", FORBIDDEN);
 });
