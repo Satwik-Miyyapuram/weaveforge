@@ -62,6 +62,7 @@ import { LoadSharedWithMeScreenUseCase } from "@/features/sharing/application/pa
 import { rustAiStores, rustShareLinkRepository } from "@/backend/providers/postgrest/rust-repository";
 import { PrefetchProjectUseCase } from "@/application/prefetch-project.use-case";
 import { readBackendConfig } from "@/backend/parts";
+import { decideBrowserSwitchFromConfig } from "./container/browser-switch-wiring";
 import {
   PapersFacade,
   PaperFieldsFacade,
@@ -169,11 +170,10 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
   // the folder's migration report, so the choice never races a late answer.
   const migration = await resolveMigrationChoice(desktop());
   const shell = desktop();
-  // Browser and Android do not open OPFS yet. Legacy detection is not wired, so the 0.9.8 chooser
-  // ("unknown") always answers export-first and the OPFS report read and open would be wasted work.
-  // Restore the chooser call here (chooseBrowserBackend plus browserReportOk and openBrowserFileWiring
-  // from browser-file-backend) once legacy detection exists.
-  const browserFiles = undefined;
+  // Browser and Android: every startup re-runs the 0.9.7 export and switches to OPFS files mode only
+  // when that fresh run verifies. A missing session or failed run keeps the server backend (Retry UI open).
+  const browserSwitch = await decideBrowserSwitchFromConfig(readBackendConfig());
+  const browserFiles = browserSwitch.switch ? browserSwitch.wiring : undefined;
   const backend = wireBackend(readBackendConfig(), projectContext, pid, {
     migration,
     onDesktop: Boolean(shell),
