@@ -1,4 +1,5 @@
 import type { BlobRef, Row, ServerSource } from "../domain/ports";
+import { SECRET_TABLES } from "../domain/secret-tables";
 import { PAGE_SIZE, listAllPages } from "./paging";
 
 /** camelCase kind -> snake_case PostgREST table. */
@@ -24,17 +25,6 @@ export const TABLE_BY_KIND = {
   aiProposals: "ai_proposals",
   blobs: "blob_objects",
 } as const;
-
-/**
- * Tables that hold secrets (integration tokens, Zotero key, Overleaf token). `secret` is the column
- * that must be set; `owner` scopes the rows to the user (project_integrations goes through projects).
- * Shared with the move-secrets scope so the count and the move cover the same rows.
- */
-export const SECRET_TABLES = [
-  { table: "project_integrations", select: "id,projects!inner(user_id)", owner: "projects.user_id", secret: "token" },
-  { table: "user_settings", select: "user_id", owner: "user_id", secret: "zotero_api_key" },
-  { table: "overleaf_connections", select: "user_id", owner: "user_id", secret: "token_ciphertext" },
-] as const;
 
 /** Kinds with no server table: their rows are files only, so the server side lists none. */
 const FILE_ONLY_KINDS: readonly string[] = ["ink"];
