@@ -429,6 +429,17 @@ test("runs: a web run with no runDeviceId is refused with a fixed reason, never 
   assert.equal(result.run.deviceId, undefined);
 });
 
+test("runs: a web run with a malformed runDeviceId is refused, never matched or verified under that id", async () => {
+  for (const bad of ["short", "has space!", "x".repeat(65)]) {
+    const { source } = fakeServer({ rows: FIXTURE });
+    const sink = new MemorySink();
+    const result = await runWebExport({ runDeviceId: bad, kinds: KINDS, codec: fakeCodec(SUPPORTED), source, sink, now: NOW });
+    assert.equal(result.state, "incomplete", bad);
+    assert.deepEqual(result.run.missing.map((m) => m.reason), ["no device id: the browser install id is missing or malformed"], bad);
+    assert.equal(result.run.deviceId, undefined, bad);
+  }
+});
+
 test("runs: a device's run replaces only its own older runs; another device's failed run stays and is named", async () => {
   const other: RunReport = {
     startedAt: "2026-11-01T00:00:00.000Z",
