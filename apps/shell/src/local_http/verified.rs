@@ -94,6 +94,8 @@ mod tests {
             removing_device_id: None,
             exported_here: true,
             own_run_verified: true,
+            reason: None,
+            step: None,
         }
     }
 

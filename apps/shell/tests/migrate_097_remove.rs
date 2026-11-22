@@ -84,12 +84,18 @@ impl Fixture {
         fs::write(self.pg_root.join("exported-to.json"), exported.to_string()).unwrap();
     }
 
+    /// The report this device reads and writes: its own file once it exists, else the legacy report.json.
+    fn base_report_path(&self) -> PathBuf {
+        let own = self.folder.join(".weaveforge/migration-0.9.7").join(format!("report-{DEVICE}.json"));
+        if own.exists() { own } else { self.folder.join(REPORT) }
+    }
+
     fn set_report(&self, text: &str) {
-        fs::write(self.folder.join(REPORT), text).unwrap();
+        fs::write(self.base_report_path(), text).unwrap();
     }
 
     fn report(&self) -> serde_json::Value {
-        let text = fs::read_to_string(self.folder.join(REPORT)).unwrap();
+        let text = fs::read_to_string(self.base_report_path()).unwrap();
         serde_json::from_str(&text).unwrap()
     }
 
@@ -182,16 +188,18 @@ fn refuses_when_there_is_no_report() {
 }
 
 #[test]
-fn refuses_when_report_is_unparsable() {
+fn refuses_when_report_is_unreadable() {
     let f = Fixture::new("bad-report", Some("verified"), Some(good_dump().as_slice()));
     f.set_report("{not json");
     let err = f
         .run(&mut never_stop())
-        .expect_err("unparsable report must refuse");
-    assert!(err.contains("unparsable"), "{err}");
+        .expect_err("unreadable report must refuse");
+    assert_eq!(
+        err,
+        "refused: report.json is unreadable; restore it from your backup or run the export again"
+    );
     f.assert_untouched();
 }
-
 #[test]
 fn refuses_when_the_backup_is_missing() {
     let f = Fixture::new("no-backup", Some("verified"), None);
@@ -854,7 +862,7 @@ fn a_removing_report_with_no_marker_refuses_start() {
         r#"{{"version":1,"state":"removing","removingDeviceId":"{DEVICE}","backup":"{BACKUP_NAME}","verifiedAt":"{NOW}","runs":[{RUN_CLEAN}]}}"#
     ));
     assert!(!old_db_removed(&f.pg_root), "no marker yet");
-    let refusal = removal_refusal(&f.folder, &f.pg_root);
+    let refusal = removal_refusal(&f.folder, DEVICE, &f.pg_root);
     assert!(refusal.is_some(), "a removing report with no marker must refuse start");
 }
 
@@ -1222,37 +1230,36 @@ fn secrets_moved_for_another_device_does_not_count_for_this_one() {
     f.assert_untouched();
 }
 
-// ---- item 13: an unreadable report.json is kept as .bad, never merged; stale .part is replaced ----
+// ---- item 13: an unreadable report is named and refused, never renamed or merged; stale .part is replaced ----
 
 #[test]
-fn an_unparsable_report_is_moved_aside_as_bad_and_never_merged() {
-    let f = Fixture::new("unparsable", Some("verified"), Some(good_dump().as_slice()));
-    f.set_report("{ not json");
-    let err = f.run(&mut never_stop()).expect_err("an unparsable report must refuse");
-    assert_eq!(err, "refused: migration report is unparsable");
-    assert!(f.folder.join(format!("{REPORT}.bad")).exists(), "report must be kept as .bad");
-    assert!(!f.folder.join(REPORT).exists(), "the unparsable report must not stay in place");
+fn an_unreadable_own_report_is_named_and_left_in_place() {
+    let f = Fixture::new("own-bad", Some("verified"), Some(good_dump().as_slice()));
+    let own = f.folder.join(".weaveforge/migration-0.9.7").join(format!("report-{DEVICE}.json"));
+    fs::write(&own, "{ not json").unwrap();
+    let err = f.run(&mut never_stop()).expect_err("an unreadable own report must refuse");
     assert_eq!(
-        fs::read_to_string(f.folder.join(format!("{REPORT}.bad"))).unwrap(),
-        "{ not json"
+        err,
+        "refused: report-dev-a.json is unreadable; restore it from your backup or run the export again"
     );
-    f.assert_untouched();
+    assert_eq!(fs::read_to_string(&own).unwrap(), "{ not json", "the unreadable report stays as it is");
+    assert!(!f.folder.join(".weaveforge/migration-0.9.7").join("report-dev-a.json.bad").exists());
+    assert!(f.pg_root.join("data/PG_VERSION").exists(), "the cluster is not touched");
 }
 
 #[test]
-fn an_existing_bad_file_is_never_overwritten() {
-    let f = Fixture::new("existing-bad", Some("verified"), Some(good_dump().as_slice()));
-    fs::write(f.folder.join(format!("{REPORT}.bad")), "earlier evidence").unwrap();
-    f.set_report("{ broken again");
-    let _ = f.run(&mut never_stop());
+fn an_unreadable_conflict_copy_is_named_and_left_in_place() {
+    let f = Fixture::new("conflict-bad", Some("verified"), Some(good_dump().as_slice()));
+    let copy = f.folder.join(".weaveforge/migration-0.9.7").join("report-dev-a (1).json");
+    fs::write(&copy, "{ broken").unwrap();
+    let err = f.run(&mut never_stop()).expect_err("an unreadable conflict copy must refuse");
     assert_eq!(
-        fs::read_to_string(f.folder.join(format!("{REPORT}.bad"))).unwrap(),
-        "earlier evidence",
-        "an existing .bad must stay as it is"
+        err,
+        "refused: migration report report-dev-a (1).json is unreadable; delete the conflict copy report-dev-a (1).json"
     );
-    f.assert_untouched();
+    assert_eq!(fs::read_to_string(&copy).unwrap(), "{ broken", "the conflict copy is not renamed");
+    assert!(f.pg_root.join("data/PG_VERSION").exists(), "the cluster is not touched");
 }
-
 #[test]
 fn a_stale_part_file_is_replaced_when_exported_to_is_written() {
     let f = Fixture::new("stale-part", Some("verified"), Some(good_dump().as_slice()));

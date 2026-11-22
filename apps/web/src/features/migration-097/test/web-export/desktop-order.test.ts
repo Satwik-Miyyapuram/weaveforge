@@ -1,3 +1,4 @@
+import { onlyReportPath } from "../own-report";
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { REPORT_PATH, type RunReport } from "../../domain/report";
@@ -22,7 +23,7 @@ test("desktop: backup runs first, before any server read, and the report carries
   assert.equal(calls[0], "backup:C:/ws");
   const firstRead = calls.findIndex((c) => c.startsWith("list:") || c.startsWith("count:"));
   assert.ok(firstRead > 0, "server read happens after backup");
-  const report = JSON.parse(await sink.readText(REPORT_PATH)) as { deviceId?: string };
+  const report = JSON.parse(await sink.readText(await onlyReportPath(sink))) as { deviceId?: string };
   assert.equal(report.deviceId, "dev-42");
 });
 
@@ -37,7 +38,7 @@ test("desktop: report.backup carries the backup dump file name", async () => {
     now: NOW,
     desktop: { folder: "C:/ws", bridge: fakeDesktop([], { dump: "pre-migration-097-20261122.dump" }) },
   });
-  const report = JSON.parse(await sink.readText(REPORT_PATH));
+  const report = JSON.parse(await sink.readText(await onlyReportPath(sink)));
   assert.equal(report.backup, "pre-migration-097-20261122.dump");
 });
 
@@ -55,7 +56,25 @@ test("desktop: a bridge without migrate097Backup refuses before any server read 
   assert.notEqual(result.state, "verified");
   assert.match(result.run.missing[0]!.reason, /migrate097Backup missing/);
   assert.deepEqual(calls, []);
-  assert.deepEqual(await sink.list(), [REPORT_PATH]);
+  assert.deepEqual(await sink.list(), []);
+});
+
+test("desktop: a pre-backup refusal writes nothing, even when the run names a device id", async () => {
+  const sink = new MemorySink();
+  await sink.write(REPORT_PATH, "{ not json");
+  const before = await sink.list();
+  const { source, calls } = fakeServer({ rows: FIXTURE });
+  const result = await runWebExport({ runDeviceId: "dev-test",
+    kinds: KINDS,
+    codec: fakeCodec(SUPPORTED),
+    source,
+    sink,
+    now: NOW,
+    desktop: { folder: "C:/ws", bridge: fakeDesktop(calls) },
+  });
+  assert.notEqual(result.state, "verified");
+  assert.deepEqual(calls, []);
+  assert.deepEqual(await sink.list(), before, "no report is written before the dump");
 });
 
 test("desktop: a failed backup aborts the export: no server read, no write, no marker, no mark-exported", async () => {
@@ -73,7 +92,7 @@ test("desktop: a failed backup aborts the export: no server read, no write, no m
   assert.equal(result.state, "incomplete");
   assert.equal(result.run.missing[0]!.reason, "backup-failed");
   assert.deepEqual(calls, ["backup:C:/ws"]);
-  assert.deepEqual(await sink.list(), [REPORT_PATH]);
+  assert.deepEqual(await sink.list(), []);
 });
 
 test("desktop: mark-exported runs only after a verified run", async () => {
@@ -112,7 +131,7 @@ test("web: no desktop bridge still records a deviceId in report.json (a fresh on
   const { source } = fakeServer({ rows: FIXTURE });
   const sink = new MemorySink();
   await runWebExport({ runDeviceId: "dev-test", kinds: KINDS, codec: fakeCodec(SUPPORTED), source, sink, now: NOW });
-  const report = JSON.parse(await sink.readText(REPORT_PATH)) as { deviceId?: unknown; runs: RunReport[] };
+  const report = JSON.parse(await sink.readText(await onlyReportPath(sink))) as { deviceId?: unknown; runs: RunReport[] };
   assert.equal(typeof report.deviceId, "string");
   assert.equal(report.runs[0]?.deviceId, report.deviceId);
 });
@@ -152,7 +171,7 @@ test("order: the server marker comes first, the desktop mark last, and report.js
       bridge: {
         backup: async () => ({ deviceId: "dev-1", dump: "pre-migration-097.dump" }),
         markExported: async () => {
-          const report = JSON.parse(await sink.readText(REPORT_PATH)) as { state: string };
+          const report = JSON.parse(await sink.readText(await onlyReportPath(sink))) as { state: string };
           order.push(`desktop-mark:report=${report.state}`);
         },
       },
@@ -160,7 +179,7 @@ test("order: the server marker comes first, the desktop mark last, and report.js
   });
   assert.equal(result.state, "verified");
   assert.deepEqual(order, ["server-mark", "desktop-mark:report=incomplete"]);
-  const final = JSON.parse(await sink.readText(REPORT_PATH)) as { state: string };
+  const final = JSON.parse(await sink.readText(await onlyReportPath(sink))) as { state: string };
   assert.equal(final.state, "verified");
 });
 
@@ -178,7 +197,7 @@ test("order: a failed desktop mark (last) leaves report.json incomplete, though 
   });
   assert.equal(result.state, "incomplete");
   assert.equal(calls.some((c) => c.startsWith("mark:")), true, "server marker set first");
-  const report = JSON.parse(await sink.readText(REPORT_PATH)) as { state: string; verifiedAt?: string };
+  const report = JSON.parse(await sink.readText(await onlyReportPath(sink))) as { state: string; verifiedAt?: string };
   assert.equal(report.state, "incomplete");
   assert.equal("verifiedAt" in report, false);
   assert.match(JSON.stringify(report), /marker: desktop failed/);
@@ -201,7 +220,7 @@ test("order: a failed server marker leaves report.json incomplete and the deskto
   });
   assert.equal(result.state, "incomplete");
   assert.equal(desktopCalls.some((c) => c.startsWith("desktop-mark")), false, "no desktop mark");
-  const report = JSON.parse(await sink.readText(REPORT_PATH)) as { state: string };
+  const report = JSON.parse(await sink.readText(await onlyReportPath(sink))) as { state: string };
   assert.equal(report.state, "incomplete");
   assert.match(JSON.stringify(report), /marker: server failed/);
 });
@@ -227,7 +246,7 @@ test("order: a crash between the two marks never leaves report.json verified", a
   });
   assert.equal(calls.some((c) => c.startsWith("mark:")), true, "server marker was set before the crash");
   assert.notEqual(result.state, "verified");
-  const report = JSON.parse(await sink.readText(REPORT_PATH)) as { state: string; verifiedAt?: string };
+  const report = JSON.parse(await sink.readText(await onlyReportPath(sink))) as { state: string; verifiedAt?: string };
   assert.equal(report.state, "incomplete");
   assert.equal("verifiedAt" in report, false);
 });
@@ -237,7 +256,7 @@ test("order: report.json says markers pending before any mark is attempted", asy
   const sink = new MemorySink();
   const seen: string[] = [];
   source.markExported097 = async () => {
-    const report = JSON.parse(await sink.readText(REPORT_PATH)) as {
+    const report = JSON.parse(await sink.readText(await onlyReportPath(sink))) as {
       state: string;
       runs: { missing: { reason: string }[] }[];
     };
@@ -253,7 +272,7 @@ test("order: a failed report.json write means no desktop mark and no server mark
   const sink = new MemorySink();
   const realRename = sink.rename.bind(sink);
   sink.rename = async (from: string, to: string) => {
-    if (to === REPORT_PATH) throw new Error("disk full writing report");
+    if (/\/report-[^/]+\.json$/.test(to)) throw new Error("disk full writing report");
     return realRename(from, to);
   };
   const desktopCalls: string[] = [];
@@ -276,16 +295,16 @@ test("interrupted run: report.json says incomplete before the first row is writt
   const { source } = fakeServer({ rows: FIXTURE });
   const sink = new MemorySink();
   const realWrite = sink.write.bind(sink);
-  let reportAtFirstRow: string | null | undefined;
+  const firstRow: { report?: string | null } = {};
   sink.write = async (path: string, data: string | Uint8Array) => {
-    if (reportAtFirstRow === undefined && path.startsWith("logEntries/")) {
-      reportAtFirstRow = await sink.readText(REPORT_PATH).catch(() => null);
+    if (firstRow.report === undefined && path.startsWith("logEntries/")) {
+      firstRow.report = await sink.readText(await onlyReportPath(sink)).catch(() => null);
     }
     return realWrite(path, data);
   };
   await runWebExport({ runDeviceId: "dev-test", kinds: KINDS, codec: fakeCodec(SUPPORTED), source, sink, now: NOW });
-  assert.ok(reportAtFirstRow, "report.json exists before the first row");
-  assert.equal(JSON.parse(reportAtFirstRow).state, "incomplete");
+  assert.ok(firstRow.report, "report.json exists before the first row");
+  assert.equal(JSON.parse(firstRow.report).state, "incomplete");
 });
 
 test("interrupted run: a throw while writing rows leaves report.json incomplete and sets no marker", async () => {
@@ -298,7 +317,7 @@ test("interrupted run: a throw while writing rows leaves report.json incomplete 
   };
   const result = await runWebExport({ runDeviceId: "dev-test", kinds: KINDS, codec: fakeCodec(SUPPORTED), source, sink, now: NOW });
   assert.equal(result.state, "incomplete");
-  const report = JSON.parse(await sink.readText(REPORT_PATH));
+  const report = JSON.parse(await sink.readText(await onlyReportPath(sink)));
   assert.equal(report.state, "incomplete");
   assert.deepEqual(
     calls.filter((c) => c.startsWith("mark:")),
@@ -315,7 +334,7 @@ test("pendingOutbox throw: a missing entry and an incomplete report, no marker",
   const result = await runWebExport({ runDeviceId: "dev-test", kinds: KINDS, codec: fakeCodec(SUPPORTED), source, sink, now: NOW });
   assert.equal(result.state, "incomplete");
   assert.ok(result.run.missing.some((m) => m.reason === "outbox-unreadable"));
-  const report = JSON.parse(await sink.readText(REPORT_PATH));
+  const report = JSON.parse(await sink.readText(await onlyReportPath(sink)));
   assert.equal(report.state, "incomplete");
   assert.deepEqual(
     calls.filter((c) => c.startsWith("mark:")),
@@ -336,7 +355,7 @@ test("codec throw: a missing entry and an incomplete report, no marker", async (
   assert.equal(result.state, "incomplete");
   assert.ok(result.run.missing.some((m) => m.kind === "logEntries" && m.reason === "codec-failed:logEntries"));
   assert.equal(JSON.stringify(result.run).includes("decode crashed"), false);
-  const report = JSON.parse(await sink.readText(REPORT_PATH));
+  const report = JSON.parse(await sink.readText(await onlyReportPath(sink)));
   assert.equal(report.state, "incomplete");
   assert.deepEqual(
     calls.filter((c) => c.startsWith("mark:")),
@@ -353,11 +372,11 @@ test("verify listing throw: a missing entry and an incomplete report, no marker"
   const result = await runWebExport({ runDeviceId: "dev-test", kinds: KINDS, codec: fakeCodec(SUPPORTED), source, sink, now: NOW });
   assert.equal(result.state, "incomplete");
   // A failed listing with no readable report.json is refused before any write: it cannot be told apart from an unreadable report.
-  assert.ok(result.run.missing.some((m) => m.reason === "report unreadable"));
+  assert.ok(result.run.missing.some((m) => /is unreadable|cannot be listed/.test(m.reason)));
   assert.equal(JSON.stringify(result.run.missing).includes("sink listing failed"), false);
   // Nothing is written over a report that may exist, so no report is written at all.
   const names = await MemorySink.prototype.list.call(sink);
-  assert.equal(names.includes(REPORT_PATH), false);
+  assert.equal(names.some((p) => /\/report[^/]*\.json$/.test(p)), false);
   assert.deepEqual(
     calls.filter((c) => c.startsWith("mark:")),
     [],

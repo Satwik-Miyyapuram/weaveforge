@@ -1,12 +1,15 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { browserReportVerified, REPORT_PATH } from "@/features/migration-097/domain/report";
+import { browserReportVerified, MIGRATION_KINDS, REPORT_PATH } from "@/features/migration-097/domain/report";
 import { chooseBrowserBackend } from "../browser-backend-098";
 
 /** A folder that holds only what the test puts in it; any other path is absent. */
 function reportFs(text: string | null) {
   return {
+    async list(): Promise<string[]> {
+      return text === null ? [] : [REPORT_PATH];
+    },
     async readText(path: string): Promise<string> {
       if (path !== REPORT_PATH || text === null) throw new Error(`no file: ${path}`);
       return text;
@@ -18,7 +21,7 @@ function reportFs(text: string | null) {
 const OWN = "web-a";
 
 test("browser report is verified only when opfs, verified and no run misses a row", async () => {
-  const ok = JSON.stringify({ state: "verified", target: "opfs", runs: [{ deviceId: OWN, kinds: {}, missing: [], state: "verified", target: "opfs" }] });
+  const ok = JSON.stringify({ state: "verified", target: "opfs", runs: [{ deviceId: OWN, kinds: Object.fromEntries(MIGRATION_KINDS.map((k) => [k, { db: 0, files: 0, written: 0, conflicts: [], trash: 0 }])), blobs: { db: 0, verified: 0 }, missing: [], state: "verified", target: "opfs" }] });
   assert.equal(await browserReportVerified(reportFs(ok), OWN), true);
   const missing = JSON.stringify({ state: "verified", target: "opfs", runs: [{ deviceId: OWN, missing: ["p-1"] }] });
   assert.equal(await browserReportVerified(reportFs(missing), OWN), false);

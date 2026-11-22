@@ -484,7 +484,12 @@ fn start_local_db(app: &tauri::AppHandle) {
                 .map(str::to_owned)
                 .or_else(|| {
                     let root = app.try_state::<vault::VaultState>()?.lock().root()?;
-                    migrate_097::remove::removal_refusal(&std::path::PathBuf::from(&root.path), &pg_root)
+                    // Without a device id the start is refused: the report it reads is per device.
+                    let device = match crate::device_id::get_or_create(&data) {
+                        Ok(device) => device,
+                        Err(e) => return Some(format!("refused: device id unreadable: {e}")),
+                    };
+                    migrate_097::remove::removal_refusal(&std::path::PathBuf::from(&root.path), &device, &pg_root)
                 });
             let native = if let Some(reason) = refused {
                 Err(reason)

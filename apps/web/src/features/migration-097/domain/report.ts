@@ -25,7 +25,22 @@ export const MIGRATION_KINDS = [
   "ink",
 ] as const;
 
-export const REPORT_PATH = ".weaveforge/migration-0.9.7/report.json";
+/** The folder every migration report file lives in. */
+export const REPORT_DIR = ".weaveforge/migration-0.9.7";
+
+/** The legacy shared report. Every reader reads it; no device writes it again. */
+export const REPORT_PATH = `${REPORT_DIR}/report.json`;
+
+/** This device's own report: the only report file this device writes. Other devices' files are never rewritten. */
+export function ownReportPath(deviceId: string): string {
+  return `${REPORT_DIR}/report-${deviceId}.json`;
+}
+
+/** A report file: report.json, report-<id>.json, or a sync copy of either. The .bad files kept aside do not match. */
+function isReportFileName(path: string): boolean {
+  const name = path.slice(REPORT_DIR.length + 1);
+  return path.startsWith(`${REPORT_DIR}/`) && !name.includes("/") && name.startsWith("report") && name.endsWith(".json");
+}
 
 export type MigrationState = "verified" | "incomplete" | "none";
 
@@ -84,21 +99,56 @@ export function writesOff(report: Pick<MigrationReport, "state" | "target"> | nu
   return report?.state === "verified" && report.target === "opfs";
 }
 /**
- * Reads the report from the OPFS sink. Null when the file is absent, is not JSON, or is not a
- * report with a known state. Never throws, so a damaged report reads as no report.
+ * Every run in every report file: the legacy report.json and each device's report-<id>.json, sync copies
+ * included. Null when the listing fails or any report file is unreadable, so the caller fails closed.
+ * An absent or run-less file contributes nothing. Never throws.
  */
-export async function readMigrationReport(fs: Pick<FileSink, "readText">): Promise<MigrationReport | null> {
+export async function readMigrationRuns(fs: Pick<FileSink, "list" | "readText">): Promise<RunReport[] | null> {
+  let names: string[];
+  try {
+    names = await fs.list();
+  } catch {
+    return null;
+  }
+  const runs: RunReport[] = [];
+  for (const path of names.filter(isReportFileName)) {
+    const fileRuns = await readReportFile(fs, path);
+    if (fileRuns === null) return null;
+    runs.push(...fileRuns);
+  }
+  return runs;
+}
+
+/** The runs of one report file, or null when it cannot be read as a report. Never throws. */
+async function readReportFile(fs: Pick<FileSink, "readText">, path: string): Promise<RunReport[] | null> {
   let parsed: unknown;
   try {
-    parsed = JSON.parse(await fs.readText(REPORT_PATH));
+    parsed = JSON.parse(await fs.readText(path));
   } catch {
     return null;
   }
   if (typeof parsed !== "object" || parsed === null) return null;
   const { state, runs } = parsed as { state?: unknown; runs?: unknown };
   if (!(state === "verified" || state === "incomplete" || state === "none")) return null;
-  if (!Array.isArray(runs) || runs.length === 0) return null;
-  return runs.every(isRunReport) ? (parsed as MigrationReport) : null;
+  if (!Array.isArray(runs) || !runs.every(isRunReport)) return null;
+  return runs;
+}
+
+/**
+ * The file name of the first report file that cannot be read, for the refusal message. "" when the folder cannot
+ * be listed (no file to name), null when every report file reads.
+ */
+export async function unreadableReportName(fs: Pick<FileSink, "list" | "readText">): Promise<string | null> {
+  let names: string[];
+  try {
+    names = await fs.list();
+  } catch {
+    return "";
+  }
+  for (const path of names.filter(isReportFileName)) {
+    if ((await readReportFile(fs, path)) === null) return path.split("/").pop() ?? path;
+  }
+  return null;
 }
 
 function isCount(v: unknown): v is number {
@@ -137,18 +187,15 @@ export function runIsClean(run: RunReport): boolean {
  * device's newest run is verified and clean with only known kinds) and unverifiedDevices (every device's newest
  * run is clean). Absent, corrupt, incomplete, folder-only or id-less reports are false.
  */
-export async function browserReportVerified(fs: Pick<FileSink, "readText">, ownDeviceId?: string): Promise<boolean> {
-  const report = await readMigrationReport(fs);
-  if (!report || !isVerifiedOpfsReport(report, ownDeviceId)) return false;
+export async function browserReportVerified(fs: Pick<FileSink, "list" | "readText">, ownDeviceId?: string): Promise<boolean> {
+  const runs = await readMigrationRuns(fs);
+  if (!runs) return false;
+  const report = { runs };
+  if (!isVerifiedOpfsReport(report, ownDeviceId)) return false;
   return unverifiedDevices(report).length === 0;
 }
 
 const KNOWN_KINDS: ReadonlySet<string> = new Set<string>(MIGRATION_KINDS);
-
-function deviceOf(run: object): string | undefined {
-  const id = (run as { deviceId?: unknown }).deviceId;
-  return typeof id === "string" ? id : undefined;
-}
 
 /** A run lists no missing row and every kind it names is a known migration kind. */
 function runPassesKnownKinds(run: object): boolean {
@@ -159,34 +206,26 @@ function runPassesKnownKinds(run: object): boolean {
 }
 
 /**
- * The one validator for "the OPFS repos hold a clean verified export for this device". Used for a
- * report read from disk, so a hand-edited file is checked the same way. Runs are grouped by deviceId
- * and each group's newest run is taken: writeReport appends a device's run last, so that is the last
- * entry. Every device's newest run must be verified and clean. This device's own newest run must
- * also have target opfs. The top-level state and target are the last writer's, so they are not read.
- * Never throws; anything malformed is false.
+ * The one validator for "the OPFS repos hold a clean verified export for this device". Used for runs read
+ * from disk, so a hand-edited file is checked the same way. Every device's newest run must be verified and
+ * clean; this device's own newest run must also have target opfs. Never throws; anything malformed is false.
  */
 export function isVerifiedOpfsReport(report: unknown, ownDeviceId?: string): boolean {
   // No install id means no own run: a run without an id must never unlock this device.
   if (ownDeviceId === undefined) return false;
   if (typeof report !== "object" || report === null) return false;
   const runs = (report as { runs?: unknown }).runs;
-  if (!Array.isArray(runs)) return false;
-  const newest = new Map<string | undefined, object>();
-  for (const run of runs as unknown[]) {
-    if (typeof run !== "object" || run === null) return false;
-    newest.set(deviceOf(run), run);
-  }
-  const own = newest.get(ownDeviceId);
-  if (own === undefined || (own as { target?: unknown }).target !== "opfs") return false;
-  return [...newest.values()].every(
-    (run) => (run as { state?: unknown }).state === "verified" && runPassesKnownKinds(run),
-  );
+  if (!Array.isArray(runs) || !runs.every((run) => typeof run === "object" && run !== null)) return false;
+  const newest = latestRunPerDevice(runs as RunReport[]);
+  const own = newest.find((run) => run.deviceId === ownDeviceId);
+  if (own === undefined || own.target !== "opfs") return false;
+  return newest.every((run) => run.state === "verified" && runPassesKnownKinds(run));
 }
 
 /**
- * The newest run of each device, ISO start times order them. A run with no deviceId cannot be
- * attributed, so every such run is kept: each one must be clean.
+ * The newest run of each device: the later start time wins. On a tie, any run that is not verified wins
+ * (fail closed), whatever the file order. A run with no deviceId cannot be attributed, so every such run
+ * is kept: each one must be clean.
  */
 function latestRunPerDevice(runs: RunReport[]): RunReport[] {
   const latest = new Map<string, RunReport>();
@@ -197,7 +236,10 @@ function latestRunPerDevice(runs: RunReport[]): RunReport[] {
       continue;
     }
     const seen = latest.get(run.deviceId);
-    if (!seen || run.startedAt > seen.startedAt) latest.set(run.deviceId, run);
+    const failsClosed = (r: RunReport) => (r.state === "verified" ? 0 : 1);
+    if (!seen || run.startedAt > seen.startedAt || (run.startedAt === seen.startedAt && failsClosed(run) > failsClosed(seen))) {
+      latest.set(run.deviceId, run);
+    }
   }
   return [...latest.values(), ...unattributed];
 }
@@ -206,7 +248,7 @@ function latestRunPerDevice(runs: RunReport[]): RunReport[] {
  * Devices whose newest run is not clean, by deviceId ("" for a run with no id). The status UI names
  * these so the user can re-run the export on that device. Empty when every device's newest run is clean.
  */
-export function unverifiedDevices(report: MigrationReport): string[] {
+export function unverifiedDevices(report: Pick<MigrationReport, "runs">): string[] {
   return latestRunPerDevice(report.runs)
     .filter((run) => !runIsClean(run))
     .map((run) => run.deviceId ?? "");

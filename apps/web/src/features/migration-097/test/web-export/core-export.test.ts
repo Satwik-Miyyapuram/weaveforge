@@ -1,6 +1,7 @@
+import { onlyReportPath } from "../own-report";
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { REPORT_PATH } from "../../domain/report";
+import { ownReportPath } from "../../domain/report";
 import { SERVER_ONLY_FIELDS } from "../../domain/server-only-fields";
 import type { BlobRef, FileCodec, Row } from "../../domain/ports";
 import { runWebExport } from "../../application/run-web-export";
@@ -38,7 +39,7 @@ test("fixture export writes every row, verifies field-equal and sets the marker"
     assert.deepEqual(decoded, FIXTURE[kind]);
   }
 
-  const report = JSON.parse(await sink.readText(REPORT_PATH));
+  const report = JSON.parse(await sink.readText(await onlyReportPath(sink)));
   assert.equal(report.version, 1);
   assert.equal(report.state, "verified");
 
@@ -95,7 +96,7 @@ test("interrupted run gives incomplete, writes the report and never sets the mar
   assert.ok(result.run.missing.length > 0);
   assert.ok(JSON.stringify(result.run).includes("experiments: read failed"));
   assert.equal(JSON.stringify(result.run).includes("connection reset"), false);
-  const report = JSON.parse(await sink.readText(REPORT_PATH));
+  const report = JSON.parse(await sink.readText(await onlyReportPath(sink)));
   assert.equal(report.state, "incomplete");
   assert.equal(calls.some((c) => c.startsWith("mark:")), false);
 });
@@ -281,7 +282,7 @@ test("report has verifiedAt when verified, no runs errors field, and is written 
   });
 
   assert.equal(result.state, "verified");
-  const report = JSON.parse(await sink.readText(REPORT_PATH));
+  const report = JSON.parse(await sink.readText(await onlyReportPath(sink)));
   assert.equal(typeof report.verifiedAt, "string");
   assert.equal("errors" in report.runs[0], false);
   assert.deepEqual(
@@ -297,7 +298,7 @@ test("pending outbox refuses the export: state incomplete, only the report writt
   const result = await runWebExport({ runDeviceId: "dev-test", kinds: KINDS, codec: fakeCodec(SUPPORTED), source, sink, now: NOW });
 
   assert.equal(result.state, "incomplete");
-  assert.deepEqual(await sink.list(), [REPORT_PATH]);
+  assert.deepEqual(await sink.list(), [ownReportPath("dev-test")]);
   assert.equal(calls.some((c) => c.startsWith("list:") || c.startsWith("mark:")), false);
 });
 
@@ -319,8 +320,8 @@ test("download-your-data zip is built from the sink only, never marks the server
   const zip = await buildDownloadZip(sink);
   const back = unzipFiles(zip);
 
-  assert.ok(back.has(REPORT_PATH));
-  assert.equal(JSON.parse(new TextDecoder().decode(back.get(REPORT_PATH))).state, "incomplete");
+  assert.ok(back.has(ownReportPath("dev-test")));
+  assert.equal(JSON.parse(new TextDecoder().decode(back.get(ownReportPath("dev-test")))).state, "incomplete");
   assert.equal(calls.length, callsBefore);
   assert.equal(calls.some((c) => c.startsWith("mark:")), false);
 });

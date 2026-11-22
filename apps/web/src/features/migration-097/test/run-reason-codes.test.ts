@@ -1,10 +1,10 @@
+import { onlyReportPath } from "./own-report";
 import assert from "node:assert/strict";
 import { before, test } from "node:test";
 import { loadTestCore } from "@/lib/test/load-test-core";
 import { runWebExport, verifyReasonCode } from "../application/run-web-export";
 import type { KindWriter } from "../domain/kind-writer";
 import type { FileCodec, ServerSource } from "../domain/ports";
-import { REPORT_PATH } from "../domain/report";
 import { MemorySink } from "../infrastructure/memory-sink";
 
 before(loadTestCore);
@@ -75,7 +75,7 @@ test("run: a backup or outbox error message with a path never reaches report.jso
     },
     debugLog: (line) => debug.push(line),
   });
-  const backupReport = await backupSink.readText(REPORT_PATH);
+  const backupReport = await backupSink.readText(await onlyReportPath(backupSink));
   assert.equal(backedUp.state, "incomplete");
   assert.ok(backupReport.includes("backup-failed"));
   assert.ok(!backupReport.includes("/secret/path"));
@@ -90,7 +90,7 @@ test("run: a backup or outbox error message with a path never reaches report.jso
     sink: outboxSink,
     debugLog: (line) => debug.push(line),
   });
-  const outboxReport = await outboxSink.readText(REPORT_PATH);
+  const outboxReport = await outboxSink.readText(await onlyReportPath(outboxSink));
   assert.equal(outboxRun.state, "incomplete");
   assert.ok(outboxReport.includes("outbox-unreadable"));
   assert.ok(!outboxReport.includes("/secret/path"));
