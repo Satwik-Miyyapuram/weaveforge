@@ -493,7 +493,7 @@ test("desktop: a failed backup aborts the export: no server read, no write, no m
   });
 
   assert.equal(result.state, "incomplete");
-  assert.match(result.run.missing[0]!.reason, /backup failed: disk full/);
+  assert.equal(result.run.missing[0]!.reason, "backup-failed");
   assert.deepEqual(calls, ["backup:C:/ws"]);
   assert.deepEqual(await sink.list(), [REPORT_PATH]);
 });
@@ -735,7 +735,7 @@ test("pendingOutbox throw: a missing entry and an incomplete report, no marker",
   const sink = new MemorySink();
   const result = await runWebExport({ kinds: KINDS, codec: fakeCodec(SUPPORTED), source, sink, now: NOW });
   assert.equal(result.state, "incomplete");
-  assert.ok(result.run.missing.some((m) => m.reason.includes("outbox unreadable")));
+  assert.ok(result.run.missing.some((m) => m.reason === "outbox-unreadable"));
   const report = JSON.parse(await sink.readText(REPORT_PATH));
   assert.equal(report.state, "incomplete");
   assert.deepEqual(

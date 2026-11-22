@@ -197,7 +197,9 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
       deviceId = made.deviceId;
       dumpName = made.dump;
     } catch (err) {
-      return refused(sink, now, `backup failed: ${(err as Error).message}`, target);
+      // The raw message can name a path: it goes to the debug log only, never to report.json.
+      debugLog?.(`backup failed: ${(err as Error).message}`);
+      return refused(sink, now, "backup-failed", target);
     }
   }
 
@@ -206,7 +208,8 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
   try {
     pending = await source.pendingOutbox();
   } catch (err) {
-    const reason = `outbox unreadable: ${(err as Error).message}`;
+    debugLog?.(`outbox unreadable: ${(err as Error).message}`);
+    const reason = "outbox-unreadable";
     const run: RunReport = {
       startedAt: now,
       finishedAt: new Date().toISOString(),

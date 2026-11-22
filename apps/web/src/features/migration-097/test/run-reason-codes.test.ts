@@ -4,6 +4,7 @@ import { loadTestCore } from "@/lib/test/load-test-core";
 import { runWebExport, verifyReasonCode } from "../application/run-web-export";
 import type { KindWriter } from "../domain/kind-writer";
 import type { FileCodec, ServerSource } from "../domain/ports";
+import { REPORT_PATH } from "../domain/report";
 import { MemorySink } from "../infrastructure/memory-sink";
 
 before(loadTestCore);
@@ -36,6 +37,61 @@ test("run: a readBack that differs is listed with the fixed code readback-differ
   const row = result.run.missing.find((m) => m.kind === "widgets");
   assert.deepEqual(row, { kind: "widgets", id: "*", reason: "readback-differs" });
   assert.equal(result.state, "incomplete");
+});
+
+test("run: a backup or outbox error message with a path never reaches report.json; the fixed code does", async () => {
+  const source = {
+    listRows: async () => [],
+    listTrashed: async () => [],
+    countRows: async () => 0,
+    pendingOutbox: async () => {
+      throw new Error("EACCES /secret/path/outbox.json");
+    },
+    undecryptable: async () => 0,
+    listBlobs: async () => [],
+    fetchBlob: async () => new Uint8Array(),
+    markExported097: async () => {},
+  } as unknown as ServerSource;
+  const codec = { supports: () => false } as unknown as FileCodec;
+  const debug: string[] = [];
+
+  const backupSink = new MemorySink();
+  const backedUp = await runWebExport({
+    kinds: [],
+    codec,
+    now: "2026-11-22T00:00:00.000Z",
+    source,
+    sink: backupSink,
+    desktop: {
+      folder: "C:/ws",
+      bridge: {
+        backup: async () => {
+          throw new Error("EACCES /secret/path/backup.dump");
+        },
+      },
+    },
+    debugLog: (line) => debug.push(line),
+  });
+  const backupReport = await backupSink.readText(REPORT_PATH);
+  assert.equal(backedUp.state, "incomplete");
+  assert.ok(backupReport.includes("backup-failed"));
+  assert.ok(!backupReport.includes("/secret/path"));
+  assert.ok(debug.some((l) => l.includes("/secret/path/backup.dump")));
+
+  const outboxSink = new MemorySink();
+  const outboxRun = await runWebExport({
+    kinds: [],
+    codec,
+    now: "2026-11-22T00:00:00.000Z",
+    source,
+    sink: outboxSink,
+    debugLog: (line) => debug.push(line),
+  });
+  const outboxReport = await outboxSink.readText(REPORT_PATH);
+  assert.equal(outboxRun.state, "incomplete");
+  assert.ok(outboxReport.includes("outbox-unreadable"));
+  assert.ok(!outboxReport.includes("/secret/path"));
+  assert.ok(debug.some((l) => l.includes("/secret/path/outbox.json")));
 });
 
 test("verifyReasonCode: each verify error maps to a fixed code, with no path or kind text", () => {
