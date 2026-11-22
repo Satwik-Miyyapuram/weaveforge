@@ -61,6 +61,12 @@ import { DuplicateSharedVaultPageUseCase } from "@/features/library/application/
 import { LoadSharedWithMeScreenUseCase } from "@/features/sharing/application/parts";
 import { rustShareLinkRepository } from "@/backend/providers/postgrest/rust-repository";
 import { FilePaperFieldRepository } from "@/backend/providers/files/file-paper-field-repo";
+import { FileAiProposalStore } from "@/backend/providers/files/file-ai-proposal-store";
+import {
+  FILES_MODE_CRDT_TYPES,
+  limitCrdtSnapshotStore,
+  limitCrdtUpdateStore,
+} from "@/features/collab/infrastructure/files-mode-crdt-limit";
 import { PrefetchProjectUseCase } from "@/application/prefetch-project.use-case";
 import { readBackendConfig } from "@/backend/parts";
 import {
@@ -178,8 +184,14 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
     projectLww.watch(backend.db, pid());
   }
 
-  const crdtUpdateStore = rustCrdtUpdateStore(backend.db);
-  const crdtSnapshotStore = rustCrdtSnapshotStore(backend.db);
+  // Files mode: the server CRDT log keeps only the non-personal types (files-mode-crdt-limit).
+  const filesMode = backend.aiProposalStore instanceof FileAiProposalStore;
+  const crdtUpdateStore = filesMode
+    ? limitCrdtUpdateStore(rustCrdtUpdateStore(backend.db), FILES_MODE_CRDT_TYPES)
+    : rustCrdtUpdateStore(backend.db);
+  const crdtSnapshotStore = filesMode
+    ? limitCrdtSnapshotStore(rustCrdtSnapshotStore(backend.db), FILES_MODE_CRDT_TYPES)
+    : rustCrdtSnapshotStore(backend.db);
 
   const vaultPageRepository = backend.rawVaultPageRepository;
   const paperRepository = backend.paperRepository;
