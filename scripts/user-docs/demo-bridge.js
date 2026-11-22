@@ -96,12 +96,6 @@
     readSecret: none,
     writeSecret: nothing,
     clearSecret: nothing,
-    async queryLocalDb(sql, params) {
-      const { db, q, meta } = await ready;
-      return q.localQuery(db, meta.claims, sql, params ?? []);
-    },
-    localDbState: async () => ({ failure: null, dataDir: "demo" }),
-    resetLocalDb: nothing,
     async readLocalFile(bucket, path) {
       const b64 = (await ready).meta.files[bucket + "/" + path];
       return b64 ? Uint8Array.from(atob(b64), (c) => c.charCodeAt(0)) : null;

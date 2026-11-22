@@ -3,7 +3,7 @@ import {
   type Secrets,
   type SecretsStore,
 } from "@/features/settings/infrastructure/parts";
-import { desktop, type DesktopBridge } from "@/lib/desktop/desktop-bridge";
+import { desktop } from "@/lib/desktop/desktop-bridge";
 import { notifyWorkspaceChange } from "@/lib/parts";
 import { readyCore } from "@/lib/rust-core";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -34,15 +34,8 @@ export type LocalParam = string | number | boolean | null | Uint8Array;
 
 /** The identity is not passed from here; see `local-db-host.ts` for why. */
 export class LocalRunner {
-  constructor(private readonly bridge: DesktopBridge | null = desktop()) {}
-
-  private get shell(): DesktopBridge {
-    if (!this.bridge) throw new Error("The local database is only available in the desktop app.");
-    return this.bridge;
-  }
-
-  async query<T>(sql: string, params: LocalParam[] = []): Promise<T[]> {
-    return (await this.shell.queryLocalDb(sql, params)) as T[];
+  async query<T>(_sql: string, _params: LocalParam[] = []): Promise<T[]> {
+    throw new Error("local database removed in 0.9.8");
   }
 
   async queryOne<T>(sql: string, params: LocalParam[] = []): Promise<T | null> {
@@ -56,8 +49,8 @@ export class LocalRunner {
 }
 
 /** Straight to the shell: the default query every local backend part runs. The identity is applied on the far side. */
-export function localRunnerQuery(bridge: DesktopBridge | null = desktop()): LocalQuery {
-  const runner = new LocalRunner(bridge);
+export function localRunnerQuery(): LocalQuery {
+  const runner = new LocalRunner();
   return (sql, params) => runner.query(sql, params as LocalParam[]);
 }
 

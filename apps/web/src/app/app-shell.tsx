@@ -35,7 +35,6 @@ import { PasswordResetScreen } from "@/components/password-reset-screen";
 import { ToastHost } from "@/components/toast-host";
 import { ReleaseNoticeBanner } from "@/features/release-notices/ui/release-notice-banner";
 import { AppUpdateNotice } from "@/features/app-update/ui/app-update-notice";
-import { LostDbNotice } from "@/features/workspace/ui/lost-db-notice";
 import { ContextMenuHost } from "@/components/context-menu";
 import { Button, CloseButton } from "@/components/button";
 import { loadCore, readyCore } from "@/lib/rust-core";
@@ -132,7 +131,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 {expired && <SessionExpiredPrompt />}
                 <ReleaseNoticeBanner />
                 <AppUpdateNotice />
-                <LostDbNotice />
                 {/* Keyed on the session epoch: after signing back in, every
                     screen that loaded while signed out loads again. */}
                 <ProjectProvider key={sessionEpoch}>

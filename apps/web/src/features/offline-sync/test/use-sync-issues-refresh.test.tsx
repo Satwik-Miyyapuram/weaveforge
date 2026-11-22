@@ -19,7 +19,9 @@ before(loadTestCore);
 
 const flush = () => act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)); });
 
-test("a change dead-lettered by a sync cycle shows without a reload", async () => {
+// Skipped in 0.9.8: this reads dead-letter rows from the local database, which is removed.
+// Delete with the PGlite lane.
+test.skip("a change dead-lettered by a sync cycle shows without a reload", async () => {
   const g = globalThis as Record<string, unknown>;
   const saved = g.window;
   const dead: Record<string, unknown>[] = [];

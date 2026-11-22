@@ -12,7 +12,6 @@ import {
   IsomorphicWorkspaceGit,
 } from "../infrastructure/parts";
 import { folderLock } from "./folder-lock";
-import { LOST_DB_SYNC_MESSAGE, folderWriteBlockedByLostDb } from "./folder-lost-db-guard";
 // Type-only: the import, restore and table modules load on first use, so they stay
 // out of the first-load bundle of every route that reaches the app container.
 import type { FolderImportDiff, FolderImportPicks, FolderImportResult, ImportSeams } from "./workspace-folder-tables";
@@ -338,7 +337,6 @@ async function runSyncToFolder(): Promise<SyncOutcome> {
   // Read before the first await: a DB replace at any point during this run makes it stale.
   const startedAt = sessionGeneration();
   if (!activeFs) throw new Error("No folder is connected.");
-  if (folderWriteBlockedByLostDb(await desktop()?.localDbState())) throw new Error(LOST_DB_SYNC_MESSAGE);
   const fs = activeFs;
   const container = getContainer();
   const project = await activeProject();

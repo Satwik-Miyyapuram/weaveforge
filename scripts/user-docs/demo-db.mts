@@ -41,7 +41,6 @@ const files: Record<string, string> = {};
 const key = (bucket: string, p: string) => `${bucket}/${p}`;
 const bridge = {
   fetchTitle: async (url: string) => ({ title: url, url }),
-  queryLocalDb: (sql: string, params: unknown[] = []) => localQuery(db, claims, sql, params),
   readLocalFile: async (bucket: string, p: string) => {
     const b64 = files[key(bucket, p)];
     return b64 ? new Uint8Array(Buffer.from(b64, "base64")) : null;

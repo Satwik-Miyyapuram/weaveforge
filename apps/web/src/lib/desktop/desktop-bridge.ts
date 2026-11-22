@@ -27,17 +27,6 @@ export interface DesktopImage {
   url: string;
 }
 
-export interface DesktopLocalDbState {
-  failure: string | null;
-  dataDir: string;
-  /** The backup this run's database was rebuilt from, when it was. */
-  restoredFrom?: string | null;
-  /** True when this run started an empty database over lost data: the folder must not be written over. */
-  recreatedEmpty?: boolean;
-  /** Where the old data was kept aside when the database was recreated empty. */
-  keptAside?: string | null;
-}
-
 export interface DesktopBridge {
   /** Version of the desktop shell, so a mismatch can be reported rather than crash. */
   readonly version: string;
@@ -141,30 +130,6 @@ export interface DesktopBridge {
   readSecret(name: DesktopSecretName): Promise<string | null>;
   writeSecret(name: DesktopSecretName, value: string): Promise<void>;
   clearSecret(name: DesktopSecretName): Promise<void>;
-
-  /**
-   * Run one statement against the local database and get its rows.
-   *
-   * Present only on the desktop, and only meaningful there: the local database
-   * is a process the browser does not have. Each call is its own transaction on
-   * the far side, so nothing here can hold a connection open.
-   */
-  queryLocalDb(
-    sql: string,
-    params?: readonly (string | number | boolean | null | Uint8Array)[],
-  ): Promise<unknown[]>;
-
-  /**
-   * Whether the local database could be opened, and where it lives.
-   *
-   * `failure` is `null` until an open has failed. When it is set, every
-   * `queryLocalDb` is failing for the same reason, and `resetLocalDb` is the
-   * way out: it moves the data directory aside (never deletes it) so the next
-   * query starts a fresh one. Refused while the database is healthy. The shell
-   * may relaunch itself to complete the move; the promise then never settles.
-   */
-  localDbState(): Promise<DesktopLocalDbState>;
-  resetLocalDb(): Promise<void>;
 
   /**
    * Offline attachment bytes as files in the app's data folder, one per
