@@ -128,22 +128,23 @@ test("countRows throws when content-range has no total", async () => {
   await assert.rejects(() => sourceWith(fetch).countRows("logEntries"), /content-range/);
 });
 
-test("markExported calls rpc/mark_exported_097 with POST and no body, only when called", async () => {
+test("markExported097 POSTs rpc/mark_exported_097 with a JSON body of {}, only when called", async () => {
   const { fetch, calls } = fakeFetch(() => new Response(null, { status: 204 }));
   const source = sourceWith(fetch);
   assert.equal(calls.length, 0);
-  await source.markExported(NOW);
+  await source.markExported097();
   assert.equal(calls.length, 1);
   const call = calls[0];
   assert.ok(call);
   assert.equal(call.method, "POST");
   assert.equal(call.url, `${BASE}/rpc/mark_exported_097`);
-  assert.ok(!call.body, "no body: the server function sets the row for auth.uid()");
+  assert.equal(call.body, "{}");
+  assert.equal(call.headers.get("content-type"), "application/json");
 });
 
-test("markExported throws on non-2xx", async () => {
+test("markExported097 throws on non-2xx", async () => {
   const { fetch } = fakeFetch(() => new Response("nope", { status: 403 }));
-  await assert.rejects(() => sourceWith(fetch).markExported(NOW), /403/);
+  await assert.rejects(() => sourceWith(fetch).markExported097(), /403/);
 });
 
 test("listBlobs reads the user's blob_objects rows with size_bytes, paged", async () => {

@@ -349,7 +349,7 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
     await persist();
     let marked = true;
     try {
-      await source.markExported(now);
+      await source.markExported097();
     } catch {
       marked = false;
       missing.push({ kind: "marker", id: "*", reason: "marker: server failed" });

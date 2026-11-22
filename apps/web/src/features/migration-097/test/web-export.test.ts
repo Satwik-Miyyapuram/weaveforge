@@ -59,8 +59,8 @@ function fakeServer(opts: {
       if (!hit) throw new Error("no such blob");
       return hit.bytes;
     },
-    markExported: async (at) => {
-      calls.push(`mark:${at}`);
+    markExported097: async () => {
+      calls.push("mark:097");
     },
   };
   return { source, calls };
@@ -109,7 +109,7 @@ test("fixture export writes every row, verifies field-equal and sets the marker"
 
   assert.deepEqual(
     calls.filter((c) => c.startsWith("mark:")),
-    [`mark:${NOW}`],
+    ["mark:097"],
   );
 });
 
@@ -534,10 +534,10 @@ test("order: the server marker comes first, the desktop mark last, and report.js
   const order: string[] = [];
   const sink = new MemorySink();
   const { source } = fakeServer({ rows: FIXTURE });
-  const realMark = source.markExported;
-  source.markExported = async (at) => {
+  const realMark = source.markExported097;
+  source.markExported097 = async () => {
     order.push("server-mark");
-    await realMark(at);
+    await realMark();
   };
   const result = await runWebExport({
     kinds: KINDS,
@@ -584,7 +584,7 @@ test("order: a failed desktop mark (last) leaves report.json incomplete, though 
 
 test("order: a failed server marker leaves report.json incomplete and the desktop is not marked", async () => {
   const { source } = fakeServer({ rows: FIXTURE });
-  source.markExported = async () => {
+  source.markExported097 = async () => {
     throw new Error("server down");
   };
   const sink = new MemorySink();
@@ -634,7 +634,7 @@ test("order: report.json says markers pending before any mark is attempted", asy
   const { source } = fakeServer({ rows: FIXTURE });
   const sink = new MemorySink();
   const seen: string[] = [];
-  source.markExported = async () => {
+  source.markExported097 = async () => {
     const report = JSON.parse(await sink.readText(REPORT_PATH)) as {
       state: string;
       runs: { missing: { reason: string }[] }[];
@@ -878,10 +878,10 @@ test("keys: moveSecrets runs after verify and before the desktop mark and the se
   const order: string[] = [];
   const sink = new MemorySink();
   const { source } = fakeServer({ rows: FIXTURE });
-  const realMark = source.markExported;
-  source.markExported = async (at) => {
+  const realMark = source.markExported097;
+  source.markExported097 = async () => {
     order.push("server-mark");
-    await realMark(at);
+    await realMark();
   };
   const result = await runWebExport({
     kinds: KINDS,
@@ -950,7 +950,7 @@ test("reasons: report.json and the run never carry a thrown message (fixed codes
 
   // Server marker failure.
   const { source: srv } = fakeServer({ rows: FIXTURE });
-  srv.markExported = async () => {
+  srv.markExported097 = async () => {
     throw new Error("LEAK-SERVER-token-222");
   };
   const sinkB = new MemorySink();
@@ -1069,8 +1069,8 @@ test("keys: copy-only mover; a failed marker then a re-run copies each secret on
   });
   const sink = new MemorySink();
   const { source } = fakeServer({ rows: FIXTURE });
-  const realMark = source.markExported;
-  source.markExported = async () => {
+  const realMark = source.markExported097;
+  source.markExported097 = async () => {
     throw new Error("server down");
   };
   const first = await runWebExport({
@@ -1084,7 +1084,7 @@ test("keys: copy-only mover; a failed marker then a re-run copies each secret on
   });
   assert.equal(first.state, "incomplete");
 
-  source.markExported = realMark;
+  source.markExported097 = realMark;
   const second = await runWebExport({
     kinds: KINDS,
     codec: fakeCodec(SUPPORTED),

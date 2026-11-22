@@ -18,7 +18,7 @@ export interface ServerSource {
   listBlobs(): Promise<BlobRef[]>;
   fetchBlob(ref: BlobRef): Promise<Uint8Array>;
   /** Sets profiles.exported_097_at. Called only after a verified export. */
-  markExported(at: string): Promise<void>;
+  markExported097(): Promise<void>;
 }
 
 /** Row <-> file mapping. The real one wraps the wf-wasm entity codecs. */
