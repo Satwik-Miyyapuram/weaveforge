@@ -114,6 +114,11 @@ impl Secrets {
         }
     }
 
+    /// Startup: forgets the Overleaf token that 0.9.7 stored. Idempotent; other names are kept.
+    pub fn retire_overleaf_token(&self) -> Result<(), SecretError> {
+        self.clear("overleaf-token")
+    }
+
     /// `read`, for the page: only names in `PAGE_READABLE`.
     pub fn page_read(&self, name: &str) -> Result<Option<String>, SecretError> {
         known(&PAGE_READABLE, name)?;
