@@ -88,6 +88,23 @@ test("an old list file is rewritten: members move to their frontmatter, the list
   assert.deepEqual((await repo.legacyLeftovers("l1")).map((l) => l.legacyLink), ["[[Ghost.paper]]"]);
 });
 
+test("a duplicate legacy link gives one leftover and no duplicate item id", async () => {
+  const fs = await setup();
+  await fs.writeFile(
+    LIST,
+    oldListFile().replace(
+      'members: ["[[paper-one.paper]]", "[[Ghost.paper]]"]',
+      'members: ["[[paper-one.paper]]", "[[paper-one.paper]]", "[[Ghost.paper]]", "[[Ghost.paper]]"]',
+    ),
+  );
+  await fs.writeFile(P1, (await fs.readText(P1)).replace("---\n", `---\nlists: ["${LINK}", "${LINK}"]\n`));
+  const repo = new FileReadingListItemRepository(fs, () => ROOT);
+  const ids = (await repo.listItems("l1")).map((i) => i.id);
+  assert.deepEqual(ids, ["l1:p1"]);
+  const leftovers = await repo.legacyLeftovers("l1");
+  assert.deepEqual(leftovers.map((l) => l.legacyLink), ["[[Ghost.paper]]"]);
+});
+
 test("listItems never returns an item without a paper or note; a legacy leftover is only in legacyLeftovers", async () => {
   const fs = await setup();
   await migrateLegacyLists(fs, () => ROOT, () => {});

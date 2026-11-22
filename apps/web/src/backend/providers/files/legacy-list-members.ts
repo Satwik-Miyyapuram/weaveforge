@@ -66,7 +66,8 @@ function recordOf(v: unknown): Record<string, unknown> {
 /** The member links a legacy list still names (the ones that are strings or carry a `link`). */
 export function legacyMemberLinks(row: LegacyRow): string[] {
   const members = Array.isArray(row.members) ? (row.members as unknown[]) : [];
-  return members.map(linkOfMember).filter((link): link is string => link !== null);
+  // A link listed twice is one member: a second copy would give the same item id twice.
+  return [...new Set(members.map(linkOfMember).filter((link): link is string => link !== null))];
 }
 
 /** The note a legacy list holds for this target, if any. */

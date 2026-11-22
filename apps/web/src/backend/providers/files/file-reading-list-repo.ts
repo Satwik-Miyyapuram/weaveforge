@@ -217,7 +217,7 @@ export class FileReadingListItemRepository implements IReadingListItemRepository
         continue;
       }
       const { lists, listNotes } = fields;
-      for (const link of lists) {
+      for (const link of new Set(lists)) {
         const listId = listIdByLink.get(link);
         if (!listId) continue;
         const item: ReadingListItem = { id: itemIdOf(listId, target), listId, ...target, sortOrder: 0 };
