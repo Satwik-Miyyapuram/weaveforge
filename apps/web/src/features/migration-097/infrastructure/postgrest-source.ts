@@ -64,6 +64,16 @@ export function toCamelRow(row: Row): Row {
   return out;
 }
 
+/** The total from a Prefer: count=exact response. Throws when the header has no total, so the count reads as unknown. */
+function totalOf(res: Response, table: string): number {
+  const range = res.headers.get("content-range") ?? "";
+  const total = Number(range.split("/")[1]);
+  if (range.split("/").length < 2 || !Number.isInteger(total)) {
+    throw new Error(`count ${table} failed: no total in content-range`);
+  }
+  return total;
+}
+
 function tableFor(kind: string): string {
   const table = (TABLE_BY_KIND as Record<string, string>)[kind];
   if (!table) throw new Error(`unknown kind: ${kind}`);
@@ -129,12 +139,17 @@ export class PostgrestSource implements ServerSource {
       { method: "HEAD", extra: { Prefer: "count=exact" } },
       table,
     );
-    const range = res.headers.get("content-range") ?? "";
-    const total = Number(range.split("/")[1]);
-    if (range.split("/").length < 2 || !Number.isInteger(total)) {
-      throw new Error(`count ${table} failed: no total in content-range`);
-    }
-    return total;
+    return totalOf(res, table);
+  }
+
+  /** Integration rows holding a token, counted through the owning project (projects.user_id). */
+  async secretCount(): Promise<number> {
+    const table = "project_integrations";
+    const url =
+      `${this.opts.baseUrl}/${table}?select=id,projects!inner(user_id)` +
+      `&projects.user_id=eq.${this.opts.userId}&token=not.is.null`;
+    const res = await this.request(url, { method: "HEAD", extra: { Prefer: "count=exact" } }, table);
+    return totalOf(res, table);
   }
 
   async pendingOutbox(): Promise<number> {

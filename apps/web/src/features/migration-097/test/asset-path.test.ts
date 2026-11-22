@@ -59,6 +59,7 @@ test("blob paths: runWebExport writes the sanitized names, and verifies them wit
   const source = {
     listRows: async () => [],
     listTrashed: async () => [],
+    secretCount: async () => 0,
     countRows: async () => 0,
     pendingOutbox: async () => 0,
     undecryptable: async () => 0,
@@ -80,6 +81,7 @@ test("blob paths: a missing blob's id keeps its bucket, so the same path in two 
   const source = {
     listRows: async () => [],
     listTrashed: async () => [],
+    secretCount: async () => 0,
     countRows: async () => 0,
     pendingOutbox: async () => 0,
     undecryptable: async () => 0,

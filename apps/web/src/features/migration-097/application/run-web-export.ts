@@ -270,9 +270,13 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
   const written: Record<string, number> = {};
   const missing: MissingRow[] = [];
 
-  // A source that holds secrets cannot be exported without the KEYS mover that moves them.
-  if (secretsPresent && !moveSecrets) {
-    return refused(sink, now, "keys: no mover", target);
+  // A source that holds secrets cannot be exported without the KEYS mover that moves them. A count that cannot be
+  // read (missing, throws) counts as holding some, so the run refuses rather than guessing.
+  if (!moveSecrets) {
+    const held = await Promise.resolve()
+      .then(() => source.secretCount())
+      .catch(() => Number.POSITIVE_INFINITY);
+    if (secretsPresent || held > 0) return refused(sink, now, "keys: no mover", target);
   }
 
   // The pre-migration dump comes first: nothing is read or written without it.

@@ -19,6 +19,7 @@ const codec: FileCodec = {
 function server(rows: Row[]): ServerSource {
   return {
     listRows: async () => rows,
+    secretCount: async () => 0,
     countRows: async () => rows.length,
     pendingOutbox: async () => 0,
     listTrashed: async () => [],

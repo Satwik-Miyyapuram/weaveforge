@@ -48,6 +48,7 @@ function fakeSource(rows: Record<string, Row[]>): ServerSource {
   return {
     listRows: async (kind: string) => rows[kind] ?? [],
     listTrashed: async () => [],
+    secretCount: async () => 0,
     countRows: async (kind: string) => (rows[kind] ?? []).length,
     pendingOutbox: async () => 0,
     undecryptable: async () => 0,

@@ -11,6 +11,8 @@ export interface ServerSource {
   listTrashed(kind: string): Promise<Row[]>;
   /** Raw server count for the kind (HEAD, Prefer: count=exact). Cross-checks listRows. */
   countRows(kind: string): Promise<number>;
+  /** Owner's integration tokens on the server. Without a KEYS mover, any count above zero (or an unreadable count) refuses the run. */
+  secretCount(): Promise<number>;
   /** Unflushed local writes. Non-zero means the export must refuse to run. */
   pendingOutbox(): Promise<number>;
   /** Rows whose content_enc fails to decrypt. Each one blocks verified. */

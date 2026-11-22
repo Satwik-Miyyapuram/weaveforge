@@ -42,6 +42,7 @@ function fakeServer(opts: {
       if (kind === opts.failKind) throw new Error("connection reset");
       return opts.rows[kind] ?? [];
     },
+    secretCount: async () => 0,
     countRows: async (kind) => {
       calls.push(`count:${kind}`);
       return opts.rawCounts?.[kind] ?? (opts.rows[kind] ?? []).length;
