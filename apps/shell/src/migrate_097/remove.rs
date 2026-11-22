@@ -944,7 +944,12 @@ mod final_write_tests {
 mod union_tests {
     use super::*;
 
+    const ME: &str = "dev-a";
+    const NOW: &str = "2026-11-22T10:05:00.000Z";
     const REMOVING: &str = r#"{"version":1,"state":"removing","removingDeviceId":"dev-a","removals":{"dev-a":{"state":"removing"}},"runs":[]}"#;
+    const VERIFIED_A: &str = r#"{"version":1,"state":"verified","runs":[{"deviceId":"dev-a","state":"verified","finishedAt":"2026-11-22T10:00:00.000Z","kinds":{"notes":{"db":1,"files":1}},"missing":[],"conflicts":[]}]}"#;
+    const VERIFIED_B: &str = r#"{"version":1,"state":"verified","runs":[{"deviceId":"dev-b","state":"verified","finishedAt":"2026-11-22T10:00:00.000Z","kinds":{"notes":{"db":1,"files":1}},"missing":[],"conflicts":[]}]}"#;
+    const RESTORE: &str = "; restore it from your backup or run the export again";
 
     /// A migration folder holding the given report files, and a cluster root with no removed marker.
     fn fixture(name: &str, files: &[(&str, &str)]) -> (PathBuf, PathBuf, PathBuf) {
@@ -963,9 +968,89 @@ mod union_tests {
     #[test]
     fn a_removal_in_one_devices_own_file_refuses_the_start() {
         let (base, folder, pg_root) = fixture("own-removing", &[("report-dev-a.json", REMOVING)]);
-        let refusal = removal_refusal(&folder, &pg_root);
+        let refusal = removal_refusal(&folder, ME, &pg_root);
         let _ = fs::remove_dir_all(&base);
         assert!(refusal.is_some_and(|r| r.contains("unfinished")), "a removing own file refuses the start");
+    }
+
+    #[test]
+    fn an_unreadable_legacy_report_refuses_with_a_restore_message() {
+        let (base, folder, pg_root) = fixture("legacy-bad", &[("report.json", "{ not json")]);
+        let refusal = removal_refusal(&folder, ME, &pg_root);
+        let _ = fs::remove_dir_all(&base);
+        assert_eq!(
+            refusal.as_deref(),
+            Some("refused: report.json is unreadable; restore it from your backup or run the export again")
+        );
+    }
+
+    #[test]
+    fn an_unreadable_own_report_refuses_with_a_restore_message() {
+        let (base, folder, pg_root) = fixture("own-bad", &[("report-dev-a.json", "{ not json")]);
+        let refusal = removal_refusal(&folder, ME, &pg_root);
+        let _ = fs::remove_dir_all(&base);
+        assert_eq!(
+            refusal.as_deref(),
+            Some("refused: report-dev-a.json is unreadable; restore it from your backup or run the export again")
+        );
+    }
+
+    #[test]
+    fn a_verified_mark_in_another_devices_file_never_records_the_export() {
+        let (base, folder, pg_root) = fixture("other-verified", &[("report-dev-b.json", VERIFIED_B)]);
+        let result = record_verified_export(&pg_root, &folder, ME);
+        let recorded = pg_root.join(EXPORTED_TO).exists();
+        let _ = fs::remove_dir_all(&base);
+        assert!(result.is_err() && !recorded, "another device's verified run unlocks nothing");
+    }
+
+    #[test]
+    fn a_verified_mark_in_another_devices_file_never_removes_the_data() {
+        let (base, folder, pg_root) = fixture("other-remove", &[("report-dev-b.json", VERIFIED_B)]);
+        let mut secrets = || Ok(0);
+        let mut stop = || Ok(());
+        let result = remove_old_data(&folder, &pg_root, NOW, ME, &mut secrets, &mut stop);
+        let _ = fs::remove_dir_all(&base);
+        assert!(result.is_err(), "another device's verified run never unlocks removal");
+    }
+
+    #[test]
+    fn a_verified_own_file_records_the_export() {
+        let (base, folder, pg_root) = fixture("own-verified", &[("report-dev-a.json", VERIFIED_A)]);
+        let result = record_verified_export(&pg_root, &folder, ME);
+        let recorded = pg_root.join(EXPORTED_TO).exists();
+        let _ = fs::remove_dir_all(&base);
+        assert!(result.is_ok() && recorded, "this device's own verified run records the export");
+    }
+
+    #[test]
+    fn an_unreadable_conflict_copy_refuses_recording_the_export() {
+        let (base, folder, pg_root) = fixture(
+            "conflict-record",
+            &[("report-dev-a.json", VERIFIED_A), ("report-dev-a (1).json", "{ not json")],
+        );
+        let result = record_verified_export(&pg_root, &folder, ME);
+        let _ = fs::remove_dir_all(&base);
+        assert_eq!(
+            result.as_deref(),
+            Err("refused: migration report report-dev-a (1).json is unreadable; delete the conflict copy report-dev-a (1).json")
+        );
+    }
+
+    #[test]
+    fn an_unreadable_conflict_copy_refuses_the_removal() {
+        let (base, folder, pg_root) = fixture(
+            "conflict-remove",
+            &[("report-dev-a.json", VERIFIED_A), ("report-dev-a (1).json", "{ not json")],
+        );
+        let mut secrets = || Ok(0);
+        let mut stop = || Ok(());
+        let result = remove_old_data(&folder, &pg_root, NOW, ME, &mut secrets, &mut stop);
+        let _ = fs::remove_dir_all(&base);
+        assert_eq!(
+            result.as_deref(),
+            Err("refused: migration report report-dev-a (1).json is unreadable; delete the conflict copy report-dev-a (1).json")
+        );
     }
 
     #[test]
