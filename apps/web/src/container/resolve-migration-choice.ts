@@ -11,8 +11,9 @@ export type MigrationChoiceBridge = Migrate097Bridge & {
 /**
  * Settles the migration state before the backend is wired, so the choice is
  * made once and never races a late shell answer. Anything that does not
- * answer in time, has no folder, or throws is `unavailable`, which keeps the
- * old backend.
+ * answer in time, has no folder, or throws is `unavailable`. The backend choice
+ * then fails closed on desktop (read-only, see file-backend-choice.ts) and keeps
+ * PostgREST with writes on for web and Android, where there is no shell.
  */
 export async function resolveMigrationChoice(
   bridge: MigrationChoiceBridge | null | undefined,
