@@ -254,13 +254,13 @@ test("report has verifiedAt when verified, no runs errors field, and is written 
   assert.deepEqual(events.at(-1), { kind: "experiments", done: 1, total: 1 });
 });
 
-test("pending outbox refuses the export: state none, nothing written, no marker", async () => {
+test("pending outbox refuses the export: state incomplete, only the report written, no marker", async () => {
   const { source, calls } = fakeServer({ rows: FIXTURE, outbox: 2 });
   const sink = new MemorySink();
   const result = await runWebExport({ kinds: KINDS, codec: fakeCodec(SUPPORTED), source, sink, now: NOW });
 
-  assert.equal(result.state, "none");
-  assert.deepEqual(await sink.list(), []);
+  assert.equal(result.state, "incomplete");
+  assert.deepEqual(await sink.list(), [REPORT_PATH]);
   assert.equal(calls.some((c) => c.startsWith("list:") || c.startsWith("mark:")), false);
 });
 
@@ -423,7 +423,7 @@ test("desktop: a bridge without migrate097Backup refuses before any server read 
   assert.notEqual(result.state, "verified");
   assert.match(result.run.missing[0]!.reason, /migrate097Backup missing/);
   assert.deepEqual(calls, []);
-  assert.deepEqual(await sink.list(), []);
+  assert.deepEqual(await sink.list(), [REPORT_PATH]);
 });
 
 test("desktop: a failed backup aborts the export: no server read, no write, no marker, no mark-exported", async () => {
@@ -438,10 +438,10 @@ test("desktop: a failed backup aborts the export: no server read, no write, no m
     desktop: { folder: "C:/ws", bridge: fakeDesktop(calls, { backupFails: true }) },
   });
 
-  assert.equal(result.state, "none");
+  assert.equal(result.state, "incomplete");
   assert.match(result.run.missing[0]!.reason, /backup failed: disk full/);
   assert.deepEqual(calls, ["backup:C:/ws"]);
-  assert.deepEqual(await sink.list(), []);
+  assert.deepEqual(await sink.list(), [REPORT_PATH]);
 });
 
 test("desktop: mark-exported runs only after a verified run", async () => {
@@ -978,4 +978,33 @@ test("verify: syncState is local-only and is not compared", () => {
   const want = [{ id: "e1", name: "Exp", syncState: "synced" }];
   const got = [{ id: "e1", name: "Exp" }];
   assert.equal(sameRows("experiments", want, got), true);
+});
+
+test("keys: secrets present but no mover refuses the run and writes an incomplete report", async () => {
+  const sink = new MemorySink();
+  const { source, calls } = fakeServer({ rows: FIXTURE });
+  const result = await runWebExport({
+    kinds: KINDS,
+    codec: fakeCodec(SUPPORTED),
+    source,
+    sink,
+    now: NOW,
+    secretsPresent: true,
+  });
+  assert.equal(result.state, "incomplete");
+  assert.equal(calls.some((c) => c.startsWith("mark:")), false, "no server marker without a mover");
+  const report = JSON.parse(await sink.readText(REPORT_PATH)) as { state: string };
+  assert.equal(report.state, "incomplete");
+  assert.match(JSON.stringify(report), /keys: no mover/);
+});
+
+test("refused runs (outbox not empty) still write an incomplete report with the reason", async () => {
+  const sink = new MemorySink();
+  const { source } = fakeServer({ rows: FIXTURE });
+  source.pendingOutbox = async () => 2;
+  const result = await runWebExport({ kinds: KINDS, codec: fakeCodec(SUPPORTED), source, sink, now: NOW });
+  assert.equal(result.state, "incomplete");
+  const report = JSON.parse(await sink.readText(REPORT_PATH)) as { state: string };
+  assert.equal(report.state, "incomplete");
+  assert.match(JSON.stringify(report), /outbox not empty/);
 });

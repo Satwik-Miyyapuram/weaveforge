@@ -28,6 +28,8 @@ export type ExportOptions = {
   desktop?: { folder: string; bridge: DesktopMigration };
   /** KEYS hook: runs only after a verified run, before the markers. A throw leaves the run incomplete. */
   moveSecrets?: () => Promise<void>;
+  /** True when the source holds secrets: the run is refused unless a moveSecrets hook is given. */
+  secretsPresent?: boolean;
 };
 
 export type ExportResult = { state: MigrationState; run: RunReport };
@@ -45,7 +47,13 @@ async function writeReport(sink: FileSink, report: MigrationReport): Promise<voi
   await sink.rename(part, REPORT_PATH);
 }
 
-function refused(now: string, reason: string): ExportResult {
+/** A refused run writes nothing but an incomplete report that carries the reason. */
+async function refused(
+  sink: FileSink,
+  now: string,
+  reason: string,
+  extra: { backup?: string | null; deviceId?: string } = {},
+): Promise<ExportResult> {
   const run: RunReport = {
     startedAt: now,
     finishedAt: now,
@@ -54,7 +62,8 @@ function refused(now: string, reason: string): ExportResult {
     blobs: { db: 0, verified: 0 },
     missing: [{ kind: "*", id: "*", reason }],
   };
-  return { state: "none", run };
+  await writeReport(sink, { version: 1, state: "incomplete", backup: extra.backup ?? null, deviceId: extra.deviceId, runs: [run] });
+  return { state: "incomplete", run };
 }
 
 /**
@@ -64,7 +73,7 @@ function refused(now: string, reason: string): ExportResult {
  * Never deletes or changes a server personal row.
  */
 export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
-  const { kinds, codec, source, sink, now, onProgress, desktop, writers = [], moveSecrets } = opts;
+  const { kinds, codec, source, sink, now, onProgress, desktop, writers = [], moveSecrets, secretsPresent } = opts;
   const writerFor = (kind: string) => writers.find((w) => w.kinds.includes(kind));
   const dbCount: Record<string, number> = {};
   const backCount: Record<string, number> = {};
@@ -72,11 +81,16 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
   const written: Record<string, number> = {};
   const missing: MissingRow[] = [];
 
+  // A source that holds secrets cannot be exported without the KEYS mover that moves them.
+  if (secretsPresent && !moveSecrets) {
+    return refused(sink, now, "keys: no mover");
+  }
+
   // The pre-migration dump comes first: nothing is read or written without it.
   let deviceId: string | undefined;
   let dumpName: string | null = null;
   if (desktop && typeof desktop.bridge?.backup !== "function") {
-    return refused(now, "desktop migrate097Backup missing: the shell cannot make the pre-migration dump");
+    return refused(sink, now, "desktop migrate097Backup missing: the shell cannot make the pre-migration dump");
   }
   if (desktop) {
     try {
@@ -84,7 +98,7 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
       deviceId = made.deviceId;
       dumpName = made.dump;
     } catch (err) {
-      return refused(now, `backup failed: ${(err as Error).message}`);
+      return refused(sink, now, `backup failed: ${(err as Error).message}`);
     }
   }
 
@@ -106,7 +120,7 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
     return { state: "incomplete", run };
   }
   if (pending > 0) {
-    return refused(now, "outbox not empty: flush before export");
+    return refused(sink, now, "outbox not empty: flush before export", { backup: dumpName, deviceId });
   }
 
   // Early report: if the run dies before the end, report.json already says incomplete.
