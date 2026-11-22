@@ -17,7 +17,18 @@ Rules:
 
 - A notice shows when its `version` differs from the version stored in `localStorage` (`wf.releaseNotice.seen`). The latest row is the only one considered.
 - Dismissal is stored on this device only. It is not sent to the server, so `user_settings` is never read or written for notices. A notice may show once more on a new device or after storage is cleared.
+- A notice dismissed on the account before this change (the old `user_settings.last_release_notice_seen`) shows once more per device. Nothing migrates the old value.
 - `body` is plain text in the banner. It is not rendered as HTML.
+
+## TODO (1.0.0 cleanup)
+
+Dead code since the device-local change, to remove with the 1.0.0 drop:
+
+- `unseen` (reads `user_settings`) in the release-notices repository, and its
+  `IReleaseNoticesRepository` entry and facade/local stubs.
+- `saveNoticeSeen` and `unseen` in `crates/wf-core/src/repos/user_settings.rs`.
+- Column `user_settings.last_release_notice_seen` in `db/migrations/0156_release_notices.sql`,
+  dropped by a 1.0.0 migration (ask first; it is a production write).
 
 ## Publishing steps
 

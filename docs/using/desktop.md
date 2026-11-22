@@ -189,6 +189,35 @@ local database. If you still have 0.8 data you need, open it in 0.9.3 (or an
 earlier 0.9 release) first, which brings it over once, and then update. The old data is
 never changed or deleted, so it stays where 0.8 left it.
 
+### Upgrading to 0.9.7
+
+0.9.7 keeps your notes, papers, ink and settings as ordinary files in a
+workspace folder instead of the app's internal database. A workspace folder is
+now required: on first start choose **Open folder** or **New workspace** (the
+default is `Documents/WeaveForge`).
+
+The first time you open 0.9.7, an upgrade screen shows the move's progress and
+then a report. The report is saved as `.weaveforge/migration-0.9.7/report.json`
+in your workspace, and lists how many items moved for each kind, any conflict
+copies, and where the backup is. If the move does not finish, you can retry or
+keep using your old data; the old data is not changed.
+
+Nothing is deleted automatically. A backup is kept in
+`.weaveforge/migration-0.9.7/`. Once the move is verified, a **Remove old data**
+button appears; nothing is removed until you press it. It does not appear
+before the move is verified.
+
+Passwords and tokens are kept in your operating system's keychain, never in a
+file. On Linux, install a keyring that provides Secret Service first, for
+example:
+
+```
+sudo apt install gnome-keyring libsecret-1-0
+```
+
+then unlock the keyring and try again. If no keychain is available, WeaveForge
+asks again instead of saving the secret to disk.
+
 ### Upgrading to 0.9.8 and 1.0.0
 
 Update to 0.9.7 first. 0.9.8 does not move old database data itself, so an
@@ -216,6 +245,8 @@ That is deliberate: the app window is for WeaveForge, and a page that arrived
 from somewhere else does not get to run in it.
 
 ## Working without an account
+
+*(0.9.7 and earlier: this offline mode used the local database described below. From 0.9.7 the workspace folder replaces it.)*
 
 The desktop window offers **Use without an account, local only** on the
 sign-in screen (and **Work on this computer (offline)** on the "Couldn’t start the
@@ -254,7 +285,9 @@ What this covers and what it costs:
 There is a fuller table of what does and does not survive the network being
 unplugged in [How WeaveForge is put together](../building/architecture-map.md#offline-precisely).
 
-### Where it lives, and what happens if it breaks
+### 0.9.7 and earlier: where the local database lives, and what happens if it breaks
+
+This section describes the local database used by 0.9.7 and earlier. 0.9.7 moves that data into your workspace folder; see **Upgrading to 0.9.7** above.
 
 The database is a directory, `local-db`, under the app's own data directory
 (`%APPDATA%\@weaveforge\desktop` on Windows, `~/Library/Application Support/
