@@ -16,7 +16,9 @@ use axum::response::Response;
 use serde_json::{Map, Value, json};
 use wf_core::sync::instant::format_instant;
 
+use crate::auth::Caller;
 use crate::credential_crypto::{open, seal};
+use crate::legacy_credentials::{legacy_secrets, seal_patch};
 use crate::postgrest::eq;
 use crate::routes::AppState;
 use crate::sdk::{caller, db_failure, error_response, json_response, user_db};
@@ -89,11 +91,14 @@ pub async fn credentials_get(State(state): State<Arc<AppState>>, headers: Header
             Ok(secrets) => secrets,
             Err(response) => return response,
         },
-        None => clean_secrets(&json!({
-            "zoteroApiKey": field(&row, "zotero_api_key"),
-            "semanticScholarKey": field(&row, "semantic_scholar_key"),
-            "integrations": field(&row, "integrations"),
-        })),
+        // Legacy plaintext is never served as is: seal it, clear the columns, then return it.
+        None => match legacy_secrets(&row) {
+            Some(secrets) => match seal_on_read(&state, &caller, &secrets).await {
+                Ok(()) => secrets,
+                Err(response) => return response,
+            },
+            None => Map::new(),
+        },
     };
     no_store(json_response(200, &Value::Object(secrets)))
 }
@@ -150,6 +155,25 @@ fn open_secrets(envelope: &str, key: Option<&str>) -> Result<Map<String, Value>,
         Ok(value) => Ok(clean_secrets(&value)),
         Err(_) => Err(error_response(500, "Stored credential is not valid JSON.")),
     }
+}
+
+/// Stores legacy `secrets` sealed and clears the plaintext columns, guarded so a row sealed
+/// meanwhile is left alone. Fails the read rather than return secrets that were not saved.
+async fn seal_on_read(
+    state: &AppState,
+    caller: &Caller,
+    secrets: &Map<String, Value>,
+) -> Result<(), Response> {
+    let patch = seal_patch(secrets, state.settings.credential_key.as_deref())
+        .map_err(|message| error_response(500, &message))?;
+    let guard = [
+        ("user_id", eq(&caller.user_id)),
+        ("credentials_enc", "is.null".to_string()),
+    ];
+    user_db(state, caller)
+        .update("user_settings", &guard, &patch)
+        .await
+        .map_err(|err| db_failure(&err, "credentials"))
 }
 
 /// A reply that must not be cached, since it carries secrets.
