@@ -146,7 +146,7 @@ async fn list_page(
     }
 }
 
-/// One service-role call to Supabase Storage; a non-2xx reply becomes its message.
+/// One service-role call to Supabase Storage; a non-2xx reply becomes a fixed message with its status.
 async fn storage_call(
     state: &AppState,
     method: Method,
@@ -174,15 +174,11 @@ async fn storage_call(
     if status.is_success() {
         Ok(value)
     } else {
-        Err(storage_message(&value))
+        // The storage reply's own text is never logged or returned; the status is enough.
+        eprintln!("[account purge storage] HTTP {}", status.as_u16());
+        Err(format!(
+            "Object storage refused the request (HTTP {}).",
+            status.as_u16()
+        ))
     }
-}
-
-/// The `message` or `error` text of a storage error body.
-fn storage_message(body: &Value) -> String {
-    ["message", "error"]
-        .iter()
-        .find_map(|key| body.get(*key).and_then(Value::as_str))
-        .unwrap_or("Storage request failed.")
-        .to_string()
 }

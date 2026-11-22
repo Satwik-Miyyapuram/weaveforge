@@ -170,13 +170,15 @@ async fn full_page_asks_for_the_next_offset() {
 async fn storage_listing_error_keeps_registry_rows() {
     let up = upstream(vec![(
         PAPER_LIST,
-        vec![json_reply(500, r#"{"message":"boom"}"#)],
+        vec![json_reply(500, r#"{"message":"boom secret-key"}"#)],
     )])
     .await;
     let err = purge_user_blobs(&state(&up, StorageConfig::default()), "u1")
         .await
         .unwrap_err();
-    assert_eq!(err, "boom");
+    // The storage API's own text never reaches the caller; only the status does.
+    assert_eq!(err, "Object storage refused the request (HTTP 500).");
+    assert!(!err.contains("boom") && !err.contains("secret"));
     assert!(
         !up.seen()
             .iter()
