@@ -543,7 +543,6 @@ pub fn repo_step(repo: &str, method: &str, call: &RepoCall) -> RepoStep {
         "projects" => crate::repos::projects_repo::step(method, call),
         "shared_items" => crate::repos::shared_items::step(method, call),
         "account" => crate::repos::account::step(method, call),
-        "experiment_push" => crate::repos::experiment_push::step(method, call),
         _ => return RepoStep::fail(format!("No Rust repository named {repo}")),
     };
     step.unwrap_or_else(|| RepoStep::fail(format!("No method {method} on Rust repository {repo}")))
@@ -763,7 +762,6 @@ mod tests {
         "projects",
         "shared_items",
         "account",
-        "experiment_push",
     ];
 
     #[test]

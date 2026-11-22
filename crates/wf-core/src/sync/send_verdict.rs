@@ -1,6 +1,5 @@
 //! The status verdict on one PostgREST write and the id-presence rules behind
 //! `missingIds` in `apps/web/src/features/offline-sync/infra/postgrest-transport.ts`.
-//! The step machine that sequences the follow-up reads is `sync::send_steps`.
 
 use serde::{Deserialize, Serialize};
 
