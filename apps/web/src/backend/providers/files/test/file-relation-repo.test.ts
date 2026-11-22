@@ -98,3 +98,22 @@ test("an empty folder has no edges", async () => {
   const edges = new FilePaperRelationRepository(new FilePaperRepository(fs, ROOT), fs, () => ROOT);
   assert.deepEqual(await edges.getGraph(), []);
 });
+
+test("an edge to a paper whose link an unreadable file blocks is refused, naming why, and nothing is written", async () => {
+  const { fs, edges } = await setup();
+  // Unclosed frontmatter: the link scan cannot read it, and its path ends with b's whole folder link.
+  await fs.writeFile(`${ROOT}/papers/old/${ROOT}/papers/b.paper.md`, "---\nweaveforge-id: x\n");
+  const before = await fs.readText(A);
+  const realWarn = console.warn;
+  console.warn = () => {};
+  try {
+    await assert.rejects(edges.save(edge({ fromPaper: "a", toPaper: "b" })), (e: unknown) => {
+      assert.ok(e instanceof NotFoundError);
+      assert.match((e as Error).message, /could not be read/);
+      return true;
+    });
+  } finally {
+    console.warn = realWarn;
+  }
+  assert.equal(await fs.readText(A), before);
+});

@@ -30,6 +30,10 @@ function idOf(target: LinkTarget): string {
   return "paperId" in target ? target.paperId : target.vaultPageId;
 }
 
+function sameTarget(a: LinkTarget, b: LinkTarget): boolean {
+  return "paperId" in a === "paperId" in b && idOf(a) === idOf(b);
+}
+
 /** A file the scan could not read, and why. */
 export interface Unreadable {
   path: string;
@@ -81,7 +85,10 @@ export class Links {
     const shared =
       this.entries.some((e) => e !== hit && e.key === hit.key) ||
       this.unreadable.some((u) => core.listItemKey(`[[${u.path.slice(u.path.lastIndexOf("/") + 1).replace(/\.md$/, "")}]]`) === hit.key);
-    return `[[${shared ? hit.path : hit.path.slice(hit.path.lastIndexOf("/") + 1)}]]`;
+    const link = `[[${shared ? hit.path : hit.path.slice(hit.path.lastIndexOf("/") + 1)}]]`;
+    // Never write a link that would not read back to this target (an unreadable file can hide even the folder link).
+    const back = this.resolve(link);
+    return back && sameTarget(back, hit.target) ? link : null;
   }
 
   private find(target: LinkTarget): Entry | undefined {
@@ -92,6 +99,9 @@ export class Links {
 }
 
 export class LinkIndex {
+  /** The unreadable files (path and reason) already logged; see `snapshot`. */
+  private warned = new Set<string>();
+
   constructor(
     private readonly fs: IWorkspaceFs,
     private readonly root: ProjectRoot,
@@ -103,7 +113,13 @@ export class LinkIndex {
     const vault = await this.scan("vault_page", ".note.md");
     const unreadable = [...paper.unreadable, ...vault.unreadable];
     // Lookups keep the files they could read; each unreadable one is logged, never dropped silently.
-    for (const u of unreadable) console.warn(`Skipped ${u.path}: could not read it.`, u.reason);
+    // Logged once while it stays unreadable for the same reason, so repeated lookups do not repeat it.
+    // Two snapshots running at once may both log it; that only repeats a warning.
+    const now = new Set(unreadable.map((u) => `${u.path}\0${u.reason}`));
+    for (const u of unreadable) {
+      if (!this.warned.has(`${u.path}\0${u.reason}`)) console.warn(`Skipped ${u.path}: could not read it.`, u.reason);
+    }
+    this.warned = now;
     return new Links([...paper.entries, ...vault.entries], unreadable);
   }
 

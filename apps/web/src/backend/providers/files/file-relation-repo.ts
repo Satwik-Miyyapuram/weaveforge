@@ -73,8 +73,14 @@ export class FilePaperRelationRepository implements IPaperRelationRepository {
     if (!(await this.papers.getById(relation.fromPaper))) {
       throw new NotFoundError(`No paper with id "${relation.fromPaper}".`);
     }
-    const to = await this.links.linkFor({ paperId: relation.toPaper });
-    if (!to) throw new NotFoundError(`No paper with id "${relation.toPaper}".`);
+    const links = await this.links.snapshot();
+    const to = links.linkFor({ paperId: relation.toPaper });
+    if (!to) {
+      if (!links.pathFor({ paperId: relation.toPaper })) throw new NotFoundError(`No paper with id "${relation.toPaper}".`);
+      // The paper exists, but an unreadable file makes any link to it ambiguous: say which file to fix.
+      const blocking = links.unreadable.map((u) => u.path).join(", ");
+      throw new NotFoundError(`Paper "${relation.toPaper}" cannot be linked: ${blocking} could not be read. Fix or move that file first.`);
+    }
     const entry: RelationEntry = {
       to,
       type: relation.relation,

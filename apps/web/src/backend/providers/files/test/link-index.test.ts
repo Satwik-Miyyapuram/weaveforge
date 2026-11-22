@@ -143,3 +143,68 @@ test("(P2) linkFor writes the folder link when an unreadable file shares the nam
     console.warn = realWarn;
   }
 });
+const BROKEN = "---\nweaveforge-id: p2\n";
+
+async function quietly<T>(run: (warned: unknown[][]) => Promise<T>): Promise<T> {
+  const warned: unknown[][] = [];
+  const realWarn = console.warn;
+  console.warn = (...args: unknown[]) => void warned.push(args);
+  try {
+    return await run(warned);
+  } finally {
+    console.warn = realWarn;
+  }
+}
+
+test("(P3) linkFor returns null rather than a link that resolve() would refuse or send elsewhere", async () => {
+  const { fs, papers, index } = await setup();
+  // Its path ends with p1's whole path, so it could match p1's folder link too.
+  await fs.writeFile(`${papers}/old/${papers}/x.paper.md`, BROKEN);
+  await quietly(async () => {
+    const links = await index.snapshot();
+    assert.equal(links.resolve(`[[${papers}/x.paper]]`), null, "the folder link is ambiguous");
+    assert.equal(links.linkFor({ paperId: "p1" }), null, "no link is written that would not read back");
+  });
+});
+
+test("(P3) every link linkFor writes resolves back to its own target", async () => {
+  const { fs, notes, papers, index } = await setup();
+  await fs.writeFile(`${papers}/old/x.paper.md`, BROKEN);
+  await quietly(async () => {
+    const links = await index.snapshot();
+    for (const { target } of links.all()) {
+      const link = links.linkFor(target);
+      assert.ok(link, `a link for ${JSON.stringify(target)}`);
+      assert.deepEqual(links.resolve(link), target, `${link} reads back`);
+    }
+    assert.equal(links.linkFor({ vaultPageId: "n1" }), `[[${notes}/a/Untitled.note]]`);
+  });
+});
+
+test("(P3) an unreadable file blocks the bare link in any case and with an alias; a folder link in another case still resolves", async () => {
+  const { fs, papers, index } = await setup();
+  await fs.writeFile(`${papers}/old/x.paper.md`, BROKEN);
+  await quietly(async () => {
+    const links = await index.snapshot();
+    for (const link of ["[[x.paper]]", "[[X.PAPER]]", "[[x.paper|Alias]]", "[[X.Paper.md]]"]) {
+      assert.equal(links.resolve(link), null, link);
+    }
+    assert.deepEqual(links.resolve(`[[${papers.toUpperCase()}/X.Paper|a]]`), { paperId: "p1" });
+  });
+});
+
+test("(P3) an unreadable file is logged once, and again only when the set of unreadable files changes", async () => {
+  const { fs, papers, index } = await setup();
+  await fs.writeFile(`${papers}/old/x.paper.md`, BROKEN);
+  await quietly(async (warned) => {
+    await index.snapshot();
+    await index.resolve("[[x.paper]]");
+    await index.linkFor({ paperId: "p1" });
+    await index.snapshot();
+    assert.equal(warned.length, 1, "the same broken file is logged once");
+    await fs.writeFile(`${papers}/old/y.paper.md`, BROKEN);
+    await index.snapshot();
+    assert.equal(warned.filter((w) => String(w[0]).includes("y.paper.md")).length, 1, "a newly broken file is logged");
+    assert.equal(warned.filter((w) => String(w[0]).includes("old/x.paper.md")).length, 1, "the old one is not logged again");
+  });
+});
