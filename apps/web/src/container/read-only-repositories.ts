@@ -51,3 +51,18 @@ export function readOnlyRepositories<T extends object>(repos: T): T {
   }
   return out as T;
 }
+
+/** Backend bag fields that hold repositories or stores. */
+const REPOSITORY_FIELD = /(Repository|Store)$/;
+
+/**
+ * Wraps only the repository and store fields of a wired backend. Use cases, the
+ * database client and config are left as they are.
+ */
+export function readOnlyBackend<T extends object>(backend: T): T {
+  const out: Record<string, unknown> = { ...(backend as Record<string, unknown>) };
+  for (const [key, value] of Object.entries(backend)) {
+    if (REPOSITORY_FIELD.test(key) && value && typeof value === "object") out[key] = readOnlyRepository(value);
+  }
+  return out as T;
+}

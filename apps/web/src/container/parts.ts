@@ -42,8 +42,7 @@ import type { OpenAlexWork, ResourceType } from "@weaveforge/wasm";
 import { type BackendConfig, readBackendConfig } from "../backend/parts";
 import type { Migrate097Resolved } from "@/lib/desktop/migrate-097";
 import { chooseFileBackend } from "./file-backend-choice";
-import { localFirstParts } from "../backend/providers/local/local-first";
-import { localFirstActive } from "../backend/providers/local/local-first-marker";
+import { readOnlyBackend } from "./read-only-repositories";
 import {
   type WiredPostgrestBackend,
   wirePostgrestBackend,
@@ -353,6 +352,8 @@ export type WiredBackend = WiredPostgrestBackend;
 export interface PersonalFileWiring {
   /** From migrate097Status for this folder; only "verified" wires files. */
   migration?: Migrate097Resolved;
+  /** True on the desktop shell: its fallback is read-only, never writes-on. */
+  onDesktop?: boolean;
   /** Supplied by the browser/Android container lane. */
   wireBrowserFileBackend?: (
     config: BackendConfig,
@@ -367,19 +368,20 @@ export function wireBackend(
   pid: () => string | null = () => projectContext.projectId,
   files?: PersonalFileWiring,
 ): WiredBackend {
-  // 0.9.7: local mode (PGlite) is never selected at runtime on web, desktop or
-  // Android. The personal-data choice below is the only runtime switch.
-  // A signed-in desktop that has its account's data on disk works on that copy.
-  const account = localFirstActive();
-  if (account) return wirePostgrestBackend(config, projectContext, pid, localFirstParts(config, account));
-
+  // 0.9.7: local mode (PGlite) and the local-first account copy are never selected
+  // at runtime on web, desktop or Android. The personal-data choice below is the
+  // only runtime switch.
   switch (config.provider) {
     case "postgrest": {
       const wire = files?.wireBrowserFileBackend;
       return chooseFileBackend(
         files?.migration,
-        wire ? () => wire(config, projectContext, pid) : undefined,
-        () => wirePostgrestBackend(config, projectContext, pid),
+        {
+          files: wire ? () => wire(config, projectContext, pid) : undefined,
+          old: () => wirePostgrestBackend(config, projectContext, pid),
+          readOnly: () => readOnlyBackend(wirePostgrestBackend(config, projectContext, pid)),
+        },
+        files?.onDesktop === true,
       );
     }
     // `postgres` selects the server-side blob registry (storage/server/blob-api.ts),

@@ -165,7 +165,7 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
   // Awaited before `wireBackend`: the personal-data backend is chosen once, from
   // the folder's migration report, so the choice never races a late answer.
   const migration = await resolveMigrationChoice(desktop());
-  const backend = wireBackend(readBackendConfig(), projectContext, pid, { migration });
+  const backend = wireBackend(readBackendConfig(), projectContext, pid, { migration, onDesktop: Boolean(desktop()) });
   if ("db" in backend) {
     projectLww.watch(backend.db, pid());
   }
