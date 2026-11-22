@@ -184,16 +184,17 @@ pub fn remove_old_data(
     stop_pg()?;
     if !resume {
         update_report(&report_path, |r| {
-            r["state"] = "removing".into();
             r["removingDeviceId"] = device_id.into();
             r["removals"][device_id] = serde_json::json!({ "state": "removing" });
+            if is_removal_state(r) {
+                r["state"] = "removing".into();
+            }
         })?;
     }
-    if postmaster_live(&pg_root.join("data").join("postmaster.pid")) {
-        return Err(
-            "refused: postgres still running (data/postmaster.pid present); stop it, then remove again"
-                .to_owned(),
-        );
+    if let Some(running) = live_postmaster(&pg_root.join("data").join("postmaster.pid")) {
+        return Err(format!(
+            "refused: postgres still running ({running}); stop it, then remove again"
+        ));
     }
     mark_removed(pg_root)?;
     if pg_root.exists() {
@@ -206,14 +207,23 @@ pub fn remove_old_data(
             .map_err(|e| format!("cannot delete {}: {e}", backups.display()))?;
     }
     update_report(&report_path, |r| {
-        r["state"] = "removed".into();
-        r["removedAt"] = now.into();
         r["removals"][device_id] = serde_json::json!({ "state": "removed", "removedAt": now });
+        if is_removal_state(r) {
+            r["state"] = "removed".into();
+            r["removedAt"] = now.into();
+        }
     })
 }
 
+/// Whether the top-level state is one a removal may move on from. Another device's "incomplete"
+/// or "exporting" is left alone; this device's own removals entry is what it reads back.
+fn is_removal_state(report: &serde_json::Value) -> bool {
+    matches!(report["state"].as_str(), Some("verified" | "removing" | "removed"))
+}
+
 /// Writes report.json as `change` applied to a fresh read, so other devices' runs and removal
-/// entries survive. Re-reads just before writing and retries when the file changed meanwhile.
+/// entries survive. Re-reads just before the write, then reads back after the rename and retries
+/// when the change did not land. A narrow window remains between the re-read and the rename.
 fn update_report(report_path: &Path, change: impl Fn(&mut serde_json::Value)) -> Result<(), String> {
     for _ in 0..REPORT_WRITE_TRIES {
         let before = fs::read_to_string(report_path)
@@ -222,45 +232,58 @@ fn update_report(report_path: &Path, change: impl Fn(&mut serde_json::Value)) ->
             .map_err(|_| "refused: migration report is unparsable".to_owned())?;
         change(&mut fresh);
         if fs::read_to_string(report_path).is_ok_and(|now| now == before) {
-            return write_json_atomic(report_path, &fresh);
+            write_json_atomic(report_path, &fresh)?;
+            let landed = fs::read_to_string(report_path)
+                .ok()
+                .and_then(|text| serde_json::from_str::<serde_json::Value>(&text).ok());
+            if landed.as_ref() == Some(&fresh) {
+                return Ok(());
+            }
         }
     }
     Err("refused: report.json kept changing during the removal; try again".to_owned())
 }
 
-/// Whether a `postmaster.pid` left in the cluster names a live process. A stale file (its PID is
-/// gone) does not block; a file that exists but cannot be read or parsed does.
-fn postmaster_live(pid_file: &Path) -> bool {
+/// The running postgres named by a `postmaster.pid` left in the cluster, described for the refusal.
+/// A stale file (its PID is gone) does not block; a file that cannot be parsed does.
+fn live_postmaster(pid_file: &Path) -> Option<String> {
     match fs::read_to_string(pid_file) {
         Ok(text) => match text.lines().next().and_then(|line| line.trim().parse::<u32>().ok()) {
-            Some(pid) => process_alive(pid),
-            None => true,
+            Some(pid) if process_alive(pid) => Some(format!("pid {pid} from data/postmaster.pid")),
+            Some(_) => None,
+            None => Some("data/postmaster.pid is unreadable".to_owned()),
         },
-        Err(_) => pid_file.exists(),
+        Err(_) if pid_file.exists() => Some("data/postmaster.pid is unreadable".to_owned()),
+        Err(_) => None,
     }
 }
 
+/// Whether `pid` is a running postgres. The image name must match, so a reused PID of another
+/// program does not count; a failed query counts as alive (refuse, never delete on doubt).
 #[cfg(windows)]
 fn process_alive(pid: u32) -> bool {
-    // `tasklist` prints the PID column only for a running process; a failed query counts as alive.
     std::process::Command::new("tasklist")
         .args(["/FI", &format!("PID eq {pid}"), "/NH", "/FO", "CSV"])
         .output()
         .map_or(true, |out| {
-            !out.status.success()
-                || String::from_utf8_lossy(&out.stdout).contains(&format!("\"{pid}\""))
+            !out.status.success() || {
+                let listed = String::from_utf8_lossy(&out.stdout);
+                listed.contains(&format!("\"{pid}\"")) && listed.contains("\"postgres.exe\"")
+            }
         })
 }
 
+/// Whether `pid` is alive. `kill -0` fails for EPERM too, so only "No such process" means dead.
 #[cfg(not(windows))]
 fn process_alive(pid: u32) -> bool {
     std::process::Command::new("kill")
         .arg("-0")
         .arg(pid.to_string())
-        .stdout(std::process::Stdio::null())
-        .stderr(std::process::Stdio::null())
-        .status()
-        .map_or(true, |status| status.success())
+        .output()
+        .map_or(true, |out| {
+            out.status.success()
+                || !String::from_utf8_lossy(&out.stderr).contains("No such process")
+        })
 }
 
 /// Name of the marker, in app data beside `local-pg`, that says the old cluster was removed.

@@ -413,13 +413,32 @@ fn stop_failure_keeps_the_cluster() {
     );
 }
 
+/// A short-lived child that stands in for postgres. On Windows it is a copy of ping.exe named
+/// postgres.exe, so the liveness check sees the image name it looks for; it exits by itself.
+fn fake_postmaster() -> std::process::Child {
+    if cfg!(windows) {
+        let dir = std::env::temp_dir().join(format!("wf-m097-fake-pg-{}", std::process::id()));
+        fs::create_dir_all(&dir).unwrap();
+        let exe = dir.join("postgres.exe");
+        let _copied = fs::copy(r"C:\Windows\System32\PING.EXE", &exe).unwrap();
+        std::process::Command::new(&exe)
+            .args(["-n", "10", "127.0.0.1"])
+            .stdout(std::process::Stdio::null())
+            .spawn()
+            .unwrap()
+    } else {
+        std::process::Command::new("sleep").arg("10").spawn().unwrap()
+    }
+}
+
 #[test]
 fn postmaster_pid_left_after_stop_keeps_the_cluster() {
     let f = Fixture::new("pid-left", Some("verified"), Some(good_dump().as_slice()));
-    // This test process is alive, so its PID stands in for a running postmaster.
+    // A live process whose image is postgres.exe stands in for a running postmaster.
+    let _fake = fake_postmaster();
     fs::write(
         f.pg_root.join("data/postmaster.pid"),
-        format!("{}\n", std::process::id()),
+        format!("{}\n", _fake.id()),
     )
     .unwrap();
     let mut stop = || Ok(());
@@ -445,8 +464,10 @@ fn resume_stops_postgres_before_deleting() {
         r#"{{"version":1,"state":"removing","removingDeviceId":"{DEVICE}","backup":"{BACKUP_NAME}","verifiedAt":"{NOW}","runs":[{RUN_CLEAN}]}}"#
     ));
     let mut stopped = 0;
+    let pg_root = f.pg_root.clone();
     let mut stop = || {
         stopped += 1;
+        assert!(pg_root.exists(), "postgres must stop while the cluster still exists");
         Ok(())
     };
     f.run(&mut stop).expect("a resumed removal finishes");
