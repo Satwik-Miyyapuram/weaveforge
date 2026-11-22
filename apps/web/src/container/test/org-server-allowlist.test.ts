@@ -6,7 +6,7 @@ import assert from "node:assert/strict";
 import { ORG_SERVER_RPCS, ORG_SERVER_TABLES } from "../org-server-allowlist";
 
 /** Personal tables 0165 archives. `projects` and `user_settings` stay live until 0167 and are allowed. */
-const PERSONAL = ["papers", "notes", "tags", "metrics", "relations", "pins", "reading_lists", "citation_alerts"];
+const PERSONAL = ["papers", "notes", "tags", "paper_tags", "metrics", "relations", "pins", "reading_lists", "citation_alerts"];
 
 /** Personal sync and sharing names that must never reach the org server allowlist. */
 const PERSONAL_SYNC = [
