@@ -18,7 +18,7 @@ WeaveForge 0.9.8 may ask you to open 0.9.7 once before the app opens. This page 
 
 Only people with data from an older version are asked. A new install or a new account is never held back.
 
-- **Desktop:** if an old local database is found, the app shows "Install 0.9.7 first." and stays closed until 0.9.7 has moved your data across.
+- **Desktop:** if an old local database is found, the app shows "Open 0.9.7 once more." and stays closed until 0.9.7 has moved your data across.
 - **Web:** if your account has old server data and no export from 0.9.7, the app shows "Export from 0.9.7 first." An account without old data sees nothing.
 
 ## What the check looks at
@@ -41,6 +41,7 @@ The screen links to the 0.9.7 download. On the web there is no folder picker, be
 
 No account is needed. Your notes are files in your workspace folder, and no database is used.
 <!-- Sources: apps/web/src/backend/parts.ts:183,222-234 (no-account light backend is files-only); apps/web/src/container/parts.ts:384-386. Local mode itself is kept in 0.9.8 (decision by coordinator). -->
+
 ## What changed
 
 - **Sync:** the offline sync feature is removed in 0.9.8. Your notes are files in your workspace folder. Sync with GitHub is a folder sync, and Settings shows which repository the workspace backs up to.
