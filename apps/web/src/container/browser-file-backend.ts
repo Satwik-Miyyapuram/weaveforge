@@ -9,6 +9,7 @@ import { wireFileBackend } from "@/backend/providers/files/wire-file-backend";
 import { wirePostgrestBackend } from "@/backend/providers/postgrest/wire-postgrest-backend";
 import { BrowserWorkspaceFs } from "@/features/workspace/infrastructure/parts";
 import { browserReportVerified } from "@/features/migration-097/domain/report";
+import { readOrCreateInstallId } from "./browser-install-id";
 import type { WiredBackend } from "./parts";
 import { overlayFileRepositories } from "./with-file-repositories";
 
@@ -61,10 +62,14 @@ export async function openBrowserFileWiring(): Promise<BrowserFileWiring> {
   return wireBrowserFiles(await BrowserWorkspaceFs.openOpfs());
 }
 
-/** True only when the OPFS folder holds a clean verified 0.9.7 export. Any failure reads as false. */
+/**
+ * True only when the OPFS folder holds a clean verified 0.9.7 export for this browser install (its
+ * own run is matched by its stable install id). Any failure, including no id, reads as false.
+ */
 export async function browserReportOk(): Promise<boolean> {
   try {
-    return await browserReportVerified(await BrowserWorkspaceFs.openOpfs());
+    const fs = await BrowserWorkspaceFs.openOpfs();
+    return await browserReportVerified(fs, await readOrCreateInstallId(fs));
   } catch {
     return false;
   }

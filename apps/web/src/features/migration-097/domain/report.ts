@@ -45,6 +45,10 @@ export type RunReport = {
   missing: MissingRow[];
   /** The device that made this run: one entry per device in report.json. Absent when no id is known. */
   deviceId?: string;
+  /** This run's own outcome. Set per run so a later run from another device cannot change it. Absent on older reports. */
+  state?: MigrationState;
+  /** Where this run exported to. Absent on older reports. */
+  target?: MigrationTarget;
 };
 
 export type MigrationReport = {
@@ -59,14 +63,6 @@ export type MigrationReport = {
   target?: MigrationTarget;
   runs: RunReport[];
 };
-
-/**
- * True when the browser write gate must be on: the OPFS repos hold a verified export.
- * The zip download never sets this (it writes no report), and a folder export never does either.
- */
-export function writesOff(report: Pick<MigrationReport, "state" | "target"> | null | undefined): boolean {
-  return report?.state === "verified" && report.target === "opfs";
-}
 
 /**
  * Reads the report from the OPFS sink. Null when the file is absent, is not JSON, or is not a
@@ -84,30 +80,52 @@ export async function readMigrationReport(fs: Pick<FileSink, "readText">): Promi
 }
 
 /**
- * True only when the OPFS repos hold a clean verified export: state verified, target opfs, and no
- * run lists a missing row. Anything else (absent, corrupt, incomplete, folder, zip) is false.
+ * True only when the OPFS repos hold a clean verified export for this device. `ownDeviceId` is this
+ * install's stable id (the browser and Android keep one under .weaveforge/local/; desktop uses its
+ * backup id). Without an id nothing is this device's own run, so the result is false.
+ * Anything else (absent, corrupt, incomplete, folder-only) is false.
  */
-export async function browserReportVerified(fs: Pick<FileSink, "readText">): Promise<boolean> {
-  return isVerifiedOpfsReport(await readMigrationReport(fs));
+export async function browserReportVerified(fs: Pick<FileSink, "readText">, ownDeviceId?: string): Promise<boolean> {
+  return isVerifiedOpfsReport(await readMigrationReport(fs), ownDeviceId);
 }
 
 const KNOWN_KINDS: ReadonlySet<string> = new Set<string>(MIGRATION_KINDS);
 
+function deviceOf(run: object): string | undefined {
+  const id = (run as { deviceId?: unknown }).deviceId;
+  return typeof id === "string" ? id : undefined;
+}
+
+/** A run is clean when it lists no missing row and every kind it names is a known migration kind. */
+function runIsClean(run: object): boolean {
+  const { missing, kinds } = run as { missing?: unknown; kinds?: unknown };
+  if (!Array.isArray(missing) || missing.length !== 0) return false;
+  if (typeof kinds !== "object" || kinds === null || Array.isArray(kinds)) return false;
+  return Object.keys(kinds).every((kind) => KNOWN_KINDS.has(kind));
+}
+
 /**
- * The one validator for "the OPFS repos hold a clean verified export". Used for a report read from
- * disk, so a hand-edited file is checked the same way: state verified, target opfs, `runs` a list,
- * every run with a `missing` list that is empty and a `kinds` object whose keys are all known kinds.
+ * The one validator for "the OPFS repos hold a clean verified export for this device". Used for a
+ * report read from disk, so a hand-edited file is checked the same way. Runs are grouped by deviceId
+ * and each group's newest run is taken: writeReport appends a device's run last, so that is the last
+ * entry. Every device's newest run must be verified and clean. This device's own newest run must
+ * also have target opfs. The top-level state and target are the last writer's, so they are not read.
  * Never throws; anything malformed is false.
  */
-export function isVerifiedOpfsReport(report: unknown): boolean {
+export function isVerifiedOpfsReport(report: unknown, ownDeviceId?: string): boolean {
+  // No install id means no own run: a run without an id must never unlock this device.
+  if (ownDeviceId === undefined) return false;
   if (typeof report !== "object" || report === null) return false;
-  const r = report as { state?: unknown; target?: unknown; runs?: unknown };
-  if (r.state !== "verified" || r.target !== "opfs" || !Array.isArray(r.runs)) return false;
-  return r.runs.every((run: unknown) => {
+  const runs = (report as { runs?: unknown }).runs;
+  if (!Array.isArray(runs)) return false;
+  const newest = new Map<string | undefined, object>();
+  for (const run of runs as unknown[]) {
     if (typeof run !== "object" || run === null) return false;
-    const { missing, kinds } = run as { missing?: unknown; kinds?: unknown };
-    if (!Array.isArray(missing) || missing.length !== 0) return false;
-    if (typeof kinds !== "object" || kinds === null || Array.isArray(kinds)) return false;
-    return Object.keys(kinds).every((kind) => KNOWN_KINDS.has(kind));
-  });
+    newest.set(deviceOf(run), run);
+  }
+  const own = newest.get(ownDeviceId);
+  if (own === undefined || (own as { target?: unknown }).target !== "opfs") return false;
+  return [...newest.values()].every(
+    (run) => (run as { state?: unknown }).state === "verified" && runIsClean(run),
+  );
 }
