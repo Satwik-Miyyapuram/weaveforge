@@ -847,10 +847,12 @@ fn rename_with(
     dest: &Path,
     rename: impl Fn(&Path, &Path) -> io::Result<()>,
 ) -> io::Result<()> {
-    fs::OpenOptions::new()
-        .write(true)
-        .create_new(true)
-        .open(dest)?;
+    drop(
+        fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(dest)?,
+    );
     rename(src, dest).inspect_err(|_| {
         if fs::metadata(dest).is_ok_and(|m| m.len() == 0) {
             let _ = fs::remove_file(dest);
@@ -1045,7 +1047,7 @@ mod move_tests {
         let src = dir.join("missing.md");
         let dest = dir.join("dest.md");
 
-        rename_without_replace(&src, &dest).expect_err("source is missing");
+        let _ = rename_without_replace(&src, &dest).expect_err("source is missing");
         assert!(!dest.exists());
         let _ = fs::remove_dir_all(&dir);
     }

@@ -26,23 +26,6 @@ export const commands = {
 	secretRead: (name: string) => typedError<string | null, ShellError_Serialize>(__TAURI_INVOKE("secret_read", { name })),
 	/**  Stores a secret the page may write. */
 	secretWrite: (name: string, value: string) => typedError<null, ShellError_Serialize>(__TAURI_INVOKE("secret_write", { name, value })),
-	/**
-	 *  Moves the old rows into the keychain and records the move. The workspace folder is the vault
-	 *  root on this side, never a value from the page. EXPORT calls it after the export is verified and
-	 *  before remove-old.
-	 * 
-	 *  Returns the names of write-only fields that were not moved, never their values. A rerun after a
-	 *  marker exists moves nothing and returns none.
-	 * 
-	 *  # Errors
-	 *  The keychain's reason when a field is not stored (for example `NoKeychain` on a machine without
-	 *  one), or the database's reason when the rows cannot be read. No marker is written on either.
-	 */
-	/**
-	 *  Whether the old database folder exists. Read only, metadata only: the database is never opened.
-	 *  The page asks this when a read of the old rows fails: a missing folder means no old secrets.
-	 */
-	legacyDbPresent: () => __TAURI_INVOKE<boolean>("legacy_db_present"),
 	/**  Forgets a secret the page may write. */
 	secretClear: (name: string) => typedError<null, ShellError_Serialize>(__TAURI_INVOKE("secret_clear", { name })),
 	/**
@@ -70,12 +53,16 @@ export const commands = {
 	/**  Bridge: whether old local-database data is on this device (`legacyDbPresent`). */
 	legacyDbPresent: () => typedError<boolean, ShellError_Serialize>(__TAURI_INVOKE("legacy_db_present")),
 	/**
-	 *  Bridge: whether the workspace at `folder` has a verified 0.9.7 migration report
-	 *  (`migrationReportVerified`). Read-only; an unreadable file is a typed error.
+	 *  Bridge: whether this device's own run in the 0.9.7 report of the workspace at `folder` is
+	 *  verified (`migrationReportVerified`). Reads this device's id from app data, never creates it.
+	 *  An unreadable report or id file is a typed error.
 	 */
 	migrationReportVerified: (folder: string) => typedError<boolean, ShellError_Serialize>(__TAURI_INVOKE("migration_report_verified", { folder })),
-		/**  Bridge: whether the "install 0.9.7 first" gate shows (`installGateRequired`). Errors when this device's id is unreadable. */
-		installGateRequired: () => typedError<boolean, ShellError_Serialize>(__TAURI_INVOKE("install_gate_required")),
+	/**
+	 *  Bridge: whether the "install 0.9.7 first" gate shows (`installGateRequired`). Never errors; the
+	 *  `Result` keeps the binding shape. See [`install_gate_passes`].
+	 */
+	installGateRequired: () => typedError<boolean, ShellError_Serialize>(__TAURI_INVOKE("install_gate_required")),
 	/**
 	 *  Writes a text file atomically if it still has digest `expected_hash` (`None` = always).
 	 * 
@@ -598,6 +585,14 @@ export const commands = {
 	 *  Returns an error when the main window cannot be opened.
 	 */
 	planWidgetOpen: () => typedError<null, ShellError_Serialize>(__TAURI_INVOKE("plan_widget_open")),
+	/**
+	 *  The widget's deadlines from the chosen folder's milestone files. `None` when no folder is
+	 *  chosen or it cannot be read; the page then asks the owner to open WeaveForge.
+	 * 
+	 *  # Errors
+	 *  Returns an error when the background read fails or the summary cannot be sent.
+	 */
+	planWidgetData: () => typedError<unknown | null, ShellError_Serialize>(__TAURI_INVOKE("plan_widget_data")),
 };
 
 /* Types */

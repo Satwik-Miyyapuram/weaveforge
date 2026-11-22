@@ -34,6 +34,7 @@ mod dashboard_layout;
 mod dashboard_packing;
 mod dashboard_stats;
 mod date_format;
+mod db_claims;
 mod document_stats;
 mod editor_workspace;
 mod entity_codecs;

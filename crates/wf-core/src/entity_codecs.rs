@@ -286,6 +286,7 @@ fn legacy_sections(body: &str) -> (Option<String>, Option<String>) {
 
 /// The `weaveforge-id` a file of any kind declares, read with the same frontmatter
 /// rules as the row parser (quoted or bare). `None` when there is none or it is blank.
+#[must_use]
 pub fn entity_id_from_text(text: &str) -> Option<String> {
     if let Some(id) = split(text).and_then(|file| file.text(ID_KEY)) {
         let id = id.trim();

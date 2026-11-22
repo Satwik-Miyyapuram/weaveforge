@@ -116,10 +116,12 @@ fn is_link(meta: &fs::Metadata) -> bool {
     {
         use std::os::windows::fs::MetadataExt as _;
         const FILE_ATTRIBUTE_REPARSE_POINT: u32 = 0x400;
-        return meta.file_attributes() & FILE_ATTRIBUTE_REPARSE_POINT != 0;
+        meta.file_attributes() & FILE_ATTRIBUTE_REPARSE_POINT != 0
     }
     #[cfg(not(windows))]
-    false
+    {
+        false
+    }
 }
 
 /// True when any old local database (native Postgres or PGlite) may be on disk under `app_data`.
@@ -166,6 +168,10 @@ pub fn legacy_db_from(
 /// Bridge: whether old local-database data is on this device (`legacyDbPresent`).
 #[tauri::command]
 #[specta::specta]
+#[allow(
+    clippy::needless_pass_by_value,
+    reason = "tauri commands take owned arguments"
+)]
 pub fn legacy_db_present(app: tauri::AppHandle) -> Result<bool, ShellError> {
     use tauri::Manager as _;
     let paths = app.path();
@@ -311,6 +317,10 @@ fn run_is_complete(run: &serde_json::Value) -> bool {
 /// An unreadable report or id file is a typed error.
 #[tauri::command]
 #[specta::specta]
+#[allow(
+    clippy::needless_pass_by_value,
+    reason = "tauri commands take owned arguments"
+)]
 pub fn migration_report_verified(
     app: tauri::AppHandle,
     folder: String,
@@ -339,7 +349,8 @@ fn configured_root(old_dir: &Path) -> Option<PathBuf> {
     Some(PathBuf::from(root))
 }
 
-/// This device's KEYS marker, written once its secrets are moved: `<workspace>/.weaveforge/migration-0.9.7/secrets-moved-<deviceId>.json`.
+/// This device's KEYS marker:
+/// `<workspace>/.weaveforge/migration-0.9.7/secrets-moved-<deviceId>.json`.
 /// 0.9.7 writes the marker after it moves this device's secrets; 0.9.8 only reads it.
 #[must_use]
 pub fn secrets_marker_path(workspace: &Path, device_id: &str) -> PathBuf {
@@ -353,7 +364,8 @@ pub fn secrets_marker_path(workspace: &Path, device_id: &str) -> PathBuf {
 /// shows only when old local-database data is on this device AND no configured workspace holds both
 /// this device's verified 0.9.7 export and its secrets-moved marker. A check that cannot tell (old
 /// data unreadable, no app-data path, device id unreadable, workspace folder missing, report
-/// unreadable) passes, so the gate never blocks on a guess. A fresh install never reads the device id.
+/// unreadable while the marker exists) passes, so the gate never blocks on a guess. A fresh install
+/// never reads the device id.
 #[must_use]
 pub fn install_gate_passes(
     app_data: Option<&Path>,
@@ -399,6 +411,10 @@ fn exported_here(prefs_dir: &Path, device_id: &str) -> Option<bool> {
 /// `Result` keeps the binding shape. See [`install_gate_passes`].
 #[tauri::command]
 #[specta::specta]
+#[allow(
+    clippy::needless_pass_by_value,
+    reason = "tauri commands take owned arguments"
+)]
 pub fn install_gate_required(app: tauri::AppHandle) -> Result<bool, ShellError> {
     use tauri::Manager as _;
     let paths = app.path();
@@ -1041,7 +1057,7 @@ mod tests {
 
     #[test]
     fn empty_runs_in_every_report_file_are_not_verified() {
-        let empty = r#"{"state":"none","runs":[]}"#;
+        let empty = r#"{"state":"incomplete","runs":[]}"#;
         let folder = reports_in(
             "report-empty-union",
             &[("report.json", empty), ("report-device-a.json", empty)],
