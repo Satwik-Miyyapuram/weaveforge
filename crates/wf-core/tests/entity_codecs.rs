@@ -81,11 +81,22 @@ fn report_section_and_reading_list_round_trip() {
         EntityKind::ReadingList,
         json!({
             "id": "l1", "name": "Core", "description": "Must read", "parentId": "l0",
-            "sortOrder": 1, "color": "#ff0000", "createdAt": "2026-11-01T00:00:00Z",
-            "members": ["[[Smith 2024.paper]]", "[[My note]]"],
-            "memberNotes": {"[[Smith 2024.paper]]": "key paper"}
+            "sortOrder": 1, "color": "#ff0000", "createdAt": "2026-11-01T00:00:00Z"
         }),
     );
+}
+
+#[test]
+fn reading_list_file_holds_no_members() {
+    // Membership lives on each member (lists / list-notes frontmatter), not on the list.
+    let input = row(json!({
+        "id": "l1", "name": "Core", "createdAt": "2026-11-01T00:00:00Z",
+        "members": ["[[Smith 2024.paper]]"],
+        "memberNotes": {"[[Smith 2024.paper]]": "key paper"}
+    }));
+    let text = render_entity_row(EntityKind::ReadingList, None, &input).expect("renders");
+    assert!(!text.contains("members"), "{text}");
+    assert!(!text.contains("member-notes"), "{text}");
 }
 
 #[test]

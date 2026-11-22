@@ -121,8 +121,6 @@ const LIST: Spec = Spec {
         ("sortOrder", "order", Shape::Number),
         ("color", "color", Shape::Text),
         ("createdAt", "created-at", Shape::Text),
-        ("members", "members", Shape::Json),
-        ("memberNotes", "member-notes", Shape::Json),
     ],
     body: ("description", false),
 };
