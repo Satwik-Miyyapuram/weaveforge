@@ -14,11 +14,14 @@ import { overlayFileRepositories } from "./with-file-repositories";
 /** A backend wired in files mode: its personal repositories are file repositories, marked so callers can tell. */
 export type BrowserFileBackend = WiredBackend & { readonly filesMode: true };
 
-export type BrowserFileWiring = (
+export type BrowserFileWiring = ((
   config: BackendConfig,
   projectContext: { projectId: string | null },
   pid: () => string | null,
-) => BrowserFileBackend;
+) => BrowserFileBackend) & {
+  /** Releases what the wiring opened. The OPFS handle needs no release, so this is a no-op today. */
+  close(): Promise<void>;
+};
 
 /**
  * The browser and Android personal-data backend: PostgREST with every personal repository
@@ -27,7 +30,11 @@ export type BrowserFileWiring = (
  */
 export async function wireBrowserFiles(fs: IWorkspaceFs): Promise<BrowserFileWiring> {
   const settings = await openFileSettingsSection(fs, "");
-  return (config, projectContext, pid) => {
+  const build: (
+    config: BackendConfig,
+    projectContext: { projectId: string | null },
+    pid: () => string | null,
+  ) => BrowserFileBackend = (config, projectContext, pid) => {
     // Files mode guards `db` and every repository the wiring builds on the server client, so personal
     // tables and rpcs throw before any request. Org and share tables stay reachable.
     const postgrest = wirePostgrestBackend(config, projectContext, pid, undefined, { filesMode: true });
@@ -45,6 +52,7 @@ export async function wireBrowserFiles(fs: IWorkspaceFs): Promise<BrowserFileWir
       rawBlobStore: new FileBlobStore(fs),
     };
   };
+  return Object.assign(build, { close: async () => {} });
 }
 
 /** The OPFS folder for the browser and Android WebView. Opened only when the migration allows files. */

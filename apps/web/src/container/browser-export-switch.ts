@@ -67,7 +67,12 @@ export async function decideBrowserSwitch(deps: SwitchDeps): Promise<SwitchDecis
     });
     if (!outcome.switch) return { switch: false, reason: "not-verified" };
     const wiring = await deps.openWiring();
-    await source.markExported097();
+    try {
+      await source.markExported097();
+    } catch (err) {
+      await wiring.close();
+      throw err;
+    }
     await recordServerMarked(sink);
     return { switch: true, wiring };
   } catch {

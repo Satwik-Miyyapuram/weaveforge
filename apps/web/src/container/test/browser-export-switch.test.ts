@@ -4,7 +4,7 @@ import { decideBrowserSwitch, type SwitchDeps } from "../browser-export-switch";
 import { MemorySink } from "../../features/migration-097/infrastructure/memory-sink";
 import { REPORT_PATH, readMigrationReport } from "../../features/migration-097/domain/report";
 
-const WIRING = { wiring: true } as unknown as Awaited<ReturnType<SwitchDeps["openWiring"]>>;
+const WIRING = { wiring: true, close: async () => {} } as unknown as Awaited<ReturnType<SwitchDeps["openWiring"]>>;
 
 function harness(over: Partial<SwitchDeps> = {}) {
   const gateCalls: unknown[] = [];
@@ -218,6 +218,27 @@ test("(P2-2) a mark that fails after wiring opens keeps the switch off, and a re
 });
 
 // What the gate leaves on disk when it verified but skipped the marks: incomplete, markers pending.
+test("(P2-2) a failed mark closes the opened wiring exactly once", async () => {
+  let closed = 0;
+  const wiring = Object.assign(
+    () => {
+      throw new Error("not called in this test");
+    },
+    {
+      close: async () => {
+        closed += 1;
+      },
+    },
+  );
+  const h = harness({
+    fetch: async () => new Response(null, { status: 500 }),
+    openWiring: async () => wiring as unknown as Awaited<ReturnType<SwitchDeps["openWiring"]>>,
+  });
+  const out = await decideBrowserSwitch(h.deps);
+  assert.deepEqual(out, { switch: false, reason: "error" });
+  assert.equal(closed, 1);
+});
+
 const PENDING_REPORT = JSON.stringify({
   version: 1,
   state: "incomplete",
