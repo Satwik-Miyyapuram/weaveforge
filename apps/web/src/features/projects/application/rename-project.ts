@@ -11,11 +11,18 @@ import { followProjectRename } from "@/features/workspace/application/parts-3";
  * the old one would never be followed. A folder that will not move is left to
  * the next sync, which tries again; the saved name stands. The save comes
  * first, so a failed save moves nothing.
+ *
+ * `onFolderMoved` tells the caller the old and new folder, so records keyed by
+ * folder (paper field definitions) follow the project.
  */
 export async function renameProject(
   project: Project,
   name: string,
-  deps: { save: (project: Project) => Promise<void>; fs: IWorkspaceFs | null },
+  deps: {
+    save: (project: Project) => Promise<void>;
+    fs: IWorkspaceFs | null;
+    onFolderMoved?: (from: string, to: string) => Promise<void>;
+  },
 ): Promise<Project> {
   const trimmed = typedCore().projectName(name);
   if (!trimmed) throw new ProjectValidationError("Project name is required.");
@@ -25,5 +32,6 @@ export async function renameProject(
   if (deps.fs) {
     await followProjectRename(deps.fs, renamed).catch((e) => console.warn("project folder not moved", e));
   }
+  await deps.onFolderMoved?.(typedCore().projectDir(project), typedCore().projectDir(renamed));
   return renamed;
 }

@@ -61,8 +61,8 @@ export class FileReaderAnnotationRepository implements IReaderAnnotationSource, 
       tags: [...(draft.tags ?? [])],
       anchor: structuredClone(draft.anchor),
       sortIndex: draft.sortIndex?.trim() || core.buildAnnotationSortIndex(draft.pageIndex, 0, 0),
-      createdAt: now,
-      updatedAt: now,
+      createdAt: draft.createdAt ?? now,
+      updatedAt: draft.updatedAt ?? now,
       syncState: "local",
     };
     const path = await this.path(paperId);

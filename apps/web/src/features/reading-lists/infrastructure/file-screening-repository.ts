@@ -9,6 +9,7 @@
  * into the item it resolves to, the way any other link in the vault resolves.
  */
 import { NotFoundError, type IScreeningRepository, type ScreeningDecision } from "@weaveforge/core";
+import { type AppLogInput, logToApp } from "@/lib/error-report/app-log";
 import { readyCore } from "@/lib/rust-core";
 
 /** A list file as read: its workspace path, text and content hash. */
@@ -33,7 +34,10 @@ export interface ListFilesPort {
 }
 
 export class FileScreeningRepository implements IScreeningRepository {
-  constructor(private readonly files: ListFilesPort) {}
+  constructor(
+    private readonly files: ListFilesPort,
+    private readonly report: (input: AppLogInput) => void = logToApp,
+  ) {}
 
   async listForItems(itemIds: readonly string[]): Promise<ScreeningDecision[]> {
     if (itemIds.length === 0) return [];
@@ -52,12 +56,17 @@ export class FileScreeningRepository implements IScreeningRepository {
 
   /** The file's decisions, or none when it cannot be read, so one damaged list
    *  never hides the others. A damaged file is never written, and it is reported
-   *  to the console so the damage is not silent. */
+   *  through logToApp so the damage is not silent. */
   private readable(file: ListFile): ScreeningDecision[] {
     try {
       return readyCore().screeningInListFile(file.text) as ScreeningDecision[];
     } catch (error) {
-      console.warn(`Reading-list file ${file.path} could not be read for screening; skipped.`, error);
+      this.report({
+        level: "warn",
+        source: "reading-lists",
+        message: `Reading-list file ${file.path} could not be read for screening; skipped.`,
+        detail: error instanceof Error ? error.message : String(error),
+      });
       return [];
     }
   }
