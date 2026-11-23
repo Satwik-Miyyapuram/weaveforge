@@ -43,8 +43,8 @@ function argForRust(value: unknown): unknown {
 }
 
 /**
- * Local PGlite rows carry `Date`s and bytea as `Uint8Array`; Rust reads them as
- * PostgREST sends them: timestamps as ISO text, bytea as `\x` hex.
+ * The in-process test client hands back `Date`s and bytea as `Uint8Array`; Rust reads them as
+ * PostgREST sends them: timestamps as ISO text, bytea as `\x` hex. PostgREST JSON passes through unchanged.
  */
 function replyAsText(data: unknown): unknown {
   if (data instanceof Date) return data.toISOString();

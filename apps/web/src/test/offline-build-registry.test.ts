@@ -27,7 +27,7 @@ test("modules that need a server are absent, not disabled", async () => {
 
 test("the app itself is all still there", async () => {
   const ids = (await offlineRegistry()).allModules.map((module) => module.id);
-  // `experiments` among them: the SDK writes into the local database now, so a
+  // `experiments` among them: the SDK records runs on this device, so a
   // copy with no account has runs of its own to show.
   for (const id of ["dashboard", "papers", "vault", "wiki", "logbook", "settings", "experiments"]) {
     assert.equal(ids.includes(id), true, `${id} should survive an offline build`);

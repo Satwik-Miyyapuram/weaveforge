@@ -222,7 +222,7 @@ Add the WeaveForge MCP server to your AI client's configuration file (e.g. `clau
 
 ### Human-in-the-Loop Review (`/ai-review`)
 
-AI assistants cannot write directly to your database. Any modification suggested by an
+AI assistants cannot write directly to your workspace. Any modification suggested by an
 AI assistant is saved as a proposal in **`/ai-review`**. Nothing changes until you
 click **Approve** or **Reject**. Some proposals show **Approve and append** or
 **Approve and write cell** instead of **Approve**. See

@@ -45,3 +45,28 @@ test("production web code has no local-DB state reads or lost-DB guard", () => {
   }
   assert.deepEqual(hits, []);
 });
+
+// Prose is part of the surface: a comment that says the app waits for, or reads
+// rows from, a local database sends the next reader after code that is gone.
+// Only files that name the old database to describe the 0.9.7 move may say it.
+const OLD_DB_WORDS = /local database|own database|PGlite/i;
+const NAMES_THE_OLD_DB = new Set([
+  "features/workspace/ui/install-097-gate.tsx",
+  "features/report/ui/use-linked-reports.ts",
+  "backend/providers/files/file-settings-repos.ts",
+  "lib/desktop/desktop-bridge.ts",
+]);
+
+test("production web code does not describe a local database it no longer has", () => {
+  const hits: string[] = [];
+  for (const file of productionFiles(SRC)) {
+    const path = relative(SRC, file).split(sep).join("/");
+    if (NAMES_THE_OLD_DB.has(path)) continue;
+    readFileSync(file, "utf8")
+      .split("\n")
+      .forEach((line, i) => {
+        if (OLD_DB_WORDS.test(line)) hits.push(`${path}:${i + 1}`);
+      });
+  }
+  assert.deepEqual(hits, []);
+});
