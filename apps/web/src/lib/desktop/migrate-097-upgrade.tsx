@@ -127,7 +127,7 @@ export function Migrate097UpgradeBody({
   onContinue,
 }: UpgradeBodyProps) {
   const kinds = Object.entries(progress);
-  // A count per kind, bounded however many rows failed; report.json in the report folder lists each row.
+  // A count per kind, bounded however many rows failed; this device's report-<id>.json in the report folder lists each row.
   const archiveCounts = new Map<string, number>();
   for (const r of archivedOnly) archiveCounts.set(r.kind, (archiveCounts.get(r.kind) ?? 0) + 1);
   const archiveLine =

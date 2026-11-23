@@ -159,28 +159,32 @@ way a browser tab gets it. There is nothing to download and no version of the
 app to keep in step.
 
 What the installer holds is the window itself: signing in, links opening in your
-browser, and the machinery underneath them. That part changes rarely, and when
-it does the app tells you **once you sign in** — not every time you open it. A
-box that appears at every launch is a box people learn to close without reading,
-and by the time it matters they have stopped seeing it.
+browser, and the machinery underneath them. The desktop app checks for a new
+version of it in the background. When one is ready, a banner above the page
+says **WeaveForge X is ready — Restart to update**, with an **Update now**
+button and a **Later** button. **Later** hides the banner for that version; the
+next version shows it again. Nothing installs until you press **Update now**.
 
-Nothing is downloaded until you choose to. Choosing to opens the release page in
-your browser, where the installer is the same one you first installed from.
+Updating takes one click. The banner shows the download's progress, then
+**Installing WeaveForge X. WeaveForge will restart.**, and the window comes back
+on the new version.
 
-Between sign-ins the same fact sits in **Settings → Updates**, with a dot on the
-section when a newer version is out. That section also shows which version this
-window is, and has a **Check now** button if you would rather ask than wait.
+**Settings → Updates** shows the **Current version** and has a **Check for
+updates** button; the app menu has **Check for updates…** too. When a version is
+ready the section says **Version X is ready to install.** with the same
+**Update now** button.
+
+- If an update fails, the error is shown and the button reads **Try again**.
+- **This update is held: export your data first, then try again.** means the
+  update waits for the 0.9.7 move of your data to be verified (see
+  [Upgrading to 0.9.7](#upgrading-to-097)); from an older version, install
+  0.9.7 first. There is no install button while it is held. Once the move is
+  verified, press **Check for updates** and **Update now** comes back.
+- **Automatic updates are not set up in this build.** means this copy cannot
+  update itself; install the new version from the release page instead.
 
 The section is not there in a browser, because a browser has no window to
 update — whatever it loads is already current.
-
-**On a Mac** the app does not update itself: macOS only lets an app replace
-itself when Apple has signed it, and this one is not. The same **Updates**
-section applies: when a newer version is out it says so, with a **Get** button
-that opens the release page. Nothing is installed without you.
-
-If the check cannot reach GitHub the section says **Could not check for
-updates. Try again.** and the window keeps working.
 
 ### Coming from 0.8
 
@@ -196,14 +200,17 @@ workspace folder instead of the app's internal database. A workspace folder is
 now required: choose a folder for your workspace before you start working.
 
 The first time you open 0.9.7, an upgrade screen shows the move's progress and
-then a report. The report is saved as `.weaveforge/migration-0.9.7/report.json`
-in your workspace, and lists how many items moved for each kind, any conflict
+then a report. The report is saved as
+`.weaveforge/migration-0.9.7/report-<device id>.json` in your workspace (one
+per computer), and lists how many items moved for each kind, any conflict
 copies, and where the backup is.
 
 Nothing is deleted automatically. A backup is kept in
 `.weaveforge/migration-0.9.7/`. Once the move is verified, a **Remove old data**
 button appears; nothing is removed until you press it. It does not appear
-before the move is verified.
+before the move is verified. Pressing it deletes the old local database on this
+computer and its `local-db-backups` folder. A leftover `local-db` folder from an
+older version is harmless; nothing reads it any more.
 
 Passwords and tokens are kept in your operating system's keychain, never in a
 file. On Linux, install a keyring that provides Secret Service first, for
@@ -221,8 +228,7 @@ Update to 0.9.7 first. 0.9.8 does not move old database data itself.
 
 - **0.9.8** keeps your device passwords and tokens only in your operating
   system's keychain. The no-account copy of your data runs on your workspace
-  files, not on the local database. The Overleaf token saved by 0.9.7 is removed
-  from the keychain when the app starts.
+  files, not on the local database.
 - **1.0.0** is the first stable release. Everything in 0.9.8 is included. The
   server's personal-table removal is not part of 1.0.0 yet: those tables stay on
   the server until a later 1.0.x applies it.
@@ -247,7 +253,7 @@ and it shows the path of the report. You can copy that path, then choose
 **Retry**, or **Keep using old data** to stay on the database for now.
 
 Once the move is verified, **Settings → Data → Remove old data** deletes the
-old local copy. It asks first and names the backup that stays behind. It only
+old local database and its `local-db-backups` folder. It asks first and names the backup that stays behind. It only
 appears after a verified move to this folder.
 
 ## Links
@@ -258,7 +264,7 @@ from somewhere else does not get to run in it.
 
 ## Working without an account
 
-*(0.9.7 and earlier: this offline mode used the local database described below. From 0.9.7 the workspace folder replaces it.)*
+*(0.9.6 and earlier: this offline mode used the local database described below. From 0.9.7 the workspace folder replaces it.)*
 
 The desktop window offers **Use without an account, local only** on the
 sign-in screen (and **Work on this computer (offline)** on the "Couldn’t start the
@@ -297,9 +303,9 @@ What this covers and what it costs:
 There is a fuller table of what does and does not survive the network being
 unplugged in [How WeaveForge is put together](../building/architecture-map.md#offline-precisely).
 
-### 0.9.7 and earlier: where the local database lives, and what happens if it breaks
+### 0.9.6 and earlier: where the local database lives, and what happens if it breaks
 
-This section describes the local database used by 0.9.7 and earlier. 0.9.7 moves that data into your workspace folder; see **Upgrading to 0.9.7** above.
+This section describes the local database used by 0.9.6 and earlier. 0.9.7 moves that data into your workspace folder; see **Upgrading to 0.9.7** above.
 
 The database is a directory, `local-db`, under the app's own data directory
 (`%APPDATA%\@weaveforge\desktop` on Windows, `~/Library/Application Support/
@@ -360,16 +366,17 @@ was too big to keep simply opens the normal way, with the loading screen.
 
 ## Updates
 
-The window checks GitHub releases for a newer version when **Settings → Updates**
-opens, and keeps the answer for an hour. The app downloads nothing itself. When a
-newer version is out, the section shows it with a **Get** button, labelled with the new version
-number, that opens the release page in your browser. A failed check shows "Could not check for updates.
-Try again." and is not kept, so the next look asks again. **Check now** in that
-section, or **Help → Check for updates…**, asks straight away.
+The window checks for a newer version in the background. When one is out,
+**Settings → Updates** says **Version X is ready to install.** and a banner
+above the page offers **Update now**. One click downloads it, shows the
+progress, installs it and restarts the window on the new version; see
+[Updating](#updating). A failed check or install shows the error and lets you
+try again. **Check for updates** in that section, or **Help → Check for
+updates…**, asks straight away.
 
-SECURITY: the Windows build is not code-signed. Nothing is installed by the app
-itself; the installer comes from the release page in your browser, over HTTPS.
-That is weaker than a signature, and signing is the fix.
+SECURITY: the app installs an update only after checking it against the
+signing key built into this copy. A copy built without a key does no checks
+and says **Automatic updates are not set up in this build.**
 
 ## The window's menu
 
