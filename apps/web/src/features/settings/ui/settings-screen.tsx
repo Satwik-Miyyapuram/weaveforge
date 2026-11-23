@@ -502,16 +502,21 @@ export function SettingsScreen() {
               <h3 className="settings-group">Integrations</h3>
               <p className="muted">Metadata sources for your library. Tap one to configure it.</p>
               {isOfflineBuild() ? (
-                // The desktop bundle has no `/api/settings/credentials` to seal
-                // them behind, so they go in this machine's database instead —
-                // signed in or not. Saying so is the whole point: a reader who
-                // has just signed in would otherwise reasonably assume the key
-                // went to their account, and it did not. See `DeviceSecretsStore`.
+                // The desktop keeps keys on this machine, signed in or not.
+                // Saying so is the whole point: a reader who has just signed in
+                // would otherwise reasonably assume the key went to their
+                // account, and it did not. See `DeviceSecretsStore`.
                 <p className="muted">
                   Keys are kept on this computer, in the app&rsquo;s own folder, protected by its file
                   permissions. Signing in does not move them to your account.
                 </p>
-              ) : null}
+              ) : (
+                // The browser keeps no keys (`RefusingSecretsStore`): say so
+                // before someone types one and the save is refused.
+                <p className="muted">
+                  API keys can&rsquo;t be saved in the browser in this version. Add them in the desktop app.
+                </p>
+              )}
               <div className="integration-list">
                 {userIntegrations.map((d) => {
                   const connected = typedCore().isUserIntegrationConnected(

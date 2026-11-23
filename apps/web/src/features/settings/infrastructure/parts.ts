@@ -1,5 +1,4 @@
 import { rustRepository } from "@/backend/providers/postgrest/rust-repository";
-import { relayUrl } from "@/lib/parts";
 import { typedCore } from "@/lib/rust-core";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type {
@@ -16,9 +15,8 @@ import type { applyUserIntegrationFields } from "@weaveforge/wasm";
  * PostgREST implementation of ISettingsRepository. One row per user; user_id is
  * filled by the column default auth.uid(). Non-secret fields go through the
  * Rust-planned queries (`repos/user_settings.rs`); integration credentials (Zotero / GitLab / Semantic Scholar) go
- * through a `SecretsStore` — by default the server route that seals them with a
- * server-held key, and on a deployment with no routes of its own, this machine
- * (see `SecretsStore`).
+ * through a `SecretsStore`: the OS keychain on the desktop, none on the hosted web
+ * (see `secretsStoreFor`).
  */
 
 interface SettingsRow {
@@ -55,68 +53,15 @@ interface SettingsRows {
   acceptDisclaimer(): Promise<void>;
   saveNoticeSeen(version: string): Promise<void>;
 }
-const CREDENTIALS_ROUTE = "/api/settings/credentials";
 
 /**
- * Where integration credentials are kept.
- *
- * A seam rather than two `protected` methods on the repository, because the
- * question it answers is *"does this deployment have a server that can answer
- * its own routes"* and not *"is this window working without an account"*. Those
- * are two different questions, and answering the second one when the first was
- * meant is what broke saving credentials in the desktop app: the window was
- * signed in, so it took the server path, and the static export holds
- * `src/app/api/` aside (`apps/shell/scripts/build-web.mjs`). The request
- * reached the `app://` handler, which can only serve files out of the bundle,
- * and came back a 404 with an empty body — which `saveSecrets` can only report
- * as the generic "Failed to save integration credentials.".
- *
- * `apps/shell/src` applies `db/migrations-local` on every
- * launch, so the alternative store below is always available on a machine that
- * has the local database, signed in or not.
+ * Where integration credentials are kept: the OS keychain on the desktop
+ * (`DeviceSecretsStore`), none on the hosted web (`RefusingSecretsStore`).
+ * `secretsStoreFor` picks one by build, never by sign-in state.
  */
 export interface SecretsStore {
   load(): Promise<Secrets>;
   save(secrets: Secrets): Promise<void>;
-}
-
-/**
- * The server route, which seals credentials with a key the browser never holds.
- *
- * Correct wherever there is a server, and the only store whose contents follow
- * the account to another device.
- */
-export class RouteSecretsStore implements SecretsStore {
-  constructor(private readonly db: SupabaseClient) {}
-
-  private async authHeader(): Promise<Record<string, string>> {
-    const { data } = await this.db.auth.getSession();
-    const token = data.session?.access_token;
-    return token ? { Authorization: `Bearer ${token}` } : {};
-  }
-
-  async load(): Promise<Secrets> {
-    const res = await fetch(relayUrl(CREDENTIALS_ROUTE), { headers: await this.authHeader() });
-    // A failed read is not "no keys": shown as none, the next save would seal
-    // that empty set over every stored credential.
-    if (!res.ok) {
-      const body = (await res.json().catch(() => ({}))) as { error?: string };
-      throw new Error(body.error ?? "Failed to load integration credentials.");
-    }
-    return (await res.json()) as Secrets;
-  }
-
-  async save(secrets: Secrets): Promise<void> {
-    const res = await fetch(relayUrl(CREDENTIALS_ROUTE), {
-      method: "POST",
-      headers: { "Content-Type": "application/json", ...(await this.authHeader()) },
-      body: JSON.stringify(secrets),
-    });
-    if (!res.ok) {
-      const body = (await res.json().catch(() => ({}))) as { error?: string };
-      throw new Error(body.error ?? "Failed to save integration credentials.");
-    }
-  }
 }
 
 /**
@@ -155,8 +100,8 @@ export class PostgrestSettingsRepository implements ISettingsRepository {
   constructor(
     private readonly db: SupabaseClient,
     private readonly session: ICurrentUserProvider,
-    /** Defaults to the server route; see `SecretsStore` for when it must not. */
-    private readonly secrets: SecretsStore = new RouteSecretsStore(db),
+    /** Where credentials are kept; `secretsStoreFor` picks it for the build. */
+    private readonly secrets: SecretsStore,
   ) {
     this.rows = rustRepository<SettingsRows>(db, "user_settings", ["row", "metadata", "saveRow", "saveDisclaimer", "saveAppearance", "acceptDisclaimer", "saveNoticeSeen"], async () => ({
       userId: (await session.getCurrentUserId()) ?? undefined,
@@ -171,7 +116,7 @@ export class PostgrestSettingsRepository implements ISettingsRepository {
    *
    * Every integration credential lookup goes through here — Zotero, Semantic
    * Scholar, the bibliography sync, the settings screen itself — and each one
-   * cost a `user_settings` row plus a `/api/settings/credentials` round trip.
+   * cost a `user_settings` row plus a secrets-store read.
    * Opening Settings made nine of the first and five of the second.
    */
   async get(): Promise<UserSettings> {

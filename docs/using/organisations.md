@@ -38,8 +38,8 @@ You see **Lab created.** with one code per invite role.
 
 1. Open **Settings → Org**, then under **People** choose **New account**.
 2. Choose a **Role** below your own. A professor can create PhD and master's accounts. A PhD supervisor can create master's accounts. A master's student cannot create any.
-3. Enter the **Full name** and **Email**, and a **Temporary password** of at least 8 characters.
-4. Choose **Create account**. The new member is recorded as supervised by you.
+3. Enter the **Full name** and **Email**.
+4. Choose **Create account**. The new member gets an email invite and sets their own password from it. They are recorded as supervised by you.
 
 ### Continue without a lab
 
@@ -53,7 +53,6 @@ On the first-run screen, choose **Continue without an org**. You can join or cre
 | Invite roles | `professor`, `phd`, `masters` |
 | Invite code | 9 characters, Crockford base32, shown as `XXX-XXX-XXX`. Typed with or without dashes. Case does not matter. `I` and `L` read as `1`, and `O` reads as `0`. |
 | New account email | Required. |
-| New account password | At least 8 characters. |
 | Role order | Professor (2), then PhD supervisor (1), then master's student (0). Standalone is -1. |
 
 Error messages, with the cause:
@@ -66,7 +65,6 @@ Error messages, with the cause:
 | `Choose a PhD supervisor in this lab.` | A master's student joined without a PhD supervisor in the lab. |
 | `Unknown invite type.` | The invite names a role other than professor, PhD or master's. |
 | `Email is required.` | The new account has no email. |
-| `Password must be at least 8 characters.` | The temporary password is too short. |
 | `Unknown role: <role>` | The new account names a role that does not exist. |
 
 ## How it works

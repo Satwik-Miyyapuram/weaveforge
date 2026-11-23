@@ -96,7 +96,6 @@ test("the server-key set equals the documented list (a deliberate copy, not ORG_
     "db",
     "session",
     "auth",
-    "adminProvisioner",
     "projectContext",
     "releaseNoticesRepository",
     "manageSettings",

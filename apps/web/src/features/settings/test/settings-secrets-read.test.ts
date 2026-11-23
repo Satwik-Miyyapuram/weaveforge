@@ -1,59 +1,19 @@
 /**
  * A failed credentials read is an error, not "no keys" (31-01).
  *
- * The route answers 500 when it cannot read or decrypt the sealed credentials.
- * Read as `{}`, the screen showed no keys, and the next save sealed that empty
+ * Read as `{}`, the screen showed no keys, and the next save stored that empty
  * set over every stored credential. `save()` also re-read the secrets it was
- * about to overwrite, an extra round trip that would now fail the save (31-15).
+ * about to overwrite, an extra read that would now fail the save (31-15).
  */
 import assert from "node:assert/strict";
-import { afterEach, test } from "node:test";
+import { test } from "node:test";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { ICurrentUserProvider } from "@weaveforge/core";
 import {
   PostgrestSettingsRepository,
-  RouteSecretsStore,
   type Secrets,
   type SecretsStore,
 } from "@/features/settings/infrastructure/parts";
-
-const realFetch = globalThis.fetch;
-afterEach(() => { globalThis.fetch = realFetch; });
-
-function client(): SupabaseClient {
-  return {
-    auth: { getSession: async () => ({ data: { session: { access_token: "t" } } }) },
-  } as unknown as SupabaseClient;
-}
-
-function answer(status: number, body: unknown) {
-  const calls: Array<{ method: string }> = [];
-  globalThis.fetch = (async (_url: string, init?: RequestInit) => {
-    calls.push({ method: init?.method ?? "GET" });
-    return new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
-  }) as typeof fetch;
-  return calls;
-}
-
-test("the route store returns the secrets the route sends", async () => {
-  answer(200, { zoteroApiKey: "k" });
-  assert.deepEqual(await new RouteSecretsStore(client()).load(), { zoteroApiKey: "k" });
-});
-
-test("a 500 from the credentials route rejects with the route's error (31-01)", async () => {
-  answer(500, { error: "Credentials could not be decrypted." });
-  await assert.rejects(new RouteSecretsStore(client()).load(), /Credentials could not be decrypted/);
-});
-
-test("a non-OK answer with no JSON body still rejects (31-01)", async () => {
-  globalThis.fetch = (async () => new Response("<html>", { status: 502 })) as typeof fetch;
-  await assert.rejects(new RouteSecretsStore(client()).load(), /credentials/i);
-});
-
-test("a 401 rejects too, rather than reading as no keys (31-01)", async () => {
-  answer(401, { error: "Unauthorized" });
-  await assert.rejects(new RouteSecretsStore(client()).load(), /Unauthorized/);
-});
 
 /** A user_settings row, and a secrets store that counts its calls. */
 let uid = 0;

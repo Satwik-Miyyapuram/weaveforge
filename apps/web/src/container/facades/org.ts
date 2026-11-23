@@ -13,6 +13,14 @@ import type {
 } from "@weaveforge/core";
 import { typedCore } from "@/lib/rust-core";
 
+/** A new member to invite: everything but a password, which they set from the email. */
+export type NewMemberInvite = Omit<NewMemberInput, "password">;
+
+/**
+ * Stands in for the password the Rust validator still requires (at least 8 characters).
+ * It is never sent: the relay invites the member. Drop it once wf-core stops asking.
+ */
+const INVITE_PLACEHOLDER_PASSWORD = "invite-placeholder";
 export class OrgFacade {
   constructor(
     private readonly deps: {
@@ -47,13 +55,16 @@ export class OrgFacade {
   }
 
   /**
-   * Create an account beneath the signed-in user. The Rust core validates the input
+   * Create an account beneath the signed-in user. The member is invited by email and
+   * sets their own password, so none is taken here. The Rust core validates the input
    * and the hierarchy gate runs first; the server route re-checks the same rule.
    */
-  async createMember(input: NewMemberInput): Promise<Member> {
-    const normalized = typedCore().validateNewMember(input);
+  async createMember(input: NewMemberInvite): Promise<Member> {
+    const normalized = typedCore().validateNewMember({ ...input, password: INVITE_PLACEHOLDER_PASSWORD });
     await this.deps.members.assertCanCreate(normalized.role);
-    return this.deps.provisioner.createMember({ ...normalized, role: normalized.role as Role });
+    const { password: _placeholder, ...invite } = normalized;
+    // The core types still list a password (wf-core follow-up); the invite carries none.
+    return this.deps.provisioner.createMember({ ...invite, role: normalized.role as Role } as NewMemberInput);
   }
 
   loadSupervisee(memberId: string) {

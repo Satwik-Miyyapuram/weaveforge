@@ -34,7 +34,6 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   type DashboardLayout,
   type GraphPersistedState,
-  type IAdminUserProvisioner,
   type IAnnotationPinRepository,
   type IAnnotationQuotationTypeRepository,
   type IAuthService,
@@ -91,7 +90,7 @@ import type { ISharedReader, SharedItem } from "../../../features/sharing/domain
 import type { Integration, SyncProvider } from "../../../features/sync/domain/parts";
 import { guardOrgDb } from "@/container/org-db-guard";
 import { guardSharedReadDb } from "@/container/shared-read-guard";
-import { SupabaseAdminUserProvisioner, SupabaseSessionProvider } from "../supabase-auth/parts";
+import { SupabaseSessionProvider } from "../supabase-auth/parts";
 import { createDataClient } from "./parts-1";
 import { projectUserCtx, rustAiStores, rustRepository, rustVaultPageRepository } from "./rust-repository";
 import { watchWrites } from "./watch-writes";
@@ -201,7 +200,6 @@ export interface WiredPostgrestBackend {
   readonly db: SupabaseClient;
   readonly session: ICurrentUserProvider;
   readonly auth: IAuthService;
-  readonly adminProvisioner: IAdminUserProvisioner | null;
   readonly projectContext: ProjectContext;
   readonly settingsRepository: ISettingsRepository & SettingsWrites;
   readonly releaseNoticesRepository: IReleaseNoticesRepository;
@@ -300,13 +298,10 @@ export function wirePostgrestBackend(
   const ownSession = parts?.session ? null : new SupabaseSessionProvider(db);
   const session = parts?.session ?? ownSession!;
   const auth = parts?.auth ?? new SupabaseAuthService(db);
-  const adminProvisioner =
-    !parts && url && config.supabaseServiceRoleKey
-      ? new SupabaseAdminUserProvisioner(url, config.supabaseServiceRoleKey)
-      : null;
+
 
   const settingsRepository =
-    parts?.settingsRepository ?? new PostgrestSettingsRepository(db, session, secretsStoreFor(db));
+    parts?.settingsRepository ?? new PostgrestSettingsRepository(db, session, secretsStoreFor());
   const releaseNoticesRepository =
     parts?.releaseNotices ??
     refuseInFilesMode(
@@ -618,7 +613,6 @@ export function wirePostgrestBackend(
     db,
     session,
     auth,
-    adminProvisioner,
     projectContext,
     settingsRepository,
     releaseNoticesRepository,

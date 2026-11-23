@@ -145,3 +145,25 @@ test("a refused account creation keeps the cached team", async (t) => {
   await backend.memberRepository.listTeam();
   assert.equal(counts.get("profiles"), before);
 });
+
+test("account creation sends no password: the relay invites the member by email (0.9.8)", async (t) => {
+  const original = globalThis.fetch;
+  t.after(() => {
+    globalThis.fetch = original;
+  });
+  let sent: Record<string, unknown> | null = null;
+  globalThis.fetch = (async (_url: unknown, init?: RequestInit) => {
+    sent = JSON.parse(String(init?.body)) as Record<string, unknown>;
+    return new Response(JSON.stringify({ member: { id: "new", email: "n@example.com", role: "masters" } }), {
+      status: 200,
+    });
+  }) as typeof fetch;
+  // A caller that still hands in a password (the core type asks for one) must not leak it.
+  await new HttpAccountProvisioner({ getAccessToken: async () => "token" }).createMember({
+    email: "n@example.com",
+    password: "secret-pass",
+    fullName: "N",
+    role: "masters",
+  });
+  assert.deepEqual(sent, { email: "n@example.com", fullName: "N", role: "masters" });
+});
