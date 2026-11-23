@@ -323,6 +323,25 @@ fn a_missing_workspace_folder_alone_does_not_hold_the_update() {
 }
 
 #[test]
+fn a_shared_workspace_db_alone_is_not_old_data() {
+    // A shared or cloned workspace may carry a `.weaveforge/db`; it is not this device's data.
+    let root = std::env::temp_dir().join(format!("wf-ws-db-only-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&root);
+    let data = root.join("data");
+    let ws = root.join("ws");
+    let ws_db = ws.join(".weaveforge").join("db");
+    std::fs::create_dir_all(&data).unwrap();
+    std::fs::create_dir_all(&ws_db).unwrap();
+    std::fs::write(ws_db.join("PG_VERSION"), "16").unwrap();
+    let prefs = serde_json::json!({ "vault-root": ws.to_string_lossy() });
+    std::fs::write(data.join("preferences.json"), prefs.to_string()).unwrap();
+    let local = local_data_in(Some(&data));
+    assert_eq!(local, LocalData::None);
+    assert!(install_allowed("0.9.7", "0.9.8", local).is_ok());
+    let _ = std::fs::remove_dir_all(&root);
+}
+
+#[test]
 fn a_missing_workspace_folder_with_local_pg_holds_the_update() {
     let (root, data) = data_with_missing_root("ws-gone-local-pg");
     let pg = data.join("local-pg");

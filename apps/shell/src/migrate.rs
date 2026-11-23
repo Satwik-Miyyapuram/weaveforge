@@ -32,18 +32,14 @@ pub enum OldDb {
     None,
 }
 
-/// The old PGlite database to import: the workspace's when it holds one (Electron moves it there
-/// once a folder is chosen), else the app's own `local-db`. A configured workspace folder that is
+/// The app's own old PGlite database, `local-db`. A workspace's `.weaveforge/db` does not count:
+/// the folder may be shared or cloned from another device. A configured workspace folder that is
 /// missing gives `WorkspaceMissing` rather than falling back to the stale app copy.
 #[must_use]
 pub fn old_db_state(data_dir: &Path) -> OldDb {
     let is_db = |dir: &Path| dir.join("PG_VERSION").is_file();
     let app_db = data_dir.join("local-db");
     if let Some(root) = configured_root(data_dir) {
-        let ws_db = root.join(WORKSPACE_META_DIR).join("db");
-        if is_db(&ws_db) {
-            return OldDb::Found(ws_db);
-        }
         if !root.is_dir() {
             return OldDb::WorkspaceMissing(root);
         }
@@ -127,7 +123,9 @@ fn is_link(meta: &fs::Metadata) -> bool {
 /// True when any old local database (native Postgres or PGlite) may be on disk under `app_data`.
 /// Dumps in `local-db-backups` are left out: 0.9.7 cannot migrate from them. A missing or unplugged
 /// workspace alone is not old data: a fresh install whose remembered folder is gone must not be
-/// locked out. With other old data (`local-pg`, `local-db`, or an Electron dir) the gate still runs.
+/// locked out. A workspace's own `.weaveforge/db` is left out too: the folder may be shared or
+/// cloned from another device, so it says nothing about this one. With other old data
+/// (`local-pg`, `local-db`, or an Electron dir) the gate still runs.
 pub fn legacy_db_in(app_data: &Path) -> Result<bool, ShellError> {
     let db_err = |e: std::io::Error| {
         legacy_unreadable("legacy_db_unreadable", "an old local database folder", &e)
@@ -135,15 +133,7 @@ pub fn legacy_db_in(app_data: &Path) -> Result<bool, ShellError> {
     if legacy_pg_data_present(app_data)? {
         return Ok(true);
     }
-    if dir_has_entries(&app_data.join("local-db")).map_err(db_err)? {
-        return Ok(true);
-    }
-    if let Some(root) = configured_root(app_data) {
-        if dir_has_entries(&root.join(WORKSPACE_META_DIR).join("db")).map_err(db_err)? {
-            return Ok(true);
-        }
-    }
-    Ok(false)
+    dir_has_entries(&app_data.join("local-db")).map_err(db_err)
 }
 
 /// Whether old local-database data is on this device. Fails closed: an Electron data dir counts as
@@ -564,12 +554,9 @@ mod tests {
     }
 
     #[test]
-    fn old_db_is_the_workspace_one_when_both_exist() {
-        let (data, ws) = data_with("old-both", true, true);
-        assert_eq!(
-            old_pglite_dir(&data),
-            Some(ws.join(WORKSPACE_META_DIR).join("db"))
-        );
+    fn old_db_is_the_app_one_when_both_exist() {
+        let (data, _) = data_with("old-both", true, true);
+        assert_eq!(old_pglite_dir(&data), Some(data.join("local-db")));
     }
 
     #[test]
@@ -579,12 +566,10 @@ mod tests {
     }
 
     #[test]
-    fn old_db_is_found_in_the_workspace_alone() {
-        let (data, ws) = data_with("old-ws", false, true);
-        assert_eq!(
-            old_pglite_dir(&data),
-            Some(ws.join(WORKSPACE_META_DIR).join("db"))
-        );
+    fn old_db_ignores_a_workspace_db_alone() {
+        let (data, _) = data_with("old-ws", false, true);
+        assert_eq!(old_pglite_dir(&data), None);
+        assert_eq!(old_db_state(&data), OldDb::None);
     }
 
     #[test]
@@ -613,28 +598,23 @@ mod tests {
         let _ = fs::write(dir.join("PG_VERSION"), "18");
     }
 
-    /// Case a: a workspace DB plus a tiny stale app `local-db` must read the workspace.
+    /// Case a: a workspace DB (shared or cloned) plus the app `local-db`: only the app one counts.
     #[test]
-    fn old_state_workspace_beats_stale_app_db() {
-        let (data, ws) = data_with("old-stale", true, true);
-        assert_eq!(
-            old_db_state(&data),
-            OldDb::Found(ws.join(WORKSPACE_META_DIR).join("db"))
-        );
+    fn old_state_app_db_wins_over_a_workspace_db() {
+        let (data, _) = data_with("old-stale", true, true);
+        assert_eq!(old_db_state(&data), OldDb::Found(data.join("local-db")));
     }
 
-    /// Case d: custom folder with spaces, non-ASCII and backslashes in the stored path.
+    /// Case d: custom folder with spaces, non-ASCII and backslashes in the stored path is read.
     #[test]
     fn old_state_custom_root_with_spaces_and_non_ascii() {
         let (data, _) = temp("old-unicode");
         let root = data.parent().unwrap().join("Ünïcode folder ő spaces");
-        pg_dir(&root.join(WORKSPACE_META_DIR).join("db"));
         let prefs = serde_json::json!({ "vault-root": root.to_string_lossy() });
         let _ = fs::write(data.join("preferences.json"), prefs.to_string());
-        assert_eq!(
-            old_db_state(&data),
-            OldDb::Found(root.join(WORKSPACE_META_DIR).join("db"))
-        );
+        assert_eq!(old_db_state(&data), OldDb::WorkspaceMissing(root.clone()));
+        pg_dir(&root.join(WORKSPACE_META_DIR).join("db"));
+        assert_eq!(old_db_state(&data), OldDb::None);
     }
 
     /// Case c: an unplugged or missing vault-root is pending, never a silent local-db import.
@@ -747,10 +727,16 @@ mod tests {
     }
 
     #[test]
-    fn legacy_db_is_present_for_a_moved_aside_workspace_db_folder() {
+    fn legacy_db_ignores_a_moved_aside_workspace_db_folder() {
         let (data, ws) = data_with("legacy-db-moved", false, false);
         fs::create_dir_all(ws.join(WORKSPACE_META_DIR).join("db").join("moved-aside")).unwrap();
-        assert_eq!(legacy_db_in(&data), Ok(true));
+        assert_eq!(legacy_db_in(&data), Ok(false));
+    }
+
+    #[test]
+    fn legacy_db_ignores_a_shared_workspace_db() {
+        let (data, _) = data_with("legacy-db-shared-ws", false, true);
+        assert_eq!(legacy_db_in(&data), Ok(false));
     }
 
     #[test]
@@ -1002,6 +988,14 @@ mod tests {
         });
         assert!(passes);
         assert!(!read, "no old data: the device id is never read");
+    }
+
+    /// A fresh install whose chosen folder is a shared or cloned workspace holding a `.weaveforge/db`
+    /// is not old data on this device: the gate passes without a device id.
+    #[test]
+    fn a_fresh_install_with_a_shared_workspace_db_passes() {
+        let (data, _) = data_with("gate-fresh-shared-ws-db", false, true);
+        assert!(install_gate_passes(Some(&data), None, |_| Ok(None)));
     }
 
     #[test]
