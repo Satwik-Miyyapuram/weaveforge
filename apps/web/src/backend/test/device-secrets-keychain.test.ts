@@ -303,19 +303,118 @@ describe("reserved keychain names", () => {
   });
 });
 
+/** Captures console.warn while `work` runs. */
+async function warnings(work: () => Promise<unknown>): Promise<string[]> {
+  const seen: string[] = [];
+  const original = console.warn;
+  console.warn = (...args: unknown[]) => void seen.push(args.map(String).join(" "));
+  try {
+    await work();
+  } finally {
+    console.warn = original;
+  }
+  return seen;
+}
+
 describe("a field the index lists but the keychain lacks", () => {
-  it("is surfaced by its key name, never skipped silently, and no value is shown", async () => {
+  it("is skipped on load and warned by its key name only, so the rest still loads", async () => {
     const { keychain } = fakeKeychain({
       "_index": indexOf(["zoteroApiKey", "integrations.overleaf"]),
       "integrations.overleaf": '{"token":"SECRETVALUE"}',
     });
     const store = new DeviceSecretsStore(keychain);
-    await assert.rejects(store.load(), (err: { code?: string; message: string }) => {
-      assert.equal(err.code, "keychain-field-missing");
-      assert.match(err.message, /zoteroApiKey/);
-      assert.doesNotMatch(err.message, /SECRETVALUE/);
-      return true;
-    });
+    let loaded: unknown;
+    const warned = await warnings(async () => (loaded = await store.load()));
+    assert.deepEqual(loaded, { integrations: { overleaf: { token: "SECRETVALUE" } } });
+    assert.equal(warned.length, 1);
+    assert.match(warned.join(), /zoteroApiKey/);
+    assert.doesNotMatch(warned.join(), /SECRETVALUE/);
+  });
+
+  it("a later save still works and drops the missing field from the index", async () => {
+    const { entries, keychain } = fakeKeychain({ "_index": indexOf(["a", "b"]), b: "kept" });
+    const store = new DeviceSecretsStore(keychain);
+    await warnings(async () => store.save(flat({ ...((await store.load()) as Record<string, string>), c: "new" })));
+    assert.equal(entries.get("_index"), indexOf(["b", "c"]));
+  });
+});
+
+describe("a save that stops part way through", () => {
+  it("writes the new index before clearing dropped fields, so a crash after the first clear still loads", async () => {
+    const { entries, keychain } = fakeKeychain({ "_index": indexOf(["a", "b", "c"]), a: "old", b: "x", c: "y" });
+    // The process dies once the first clear lands: every later keychain call fails.
+    let dead = false;
+    const dying: DeviceKeychain = {
+      read: async (key) => {
+        if (dead) throw new Error("process gone");
+        return keychain.read(key);
+      },
+      write: async (key, text) => {
+        if (dead) throw new Error("process gone");
+        return keychain.write(key, text);
+      },
+      clear: async (key) => {
+        if (dead) throw new Error("process gone");
+        await keychain.clear(key);
+        dead = true;
+      },
+    };
+    await new DeviceSecretsStore(dying).save(flat({ a: "new" })).catch(() => undefined);
+    // Reload on a fresh store over what is left in the keychain.
+    let loaded: unknown;
+    const warned = await warnings(async () => (loaded = await new DeviceSecretsStore(keychain).load()));
+    assert.deepEqual(loaded, { a: "new" });
+    assert.deepEqual(warned, []);
+    assert.equal(entries.get("_index"), indexOf(["a"]));
+  });
+
+  it("leaves the dropped field as a harmless orphan when the clear itself fails", async () => {
+    const { entries, keychain } = fakeKeychain({ "_index": indexOf(["a", "b"]), a: "old", b: "x" });
+    const failing: DeviceKeychain = { ...keychain, clear: async () => Promise.reject(new Error("clear refused")) };
+    await assert.rejects(() => new DeviceSecretsStore(failing).save(flat({ a: "new" })), PartialSaveError);
+    const loaded = await new DeviceSecretsStore(keychain).load();
+    // Rolled back to the old index, and every field it lists is there.
+    assert.deepEqual(loaded, { a: "old", b: "x" });
+    assert.equal(entries.get("_index"), indexOf(["a", "b"]));
+  });
+});
+
+describe("one queue per keychain, across store instances", () => {
+  it("two stores on the same keychain save one after the other, and _index lists the last save", async () => {
+    const log: string[] = [];
+    const entries = new Map<string, string>();
+    const keychain: DeviceKeychain = {
+      read: async (key) => entries.get(key) ?? null,
+      write: async (key, text) => {
+        await new Promise((resolve) => setTimeout(resolve, 1));
+        log.push(`${key}=${text}`);
+        entries.set(key, text);
+      },
+      clear: async (key) => {
+        await new Promise((resolve) => setTimeout(resolve, 1));
+        log.push(`clear ${key}`);
+        entries.delete(key);
+      },
+    };
+    const one = new DeviceSecretsStore(keychain);
+    const two = new DeviceSecretsStore(keychain);
+    await Promise.all([one.save(flat({ a: "1", b: "1" })), two.save(flat({ c: "2" }))]);
+    assert.deepEqual(log, [
+      "a=1",
+      "b=1",
+      `_index=${indexOf(["a", "b"])}`,
+      "c=2",
+      `_index=${indexOf(["c"])}`,
+      "clear a",
+      "clear b",
+    ]);
+    assert.equal(entries.get("_index"), indexOf(["c"]));
+    assert.deepEqual(await one.load(), { c: "2" });
+  });
+
+  it("gives the same keychain for the same shell bridge, so default stores share one queue", () => {
+    const bridge = { readSecret: async () => null, writeSecret: async () => undefined, clearSecret: async () => undefined } as unknown as DesktopBridge;
+    assert.equal(desktopKeychain(bridge), desktopKeychain(bridge));
   });
 });
 

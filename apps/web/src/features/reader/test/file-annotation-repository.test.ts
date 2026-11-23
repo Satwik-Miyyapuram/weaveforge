@@ -193,3 +193,100 @@ test("a caller's id, createdAt and updatedAt are kept; the repository mints only
   assert.match(minted.id, /^local-ann-/);
   assert.ok(!Number.isNaN(Date.parse(minted.createdAt)));
 });
+
+// ---- Zotero write-back bookkeeping and the project-wide list ----
+
+const PAPER_FILES = async () => Object.entries(PAPERS).map(([paperId, path]) => ({ paperId, path }));
+
+function setupWithFiles() {
+  const fs = new MemoryWorkspaceFs();
+  return { fs, repo: new FileReaderAnnotationRepository(fs, ROOT, paperFileOf, PAPER_FILES) };
+}
+
+test("recordZoteroSync stores the key, version and state; updatedAt is not bumped", async () => {
+  const { repo } = setup();
+  const made = await repo.create("p-1", draft({ id: "a1" }));
+  await repo.recordZoteroSync("a1", { zoteroKey: "ZK1", zoteroVersion: 7, syncState: "synced" });
+  const [row] = await repo.list("p-1");
+  assert.equal(row!.zoteroKey, "ZK1");
+  assert.equal(row!.zoteroVersion, 7);
+  assert.equal(row!.syncState, "synced");
+  assert.equal(row!.updatedAt, made.updatedAt);
+});
+
+test("recordZoteroSync with a matching ifUpdatedAt sets the state", async () => {
+  const { repo } = setup();
+  const made = await repo.create("p-1", draft({ id: "a1" }));
+  await repo.recordZoteroSync("a1", { zoteroKey: "ZK1", zoteroVersion: 1, syncState: "synced", ifUpdatedAt: made.updatedAt });
+  assert.equal((await repo.list("p-1"))[0]!.syncState, "synced");
+});
+
+test("recordZoteroSync after an edit keeps the key and version but leaves the edit owed", async () => {
+  const { repo } = setup();
+  await repo.create("p-1", draft({ id: "a1", updatedAt: "2026-01-01T00:00:00.000Z" }));
+  await repo.update("a1", { comment: "edited" });
+  await repo.recordZoteroSync("a1", {
+    zoteroKey: "ZK1",
+    zoteroVersion: null,
+    syncState: "synced",
+    ifUpdatedAt: "2026-01-01T00:00:00.000Z",
+  });
+  const [row] = await repo.list("p-1");
+  assert.equal(row!.zoteroKey, "ZK1");
+  assert.equal(row!.zoteroVersion, null);
+  assert.equal(row!.syncState, "pending");
+  assert.equal(row!.comment, "edited");
+});
+
+test("recordZoteroSync of an unknown id is NotFound and writes nothing", async () => {
+  const { fs, repo } = setup();
+  await assert.rejects(
+    repo.recordZoteroSync("missing", { zoteroKey: "K", zoteroVersion: 1, syncState: "synced" }),
+    NotFoundError,
+  );
+  assert.equal(await fs.stat(FILE), null);
+});
+
+test("recordZoteroSync keeps a row written outside the app between read and write", async () => {
+  const fs = new RacingFs();
+  const repo = new FileReaderAnnotationRepository(fs, ROOT, paperFileOf);
+  await repo.create("p-1", draft({ id: "a1" }));
+  fs.race = async () => {
+    const rows = JSON.parse(await fs.readText(FILE)) as unknown[];
+    rows.push({ id: "ext", type: "highlight", color: "#000", sortIndex: "0" });
+    await fs.writeFile(FILE, JSON.stringify(rows));
+  };
+  await repo.recordZoteroSync("a1", { zoteroKey: "ZK1", zoteroVersion: 2, syncState: "synced" });
+  const rows = await repo.list("p-1");
+  assert.deepEqual(rows.map((a) => a.id).sort(), ["a1", "ext"]);
+  assert.equal(rows.find((a) => a.id === "a1")!.zoteroKey, "ZK1");
+});
+
+test("listForProject gives every paper's annotations with paperId and pageIndex", async () => {
+  const { repo } = setupWithFiles();
+  await repo.create("p-1", draft({ id: "a1", pageIndex: 4 }));
+  await repo.create(
+    "p-2",
+    draft({ id: "b1", pageIndex: 0, anchor: { zoteroPosition: { pageIndex: 9, rects: [] } } }),
+  );
+  const all = await repo.listForProject();
+  const byId = new Map(all.map((a) => [a.id, a]));
+  assert.equal(all.length, 2);
+  assert.equal(byId.get("a1")!.paperId, "p-1");
+  assert.equal(byId.get("a1")!.pageIndex, 4);
+  assert.equal(byId.get("b1")!.paperId, "p-2");
+  assert.equal(byId.get("b1")!.pageIndex, 9);
+});
+
+test("listForProject skips papers without a sidecar and sidecars that do not parse", async () => {
+  const { fs, repo } = setupWithFiles();
+  await repo.create("p-1", draft({ id: "a1" }));
+  await fs.writeFile(`${ROOT}/papers/Other.annotations.json`, "{ not json");
+  assert.deepEqual((await repo.listForProject()).map((a) => a.id), ["a1"]);
+});
+
+test("listForProject with no paper files lists nothing", async () => {
+  const { repo } = setup();
+  await repo.create("p-1", draft({ id: "a1" }));
+  assert.deepEqual(await repo.listForProject(), []);
+});

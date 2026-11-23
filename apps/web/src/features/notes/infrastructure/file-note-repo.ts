@@ -11,16 +11,25 @@
  * - A save that would make a note its own ancestor is refused and writes nothing.
  * - A save keeps the path and every field it does not own.
  * - A save never overwrites a file changed since it was read.
+ * - `add` and `update` refuse a blank title or another note's title, as the Rust repo does.
+ * - A guarded `update` (one with `baseBody`) never drops an outside edit: the
+ *   file's text is kept as a conflict copy, then the caller's text is written.
  *
  * Canvas notes live in `.canvas` files and are not saved here.
  */
-import type {
-  IVaultPageRepository,
-  IWorkspaceFs,
-  VaultPage,
-  VaultPageFilter,
-  VaultPageSummary,
-  VaultPageTreeNode,
+import {
+  NotFoundError,
+  VaultPageValidationError,
+  type EditVaultPageInput,
+  type EditedVaultPage,
+  type IVaultPageManager,
+  type IVaultPageRepository,
+  type IWorkspaceFs,
+  type NewVaultPageInput,
+  type VaultPage,
+  type VaultPageFilter,
+  type VaultPageSummary,
+  type VaultPageTreeNode,
 } from "@weaveforge/core";
 import { readyCore } from "@/lib/rust-core";
 import { moveToTrash } from "@/lib/workspace-trash";
@@ -28,6 +37,13 @@ import { moveToTrash } from "@/lib/workspace-trash";
 const TYPE = "vault_page";
 const SUFFIX = ".note.md";
 const PREVIEW = 200;
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const DATED = /^\d{4}-\d{2}-\d{2}/;
+/** A guarded update re-reads and re-plans this many times when the file keeps changing under it. */
+const ATTEMPTS = 3;
+
+/** The file changed between the read and the checked write. */
+class ChangedOnDiskError extends Error {}
 
 interface Found {
   path: string;
@@ -64,11 +80,12 @@ function byOrder(a: { sortOrder: number; title: string }, b: { sortOrder: number
   return a.sortOrder - b.sortOrder || a.title.localeCompare(b.title);
 }
 
-export class FileNoteRepository implements IVaultPageRepository {
+export class FileNoteRepository implements IVaultPageRepository, IVaultPageManager {
   constructor(
     private readonly fs: IWorkspaceFs,
     /** Project folder the `notes/` folder sits in ("" for the workspace root). */
     private readonly root: string,
+    private readonly now: () => string = () => new Date().toISOString(),
   ) {}
 
   private get dir(): string {
@@ -125,9 +142,119 @@ export class FileNoteRepository implements IVaultPageRepository {
   }
 
   async save(page: VaultPage): Promise<void> {
+    await this.put(await this.readAll(), page);
+  }
+
+  async add(input: NewVaultPageInput): Promise<VaultPage> {
+    if (input.kind === "canvas") throw new Error("Canvas notes are saved as .canvas files, not here.");
+    const title = input.title.trim();
+    if (!title) throw new VaultPageValidationError("Page title is required.");
+    const all = await this.readAll();
+    if (input.id !== undefined) {
+      if (!UUID.test(input.id)) {
+        throw new VaultPageValidationError(`The file's weaveforge-id "${input.id}" is not a valid id.`);
+      }
+      if (all.some((f) => f.page.id === input.id)) {
+        throw new VaultPageValidationError(`Another note already has the id "${input.id}"; the file was not imported.`);
+      }
+    }
+    if (taken(all, title)) throw new VaultPageValidationError(`A note titled “${title}” already exists.`);
+    const now = this.now();
+    const page: VaultPage = {
+      id: input.id ?? crypto.randomUUID(),
+      title,
+      body: lf(input.body ?? ""),
+      sortOrder: input.sortOrder ?? 0,
+      createdAt: input.createdAt && DATED.test(input.createdAt) ? input.createdAt : now,
+      updatedAt: now,
+    };
+    if (input.parentId) page.parentId = input.parentId;
+    if (input.folder) page.folder = true;
+    await this.put(all, page);
+    return page;
+  }
+
+  async update(id: string, input: EditVaultPageInput): Promise<EditedVaultPage> {
+    const core = readyCore();
+    const copies: string[] = [];
+    /** Outside texts already kept as a copy, so a retry does not copy them twice. */
+    const kept = new Set<string>();
+    for (let attempt = 1; ; attempt += 1) {
+      const all = await this.readAll();
+      const old = all.find((f) => f.page.id === id)?.page;
+      if (!old) throw new NotFoundError(`No vault page with id "${id}".`);
+      const title = input.title === undefined ? old.title : input.title.trim();
+      if (!title) throw new VaultPageValidationError("Page title is required.");
+      if (core.normalizeTitleKey(title) !== core.normalizeTitleKey(old.title) && taken(all, title, id)) {
+        throw new VaultPageValidationError(`A note titled “${title}” already exists.`);
+      }
+      if (typeof input.parentId === "string") {
+        if (!all.some((f) => f.page.id === input.parentId)) {
+          throw new NotFoundError(`No vault page with id "${input.parentId}".`);
+        }
+        if (makesCycle(all, id, input.parentId)) {
+          throw new VaultPageValidationError("A note cannot be moved inside itself.");
+        }
+      }
+      const next: VaultPage = { ...old, title };
+      if (input.body !== undefined) {
+        const mine = lf(input.body);
+        const theirs = old.body;
+        const outside =
+          input.baseBody !== undefined &&
+          theirs !== mine &&
+          theirs !== lf(input.baseBody) &&
+          !(input.sessionDigests ?? []).includes(core.digestText(theirs));
+        if (outside && !kept.has(theirs)) {
+          copies.push(await this.conflictCopy(all, old));
+          kept.add(theirs);
+        }
+        next.body = mine;
+      }
+      if (input.parentId === null) delete next.parentId;
+      else if (input.parentId !== undefined) next.parentId = input.parentId;
+      if (input.pinned === true) next.pinned = true;
+      else if (input.pinned === false) delete next.pinned;
+      if (
+        next.title === old.title &&
+        next.body === old.body &&
+        next.parentId === old.parentId &&
+        next.pinned === old.pinned
+      ) {
+        return withCopies(old, copies);
+      }
+      next.updatedAt = this.now();
+      try {
+        await this.put(all, next);
+        return withCopies(next, copies);
+      } catch (error) {
+        // Unguarded, a changed file is refused as `save` refuses it. Guarded,
+        // re-read: the outside text is then kept as a copy before mine is written.
+        if (!(error instanceof ChangedOnDiskError) || input.baseBody === undefined || attempt >= ATTEMPTS) throw error;
+      }
+    }
+  }
+
+  async remove(id: string): Promise<void> {
+    await this.delete(id);
+  }
+
+  /** Saves `of`'s current text as a new note beside it, titled as the Rust guard titles it; returns its id. */
+  private async conflictCopy(all: readonly Found[], of: VaultPage): Promise<string> {
+    const now = this.now();
+    const id = crypto.randomUUID();
+    const base = `${of.title} (conflict copy ${now.slice(0, 19).replace("T", " ")})`;
+    const title = [base, `${base} ${id.slice(0, 8)}`].find((t) => !taken(all, t)) ?? `${base} ${id}`;
+    const copy: VaultPage = { id, title, body: of.body, sortOrder: of.sortOrder, createdAt: now, updatedAt: now };
+    if (of.parentId) copy.parentId = of.parentId;
+    await this.put(all, copy);
+    return id;
+  }
+
+  /** Writes `page` over the file `all` read for it; throws ChangedOnDiskError when that file changed since. */
+  private async put(all: readonly Found[], page: VaultPage): Promise<void> {
     if (page.kind === "canvas") throw new Error("Canvas notes are saved as .canvas files, not here.");
     const core = readyCore();
-    const all = await this.readAll();
     if (makesCycle(all, page.id, page.parentId)) {
       throw new Error(`Moving "${page.title}" there would make a parent cycle.`);
     }
@@ -146,7 +273,7 @@ export class FileNoteRepository implements IVaultPageRepository {
       "created-at": page.createdAt,
       "updated-at": page.updatedAt,
     };
-    const text = core.writeFrontmatter(fields, page.body.replace(/\r\n?/g, "\n"));
+    const text = core.writeFrontmatter(fields, lf(page.body));
     if (text === found?.text) return;
     await this.write(path, text, found?.text ?? null);
   }
@@ -160,9 +287,25 @@ export class FileNoteRepository implements IVaultPageRepository {
   private async write(path: string, text: string, expected: string | null): Promise<void> {
     if (!this.fs.writeTextIf) throw new Error(`${path}: this workspace cannot save without overwriting outside edits.`);
     if (!(await this.fs.writeTextIf(path, text, expected))) {
-      throw new Error(`${path} changed on disk; reload before saving.`);
+      throw new ChangedOnDiskError(`${path} changed on disk; reload before saving.`);
     }
   }
+}
+
+function lf(text: string): string {
+  return text.replace(/\r\n?/g, "\n");
+}
+
+/** True when a note other than `exceptId` has `title`, case and spacing folded. */
+function taken(all: readonly Found[], title: string, exceptId?: string): boolean {
+  const core = readyCore();
+  const key = core.normalizeTitleKey(title);
+  return all.some((f) => f.page.id !== exceptId && core.normalizeTitleKey(f.page.title) === key);
+}
+
+function withCopies(page: VaultPage, copies: readonly string[]): EditedVaultPage {
+  if (copies.length === 0) return page;
+  return { ...page, conflictCopyId: copies[copies.length - 1], conflictCopyIds: [...copies] };
 }
 
 /** True when giving `id` the parent `parentId` would make it its own ancestor. */
