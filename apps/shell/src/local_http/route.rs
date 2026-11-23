@@ -30,6 +30,7 @@ pub struct RouteDeps<'a> {
 }
 
 /// Answers one request. `expected` is the install's token; `now_ms` and `now_iso` decide expiry.
+#[allow(clippy::too_many_lines, reason = "one match over the local API routes")]
 pub async fn route_local_request(
     deps: &RouteDeps<'_>,
     request: &LocalApiRequest,
