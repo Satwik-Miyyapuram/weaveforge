@@ -332,6 +332,30 @@ test("setTags racing an outside edit keeps that edit", async () => {
   assert.deepEqual((await repo.getById("p-1"))?.tags, ["ml"]);
 });
 
+test("save racing a trash of the paper file throws ConflictError and does not bring the paper back", async () => {
+  const fs = new RacingFs();
+  const repo = new FilePaperRepository(fs, ROOT);
+  await repo.save(paper());
+  const path = await onlyFile(fs);
+  fs.race = async () => {
+    await repo.delete("p-1");
+  };
+  await assert.rejects(repo.save(paper({ title: "Edited" })), ConflictError);
+  assert.equal(await fs.stat(path), null);
+  assert.equal(await repo.getById("p-1"), null);
+});
+
+test("setTags racing a trash of the paper file throws ConflictError and writes nothing", async () => {
+  const fs = new RacingFs();
+  const repo = new FilePaperRepository(fs, ROOT);
+  await repo.save(paper());
+  fs.race = async () => {
+    await repo.delete("p-1");
+  };
+  await assert.rejects(repo.setTags("p-1", ["ml"], "2026-03-01"), ConflictError);
+  assert.equal(await repo.getById("p-1"), null);
+});
+
 // ---- Laws (fast-check) ----
 
 const text = fc.string({ maxLength: 20 });

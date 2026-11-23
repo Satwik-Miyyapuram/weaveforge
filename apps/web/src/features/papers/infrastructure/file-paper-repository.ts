@@ -224,8 +224,12 @@ export class FilePaperRepository implements IPaperRepository {
     rowFor: (current: Paper | null) => Record<string, unknown> | null,
     create: boolean,
   ): Promise<void> {
+    let seen = false;
     for (let attempt = 0; attempt < WRITE_ATTEMPTS; attempt += 1) {
       const read = await this.findById(id);
+      // A file read on an earlier attempt and gone now was trashed or moved mid-save: never recreate it.
+      if (!read && seen) throw new ConflictError(`Paper ${id} was removed on disk; not saved.`);
+      seen = read !== null;
       if (!read && !create) return;
       const row = rowFor(read?.paper ?? null);
       if (!row) return;
