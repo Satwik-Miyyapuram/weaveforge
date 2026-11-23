@@ -1185,7 +1185,7 @@ mod tests {
     }
 
     /// The KEYS marker, written where the 0.9.7 run puts it: inside the workspace folder.
-    fn write_marker(ws: &Path) {
+    fn write_ws_marker(ws: &Path) {
         let path = secrets_marker_path(ws, DEVICE);
         fs::create_dir_all(path.parent().unwrap()).unwrap();
         fs::write(path, "{}").unwrap();
@@ -1235,7 +1235,7 @@ mod tests {
     fn old_data_with_verified_export_and_marker_shows_no_gate() {
         let (data, ws) = data_with("gate-both", true, false);
         write_report(&ws, COMPLETE);
-        write_marker(&ws);
+        write_ws_marker(&ws);
         assert!(!gate(&data));
     }
 
@@ -1249,7 +1249,7 @@ mod tests {
     #[test]
     fn old_data_with_marker_alone_shows_the_gate() {
         let (data, ws) = data_with("gate-marker", true, false);
-        write_marker(&ws);
+        write_ws_marker(&ws);
         assert!(gate(&data));
     }
 
@@ -1260,7 +1260,7 @@ mod tests {
             &ws,
             &COMPLETE.replace(r#""deviceId":"device-a""#, r#""deviceId":"device-b""#),
         );
-        write_marker(&ws);
+        write_ws_marker(&ws);
         assert!(gate(&data));
     }
 
@@ -1268,7 +1268,7 @@ mod tests {
     fn old_data_with_an_unreadable_report_passes() {
         let (data, ws) = data_with("gate-bad-report", true, false);
         fs::create_dir_all(ws.join(REPORT_REL)).unwrap();
-        write_marker(&ws);
+        write_ws_marker(&ws);
         assert!(!gate(&data));
     }
 
@@ -1308,7 +1308,7 @@ mod tests {
     fn old_data_with_a_corrupt_report_and_the_marker_passes() {
         let (data, ws) = data_with("gate-corrupt-report", true, false);
         write_report(&ws, "{not json");
-        write_marker(&ws);
+        write_ws_marker(&ws);
         assert!(!gate(&data));
     }
 
@@ -1343,7 +1343,7 @@ mod tests {
     fn app_data_prefs_export_counts_when_electron_prefs_point_elsewhere() {
         let (data, ws) = data_with("gate-app-prefs-marker", true, false);
         write_report(&ws, COMPLETE);
-        write_marker(&ws);
+        write_ws_marker(&ws);
         let (electron, _) = temp("gate-electron-no-prefs");
         assert!(!gate_both(Some(&data), Some(&electron)));
     }
@@ -1352,7 +1352,7 @@ mod tests {
     fn electron_prefs_export_counts_when_app_data_has_no_prefs() {
         let (electron, ws) = data_with("gate-electron-prefs-marker", true, false);
         write_report(&ws, COMPLETE);
-        write_marker(&ws);
+        write_ws_marker(&ws);
         let (data, _) = temp("gate-app-no-prefs");
         assert!(!gate_both(Some(&data), Some(&electron)));
     }
