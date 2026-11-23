@@ -102,6 +102,23 @@ test("web without a session gets no runner", () => {
   assert.equal(webUpgradeFor(false, null), null);
 });
 
+test("the completion marker check reaches the run's options through the runner", async () => {
+  const seen: unknown[] = [];
+  const alreadyDone = () => true;
+  const opts = webUpgradeFor(
+    false,
+    inputs({
+      alreadyDone,
+      run: async (o) => {
+        seen.push(o.alreadyDone);
+        return verified;
+      },
+    }),
+  )!;
+  await makeWebUpgradeRunner(opts)("", undefined);
+  assert.deepEqual(seen, [alreadyDone]);
+});
+
 test("a verified run calls onVerified once; a stopped run does not", async () => {
   const seen: string[] = [];
   const opts = webUpgradeFor(

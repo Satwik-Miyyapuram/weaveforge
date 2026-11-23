@@ -3,9 +3,10 @@ import { test } from "node:test";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
-import { Migrate097UpgradeBody, runUpgrade, upgradeReportFolder } from "../migrate-097-upgrade";
+import { Migrate097UpgradeBody, runUpgrade, upgradeFailureMessage, upgradeReportFolder } from "../migrate-097-upgrade";
 import type { Migrate097Progress } from "../desktop-bridge";
 import { InstallIdLocksUnavailableError } from "@/container/browser-install-id";
+import { UpgradeFinishedInOtherTabError, UpgradeInOtherTabError } from "@/features/migration-097/application/run-web-upgrade";
 
 // The component file uses JSX without importing React, and the node --test transform needs React in scope, as the sibling tests do.
 Object.assign(globalThis, { React });
@@ -229,4 +230,11 @@ test("runUpgrade hands the error to onError and stops, so the screen can name a 
   assert.equal(outcome, "stopped");
   assert.equal(errors.length, 1);
   assert.ok(errors[0] instanceof InstallIdLocksUnavailableError);
+});
+test("the screen names a WebView lock failure and an upgrade running in another tab; other errors get the generic line", () => {
+  assert.equal(upgradeFailureMessage(new InstallIdLocksUnavailableError()), new InstallIdLocksUnavailableError().message);
+  assert.match(upgradeFailureMessage(new UpgradeInOtherTabError()) ?? "", /running in another tab/);
+  assert.match(upgradeFailureMessage(new UpgradeFinishedInOtherTabError()) ?? "", /finished in another tab/);
+  assert.equal(upgradeFailureMessage(new Error("boom")), null);
+  assert.equal(upgradeFailureMessage("boom"), null);
 });
