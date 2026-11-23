@@ -15,6 +15,10 @@ function openFolder(): IWorkspaceFs {
  * at all is a refusal rather than a stale or null handle.
  */
 export class NoAccountWorkspaceFs implements IWorkspaceFs {
+  /** The folder open now, fixed: a multi-step write (a trash move) uses it so a folder switch cannot split it. */
+  pin(): IWorkspaceFs {
+    return openFolder();
+  }
   async readFile(path: string): Promise<Uint8Array> {
     return openFolder().readFile(path);
   }

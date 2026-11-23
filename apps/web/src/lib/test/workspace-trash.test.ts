@@ -119,3 +119,45 @@ test("two concurrent folder trashes of the same name claim different trash folde
   await b.release();
   assert.deepEqual(await files(fs), []);
 });
+
+/** An fs that, like the no-account fs, follows whichever folder is open at each call; `pin` fixes the current one. */
+class FollowsOpenFolder {
+  constructor(public open: MemoryWorkspaceFs) {}
+  pin = () => this.open;
+  writeTextIf = (path: string, text: string, expected: string | null) => this.open.writeTextIf(path, text, expected);
+  mkdirp = (path: string) => this.open.mkdirp(path);
+  rename = (from: string, to: string) => this.open.rename(from, to);
+  readText = (path: string) => this.open.readText(path);
+  stat = (path: string) => this.open.stat(path);
+  remove = (path: string) => this.open.remove(path);
+}
+
+test("a folder switch during a trash move keeps the claim and the move in the first folder", async () => {
+  const a = new MemoryWorkspaceFs();
+  const b = new MemoryWorkspaceFs();
+  await a.writeFile("notes/a.md", "keep me");
+  const fs = new FollowsOpenFolder(a);
+  const mkdirp = a.mkdirp.bind(a);
+  a.mkdirp = async (path) => {
+    await mkdirp(path);
+    fs.open = b;
+  };
+  await moveToTrash(fs as never, "notes/a.md", Date.now());
+  const inA = await files(a);
+  assert.equal(inA.length, 1);
+  assert.match(inA[0]!, /^\.weaveforge\/trash\//);
+  assert.equal(await a.readText(inA[0]!), "keep me");
+  assert.deepEqual(await files(b), []);
+});
+
+test("a folder switch during a folder claim keeps the marker and its release in the first folder", async () => {
+  const a = new MemoryWorkspaceFs();
+  const b = new MemoryWorkspaceFs();
+  const fs = new FollowsOpenFolder(a);
+  const claim = await claimTrashFolder(fs as never, "thesis", Date.now());
+  fs.open = b;
+  await b.writeFile(`${claim.target}.claim`, "");
+  await claim.release();
+  assert.deepEqual(await files(a), []);
+  assert.deepEqual(await files(b), [`${claim.target}.claim`]);
+});
