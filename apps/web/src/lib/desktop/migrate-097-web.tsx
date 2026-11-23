@@ -9,7 +9,7 @@ import { webPendingOutbox, webUpgradeFor, type WebUpgradeInputs } from "@/featur
 import type { WebUpgradeRunnerOptions } from "@/features/migration-097/application/web-upgrade-runner";
 import { MIGRATION_KINDS } from "@/features/migration-097/domain/report";
 import { wasmFileCodec } from "@/features/migration-097/infrastructure/wasm-codec";
-import { createGroupAWriter } from "@/features/migration-097/infrastructure/kind-writer-group-a";
+import { createMigrationWriters } from "@/features/migration-097/infrastructure/migration-writers";
 import { workspaceFileSink } from "@/features/migration-097/infrastructure/workspace-file-sink";
 import { BrowserWorkspaceFs } from "@/features/workspace/infrastructure/parts";
 import { loadCore } from "@/lib/rust-core";
@@ -105,8 +105,11 @@ export async function loadWebInputs(sources: WebInputSources = defaultWebInputSo
     codec,
     kinds: MIGRATION_KINDS,
     // Notes, papers and comments go through the FILES repos; the wasm codec has no codec for them. The codec
-    // finds the log entry, report section or reading list file a comment sits next to.
-    writers: (sink) => [createGroupAWriter(sink, codec)],
+    // finds the log entry, report section or reading list file a comment sits next to. Every other kind without
+    // a codec is archived losslessly under .weaveforge/migration-0.9.7/archive/ (and written to its file home).
+    writers: (sink) => createMigrationWriters(sink, codec, (kind, _row, err) =>
+      warnOnce("migrate-097-web", `a ${kind} row stayed in the archive only`, err),
+    ),
     pendingOutbox: webPendingOutbox,
     now: new Date().toISOString(),
     ...(await runIdentity(fs)),
