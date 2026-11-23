@@ -23,19 +23,8 @@ const DB_PACKAGE = /(^|\/)(pglite|pg|postgres|pg-[\w-]+|@electric-sql\/[\w-]+|sq
 /** The desktop local-DB provider and the offline-sync engine. */
 const LOCAL_DB_MODULE = /^(backend\/providers\/local\/|features\/offline-sync\/)/;
 
-/**
- * Local-DB modules the browser graph still reaches today, each through a shared module, none selected at
- * runtime (local-mode-not-selected.test.ts). WEB lane: remove an entry when its path is cut; never add one.
- *  - local-identity, parts, parts-1, pglite-client: via lib/parts.ts (localBackendParts, isLocalMode).
- *  - offline-sync shared-rows: via wire-postgrest-backend.ts (withShareMarks).
- */
-const KNOWN_REACHED = new Set([
-  "backend/providers/local/local-identity.ts",
-  "backend/providers/local/parts.ts",
-  "backend/providers/local/parts-1.ts",
-  "backend/providers/local/pglite-client.ts",
-  "features/offline-sync/domain/shared-rows.ts",
-]);
+/** Local-DB modules the browser graph may reach: none. The local provider and offline-sync are deleted. */
+const KNOWN_REACHED = new Set<string>();
 
 /** Value-import specifiers of one module: imports and re-exports that are not type-only, plus import(). */
 export function valueSpecifiers(fileName: string, source: string): string[] {
