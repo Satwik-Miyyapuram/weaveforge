@@ -4,20 +4,19 @@ Each repository's request builder is a Rust step module in `crates/wf-core/src/r
 
 | Module | Rust fn | wasm export | TS caller |
 | --- | --- | --- | --- |
-| `account` | `repos::account::step` | `repoStep("account", …)` | `backend/providers/supabase-auth/parts.ts:21`; `backend/parts.ts:149` |
-| `annotation_pins` | `repos::annotation_pins::step` | `repoStep("annotation_pins", …)` | `features/papers/infrastructure/parts-1.ts:84` |
+| `account` | `repos::account::step` | `repoStep("account", …)` | `backend/parts.ts:153` |
+| `annotation_pins` | `repos::annotation_pins::step` | `repoStep("annotation_pins", …)` | `features/papers/infrastructure/parts-1.ts:89` |
 | `blob_objects` | `repos::blob_objects::step` | `repoStep("blob_objects", …)` | `storage/providers/postgrest/blob-registry.ts:37` |
 | `experiment_metrics` | `repos::experiment_metrics::step` | `repoStep("experiment_metrics", …)` | `features/experiments/infrastructure/parts.ts:131` |
-| `experiment_push` | `repos::experiment_push::step` | `repoStep("experiment_push", …)` | `backend/providers/local/parts-1.ts:380` |
 | `experiments` | `repos::experiments::step` | `repoStep("experiments", …)` | `features/experiments/infrastructure/parts.ts:94` |
 | `milestones` | `repos::milestones::step` | `repoStep("milestones", …)` | `features/plan/infrastructure/milestone-rows.ts:17` |
-| `paper_fields` | `repos::paper_fields::step` | `repoStep("paper_fields", …)` | `features/papers/infrastructure/parts-1.ts:98` |
-| `plan_feed_links` | `repos::plan_feed_links::step` | `repoStep("plan_feed_links", …)` | `features/plan/infrastructure/plan-feed-links.ts:72` |
-| `project_columns` | `repos::project_columns::step` | `repoStep("dashboardLayout", …)`, `repoStep("graphSettings", …)` | `backend/providers/postgrest/wire-postgrest-backend.ts:275`, `:282` |
-| `projects_repo` | `repos::projects_repo::step` | `repoStep("projects", …)` | `backend/providers/postgrest/wire-postgrest-backend.ts:137`, `:156` |
-| `reader_annotations` | `repos::reader_annotations::step` | `repoStep("reader_annotations", …)` | `features/reader/infrastructure/parts-1.ts:201` |
-| `shared_items` | `repos::shared_items::step` | `repoStep("shared_items", …)` | `backend/providers/postgrest/wire-postgrest-backend.ts:147` |
-| `showcase_seed` | `repos::showcase_seed::step` | `repoStep("showcase_seed", …)` | `features/showcase/application/load-local-demo.ts:58` |
+| `paper_fields` | `repos::paper_fields::step` | `repoStep("paper_fields", …)` | `features/papers/infrastructure/parts-1.ts:103` |
+| `plan_feed_links` | `repos::plan_feed_links::step` | `repoStep("plan_feed_links", …)` | none (removed in 0.9.8) |
+| `project_columns` | `repos::project_columns::step` | `repoStep("dashboardLayout", …)`, `repoStep("graphSettings", …)` | `backend/providers/postgrest/wire-postgrest-backend.ts:314`, `:321` |
+| `projects_repo` | `repos::projects_repo::step` | `repoStep("projects", …)` | `backend/providers/postgrest/wire-postgrest-backend.ts:136`, `:171` |
+| `reader_annotations` | `repos::reader_annotations::step` | `repoStep("reader_annotations", …)` | `features/reader/infrastructure/parts-1.ts:203` |
+| `shared_items` | `repos::shared_items::step` | `repoStep("shared_items", …)` | `backend/providers/postgrest/wire-postgrest-backend.ts:146` |
+| `showcase_seed` | `repos::showcase_seed::step` | `repoStep("showcase_seed", …)` | none (removed in 0.9.8) |
 
 Rules:
 
@@ -25,7 +24,6 @@ Rules:
 - `annotation_pins`: upsert on `project_id,paper_id,annotation_key`; `listForPaper` and `listForSection` filter on `paper_id` and `report_section_id`.
 - `blob_objects`: upsert on `bucket,path`; `recordAccess` and `recordAccessMany` call RPCs; `listHot` and `hotBytesTotal` use tier `hot`.
 - `experiment_metrics`: writes go to the view (`append`); `history` calls the `metric_history` RPC; `latestActivityAt` returns `[id, ms]` pairs.
-- `experiment_push`: `setArtifacts` and `staleArtifactIds` use the `app://artifacts/` prefix; the `clearReset` tip delete is a `soft` query.
 - `experiments`: `remove` is an alias of `delete`; `patch` in TS sends `undefined` fields as `null`.
 - `milestones`: `remove` is an alias of `delete`; Rust sends unset optional fields as `null`, and TS drops them on reads.
 - `paper_fields`: `saveDef` upserts on `id`; `setValue` upserts on `project_id,paper_id,field_id` and returns `.single()`; one bad stored value fails the list call.
