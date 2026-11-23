@@ -9,7 +9,7 @@ import assert from "node:assert/strict";
 
 import { guardPersonalSettings, guardWrites, personalWritesBlocked, PERSONAL_SETTINGS_WRITES } from "../light-write-guard";
 import { loadTestCore } from "@/lib/test/load-test-core";
-import { PostgrestSettingsRepository } from "@/features/settings/infrastructure/parts";
+import { PostgrestSettingsRepository, RouteSecretsStore } from "@/features/settings/infrastructure/parts";
 
 before(loadTestCore);
 
@@ -93,7 +93,13 @@ const READ_ONLY_STATES = ["incomplete", "unexported", "unavailable", "removing-o
 const FILES_STATES = ["verified", "removing", "removed"];
 // A device that verified its own export: read() wires files only for this shape.
 const OWN_VERIFIED = { ownRunVerified: true, deviceId: "d1", removingDeviceId: "d1" };
-
+// The raw report read() maps to each read-only state. "removing-other" is only reached from a removal run by another device.
+const REPORT_FOR: Record<string, Record<string, unknown>> = {
+  "removing-other": { state: "removing", deviceId: "d1", removingDeviceId: "d2" },
+};
+function reportFor(state: string): Record<string, unknown> {
+  return REPORT_FOR[state] ?? { state };
+}
 test("outside the desktop shell writes are not blocked", withShell(undefined, async () => {
   assert.equal(await personalWritesBlocked(), false);
 }));
@@ -117,7 +123,7 @@ for (const state of FILES_STATES) {
 for (const state of READ_ONLY_STATES) {
   test(`a desktop folder in read-only state ${state} blocks writes`, withShell({
     ...FOLDER,
-    migrate097Status: async () => ({ state }),
+    migrate097Status: async () => reportFor(state),
   }, async () => {
     assert.equal(await personalWritesBlocked(), true);
   }));
@@ -178,7 +184,7 @@ test("a new account gets past the disclaimer in an unexported folder", withShell
 for (const state of READ_ONLY_STATES) {
   test(`settings writes are refused in read-only state ${state}`, withShell({
     ...FOLDER,
-    migrate097Status: async () => ({ state }),
+    migrate097Status: async () => reportFor(state),
   }, async () => {
     const repo = new FakeSettings();
     const guarded = guardPersonalSettings(repo);
@@ -213,7 +219,7 @@ class FakeSettingsWithoutNoticeSeen {
 for (const state of READ_ONLY_STATES) {
   test(`all four personal writes are refused in read-only state ${state}`, withShell({
     ...FOLDER,
-    migrate097Status: async () => ({ state }),
+    migrate097Status: async () => reportFor(state),
   }, async () => {
     const repo = new FakeSettings();
     const guarded = guardPersonalSettings(repo);
@@ -266,7 +272,7 @@ for (const state of [...READ_ONLY_STATES, ...FILES_STATES]) {
 for (const state of READ_ONLY_STATES) {
   test(`ensureProvisioned (account row) passes in read-only state ${state}`, withShell({
     ...FOLDER,
-    migrate097Status: async () => ({ state }),
+    migrate097Status: async () => reportFor(state),
   }, async () => {
     let calls = 0;
     const guarded = guardPersonalSettings({ async ensureProvisioned(): Promise<string> { calls++; return "ok"; } });
@@ -293,3 +299,44 @@ test("the real PostgrestSettingsRepository has its personal writes refused in re
   await assert.rejects(() => repo.saveDisclaimer("2026-01-01", 1), /read-only until export verified/);
   await assert.rejects(() => repo.saveAppearance({} as never), /read-only until export verified/);
 }));
+
+// Secrets are personal: the credentials store refuses the same writes as the settings repo.
+const SECRETS_DB = { auth: { getSession: async () => ({ data: { session: null } }) } };
+
+function withFetchCounter(run: (calls: () => number) => Promise<void>) {
+  return async () => {
+    const realFetch = globalThis.fetch;
+    let calls = 0;
+    globalThis.fetch = (async () => {
+      calls++;
+      return new Response("{}", { status: 200 });
+    }) as typeof fetch;
+    try {
+      await run(() => calls);
+    } finally {
+      globalThis.fetch = realFetch;
+    }
+  };
+}
+
+for (const state of READ_ONLY_STATES) {
+  test(`RouteSecretsStore.save is refused in ${state} and sends no request`, withShell({
+    ...FOLDER,
+    migrate097Status: async () => reportFor(state),
+  }, withFetchCounter(async (calls) => {
+    const store = new RouteSecretsStore(SECRETS_DB as never);
+    await assert.rejects(() => store.save({} as never), /read-only until export verified/);
+    assert.equal(calls(), 0);
+  })));
+}
+
+for (const state of FILES_STATES) {
+  test(`RouteSecretsStore.save goes through in ${state}`, withShell({
+    ...FOLDER,
+    migrate097Status: async () => ({ state, ...OWN_VERIFIED }),
+  }, withFetchCounter(async (calls) => {
+    const store = new RouteSecretsStore(SECRETS_DB as never);
+    await store.save({} as never);
+    assert.equal(calls(), 1);
+  })));
+}
