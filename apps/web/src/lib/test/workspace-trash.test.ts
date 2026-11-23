@@ -6,7 +6,7 @@ import assert from "node:assert/strict";
 import { before, test } from "node:test";
 import { MemoryWorkspaceFs } from "@core-test/memory-workspace-fs";
 import { loadTestCore } from "@/lib/test/load-test-core";
-import { moveToTrash } from "../workspace-trash";
+import { claimTrashFolder, moveToTrash } from "../workspace-trash";
 
 before(loadTestCore);
 
@@ -56,7 +56,7 @@ test("a rename that throws while the source cannot be checked leaves no empty cl
 
 test("a move that lands and then reports a failure keeps the trashed copy", async () => {
   const fs = new MemoryWorkspaceFs();
-  await fs.writeFile("notes/a.md", "");
+  await fs.writeFile("notes/a.md", "keep me");
   const rename = fs.rename.bind(fs);
   fs.rename = async (from, to) => {
     await rename(from, to);
@@ -66,4 +66,23 @@ test("a move that lands and then reports a failure keeps the trashed copy", asyn
   const all = await files(fs);
   assert.equal(all.length, 1, all.join());
   assert.match(all[0] ?? "", /^\.weaveforge\/trash\//);
+});
+test("a rename that throws with the source gone and the claim still empty leaves no 0-byte trash file", async () => {
+  const fs = new MemoryWorkspaceFs();
+  await fs.writeFile("notes/a.md", "keep me");
+  fs.rename = async (from) => {
+    await fs.remove(from);
+    throw new Error("source vanished");
+  };
+  await assert.rejects(moveToTrash(fs, "notes/a.md", Date.now()), /source vanished/);
+  assert.deepEqual(await files(fs), []);
+});
+test("two concurrent folder trashes of the same name claim different trash folders", async () => {
+  const fs = new MemoryWorkspaceFs();
+  const now = Date.now();
+  const [a, b] = await Promise.all([claimTrashFolder(fs, "thesis", now), claimTrashFolder(fs, "thesis", now)]);
+  assert.notEqual(a.target, b.target);
+  await a.release();
+  await b.release();
+  assert.deepEqual(await files(fs), []);
 });

@@ -72,8 +72,14 @@ function fakeContainer() {
           pages.set(page.id, page);
           return page;
         },
-        update: async (id: string, input: { title: string; body: string }) => {
-          pages.set(id, { id, ...input });
+        // As the note repo: a body changed since `baseBody` was read is kept as a conflict copy.
+        update: async (id: string, input: { title: string; body: string; baseBody?: string }) => {
+          const { baseBody, ...patch } = input;
+          const current = pages.get(id);
+          if (current && baseBody !== undefined && current.body !== baseBody) {
+            pages.set(`${id}-conflict`, { ...current, id: `${id}-conflict` });
+          }
+          pages.set(id, { id, ...patch });
         },
       },
     },
@@ -244,4 +250,44 @@ test("keeping the workspace copy writes it over the folder's file and makes it t
   assert.equal(store.get(path), files[path]);
   assert.equal((await readMirrorBase(fs, projectRoot))[path], readyCore().digestText(files[path] ?? ""));
   assert.equal(await keepWorkspaceCopy(fs, `${projectRoot}/notes/none.md`), false);
+});
+
+/** The note is read, then an outside edit lands before the import writes it. */
+function editAfterRead(container: AppContainer, pages: Map<string, { id: string; title: string; body: string }>) {
+  const vault = (container as unknown as { vault: { getPage: (id: string) => Promise<unknown> } }).vault;
+  vault.getPage = async (id: string) => {
+    const page = pages.get(id);
+    if (page) pages.set(id, { ...page, body: "edited outside" });
+    return page ? { ...page } : null;
+  };
+}
+
+test("a re-import over a note edited after the read keeps the edit as a conflict copy", async () => {
+  const { container, pages } = fakeContainer();
+  setContainerForTests(container);
+  const path = `${projectRoot}/notes/idea.md`;
+  const { fs } = memoryFs({ [path]: "# Idea\n\nfolder\n" });
+  pages.set("p-1", { id: "p-1", title: "Idea", body: "before" });
+  editAfterRead(container, pages);
+
+  const result = await applyEntries(fs, updated("p-1", path, "folder"), {});
+  assert.equal(result.updated, 1);
+  assert.equal(pages.get("p-1")?.body, "folder");
+  assert.equal(pages.get("p-1-conflict")?.body, "edited outside");
+});
+
+test("a second apply of an unclaimed file keeps an edit made after the read as a conflict copy", async () => {
+  const { container, pages } = fakeContainer();
+  setContainerForTests(container);
+  const path = `${projectRoot}/notes/idea.md`;
+  const { fs, failWrites } = memoryFs({ [path]: "# Idea\n\nfirst\n" });
+  failWrites.add(path);
+  await applyEntries(fs, created(path, "first"), {});
+  failWrites.delete(path);
+  editAfterRead(container, pages);
+
+  const second = await applyEntries(fs, created(path, "second"), {});
+  assert.equal(second.updated, 1);
+  assert.equal(pages.get("page-1")?.body, "second");
+  assert.equal(pages.get("page-1-conflict")?.body, "edited outside");
 });

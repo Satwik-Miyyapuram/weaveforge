@@ -299,6 +299,25 @@ test("a change to an annotation in a sidecar beside a broken one names the parse
   });
 });
 
+test("remove of an id in a sidecar that cannot be read names the parse error and changes nothing", async () => {
+  const { fs, repo } = setup();
+  await fs.writeFile(FILE, "{ not json");
+  await assert.rejects(repo.remove("a1"), (err: Error) => {
+    assert.ok(err instanceof NotFoundError);
+    assert.match(err.message, /Attention\.annotations\.json/);
+    assert.match(err.message, /could not be read/);
+    return true;
+  });
+  assert.equal(await fs.readText(FILE), "{ not json");
+});
+
+test("remove of an unknown id with every sidecar readable is a no-op", async () => {
+  const { repo } = setup();
+  await repo.create("p-1", draft({ id: "a1" }));
+  await repo.remove("missing");
+  assert.deepEqual((await repo.list("p-1")).map((a) => a.id), ["a1"]);
+});
+
 test("recordZoteroSync with the paper id goes straight to that paper's sidecar", async () => {
   const { fs, repo } = setup();
   await repo.create("p-1", draft({ id: "a1" }));

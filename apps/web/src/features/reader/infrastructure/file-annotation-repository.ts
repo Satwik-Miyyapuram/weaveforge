@@ -117,7 +117,9 @@ export class FileReaderAnnotationRepository
   }
 
   async remove(id: string): Promise<void> {
-    const { path } = await this.pathOf(id);
+    const { path, unreadable } = await this.pathOf(id);
+    // An id in a sidecar that cannot be read is not gone: say so instead of reporting success.
+    if (!path && unreadable.length) throw notFound(unreadable);
     if (path) await this.change(path, (rows) => rows.filter((row) => row.id !== id));
   }
 
