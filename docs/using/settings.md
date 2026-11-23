@@ -47,8 +47,9 @@ The tabs appear in this order.
 - **Access tokens**: the tokens that let scripts and AI tools reach your workspace.
   See the two sections below.
 - **Integrations**: the metadata sources for your library. Click one to enter its keys.
-- **Sync**: how your changes are kept in step. **Needs you** lists anything that
-  needs your attention, such as **Changes that could not be saved**.
+- **Sync**: the open project's **Connections**: the git and chat services that
+  version its work and post plan updates. Click one to set it up; its token is
+  kept with that project only.
 - **Calendar**: the desktop deadlines card, and a note that old calendar links
   stopped working. See the calendar section below.
 - **Data**: **Your data** to export, the **Application log**, **Space on this

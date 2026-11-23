@@ -11,6 +11,14 @@ import { typedCore } from "@/lib/rust-core";
 const NAME_ATTEMPTS = 1000;
 
 /**
+ * The folder `fs` points at now. An fs that follows the open folder (the no-account fs) offers
+ * `pin`, so a folder switch mid-move cannot put the claim in one folder and the rename in another.
+ */
+function pinned(fs: IWorkspaceFs): IWorkspaceFs {
+  return (fs as { pin?: () => IWorkspaceFs }).pin?.() ?? fs;
+}
+
+/**
  * Renames `path` to the first free trash name for `now` (`-2`, `-3`, … on a
  * clash). The name is claimed by an exclusive create first, so a file that
  * appears there between a look and the rename is never overwritten. Without a
@@ -20,7 +28,8 @@ const NAME_ATTEMPTS = 1000;
  * move counts as done. Otherwise an empty claim is removed again and the error
  * is rethrown.
  */
-export async function moveToTrash(fs: IWorkspaceFs, path: string, now: number): Promise<void> {
+export async function moveToTrash(open: IWorkspaceFs, path: string, now: number): Promise<void> {
+  const fs = pinned(open);
   if (!fs.writeTextIf) throw new Error(`${path}: this workspace has no conditional write; not deleted.`);
   const core = typedCore();
   for (let n = 1; n <= NAME_ATTEMPTS; n += 1) {
@@ -51,10 +60,11 @@ export async function moveToTrash(fs: IWorkspaceFs, path: string, now: number): 
  * then calls `release` to drop the marker.
  */
 export async function claimTrashFolder(
-  fs: IWorkspaceFs,
+  open: IWorkspaceFs,
   folder: string,
   now: number,
 ): Promise<{ target: string; release: () => Promise<void> }> {
+  const fs = pinned(open);
   if (!fs.writeTextIf) throw new Error(`${folder}: this workspace has no conditional write; not removed.`);
   const core = typedCore();
   for (let n = 1; n <= NAME_ATTEMPTS; n += 1) {
