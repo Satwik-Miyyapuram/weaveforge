@@ -410,6 +410,20 @@ pub fn old_db_removed(pg_root: &Path) -> bool {
     marker_path(pg_root).exists()
 }
 
+/// Whether this device never had an old local database: no cluster folder and no backups to
+/// restore one from. Nothing is left to export, so the files are the source of truth.
+#[must_use]
+pub fn no_old_database(pg_root: &Path) -> bool {
+    !pg_root.exists() && !backups_dir(pg_root).exists()
+}
+
+/// Why start must not create a cluster on a device that never had one, or `None` to start it.
+#[must_use]
+pub fn fresh_refusal(pg_root: &Path) -> Option<&'static str> {
+    no_old_database(pg_root)
+        .then_some("no old local database on this device; the files are the source of truth")
+}
+
 /// Why start must not open the local cluster, or `None` to start it. A removed cluster stays gone:
 /// starting it would restore it from `local-db-backups`.
 #[must_use]

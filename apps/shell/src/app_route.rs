@@ -100,16 +100,21 @@ fn widget_answer(path: &str) -> Option<Answer> {
     })
 }
 
+/// The request's `Range` header, when it is readable text.
+fn range_header(parts: &tauri::http::request::Parts) -> Option<String> {
+    parts
+        .headers
+        .get("range")
+        .and_then(|v| v.to_str().ok())
+        .map(str::to_owned)
+}
+
 /// The answer to one `app://` request.
 pub async fn route(routes: &AppRoutes, request: tauri::http::Request<Vec<u8>>) -> Answer {
     let (parts, body) = request.into_parts();
     let host = parts.uri.host().unwrap_or_default().to_owned();
     let path = parts.uri.path().to_owned();
-    let range = parts
-        .headers
-        .get("range")
-        .and_then(|v| v.to_str().ok())
-        .map(str::to_owned);
+    let range = range_header(&parts);
     if let Some(file) = model_path(page_host(&host), &path) {
         let Some(client) = routes.model_client.as_ref() else {
             return bare(502);

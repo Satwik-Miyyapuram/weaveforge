@@ -316,7 +316,13 @@ mod tests {
 
     #[test]
     fn an_api_path_a_relay_did_not_answer_is_a_plain_404() {
-        let reply = respond(root(), Some("app.localhost"), "/api/html-proxy", Some("url=x"), None);
+        let reply = respond(
+            root(),
+            Some("app.localhost"),
+            "/api/html-proxy",
+            Some("url=x"),
+            None,
+        );
         assert_eq!(reply.status, 404);
         assert!(reply.body.is_empty());
     }

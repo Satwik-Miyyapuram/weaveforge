@@ -21,6 +21,13 @@ test("neither login surface calls setLocalMode, and both route through the folde
   }
 });
 
+test("both login surfaces hand the folder entry the shell's exporter, so a folder that needs the export can run it", () => {
+  for (const rel of ["../ui/login-screen.tsx", "../ui/privacy-disclaimer-gate.tsx"]) {
+    const source = readFileSync(new URL(rel, import.meta.url), "utf8");
+    assert.equal(source.includes("enterLocalOnly(shell, desktopRunExport(shell))"), true, `${rel} must pass desktopRunExport`);
+  }
+});
+
 test("the gate's offline button answers an unavailable outcome with its own message, not the login copy", () => {
   const gate = readFileSync(new URL("../ui/privacy-disclaimer-gate.tsx", import.meta.url), "utf8");
   assert.equal(gate.includes('outcome === "unavailable"'), true, "the gate must handle the unavailable outcome");

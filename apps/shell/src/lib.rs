@@ -480,9 +480,11 @@ fn start_local_db(app: &tauri::AppHandle) {
         (Ok(data), Ok(resources)) => {
             let source = launch::app_source(resources.clone());
             // After a 0.9.7 removal the cluster stays gone: no start, so no restore from backups.
+            // A device that never had a cluster gets none: 0.9.7 creates no local database.
             let pg_root = native_root(&data);
             let refused =
                 migrate_097::remove::start_refusal(migrate_097::remove::old_db_removed(&pg_root))
+                    .or_else(|| migrate_097::remove::fresh_refusal(&pg_root))
                     .map(str::to_owned)
                     .or_else(|| {
                         let root = app.try_state::<vault::VaultState>()?.lock().root()?;

@@ -302,6 +302,8 @@ mod tests {
                     .expect("adopt workspace")
                     .is_some()
             );
+            // An old cluster is here, so a folder with no report is on the database.
+            fs::create_dir_all(root.join("pg")).expect("create old cluster");
             let mode = ModeSource::new(root.join("pg"), "device-a".to_owned());
             Self { root, vault, mode }
         }

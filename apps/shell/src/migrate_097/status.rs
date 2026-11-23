@@ -52,8 +52,9 @@ pub struct MigrationStatus {
 /// copies), exported-to.json and the backup. Never writes and never fails. One unreadable report or a
 /// failed listing makes the status unavailable, with `reason` and `step` set. Otherwise this device's
 /// state comes from its own file, else the legacy report.json. An unreadable report is `removed` when
-/// the removed marker exists, `none` when this device has no report and nothing was exported, and
-/// `unavailable` otherwise.
+/// the removed marker exists, also `removed` when this device has no report, nothing was exported and
+/// it never had an old database (no cluster, no backups), `none` when it has no report and nothing
+/// was exported, and `unavailable` otherwise.
 #[allow(
     clippy::too_many_lines,
     reason = "one ordered status decision; removed in 0.9.8"
@@ -71,7 +72,10 @@ pub fn migration_status(folder: &Path, pg_root: &Path, device_id: &str) -> Migra
     let Some(report) = super::remove::base_report(&reports, device_id).cloned() else {
         // No report from this device (another device's file does not count) and none unreadable.
         let absent = problem.is_none();
-        let state = if removed {
+        // A device that never had an old database has nothing to export: it is on files, as if removed.
+        let gone =
+            removed || (absent && exported.is_none() && super::remove::no_old_database(pg_root));
+        let state = if gone {
             "removed"
         } else if absent && exported.is_none() {
             // Nothing was ever exported here, so there is nothing to report as unavailable.
@@ -88,7 +92,7 @@ pub fn migration_status(folder: &Path, pg_root: &Path, device_id: &str) -> Migra
             missing: None,
             device_id: device_id.to_owned(),
             // Removed here: this device's marker lets the wiring rule switch it to files.
-            removing_device_id: removed.then(|| device_id.to_owned()),
+            removing_device_id: gone.then(|| device_id.to_owned()),
             exported_here,
             own_run_verified: false,
             reason: problem.as_ref().map(super::remove::ReportsError::reason),
@@ -225,11 +229,58 @@ mod tests {
             r#"{"version":1,"state":"verified","runs":[{"deviceId":"dev-b","state":"verified","finishedAt":"2026-11-22T10:00:00.000Z"}]}"#,
         )
         .unwrap();
+        // An old cluster is here, so this device still has a database to export.
+        fs::create_dir_all(base.join("local-pg").join("data")).unwrap();
+        fs::write(base.join("local-pg").join("data").join("PG_VERSION"), "17").unwrap();
         let status = migration_status(&folder, &base.join("local-pg"), "dev-a");
         let _ = fs::remove_dir_all(&base);
         assert_eq!(status.state, "none", "no run from this device");
         assert!(!status.own_run_verified);
         assert_eq!(status.verified_at, None);
+    }
+
+    /// The status of `folder` (an empty vault) on a device whose app data holds only `old`.
+    fn fresh_status(name: &str, old: &[&str]) -> MigrationStatus {
+        let base =
+            std::env::temp_dir().join(format!("wf-m097-status-{name}-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&base);
+        let folder = base.join("vault");
+        fs::create_dir_all(&folder).unwrap();
+        for dir in old {
+            fs::create_dir_all(base.join(dir)).unwrap();
+        }
+        let status = migration_status(&folder, &base.join("local-pg"), "dev-a");
+        let _ = fs::remove_dir_all(&base);
+        status
+    }
+
+    #[test]
+    fn a_device_with_no_old_database_uses_the_files() {
+        let status = fresh_status("fresh", &[]);
+        assert_eq!(
+            status.state, "removed",
+            "nothing to export, so the files are the truth"
+        );
+        assert_eq!(status.removing_device_id.as_deref(), Some("dev-a"));
+        assert_eq!(
+            crate::local_http::verified::mode_for_status(&status),
+            crate::local_http::verified::Mode::Files
+        );
+    }
+
+    #[test]
+    fn an_old_cluster_folder_still_counts_as_old_data() {
+        let status = fresh_status("cluster", &["local-pg"]);
+        assert_eq!(status.state, "none");
+        assert_eq!(status.removing_device_id, None);
+    }
+
+    #[test]
+    fn old_backups_alone_still_count_as_old_data() {
+        // Start restores the cluster from these, so they hold the old data.
+        let status = fresh_status("backups", &["local-db-backups"]);
+        assert_eq!(status.state, "none");
+        assert_eq!(status.removing_device_id, None);
     }
 
     #[test]

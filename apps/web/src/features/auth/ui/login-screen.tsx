@@ -7,6 +7,7 @@ import { WeaveForgeLogo } from "@/components/weave-forge-logo";
 import { appOrigin, authRedirectTo, pastedSignInQuery } from "@/lib/desktop/desktop-auth";
 import { desktop } from "@/lib/desktop/desktop-bridge";
 import { enterLocalOnly, localOnlyEntryVisible } from "@/lib/desktop/local-only-entry";
+import { desktopRunExport } from "@/lib/desktop/migrate-097-gate";
 import { runBusy } from "./run-busy";
 import { Button } from "@/components/button";
 
@@ -247,13 +248,13 @@ export function LoginScreen() {
                 <Button variant="link"
                   onClick={() => {
                     // Desktop only (the web entry is hidden): pick a folder, then
-                    // enter the migration run for it; the window reloads onto it.
+                    // run this device's export for it if needed; the window reloads onto it.
                     const shell = desktop();
                     if (!shell) return;
                     void run(async () => {
-                      const outcome = await enterLocalOnly(shell);
+                      const outcome = await enterLocalOnly(shell, desktopRunExport(shell));
                       if (outcome === "reload") window.location.reload();
-                      if (outcome === "unavailable") throw new Error("This app cannot open a workspace folder for local-only use yet.");
+                      if (outcome === "unavailable") throw new Error("This app could not open that workspace folder for local-only use. Try again after restarting the app.");
                     });
                   }}
                 >

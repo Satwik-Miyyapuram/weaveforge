@@ -20,6 +20,7 @@ import {
 } from "@/lib/desktop/desktop-bridge";
 import { isLocalMode } from "@/backend/providers/local/local-identity";
 import { enterLocalOnly } from "@/lib/desktop/local-only-entry";
+import { desktopRunExport } from "@/lib/desktop/migrate-097-gate";
 import { Button } from "@/components/button";
 
 /**
@@ -193,7 +194,7 @@ function StartupFailure({ message }: { message: string }) {
               const shell = desktop();
               if (!shell) return;
               setOfflineError(null);
-              void enterLocalOnly(shell).then((outcome) => {
+              void enterLocalOnly(shell, desktopRunExport(shell)).then((outcome) => {
                 if (outcome === "reload") window.location.reload();
                 else if (outcome === "unavailable")
                   setOfflineError(

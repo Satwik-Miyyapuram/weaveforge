@@ -504,7 +504,6 @@ export interface DesktopBridge {
     removingDeviceId?: string;
     deviceId?: string;
   }>;
-  migrate097Run?(folder: string): Promise<{ state: Migrate097StateName }>;
   /** Deletes the old local data after a verified migration; the user confirms first. */
   migrate097RemoveOld?(folder: string): Promise<void>;
   /** Tint the system's window buttons to the page: two `#rrggbb` colours. */

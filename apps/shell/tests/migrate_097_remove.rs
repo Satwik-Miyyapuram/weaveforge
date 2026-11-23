@@ -6,8 +6,8 @@ use std::io;
 use std::path::{Path, PathBuf};
 
 use weaveforge_shell_lib::migrate_097::remove::{
-    backup_name, old_db_removed, record_exported_to, record_verified_export, removal_refusal,
-    remove_old_data, resume_on_launch, start_refusal,
+    backup_name, fresh_refusal, old_db_removed, record_exported_to, record_verified_export,
+    removal_refusal, remove_old_data, resume_on_launch, start_refusal,
 };
 
 const DIR: &str = ".weaveforge/migration-0.9.7";
@@ -1874,6 +1874,27 @@ fn a_removal_marker_refuses_start_with_the_reason() {
     fs::write(f.base.join("old-db-removed"), "").unwrap();
     let reason = start_refusal(old_db_removed(&f.pg_root)).expect("a marker must refuse start");
     assert!(reason.contains("removed in 0.9.7"), "{reason}");
+}
+
+// A device that never had an old database must not get a new cluster at start (0.9.7: no local DB).
+#[test]
+fn a_device_with_no_old_database_refuses_start() {
+    let f = Fixture::new("start-fresh", None, None);
+    assert_eq!(
+        fresh_refusal(&f.pg_root),
+        None,
+        "a cluster is here, start proceeds"
+    );
+    fs::remove_dir_all(&f.pg_root).unwrap();
+    assert_eq!(
+        fresh_refusal(&f.pg_root),
+        None,
+        "backups restore the old cluster, start proceeds"
+    );
+    fs::remove_dir_all(f.base.join("local-db-backups")).unwrap();
+    let reason = fresh_refusal(&f.pg_root).expect("no old database must refuse start");
+    assert!(reason.contains("files are the source of truth"), "{reason}");
+    assert!(!f.pg_root.exists(), "no cluster is created");
 }
 
 #[cfg(windows)]
