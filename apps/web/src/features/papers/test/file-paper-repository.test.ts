@@ -332,6 +332,30 @@ test("setTags racing an outside edit keeps that edit", async () => {
   assert.deepEqual((await repo.getById("p-1"))?.tags, ["ml"]);
 });
 
+test("save racing a trash of the paper file throws ConflictError and does not bring the paper back", async () => {
+  const fs = new RacingFs();
+  const repo = new FilePaperRepository(fs, ROOT);
+  await repo.save(paper());
+  const path = await onlyFile(fs);
+  fs.race = async () => {
+    await repo.delete("p-1");
+  };
+  await assert.rejects(repo.save(paper({ title: "Edited" })), ConflictError);
+  assert.equal(await fs.stat(path), null);
+  assert.equal(await repo.getById("p-1"), null);
+});
+
+test("setTags racing a trash of the paper file throws ConflictError and writes nothing", async () => {
+  const fs = new RacingFs();
+  const repo = new FilePaperRepository(fs, ROOT);
+  await repo.save(paper());
+  fs.race = async () => {
+    await repo.delete("p-1");
+  };
+  await assert.rejects(repo.setTags("p-1", ["ml"], "2026-03-01"), ConflictError);
+  assert.equal(await repo.getById("p-1"), null);
+});
+
 // ---- Laws (fast-check) ----
 
 const text = fc.string({ maxLength: 20 });
@@ -474,4 +498,23 @@ test("setPinned on an unreadable paper file returns false and leaves the file un
   assert.equal(written, 0);
   assert.equal(await readText(badPath), original);
   assert.doesNotMatch(original, /pinned: true/);
+});
+
+test("files() lists each paper's id with its file, in one scan", async () => {
+  const { fs, repo } = setup();
+  await repo.save(paper({ id: "p-1", title: "One" }));
+  await repo.save(paper({ id: "p-2", title: "Two" }));
+  const expected = [
+    { paperId: "p-1", path: (await repo.pathOf("p-1"))! },
+    { paperId: "p-2", path: (await repo.pathOf("p-2"))! },
+  ];
+  let reads = 0;
+  const readText = fs.readText.bind(fs);
+  fs.readText = async (path: string) => {
+    reads += 1;
+    return readText(path);
+  };
+  const files = (await repo.files()).sort((a, b) => a.paperId.localeCompare(b.paperId));
+  assert.deepEqual(files, expected);
+  assert.equal(reads, 2);
 });

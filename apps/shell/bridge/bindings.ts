@@ -96,6 +96,19 @@ export const commands = {
 	migrate097Status: (folder: string) => typedError<MigrationStatus_Serialize, ShellError_Serialize>(__TAURI_INVOKE("migrate_097_status", { folder })),
 	/**  Row counts for every personal table, plus the CRDT tail past each snapshot. */
 	migrate097Counts: () => typedError<RowCounts, ShellError_Serialize>(__TAURI_INVOKE("migrate_097_counts")),
+	/**
+	 *  Dumps the local database before the export, changed or not, and keeps a copy as
+	 *  `<folder>/.weaveforge/migration-0.9.7/pre-migration-<stamp>.dump`. The rotation in
+	 *  `local-db-backups` prunes its own `local-pg-*` files and is deleted with the old data; the
+	 *  migration copy is in neither, so the dump `report.json` names outlives both. Never overwrites a
+	 *  backup; any failure is an error, and the web gate then marks nothing.
+	 */
+	migrate097Backup: (folder: string) => typedError<MigrationBackup, ShellError_Serialize>(__TAURI_INVOKE("migrate_097_backup", { folder })),
+	/**
+	 *  One page of exporter `kind`, read-only. `after` is the last key read (one value per key column);
+	 *  `limit` is clamped to 1000. Unknown kinds and `ink` are refused.
+	 */
+	migrate097Read: (kind: string, after: unknown[] | null, limit: number) => typedError<unknown[], ShellError_Serialize>(__TAURI_INVOKE("migrate_097_read", { kind, after, limit })),
 	/**  Deletes the local cluster after a verified migration. See `remove_old_data` for the gates. */
 	migrate097RemoveOld: (folder: string) => typedError<null, ShellError_Serialize>(__TAURI_INVOKE("migrate_097_remove_old", { folder })),
 	/**
@@ -1257,6 +1270,14 @@ export type MigrateState =
 "incomplete" | 
 /**  Every row is in files, every grant is in, and the report says so. The database may go. */
 "verified";
+
+/**  What `migrate_097_backup` made: this device's id and the dump to keep. */
+export type MigrationBackup = {
+	/**  This device's id. */
+	deviceId: string,
+	/**  The pre-migration dump in the export folder. */
+	dumpPath: string,
+};
 
 /**  Status of the 0.9.7 migration as the UI sees it. */
 export type MigrationStatus = MigrationStatus_Serialize | MigrationStatus_Deserialize;

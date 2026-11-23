@@ -127,7 +127,7 @@ export function Migrate097UpgradeBody({
   onContinue,
 }: UpgradeBodyProps) {
   const kinds = Object.entries(progress);
-  // A count per kind, bounded however many rows failed; report.json in the report folder lists each row.
+  // A count per kind, bounded however many rows failed; this device's report-<id>.json in the report folder lists each row.
   const archiveCounts = new Map<string, number>();
   for (const r of archivedOnly) archiveCounts.set(r.kind, (archiveCounts.get(r.kind) ?? 0) + 1);
   const archiveLine =
@@ -228,7 +228,7 @@ export function Migrate097Upgrade({
   onReady: () => void;
   onKeepOld: () => void;
 }) {
-  // The web waits for Start; the desktop answers at once (runExport is null there) and shows Retry.
+  // The web and the desktop both wait for Start; only a missing runner answers at once and shows Retry.
   const [phase, setPhase] = useState<UpgradePhase>(runExport ? "idle" : "running");
   const [progress, setProgress] = useState<Record<string, UpgradeKindProgress>>({});
   const [copied, setCopied] = useState(false);
@@ -278,7 +278,7 @@ export function Migrate097Upgrade({
   useEffect(() => {
     if (started.current) return;
     started.current = true;
-    // Only the desktop path (no runner) runs on mount; the web export waits for Start.
+    // Only a missing runner runs on mount; a real export (web or desktop) waits for Start.
     if (!runExport) void run();
     // Runs once per mount; run reads the latest folder and callbacks on that pass.
   }, [folder]);

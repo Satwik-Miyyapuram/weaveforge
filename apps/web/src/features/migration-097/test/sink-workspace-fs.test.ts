@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { ConflictError } from "@weaveforge/core";
 import { createFileStore, guardedSink } from "../application/file-store";
 import { conflictCopyPath } from "../domain/conflict-path";
 import { MemorySink } from "../infrastructure/memory-sink";
@@ -91,11 +92,24 @@ test("stat, rename and remove", async () => {
   assert.equal(await fs.stat("x/b.md"), null);
 });
 
-test("an entity save whose text lands in a conflict copy reports false, not true", async () => {
+test("an entity save whose text lands in a conflict copy throws ConflictError, so the run lists a conflict", async () => {
   const sink = new MemorySink();
   await sink.write("notes/x.md", "old");
   const fs = sinkAsWorkspaceFs(guardedSink(sink, await createFileStore(sink, {})));
-  assert.equal(await fs.writeTextIf!("notes/x.md", "new", "old"), false, "the file does not hold the text");
+  await assert.rejects(fs.writeTextIf!("notes/x.md", "new", "old"), (err) => err instanceof ConflictError, "the file does not hold the text");
   assert.equal(await sink.readText("notes/x.md"), "old");
   assert.equal(await sink.readText(conflictCopyPath("notes/x.md", 1)), "new");
+});
+
+test("an entity save whose file changes again right after the write reports false, not a conflict copy", async () => {
+  const sink = new MemorySink();
+  await sink.write("notes/x.md", "old");
+  const racing = Object.create(sink) as MemorySink;
+  racing.write = async (path, data) => {
+    await sink.write(path, data);
+    await sink.write(path, "user edit");
+  };
+  const fs = sinkAsWorkspaceFs(racing);
+  assert.equal(await fs.writeTextIf!("notes/x.md", "new", "old"), false);
+  assert.equal(await sink.readText("notes/x.md"), "user edit");
 });

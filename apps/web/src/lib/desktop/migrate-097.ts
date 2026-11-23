@@ -26,6 +26,8 @@ export interface Migrate097Bridge {
     deviceId?: unknown;
     /** True when this device's own export verified (EXPORT-2 adds it; missing means false). */
     ownRunVerified?: unknown;
+    /** True when this device's exported-to.json names this folder (the shell compares canonical paths). */
+    exportedHere?: unknown;
   }>;
 }
 
@@ -73,8 +75,10 @@ async function read(bridge: Migrate097Bridge, folder: string): Promise<Migrate09
       return ownRun || remover ? "removed" : "unexported";
     }
     if (state === "verified") {
-      // Files wire only on a device that verified its own export; another device's verified report is "unexported" here.
-      return report?.ownRunVerified === true ? "verified" : "unexported";
+      // Files wire only on a device that verified its own export and recorded it for this folder (exported-to.json).
+      // Another device's verified report, or a crash between the verified report and the desktop mark, is
+      // "unexported": the export is offered again, and removal stays hidden.
+      return report?.ownRunVerified === true && report.exportedHere === true ? "verified" : "unexported";
     }
     return state === "incomplete" || state === "none" || state === "unexported" ? state : "unavailable";
   } catch {

@@ -1,5 +1,5 @@
 /**
- * Reads the 0.9.7 migration report (`report.json`) into what the upgrade
+ * Reads the 0.9.7 migration report (`report-<device id>.json`) into what the upgrade
  * screen shows: per-kind counts, conflict copies, missing rows and the backup.
  * Pure: no bridge or DOM access, so the screen can be tested with plain data.
  */

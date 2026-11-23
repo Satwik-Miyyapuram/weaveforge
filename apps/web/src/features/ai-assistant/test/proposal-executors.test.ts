@@ -191,6 +191,14 @@ test("note edits conflict when the note changed since the suggestion", async () 
   assert.deepEqual(writes, []);
 });
 
+test("note edits send the body they read as baseBody, so a later outside edit is kept, not overwritten", async () => {
+  const { registry, writes } = suggestionExecutors({ noteBody: "Read" });
+  assert.equal(await registry.execute(draft("edit_vault_note", { body: "New" })), "accepted");
+  assert.equal(await registry.execute(draft("append_vault_note", { addition: "More" })), "accepted");
+  const bases = writes.map((w) => (w as { patch: { baseBody?: string } }).patch.baseBody);
+  assert.deepEqual(bases, ["Read", "Read"]);
+});
+
 test("note edits refuse ink notes rather than overwrite the strokes", async () => {
   const { registry, writes } = suggestionExecutors({ noteBody: "<!-- weaveforge-ink -->\n" });
   await assert.rejects(registry.execute(draft("append_vault_note", { addition: "More" })), /Ink notes/);

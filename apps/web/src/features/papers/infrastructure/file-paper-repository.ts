@@ -122,6 +122,11 @@ export class FilePaperRepository implements IPaperRepository {
     return (await this.findById(id))?.path ?? null;
   }
 
+  /** Each paper's id with the file that holds it, from one scan of the papers folder. */
+  async files(): Promise<{ paperId: string; path: string }[]> {
+    return (await this.readAll()).map((read) => ({ paperId: read.paper.id, path: read.path }));
+  }
+
   /** Every `.paper.md` file that could not be read as a paper, with the reason. */
   async failures(): Promise<PaperFileFailure[]> {
     return (await this.scan()).failures;
@@ -224,8 +229,12 @@ export class FilePaperRepository implements IPaperRepository {
     rowFor: (current: Paper | null) => Record<string, unknown> | null,
     create: boolean,
   ): Promise<void> {
+    let seen = false;
     for (let attempt = 0; attempt < WRITE_ATTEMPTS; attempt += 1) {
       const read = await this.findById(id);
+      // A file read on an earlier attempt and gone now was trashed or moved mid-save: never recreate it.
+      if (!read && seen) throw new ConflictError(`Paper ${id} was removed on disk; not saved.`);
+      seen = read !== null;
       if (!read && !create) return;
       const row = rowFor(read?.paper ?? null);
       if (!row) return;

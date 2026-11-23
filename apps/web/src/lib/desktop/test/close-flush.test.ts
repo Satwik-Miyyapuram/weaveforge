@@ -8,7 +8,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
-import { CLOSE_FLUSH_CAP_MS, flushForClose, holdCloseWhile } from "../close-flush";
+import { CLOSE_FLUSH_CAP_MS, flushForClose, flushWhenHidden, holdCloseWhile } from "../close-flush";
 
 const shell = readFileSync(new URL("../../../../../shell/src/close_flush.rs", import.meta.url), "utf8");
 
@@ -130,4 +130,39 @@ test("the editors register what their close waits for", () => {
   assert.match(src("collab/application/parts.ts"), /holdCloseWhile\(\(\) => saver\.busy\(\)/);
   assert.match(src("canvas/ui/canvas-editor.tsx"), /holdCloseWhile\(\(\) => saver\.busy\(\)\)/);
   assert.match(src("workspace/ui/workspace-settings-sync.tsx"), /holdCloseWhile\(\(\) => workspaceSettings\.busy\(\)\)/);
+});
+
+/** A document stand-in whose visibility the test sets. */
+function fakeDoc() {
+  const doc = Object.assign(new EventTarget(), { visibilityState: "visible" as string });
+  const hide = (state = "hidden") => {
+    doc.visibilityState = state;
+    doc.dispatchEvent(new Event("visibilitychange"));
+  };
+  return { doc, hide };
+}
+
+test("an app sent to the background writes now (Android may kill it there, with no pagehide)", () => {
+  const { doc, hide } = fakeDoc();
+  let flushed = 0;
+  const stop = flushWhenHidden(() => void flushed++, doc);
+  hide("visible");
+  assert.equal(flushed, 0, "coming back to the front is not a flush");
+  hide();
+  assert.equal(flushed, 1);
+  stop();
+  hide();
+  assert.equal(flushed, 1, "a stopped editor stops listening");
+});
+
+test("no document (server render) is a no-op", () => {
+  const stop = flushWhenHidden(() => assert.fail("must not flush"), undefined);
+  stop();
+});
+
+test("the editors also write when the app goes to the background", () => {
+  const src = (p: string) => readFileSync(new URL(`../../../features/${p}`, import.meta.url), "utf8");
+  assert.match(src("ink/ui/use-ink-note-store.ts"), /flushWhenHidden\(/);
+  assert.match(src("collab/application/parts.ts"), /flushWhenHidden\(/);
+  assert.match(src("canvas/ui/canvas-editor.tsx"), /flushWhenHidden\(/);
 });

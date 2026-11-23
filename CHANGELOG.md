@@ -38,7 +38,6 @@ Your data is already in your workspace folder from 0.9.7. Update to 0.9.7 first:
 ### Desktop
 - **Changed:** Device passwords and tokens live only in the OS keychain, never in a file.
 - **Changed:** The no-account copy of your data runs on the workspace files, not the local database.
-- **Changed:** The Overleaf token saved by 0.9.7 is removed from the keychain at startup.
 - **Removed:** The 0.9.7 local Postgres sync modules are removed from the shared core.
 
 ## [0.9.7] - 2026-11-23 (set at tag time)

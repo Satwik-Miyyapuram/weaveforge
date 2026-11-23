@@ -1,4 +1,5 @@
 import type { IWorkspaceFs, WorkspaceStat } from "@weaveforge/core";
+import { ConflictError } from "@weaveforge/core";
 import type { FileSink } from "../domain/ports.ts";
 
 /** Epoch stamp: a FileSink keeps no mtimes, and the export does not need them. */
@@ -81,11 +82,15 @@ export function sinkAsWorkspaceFs(sink: FileSink, options: { compareAndSet?: boo
       }
       if (options.compareAndSet) return sink.writeIf(clean, text, expected);
       // Entity saves: the file must still read `expected`. The new text then goes through the sink's write, so a
-      // differing user edit is kept and the DB version lands in a conflict copy. Reports true only when the text reads
-      // back at this path, so a save that became a conflict copy reports false.
+      // differing user edit is kept and the DB version lands in a conflict copy. A save that became a conflict copy
+      // (the file still reads `expected`) throws ConflictError, so the run lists it as a conflict and not as a write
+      // failure. A file that changed again mid-call reports false, so the repo re-reads it.
       if ((await sink.readText(clean).catch(() => null)) !== expected) return false;
       await sink.write(clean, text);
-      return (await sink.readText(clean).catch(() => null)) === text;
+      const after = await sink.readText(clean).catch(() => null);
+      if (after === text) return true;
+      if (after !== expected) return false;
+      throw new ConflictError(`conflict: ${clean} differs; kept the file's version, the DB version is in a conflict copy`);
     },
 
     async remove(path, options) {

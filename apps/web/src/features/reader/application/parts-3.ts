@@ -470,6 +470,7 @@ export async function writeBackZoteroAnnotations(deps: {
       // next sync create it again: try a few times before giving up (P2-163).
       const record = () =>
         deps.annotations.recordZoteroSync(r.id, {
+          paperId: paper.id,
           zoteroKey: r.zoteroKey!,
           zoteroVersion: r.zoteroVersion ?? prior?.zoteroVersion ?? null,
           syncState,

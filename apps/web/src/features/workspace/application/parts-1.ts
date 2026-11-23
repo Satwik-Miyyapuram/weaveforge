@@ -508,6 +508,7 @@ export async function applyEntries(
         await container.vault.manageVaultPage.update(made.id, {
           title: entry.entity.title,
           body: await reanchorAssets(entry.entity.body, made.id, owned),
+          baseBody: made.body,
         });
         id = made.id;
         updated += 1;
@@ -565,6 +566,8 @@ export async function applyEntries(
     await container.vault.manageVaultPage.update(page.id, {
       title,
       body: await reanchorAssets(entry.entity.body, page.id, owned),
+      // An edit saved since the read is kept as a conflict copy, not overwritten.
+      baseBody: page.body,
     });
     updated += 1;
     if (!rename) {

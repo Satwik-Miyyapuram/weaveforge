@@ -70,6 +70,29 @@ export async function createFileStore(sink: FileSink, prior: Outputs): Promise<F
     }
   };
 
+  /**
+   * Replaces the file at `path` only if it still holds `bytes` (sha256 `hash`). Text goes by the sink's compare-and-set;
+   * binary data, or a file that is not exact UTF-8, by a re-read and re-hash just before the write.
+   */
+  const replaceIfUnchanged = async (
+    path: string,
+    bytes: Uint8Array,
+    hash: string,
+    data: string | Uint8Array,
+  ): Promise<boolean> => {
+    if (typeof data === "string") {
+      const text = exactUtf8(bytes);
+      if (text !== null) return sink.writeIf(path, data, text);
+    }
+    try {
+      if ((await sha256Hex(await sink.readBytes(path))) !== hash) return false;
+    } catch {
+      return false;
+    }
+    await sink.write(path, data);
+    return true;
+  };
+
   return {
     async store(path, data, hash, copy) {
       // Candidate 0 is the path itself; candidate n (n >= 1) is its nth conflict copy.
@@ -88,7 +111,8 @@ export async function createFileStore(sink: FileSink, prior: Outputs): Promise<F
           if (current !== out.hash) {
             // A file this device wrote and left unchanged takes the new version; anything else is kept.
             if (prior[candidate] !== current) continue;
-            await sink.write(candidate, out.data);
+            // An edit since the read above keeps its file: this version goes on to a conflict copy.
+            if (!(await replaceIfUnchanged(candidate, state.bytes, current, out.data))) continue;
           }
         }
         outputs[candidate] = out.hash;
@@ -103,6 +127,15 @@ export async function createFileStore(sink: FileSink, prior: Outputs): Promise<F
     conflicts,
     prior,
   };
+}
+
+/** The text `bytes` hold when they are valid UTF-8 (a BOM kept as text), else null. */
+function exactUtf8(bytes: Uint8Array): string | null {
+  try {
+    return new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(bytes);
+  } catch {
+    return null;
+  }
 }
 
 /**

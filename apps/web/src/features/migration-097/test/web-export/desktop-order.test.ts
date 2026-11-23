@@ -7,6 +7,8 @@ import { runWebExport } from "../../application/run-web-export";
 import { MemorySink } from "../../infrastructure/memory-sink";
 import { NOW, fakeCodec, fakeServer, FIXTURE, KINDS, SUPPORTED, fakeDesktop } from "./helpers";
 
+type RunReportFile = { state: string; runs: { state: string; missing: unknown[] }[] };
+
 test("desktop: backup runs first, before any server read, and the report carries its deviceId", async () => {
   const { source, calls } = fakeServer({ rows: FIXTURE });
   const sink = new MemorySink();
@@ -151,7 +153,7 @@ test("verify: a null server contentType and application/octet-stream in the file
   assert.equal(result.state, "verified");
 });
 
-test("order: the server marker comes first, the desktop mark last, and report.json says incomplete until both succeed", async () => {
+test("order: the server marker comes first, the desktop mark last, and the desktop mark sees a verified run on disk", async () => {
   const order: string[] = [];
   const sink = new MemorySink();
   const { source } = fakeServer({ rows: FIXTURE });
@@ -171,14 +173,16 @@ test("order: the server marker comes first, the desktop mark last, and report.js
       bridge: {
         backup: async () => ({ deviceId: "dev-1", dump: "pre-migration-097.dump" }),
         markExported: async () => {
-          const report = JSON.parse(await sink.readText(await onlyReportPath(sink))) as { state: string };
-          order.push(`desktop-mark:report=${report.state}`);
+          // As the shell's check_own_run_verdict: this device's run must be verified with nothing missing.
+          const report = JSON.parse(await sink.readText(await onlyReportPath(sink))) as RunReportFile;
+          const run = report.runs.at(-1);
+          order.push(`desktop-mark:report=${report.state}:run=${run?.state}:missing=${run?.missing.length}`);
         },
       },
     },
   });
   assert.equal(result.state, "verified");
-  assert.deepEqual(order, ["server-mark", "desktop-mark:report=incomplete"]);
+  assert.deepEqual(order, ["server-mark", "desktop-mark:report=verified:run=verified:missing=0"]);
   const final = JSON.parse(await sink.readText(await onlyReportPath(sink))) as { state: string };
   assert.equal(final.state, "verified");
 });
@@ -225,7 +229,7 @@ test("order: a failed server marker leaves report.json incomplete and the deskto
   assert.match(JSON.stringify(report), /marker: server failed/);
 });
 
-test("order: a crash between the two marks never leaves report.json verified", async () => {
+test("order: a desktop mark that throws after the server marker leaves report.json incomplete", async () => {
   const { source, calls } = fakeServer({ rows: FIXTURE });
   const sink = new MemorySink();
   const result = await runWebExport({ runDeviceId: "dev-test",
@@ -305,6 +309,27 @@ test("interrupted run: report.json says incomplete before the first row is writt
   await runWebExport({ runDeviceId: "dev-test", kinds: KINDS, codec: fakeCodec(SUPPORTED), source, sink, now: NOW });
   assert.ok(firstRow.report, "report.json exists before the first row");
   assert.equal(JSON.parse(firstRow.report).state, "incomplete");
+});
+
+test("interrupted desktop run: the early report's run carries the backup dump name", async () => {
+  const { source } = fakeServer({ rows: FIXTURE });
+  const sink = new MemorySink();
+  const early: { report?: RunReport[] } = {};
+  const realRead = sink.readText.bind(sink);
+  source.listRows = ((orig) => async (...args: Parameters<typeof orig>) => {
+    if (early.report === undefined) early.report = (JSON.parse(await realRead(await onlyReportPath(sink))) as { runs: RunReport[] }).runs;
+    return orig(...args);
+  })(source.listRows.bind(source));
+  await runWebExport({ runDeviceId: "dev-test",
+    kinds: KINDS,
+    codec: fakeCodec(SUPPORTED),
+    source,
+    sink,
+    now: NOW,
+    desktop: { folder: "C:/ws", bridge: fakeDesktop([], { dump: "pre-migration-097-early.dump" }) },
+  });
+  assert.ok(early.report, "early report was written before the first server read");
+  assert.equal(early.report[0]?.backup, "pre-migration-097-early.dump");
 });
 
 test("interrupted run: a throw while writing rows leaves report.json incomplete and sets no marker", async () => {

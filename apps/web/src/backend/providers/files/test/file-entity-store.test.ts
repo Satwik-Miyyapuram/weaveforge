@@ -112,6 +112,29 @@ test("delete moves the file to .weaveforge/trash/<day>/, a second delete takes a
   await store.delete("missing");
 });
 
+test("a delete racing another into the same trash name keeps both files", async () => {
+  const { fs, store } = setup();
+  await store.save(row());
+  const [source] = await files(fs);
+  assert.ok(source);
+  const mine = await fs.readText(source);
+  // Another delete lands on the first free trash name between this one's look and its move.
+  const target = readyCore().trashPathFor(source, Date.now(), 1);
+  const mkdirp = fs.mkdirp.bind(fs);
+  let raced = false;
+  fs.mkdirp = async (dir) => {
+    await mkdirp(dir);
+    if (!raced) {
+      raced = true;
+      await fs.writeTextIf!(target, "the other delete", null);
+    }
+  };
+  await store.delete(row().id);
+  const all = await files(fs);
+  assert.equal(all.length, 2, all.join());
+  const texts = await Promise.all(all.map((p) => fs.readText(p)));
+  assert.deepEqual(texts.sort(), [mine, "the other delete"].sort());
+});
 test("unreadable, empty, foreign and newer files are skipped, not fatal", async () => {
   const { fs, store } = setup();
   await store.save(row());

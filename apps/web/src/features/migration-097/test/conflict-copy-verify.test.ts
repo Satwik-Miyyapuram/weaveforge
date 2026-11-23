@@ -60,3 +60,33 @@ test("conflict copies: this run's copy carries conflictOf instead of id, and ver
   assert.equal(copy.id, undefined, "no id in the copy, so files mode never sees two files with one id");
   assert.equal(copy.v, "DB");
 });
+
+// The real codec writes markdown whose frontmatter names the row with `weaveforge-id:` and its kind with `weaveforge-type:`.
+const mdCodec: FileCodec = {
+  supports: (kind) => kind === "logEntries",
+  toFile: (kind, row) => ({
+    path: `${kind}/${String(row.id)}.md`,
+    text: `---\nweaveforge-id: ${String(row.id)}\nweaveforge-type: log_entry\nv: ${String(row.v)}\n---\n`,
+  }),
+  toRow: (_kind, _path, text) => {
+    const id = /^weaveforge-id: (.*)$/m.exec(text)?.[1];
+    const v = /^v: (.*)$/m.exec(text)?.[1];
+    return id ? { id, v } : null;
+  },
+};
+
+test("conflict copies: a codec markdown copy carries conflictOf, never a second weaveforge-id, and still verifies", async () => {
+  const sink = new MemorySink();
+  const original = "logEntries/x1.md";
+  const user = "---\nweaveforge-id: x1\nweaveforge-type: log_entry\nv: user\n---\n";
+  await sink.write(original, user);
+
+  const result = await runWebExport({ kinds: ["logEntries"], codec: mdCodec, source: server(), sink, now: NOW, runDeviceId: "dev-alpha" });
+
+  assert.deepEqual(result.run.missing, [], "verify maps the copy back to its row");
+  assert.equal(await sink.readText(original), user, "the user's file is kept");
+  const copy = await sink.readText("logEntries/x1 (conflict).md");
+  assert.doesNotMatch(copy, /^weaveforge-id:/m, "files mode never sees two files with one id");
+  assert.match(copy, /^conflictOf: x1$/m);
+  assert.match(copy, /^v: DB$/m);
+});

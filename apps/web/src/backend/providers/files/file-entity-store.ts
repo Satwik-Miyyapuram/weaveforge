@@ -13,6 +13,7 @@
  */
 import type { IWorkspaceFs } from "@weaveforge/core";
 import { readyCore } from "@/lib/rust-core";
+import { moveToTrash } from "@/lib/workspace-trash";
 
 /** The kinds the codec knows, by their `weaveforge-type`. */
 export type EntityKind = "log_entry" | "experiment" | "report_section" | "reading_list";
@@ -28,20 +29,6 @@ export interface FoundEntity<T> {
   path: string;
   text: string;
   row: T;
-}
-
-/** Moves `path` to the first free trash name for today (`-2`, `-3`, … on a clash). */
-export async function moveToTrash(fs: IWorkspaceFs, path: string): Promise<void> {
-  const core = readyCore();
-  const now = Date.now();
-  for (let n = 1; n <= TRASH_NAME_ATTEMPTS; n += 1) {
-    const target = core.trashPathFor(path, now, n);
-    if (await fs.stat(target)) continue;
-    await fs.mkdirp(target.slice(0, target.lastIndexOf("/")));
-    await fs.rename(path, target);
-    return;
-  }
-  throw new Error(`${path}: no free name in the trash; not deleted.`);
 }
 
 /** Writes `text` only if the file still holds `expected` (null: does not exist yet). */
@@ -154,6 +141,6 @@ export class FileEntityStore<T extends { id: string }> {
   /** Moves the row's file to the trash; a missing id is not an error. */
   async delete(id: string): Promise<void> {
     const found = await this.find(id);
-    if (found) await moveToTrash(this.fs, found.path);
+    if (found) await moveToTrash(this.fs, found.path, Date.now());
   }
 }
