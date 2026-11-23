@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
 import { after, test } from "node:test";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { createElement } from "react";
 import { act, create, type ReactTestInstance, type ReactTestRenderer } from "react-test-renderer";
 
@@ -67,7 +69,6 @@ function report(id: string, overleafProjectId: string, title: string): LinkedRep
 
 function fakeGateway(reports: LinkedReport[] = []) {
   const gateway: LinkedReportsGateway = {
-    canLink: true,
     list: async () => [...reports],
     unlink: async () => {},
   };
@@ -460,7 +461,7 @@ test("in the desktop app a project opens split, with no layout switch: the divid
   await act(async () => tree.unmount());
 });
 
-test("in the desktop app the editor fills the page: no record header; Open and Link sit in its toolbar", async () => {
+test("in the desktop app the editor fills the page: no record header; Open sits in its toolbar, no Link", async () => {
   const tree = await mount(harness(projectsOk, SESSION), { inShell: true });
   await openRow(tree, "Thesis");
   assert.doesNotMatch(text(tree), /In your Overleaf account|Project p2/);
@@ -472,7 +473,7 @@ test("in the desktop app the editor fills the page: no record header; Open and L
   // Icon buttons: named for screen readers and the hover tip, no visible text.
   const named = (label: string) => inToolbar!.root.findAll((n) => n.props["aria-label"] === label && typeof n.type === "string");
   assert.equal(named("Open in Overleaf").length, 1);
-  assert.equal(named("Link to this project").length, 1);
+  assert.equal(named("Link to this project").length, 0);
   assert.doesNotMatch(textOf(inToolbar!.root), /Open in Overleaf|Link to this project/);
   await act(async () => tree.unmount());
 });
@@ -489,12 +490,12 @@ test("the live editor folds the app nav while it is open; the browser view does 
   await act(async () => web.unmount());
 });
 
-test("an unlinked project offers Link prefilled with its name and id", async () => {
+test("0.9.8: no Git-token link anywhere: not in the list, the account menu, or a project", async () => {
   const tree = await mount(harness(projectsOk, SESSION));
+  assert.doesNotMatch(text(tree), /Link a project|Git token/);
   await openRow(tree, "Abstract");
-  await act(async () => button(tree, "Link to this project").props.onClick());
-  assert.equal(byName(tree, "title").props.defaultValue, "Abstract");
-  assert.equal(byName(tree, "overleafProjectId").props.defaultValue, "p1");
+  assert.equal(buttons(tree, "Link to this project").length, 0);
+  assert.doesNotMatch(text(tree), /Link a project|Git token|Replace the Overleaf token/);
   await act(async () => tree.unmount());
 });
 
@@ -514,7 +515,6 @@ test("unlinking a project that is not in the account returns to the list", async
 test("0.9.8: the app's own gateway keeps no Git links: no request, and no Link action", async () => {
   // The relay's /api/overleaf/reports and /connections answer 410 from 0.9.8.
   globalThis.fetch = (async (url: string) => { throw new Error(`no request expected: ${url}`); }) as typeof fetch;
-  assert.equal(linkedReportsGateway.canLink, false);
   assert.deepEqual(await linkedReportsGateway.list("wf1"), []);
   const tree = await mount(harness(projectsOk, SESSION), { gateway: linkedReportsGateway });
   await openRow(tree, "Abstract");
@@ -522,6 +522,15 @@ test("0.9.8: the app's own gateway keeps no Git links: no request, and no Link a
   assert.doesNotMatch(shown, /Link a project|Git token/);
   assert.equal(buttons(tree, "Link to this project").length, 0);
   await act(async () => tree.unmount());
+});
+
+test("0.9.8: the Git-token link form, its replace-token dialog and the canLink switch are gone", () => {
+  const read = (rel: string) => readFileSync(fileURLToPath(new URL(rel, import.meta.url)), "utf8");
+  const forms = read("../ui/overleaf-report-forms.tsx");
+  assert.doesNotMatch(forms, /LinkOverleafForm|Overleaf Git token|Replace the Overleaf token/);
+  for (const rel of ["../ui/overleaf-workspace.tsx", "../ui/overleaf-project-detail.tsx", "../ui/use-linked-reports.ts"]) {
+    assert.doesNotMatch(read(rel), /LinkOverleafForm|canLink|Link with a Git token|Link a project|Link to this project/, rel);
+  }
 });
 
 // ---- One project, opened from the editor's sidebar ----

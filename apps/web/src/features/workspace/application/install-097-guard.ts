@@ -5,8 +5,12 @@ export const INSTALL_097_URL = "https://github.com/Satwik-Miyyapuram/weaveforge/
 
 /** The verdict of the install check. Only `open` lets the app mount. */
 export type Install097Verdict =
-  /** Nothing to move: no bridge, or no old database. */
-  | { kind: "open" }
+  /**
+   * Nothing blocks. `verified` is true only when the shell confirmed this folder's 0.9.7 report
+   * (and secrets move); a fail-open answer (no bridge, no old database, a check that threw or
+   * answered oddly) leaves it unset, so the folder is never kept on its say-so.
+   */
+  | { kind: "open"; verified?: true }
   /**
    * An old database is here but the install gate does not pass: no verified 0.9.7 report in the
    * folder, or the 0.9.7 secrets move has not finished. Ask for the export folder, or open 0.9.7 once more.
@@ -63,7 +67,7 @@ export async function install097Check(
     return { kind: "open" };
   }
   if (typeof verified !== "boolean") return { kind: "open" };
-  return verified ? { kind: "open" } : { kind: "unverified" };
+  return verified ? { kind: "open", verified: true } : { kind: "unverified" };
 }
 
 /**

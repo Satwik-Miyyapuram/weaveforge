@@ -14,7 +14,6 @@ Each repository's request builder is a Rust step module in `crates/wf-core/src/r
 | `paper_fields` | `repos::paper_fields::step` | `repoStep("paper_fields", …)` | `features/papers/infrastructure/parts-1.ts:98` |
 | `plan_feed_links` | `repos::plan_feed_links::step` | `repoStep("plan_feed_links", …)` | `features/plan/infrastructure/plan-feed-links.ts:72` |
 | `project_columns` | `repos::project_columns::step` | `repoStep("dashboardLayout", …)`, `repoStep("graphSettings", …)` | `backend/providers/postgrest/wire-postgrest-backend.ts:275`, `:282` |
-| `project_integrations` | `repos::project_integrations::step` | `repoStep("project_integrations", …)` | `backend/providers/postgrest/wire-postgrest-backend.ts:132` |
 | `projects_repo` | `repos::projects_repo::step` | `repoStep("projects", …)` | `backend/providers/postgrest/wire-postgrest-backend.ts:137`, `:156` |
 | `reader_annotations` | `repos::reader_annotations::step` | `repoStep("reader_annotations", …)` | `features/reader/infrastructure/parts-1.ts:201` |
 | `shared_items` | `repos::shared_items::step` | `repoStep("shared_items", …)` | `backend/providers/postgrest/wire-postgrest-backend.ts:147` |
@@ -31,8 +30,7 @@ Rules:
 - `milestones`: `remove` is an alias of `delete`; Rust sends unset optional fields as `null`, and TS drops them on reads.
 - `paper_fields`: `saveDef` upserts on `id`; `setValue` upserts on `project_id,paper_id,field_id` and returns `.single()`; one bad stored value fails the list call.
 - `plan_feed_links`: every query carries the `plan_feed` scope on `api_tokens`; the link name is "Calendar and widget link".
-- `project_columns`: `dashboardLayout` and `graphSettings` are routed to this module by `repo_step` (`crates/wf-core/src/repo_query.rs:546`); `get` and `save` are methods with no TS caller found under the name `project_columns`.
-- `project_integrations`: upsert on `project_id,provider`; columns `provider,enabled,token,repo,branch,options`.
+- `project_columns`: `dashboardLayout` and `graphSettings` are routed to this module by `repo_step` (`crates/wf-core/src/repo_query.rs:539`); `get` and `save` are methods with no TS caller found under the name `project_columns`.
 - `projects_repo`: table `projects`, columns `id,name,color,created_at`; `getCollection` and `setCollection` are its last two methods.
 - `reader_annotations`: selected columns are fixed by `READER_ANNOTATION_COLUMNS`; `remove` deletes by id under the table.
 - `shared_items`: only `read`; with no ids or owners it makes no request.

@@ -19,7 +19,7 @@ Your notes, papers, plans and logbook are files in the workspace folder you chos
 
 ## Syncing with GitHub
 
-Sync goes through **your own private GitHub repository**, one per workspace folder.
+Sync goes through **your own private GitHub repository**, one per workspace folder. In 0.9.8, GitHub sync works in the desktop app only; the web app does not sync a workspace with GitHub.
 
 1. Connect GitHub from the desktop app. It signs you in with GitHub's device flow, asks only for the `repo` scope, and creates a private repository named `weaveforge-<name>`. If a private repository with that name already exists under your account, the app uses it. It refuses a public repository, and one owned by someone else.
 2. The app uploads the workspace and shows **Uploading your workspace…**, then the status dot reads **Synced <time>**.
@@ -38,7 +38,6 @@ The status dot shows **Synced <time>**, **Syncing…**, **Offline** (it syncs wh
 ### Token and sign-in
 
 - On desktop, the GitHub token stays in this machine's keychain. The page never sees it.
-- On the web, the token (valid for 8 hours) is kept only in the page's memory, not in browser storage. The server keeps the long-lived refresh token.
 - The app asks GitHub only for the `repo` scope, the narrowest scope that can create a private repository.
 - There is no client secret. Sign-in uses GitHub's device flow, which needs none.
 - GitHub's code expires (about 15 min). If it expires, the app says **The GitHub code expired. Start again.** Click **Connect GitHub** again.

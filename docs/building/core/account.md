@@ -7,7 +7,7 @@ These modules hold the pure rules for accounts, auth, backend config, home confi
 | `account_links` | `account_links` | `accountLinks` | `apps/web/src/app/header-actions.tsx` |
 | `account_menu` | `inbox_links`, `account_attention` | `inboxLinks`, `accountAttention` | `apps/web/src/app/header-actions.tsx` |
 | `account_provision` | `create_member_reply`, `citation_alert_failure_log` | `createMemberReply`, `citationAlertFailureLog` | `apps/web/src/container/parts.ts` |
-| `account_purge` | `purges_objects`, `STORAGE_LIST_PAGE`, `split_storage_listing`, `storage_listing_has_more`, `purge_failure_message` | `purgesObjects`, `storageListPage`, `splitStorageListing`, `storageListingHasMore`, `purgeFailureMessage` | `apps/web/src/backend/account/purge-user-blobs.ts` |
+| `account_purge` | `purges_objects`, `STORAGE_LIST_PAGE`, `split_storage_listing`, `storage_listing_has_more`, `purge_failure_message` | `purgesObjects`, `storageListPage`, `splitStorageListing`, `storageListingHasMore`, `purgeFailureMessage` | — (the relay deletes accounts) |
 | `auth_transition` | `next_auth_step` | `nextAuthStep` | `apps/web/src/features/auth/domain/parts.ts` |
 | `backend_config` | `missing_config_message` | `missingConfigMessage` | — |
 | `home_config` | `vault_root_from_text` | `vaultRootFromText` | — |

@@ -63,7 +63,7 @@ test("the browser storage wiring loads no AWS SDK (10-03)", () => {
 });
 
 test("the scan does see the SDK where it is imported, so the check above means something", () => {
-  const packages = runtimePackages(path.join(SRC, "backend/account/purge-user-blobs.ts"));
+  const packages = runtimePackages(path.join(SRC, "storage/providers/s3/s3-blob-store.ts"));
   assert.ok([...packages.keys()].some((name) => name.startsWith("@aws-sdk/")));
 });
 

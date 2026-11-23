@@ -24,7 +24,7 @@ const MOVED: Record<string, string[]> = {
   "../features/experiments/ui/add-experiment-form": ["AddExperimentForm"],
   "../features/report/ui/section-card": ["SectionCard"],
   "../features/report/ui/report-section-tree": ["progressOf", "collectSectionIds", "patchSectionInTree"],
-  "../features/report/ui/overleaf-report-forms": ["EditOverleafReportForm", "LinkOverleafForm"],
+  "../features/report/ui/overleaf-report-forms": ["EditOverleafReportForm"],
   "../features/relations/ui/use-graph-canvas-size": ["useGraphCanvasSize"],
   "../features/relations/ui/use-graph-hover": ["useGraphHover"],
 };

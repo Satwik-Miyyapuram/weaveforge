@@ -507,8 +507,8 @@ export function SettingsScreen() {
                 // would otherwise reasonably assume the key went to their
                 // account, and it did not. See `DeviceSecretsStore`.
                 <p className="muted">
-                  Keys are kept on this computer, in the app&rsquo;s own folder, protected by its file
-                  permissions. Signing in does not move them to your account.
+                  Keys are kept in this computer&rsquo;s keychain. Signing in does not move them to
+                  your account.
                 </p>
               ) : (
                 // The browser keeps no keys (`RefusingSecretsStore`): say so

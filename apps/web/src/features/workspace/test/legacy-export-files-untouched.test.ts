@@ -42,24 +42,20 @@ test("no production file names restore-pending.json", () => {
   assert.deepEqual(hits, []);
 });
 
-test(".weaveforge/tables is named only in a mirror comment", () => {
+test("no production file names .weaveforge/tables", () => {
   const hits = files.filter((f) => /weaveforge\/tables/.test(f.text)).map((f) => f.rel).sort();
-  assert.deepEqual(hits, ["features/workspace/application/parts-2.ts"]);
-  const mirror = files.find((f) => f.rel === "features/workspace/application/parts-2.ts")!.text;
-  for (const line of mirror.split("\n").filter((l) => /weaveforge\/tables/.test(l))) {
-    assert.match(line.trim(), /^\*/, `parts-2.ts names the folder only in a comment: ${line.trim()}`);
-  }
+  assert.deepEqual(hits, []);
 });
 
 test("no production file imports sync-tables or passes extra mirror files", () => {
   assert.deepEqual(files.filter((f) => /["'][^"']*\/sync-tables(\.[jt]s)?["']/.test(f.text)).map((f) => f.rel), []);
-  const extra = files.filter((f) => /extraFiles\s*:/.test(f.text)).map((f) => f.rel);
-  assert.deepEqual(extra, [], "no caller hands the mirror the table files to write");
+  const extra = files.filter((f) => /extraFiles/.test(f.text)).map((f) => f.rel);
+  assert.deepEqual(extra, [], "the mirror has no option for extra files, and no caller passes one");
 });
 
 test("the mirrorWorkspace body itself calls no remove or rename (helpers: see the line scan below)", () => {
   const mirror = files.find((f) => f.rel === "features/workspace/application/parts-2.ts")!.text;
-  const start = mirror.indexOf("const serializedWorkspace = await keepClaimedCanvasIds(");
+  const start = mirror.indexOf("const serialized = await keepClaimedCanvasIds(");
   assert.ok(start > 0, "mirrorWorkspace body found");
   const body = mirror.slice(start, mirror.indexOf("\n}\n", start));
   assert.doesNotMatch(body, /\.remove\(|\.rename\(|unlink/);

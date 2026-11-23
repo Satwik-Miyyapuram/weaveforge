@@ -14,8 +14,9 @@ AI assistants.
 Credentials and connections in WeaveForge belong to two distinct scopes:
 
 - **Personal credentials** (**Settings → Integrations**): Your individual API keys
-  (e.g., Zotero API key, Semantic Scholar key). These are associated with your user
-  account and shared across all your projects.
+  (e.g., Zotero API key, Semantic Scholar key). In the desktop app they are kept in
+  this computer's keychain and shared across all your projects. On the web, API keys
+  can't be saved in 0.9.8; use the desktop app.
 - **Project connectors** (**Settings → Integrations**): Repository links, Overleaf
   sync, and notification channels tied to the active project. Switching projects
   automatically switches the active connectors.
@@ -283,8 +284,8 @@ NEXT_PUBLIC_GIT_READ_PROVIDERS=github,gitlab      # comma-separated | none
 ```
 
 - Set a provider to `none` to disable that port (noop adapter + hidden Settings rows).
-- User and project tokens are **never** in environment variables; they are stored in the
-  database (or local keychain) with RLS isolation.
+- User and project tokens are **never** in environment variables; they are stored in this
+  computer's keychain (desktop); the web stores none.
 
 For comprehensive instructions on writing new adapters, manifests, and contract tests,
 see [`extensions.md`](extensions.md).

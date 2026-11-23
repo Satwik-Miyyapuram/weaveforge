@@ -4,12 +4,12 @@ import { useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { BackButton } from "@/components/back-button";
 import { Button } from "@/components/button";
-import { LinkIcon, OpenIcon } from "@/components/view-icons";
+import { OpenIcon } from "@/components/view-icons";
 import { useFoldNav } from "@/lib/hooks/use-nav-fold";
 import type { WorkshopClientDeps } from "@/features/overleaf/infrastructure/workshop-session-client";
 import type { OverleafProjectRow } from "../lib/parts";
 import type { LinkedReport } from "./linked-overleaf-api";
-import { EditOverleafReportForm, LinkOverleafForm } from "./overleaf-report-forms";
+import { EditOverleafReportForm } from "./overleaf-report-forms";
 import type { WorkshopSession } from "./use-workshop-session";
 import { WorkshopPdfViewer } from "./workshop-pdf-viewer";
 
@@ -46,7 +46,6 @@ export function OverleafProjectDetail({
   client,
   inShell,
   canEditAsFiles,
-  projectId,
   onUnlink,
   onLinksChanged,
   onError,
@@ -57,8 +56,6 @@ export function OverleafProjectDetail({
   client: WorkshopClientDeps;
   inShell: boolean;
   canEditAsFiles: boolean;
-  /** The open WeaveForge project; null hides linking. */
-  projectId: string | null;
   onUnlink: (report: LinkedReport) => Promise<boolean>;
   onLinksChanged: () => void;
   onError: (message: string) => void;
@@ -68,7 +65,7 @@ export function OverleafProjectDetail({
   const report = row.report;
   const sessionId = session.sessionId;
   const blockers = tabBlockers({ signedIn: Boolean(sessionId), inAccount: row.inAccount, inShell });
-  const [form, setForm] = useState<"link" | "edit" | null>(null);
+  const [form, setForm] = useState<"edit" | null>(null);
   const [confirmUnlink, setConfirmUnlink] = useState(false);
   const [unlinking, setUnlinking] = useState(false);
   // A ref, not state, so a second click before the re-render cannot start another delete.
@@ -96,7 +93,7 @@ export function OverleafProjectDetail({
   const live = canWrite && sessionId;
   // The editor needs the width: the app nav folds to its rail while it is open.
   useFoldNav(Boolean(live));
-  // Open in Overleaf and the link controls; in the live editor they sit in Overleaf's toolbar.
+  // Open in Overleaf and, for a kept link, its controls; in the live editor they sit in Overleaf's toolbar.
   const actions = (
     <>
       <Button variant="ghost" size="sm" href={overleafUrl} target="_blank" rel="noreferrer" title="Open in Overleaf" aria-label="Open in Overleaf">
@@ -115,16 +112,6 @@ export function OverleafProjectDetail({
             <Button variant="ghost" size="sm" onClick={() => setConfirmUnlink(true)}>Unlink</Button>
           </>
         )
-      ) : projectId ? (
-        <Button
-          variant="ghost"
-          size="sm"
-          title="Link with a Git token, so it shows here as ★ even when you are not signed in"
-          aria-label={form === "link" ? undefined : "Link to this project"}
-          onClick={() => setForm(form === "link" ? null : "link")}
-        >
-          {form === "link" ? "Cancel" : <LinkIcon />}
-        </Button>
       ) : null}
     </>
   );
@@ -150,14 +137,6 @@ export function OverleafProjectDetail({
           report={report}
           onSaved={() => { setForm(null); onLinksChanged(); }}
           onCancel={() => setForm(null)}
-          onError={onError}
-        />
-      )}
-      {form === "link" && projectId && (
-        <LinkOverleafForm
-          projectId={projectId}
-          defaults={{ title: row.name, overleafProjectId: row.id }}
-          onLinked={() => { setForm(null); onLinksChanged(); }}
           onError={onError}
         />
       )}

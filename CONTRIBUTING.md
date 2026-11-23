@@ -107,7 +107,7 @@ To add or swap a provider (bibliography, citation, notification, log sync, git r
 2. Add an adapter under `integrations/providers/<name>/`.
 3. Register in `integrations/config.ts`, the wire switch (`wire-integrations.ts` or `wire-citations.ts`), and `integrations/descriptors.ts`.
 4. Add an API proxy route if the browser needs CORS help (`app/api/<name>/route.ts`).
-5. Extend `project_integrations.provider` (migration) for project-scoped connectors.
+5. Project-scoped connector settings go through `FileIntegrationsStore` (workspace-folder settings, keys in the secret store), not a server table.
 6. Document the `NEXT_PUBLIC_*` env var; defaults keep stock behavior.
 
 Run `npm run check:solid` — UI must not import repositories or Supabase directly.
