@@ -108,7 +108,8 @@ Open a report's **Overleaf** panel and pick one of the two ways to connect:
   live. Where no sign-in window is available, paste your `overleaf_session2`
   cookie from overleaf.com instead. On the desktop it is kept encrypted in this
   device's keychain and removed when you sign out; in the browser it is stored
-  encrypted on the server. Either way it is never shown again.
+  encrypted on the server, works for 24 hours, and is removed when you sign
+  out. Either way it is never shown again.
 - **Edit as files (Git token)** needs an Overleaf plan or institution licence
   with Git. In the desktop app, go to **Settings → Workspace → Overleaf
   projects**, save your Overleaf git token (kept in this computer's keychain),
