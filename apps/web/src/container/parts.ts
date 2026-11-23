@@ -355,6 +355,8 @@ export interface PersonalFileWiring {
   migration?: Migrate097Resolved;
   /** True on the desktop shell: its fallback is read-only, never writes-on. */
   onDesktop?: boolean;
+  /** Offline mode (no account): the desktop file wiring is the only backend there is. */
+  localMode?: boolean;
   /** Supplied by the browser/Android container lane. */
   wireBrowserFileBackend?: (
     config: BackendConfig,
@@ -382,6 +384,8 @@ export function wireBackend(
     case "postgrest": {
       // The desktop shell wires its own files; without that wiring it stays read-only.
       const wire = files?.onDesktop ? files.wireDesktopFileBackend : files?.wireBrowserFileBackend;
+      // The container only sets localMode for a folder already on files (create-app-container.ts).
+      if (files?.localMode && wire) return { ...wire(config, projectContext, pid), filesMode: true };
       return chooseFileBackend<WiredBackend>(
         files?.migration,
         {

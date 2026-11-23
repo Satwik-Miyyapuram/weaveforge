@@ -10,9 +10,9 @@ test("the web local-only entry stays hidden until the OPFS wiring lands", () => 
   assert.equal(localOnlyEntryVisible(false), false);
 });
 
-test("no local-only entry shows while the build has no local mode: it would reload onto the sign-in screen", () => {
-  assert.equal(LOCAL_MODE_IN_BUILD, false);
-  assert.equal(localOnlyEntryVisible(true), false);
+test("offline mode is in the 0.9.7 build: the entry shows on desktop and stays hidden on web", () => {
+  assert.equal(LOCAL_MODE_IN_BUILD, true);
+  assert.equal(localOnlyEntryVisible(true), true);
   assert.equal(localOnlyEntryVisible(false), false);
 });
 

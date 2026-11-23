@@ -40,10 +40,10 @@ export const LOCAL_USER: AuthUser = {
 };
 
 /**
- * 0.9.7 retires local mode (PGlite): no build selects it at runtime. DEL-WEB
- * removes the PGlite code in 0.9.8. Flip only in a release that brings it back.
+ * 0.9.7 offline mode: no account, personal data in the folder's files. The local
+ * database (PGlite) is never opened; DEL-WEB removes its code in 0.9.8.
  */
-export const LOCAL_MODE_IN_BUILD = false;
+export const LOCAL_MODE_IN_BUILD = true;
 
 /** Whether this window is working on the computer rather than on an account. */
 export function isLocalMode(): boolean {
@@ -59,7 +59,7 @@ export function setLocalMode(on: boolean): void {
   else removeStored(choiceKey());
 }
 
-const NEEDS_ACCOUNT =
+export const NEEDS_ACCOUNT =
   "This copy is working on your computer, with no account. Sign in to use that.";
 
 export class LocalAuthService implements IAuthService {

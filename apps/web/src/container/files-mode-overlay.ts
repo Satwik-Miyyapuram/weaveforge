@@ -1,6 +1,8 @@
 import { ManageSettingsUseCase, type IBlobStore } from "@weaveforge/core";
 import type { BackendConfig } from "@/backend/parts";
 import type { FileRepositories } from "@/backend/providers/files/wire-file-backend";
+import { LocalAuthService, LocalSessionProvider } from "@/backend/providers/local/local-identity";
+import { offlineDb } from "@/backend/providers/local/offline-db";
 import { wirePostgrestBackend, type WiredPostgrestBackend } from "@/backend/providers/postgrest/wire-postgrest-backend";
 import { systemClock } from "@/lib/parts";
 import { FileModeBlobStore } from "./file-mode-blob-store";
@@ -17,6 +19,9 @@ import { overlayFileRepositories } from "./with-file-repositories";
  *
  * Its own module, not with-file-repositories.ts: read-only-repositories.ts reads that module's
  * key lists at load, and the PostgREST wiring imported here reaches read-only-repositories.ts.
+ *
+ * `offline` (0.9.7 offline mode, no account): the server parts are the local user and a client
+ * that refuses every call, so nothing reaches the network and no local database is opened.
  */
 export function wireFilesMode(
   config: BackendConfig,
@@ -24,8 +29,19 @@ export function wireFilesMode(
   pid: () => string | null,
   files: FileRepositories,
   fileBlobs: IBlobStore,
+  offline = false,
 ): Omit<WiredPostgrestBackend, keyof FileRepositories> & FileRepositories & { filesMode: true } {
-  const postgrest = wirePostgrestBackend(config, projectContext, pid, undefined, { filesMode: true }, readOnlyDb);
+  const parts = offline
+    ? {
+        db: offlineDb(),
+        session: new LocalSessionProvider(),
+        auth: new LocalAuthService(),
+        blobStore: fileBlobs,
+        settingsRepository: files.settingsRepository,
+        releaseNotices: { latest: async () => null },
+      }
+    : undefined;
+  const postgrest = wirePostgrestBackend(config, projectContext, pid, parts, { filesMode: true }, readOnlyDb);
   return {
     ...overlayFileRepositories(postgrest, files),
     manageSettings: new ManageSettingsUseCase({ repository: files.settingsRepository, clock: systemClock }),

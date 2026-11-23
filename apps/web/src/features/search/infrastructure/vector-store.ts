@@ -1,7 +1,4 @@
-import { isLocalMode } from "@/backend/providers/local/local-identity";
-import { LocalRunner } from "@/backend/providers/local/parts";
-import { localFiles, type LocalFiles } from "@/backend/providers/local/parts-1";
-import { desktop } from "@/lib/desktop/desktop-bridge";
+import type { LocalFiles } from "@/backend/providers/local/parts-1";
 
 import { activeWorkspaceFs } from "@/features/workspace/application/workspace-folder";
 import { idbClearVectors, idbGetVectors, idbSetVectors, type StoredVectors } from "./parts-3";
@@ -46,11 +43,6 @@ const idbStore: VectorStore = {
  * the binary format and the row is only the index `clear` walks. Rows written
  * inline before are still read.
  */
-function localStore(): VectorStore {
-  const runner = new LocalRunner();
-  return localVectorStore((sql, params) => runner.query(sql, params as never[]), localFiles(desktop()));
-}
-
 /** The local-database store over any query function; exported for tests. */
 export function localVectorStore(run: (sql: string, params: unknown[]) => Promise<unknown[]>, files?: LocalFiles): VectorStore {
   return {
@@ -206,7 +198,7 @@ let chosen: VectorStore | null = null;
  */
 export function vectorStore(): VectorStore {
   if (!chosen) {
-    const own = isLocalMode() ? localStore() : idbStore;
+    const own = idbStore;
     chosen = {
       async get(projectId) {
         return (await folderStore.get(projectId)) ?? (await own.get(projectId));

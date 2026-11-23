@@ -22,11 +22,13 @@ export function wireDesktopFileBackend(
   settings: SettingsSection,
   // Credentials live in the OS keychain (one entry per field): they survive a restart and never reach a file or the server.
   secrets: SecretsStore = new DeviceSecretsStore(),
+  // Offline mode (no account): no server client at all, see wireFilesMode.
+  offline = false,
 ): (config: BackendConfig, projectContext: { projectId: string | null }, pid: () => string | null) => WiredPostgrestBackend {
   return (config, projectContext, pid) => {
     const fs = new DesktopWorkspaceFs(bridge);
     // The shared files-mode overlay (same as the browser): guarded db, file repositories, and
     // personal blobs in the vault's assets folder instead of the server blob store.
-    return wireFilesMode(config, projectContext, pid, wireFileBackend({ fs, settings, secrets }), new FileBlobStore(fs));
+    return wireFilesMode(config, projectContext, pid, wireFileBackend({ fs, settings, secrets }), new FileBlobStore(fs), offline);
   };
 }

@@ -126,6 +126,8 @@ import { clearActiveProvider } from "@/features/ai-assistant/application/parts";
 import { reresolveOnFocus, resolveMigrationChoice } from "@/container/resolve-migration-choice";
 import { wireDesktopFileBackend } from "@/container/desktop-file-backend";
 import { workspaceSettings } from "@/features/settings/application/workspace-settings";
+import { isLocalMode, setLocalMode } from "@/backend/providers/local/local-identity";
+import { usesFileBackend } from "@/lib/desktop/migrate-097";
 import { watchProjectChannel } from "@/container/project-watch";
 
 export interface CreatedAppContainer {
@@ -180,11 +182,20 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
   // from browser-file-backend) once legacy detection exists.
   const browserFiles = undefined;
   // Desktop only: a folder still settling re-asks on focus, and the first usable answer reloads.
+  // Offline mode (no account) runs only on a desktop folder already on files: there is no
+  // server and no local database to fall back to. Anything else goes back to sign-in.
+  const offline = isLocalMode();
+  if (offline && !(shell && usesFileBackend(migration))) {
+    setLocalMode(false);
+    window.location.reload();
+    return new Promise<never>(() => {});
+  }
   if (shell) reresolveOnFocus(migration, shell, window, () => window.location.reload());
   const backend = wireBackend(readBackendConfig(), projectContext, pid, {
     migration,
     onDesktop: Boolean(shell),
-    wireDesktopFileBackend: shell ? wireDesktopFileBackend(shell, workspaceSettings) : undefined,
+    localMode: offline,
+    wireDesktopFileBackend: shell ? wireDesktopFileBackend(shell, workspaceSettings, undefined, offline) : undefined,
     wireBrowserFileBackend: browserFiles,
   });
   watchProjectChannel(projectLww, backend, pid());
