@@ -6,8 +6,6 @@ import { FormError } from "@/components/form-error";
 import { WeaveForgeLogo } from "@/components/weave-forge-logo";
 import { appOrigin, authRedirectTo, pastedSignInQuery } from "@/lib/desktop/desktop-auth";
 import { desktop } from "@/lib/desktop/desktop-bridge";
-import { setLocalMode } from "@/features/auth/infrastructure/no-account-mode";
-import { enterWithoutAccount } from "./enter-without-account";
 import { runBusy } from "./run-busy";
 import { Button } from "@/components/button";
 
@@ -26,12 +24,6 @@ export function LoginScreen() {
   const [otp, setOtp] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // Only the desktop app can open a workspace folder without a session, so a
-  // browser never sees the offer. Read after mount: the first render is the server's.
-  const [onThisComputer, setOnThisComputer] = useState(false);
-  useEffect(() => {
-    setOnThisComputer(desktop() !== null);
-  }, []);
   // When another program holds the sign-in port, the browser's redirect never
   // reaches this window, so the reader pastes the address it was sent to.
   const [portTaken, setPortTaken] = useState(false);
@@ -241,22 +233,6 @@ export function LoginScreen() {
                   </div>
                   <Button type="submit" disabled={busy || !pasted.trim()}>Finish sign-in</Button>
                 </form>
-              )}
-
-              {onThisComputer && (
-                <Button variant="link"
-                  disabled={busy}
-                  onClick={() => void run(async () => {
-                    await enterWithoutAccount({
-                      // Loaded on click: the folder module pulls in the full app, not the sign-in bundle.
-                      chooseFolder: async () => (await import("@/features/workspace/application/workspace-folder")).chooseDesktopFolder({}),
-                      setLocalMode,
-                      reload: () => window.location.reload(),
-                    });
-                  })}
-                >
-                  Use without an account
-                </Button>
               )}
 
               {error && <FormError>{error}</FormError>}

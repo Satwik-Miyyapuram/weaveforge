@@ -29,9 +29,6 @@ The first screen is the sign-in screen. You can sign in in a few ways, and
 - Press **Continue with Google**. Your browser opens, you pick your account, and
   you come back signed in.
 - Type your email, then press **Email me a sign-in code** or **Email me a sign-in link instead**.
-- In the desktop app only, press **Use without an account** and pick your workspace
-  folder. Nothing is sent to a server; if you close the folder dialog, you stay on
-  the sign-in screen.
 
 If you see the small tag **Offline · on this computer** at the top of the window,
 this copy works without an account: your work is files in your workspace folder

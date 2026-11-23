@@ -213,10 +213,6 @@ from somewhere else does not get to run in it.
 
 ## Working without an account
 
-On the sign-in screen, press **Use without an account** and pick your workspace
-folder. The window reloads onto that folder. Closing the folder dialog leaves you
-on the sign-in screen with nothing changed.
-
 A window that chose to work without an account keeps that choice, and the
 top of the window shows an **Offline · on this computer** tag while it does. **Sign in**
 in the account menu ends it: there is no session to end, so it brings back the
