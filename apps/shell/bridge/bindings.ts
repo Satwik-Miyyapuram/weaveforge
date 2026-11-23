@@ -1439,7 +1439,8 @@ export type Phase =
 "failed" | 
 /**
  *  The release is offered but refused until local data is exported and verified. Not a
- *  failure: `error` names the rule, and a retry would be refused again.
+ *  failure: `error` names the rule. No install starts from here; a new check may offer it
+ *  again.
  */
 "held";
 
