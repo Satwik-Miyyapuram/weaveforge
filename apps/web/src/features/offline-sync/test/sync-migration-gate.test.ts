@@ -52,7 +52,7 @@ test("the desktop gate reads the folder and allows sync only for a folder that w
 
   const blocked: unknown[] = [
     { state: "incomplete" },
-    { state: "verified", ownRunVerified: true, deviceId: "dev-a" },
+    { state: "verified", ownRunVerified: true, exportedHere: true, deviceId: "dev-a" },
     { state: "removed", ownRunVerified: true, deviceId: "dev-a" },
     { state: "removing", removingDeviceId: "dev-a", deviceId: "dev-a", ownRunVerified: true },
     { state: "verified", ownRunVerified: false, deviceId: "dev-a" },

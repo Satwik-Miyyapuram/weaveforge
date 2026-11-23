@@ -10,7 +10,7 @@ function bridge(status: () => Promise<{ state: unknown }>, root: () => Promise<{
 }
 
 test("a verified report resolves to verified", async () => {
-  const b = bridge(async () => ({ state: "verified", ownRunVerified: true }));
+  const b = bridge(async () => ({ state: "verified", ownRunVerified: true, exportedHere: true }));
   assert.equal(await resolveMigrationChoice(b), "verified");
 });
 
@@ -76,7 +76,7 @@ test("a transient unavailable is retried and a later attempt can resolve", async
   const b = bridge(async () => {
     calls++;
     if (calls === 1) throw new Error("shell busy");
-    return { state: "verified", ownRunVerified: true };
+    return { state: "verified", ownRunVerified: true, exportedHere: true };
   });
   assert.equal(await resolveMigrationChoice(b, 1_000, 1), "verified");
   assert.equal(calls, 2);
@@ -118,7 +118,7 @@ test("reresolveOnFocus re-asks on focus while read-only and reports the first us
   let answers = 0;
   const b = bridge(async () => {
     answers++;
-    return { state: answers === 1 ? "unavailable-ish" : "verified", ownRunVerified: true };
+    return { state: answers === 1 ? "unavailable-ish" : "verified", ownRunVerified: true, exportedHere: true };
   });
   const seen: string[] = [];
   reresolveOnFocus("unavailable", b, target, (s) => seen.push(s));

@@ -27,13 +27,13 @@ export const TABLE_BY_KIND = {
 } as const;
 
 /** Kinds with no server table: their rows are files only, so the server side lists none. */
-const FILE_ONLY_KINDS: readonly string[] = ["ink"];
+export const FILE_ONLY_KINDS: readonly string[] = ["ink"];
 
 /**
  * Tables that carry a deleted_at column (the sync-registered tables, from db/migrations 0118/0120/0138).
  * Any other table has no such column, and PostgREST answers 400 to a filter on it.
  */
-const SOFT_DELETE_TABLES: ReadonlySet<string> = new Set([
+export const SOFT_DELETE_TABLES: ReadonlySet<string> = new Set([
   "papers", "tags", "paper_field_defs", "paper_field_values", "paper_relations", "reading_lists",
   "reading_list_items", "log_entries", "milestones", "experiments", "report_sections",
   "reader_annotations", "annotation_pins", "library_pins", "vault_pages", "screening_decisions", "paper_tags",

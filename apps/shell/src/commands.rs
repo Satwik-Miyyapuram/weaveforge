@@ -121,6 +121,32 @@ impl LocalDb {
         self.native()?.reset().await.map_err(ShellError::from)
     }
 
+    /// Dumps the open database into the backup places now; see `PgHost::backup_now`.
+    pub async fn backup_now(
+        &self,
+        now: std::time::SystemTime,
+    ) -> Result<Vec<std::path::PathBuf>, ShellError> {
+        self.native()?
+            .backup_now(now)
+            .await
+            .map_err(ShellError::from)
+    }
+
+    /// One page of an allowlisted kind, read in a read-only transaction. See `local_pg::read`.
+    pub async fn read_page(
+        &self,
+        kind: &str,
+        after: Option<&[Value]>,
+        limit: u32,
+    ) -> Result<Vec<Value>, ShellError> {
+        let page = crate::local_pg::read::page_sql(kind, after, limit)
+            .map_err(|e| ShellError::from(e.to_string()))?;
+        self.native()?
+            .read_page(&page)
+            .await
+            .map_err(ShellError::from)
+    }
+
     /// Imports `rows` into `table` on the owner session; each call commits or rolls back on its own.
     /// `last` marks the table's final batch.
     pub async fn import_table(
@@ -331,6 +357,8 @@ pub fn specta_builder() -> tauri_specta::Builder<tauri::Wry> {
         crate::migrate_093::migrate_093_status,
         crate::migrate_097::cmd::migrate_097_status,
         crate::migrate_097::cmd::migrate_097_counts,
+        crate::migrate_097::cmd::migrate_097_backup,
+        crate::migrate_097::cmd::migrate_097_read,
         crate::migrate_097::cmd::migrate_097_remove_old,
         crate::migrate_097::cmd::mark_exported_097,
         crate::cmd_files::file_write,

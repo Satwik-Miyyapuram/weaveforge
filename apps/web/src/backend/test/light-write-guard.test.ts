@@ -92,7 +92,7 @@ const FOLDER = { vaultRoot: async () => ({ path: "C:/Users/me/Documents/WeaveFor
 const READ_ONLY_STATES = ["incomplete", "unexported", "unavailable", "removing-other"];
 const FILES_STATES = ["verified", "removing", "removed"];
 // A device that verified its own export: read() wires files only for this shape.
-const OWN_VERIFIED = { ownRunVerified: true, deviceId: "d1", removingDeviceId: "d1" };
+const OWN_VERIFIED = { ownRunVerified: true, exportedHere: true, deviceId: "d1", removingDeviceId: "d1" };
 // The raw report read() maps to each read-only state. "removing-other" is only reached from a removal run by another device.
 const REPORT_FOR: Record<string, Record<string, unknown>> = {
   "removing-other": { state: "removing", deviceId: "d1", removingDeviceId: "d2" },

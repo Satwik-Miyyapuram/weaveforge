@@ -5,7 +5,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/button";
 import { wiringNeedsReload, type WiringKey } from "@/container/wiring-key";
 import { makeWebUpgradeRunner, type WebUpgradeRunnerOptions } from "@/features/migration-097/application/web-upgrade-runner";
-import { desktop } from "./desktop-bridge";
+import { desktop, type DesktopBridge } from "./desktop-bridge";
+import { desktopDeps, makeDesktopRunner } from "./migrate-097-desktop";
+import type { ExportRunner } from "./migrate-097-upgrade";
 import { shouldShowFinishRemoving, shouldShowRetry, shouldShowUpgrade } from "./migrate-097-gate-decision";
 import { migrate097Status, type Migrate097Resolved } from "./migrate-097";
 import { Migrate097Upgrade } from "./migrate-097-upgrade";
@@ -34,6 +36,11 @@ function MigrateBanner({ message, action, onAction }: { message: string; action:
   );
 }
 
+/** The desktop export for the upgrade screen; null outside the shell. */
+export function desktopRunExport(shell: DesktopBridge | null): ExportRunner | null {
+  return shell ? makeDesktopRunner(shell, desktopDeps(shell)) : null;
+}
+
 /** The folder and migration the window reads now. */
 async function readKey(): Promise<WiringKey> {
   const shell = desktop();
@@ -60,6 +67,8 @@ export function Migrate097Gate({
   const [webOpen, setWebOpen] = useState(true);
   const built = useRef<WiringKey | null>(null);
   const webRunner = useMemo(() => (webUpgrade ? makeWebUpgradeRunner(webUpgrade) : null), [webUpgrade]);
+  // Built when the screen opens (after the shell answered), so it always sees the live bridge.
+  const desktopRunner = useMemo(() => (upgradeFolder ? desktopRunExport(desktop()) : null), [upgradeFolder]);
 
   useEffect(() => {
     const shell = desktop();
@@ -120,7 +129,7 @@ export function Migrate097Gate({
       {upgradeFolder ? (
         <Migrate097Upgrade
           folder={upgradeFolder}
-          runExport={null}
+          runExport={desktopRunner}
           onReady={() => window.location.reload()}
           onKeepOld={() => setUpgradeFolder(null)}
         />

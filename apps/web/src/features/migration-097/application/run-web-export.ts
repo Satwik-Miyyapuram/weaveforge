@@ -601,7 +601,11 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
   }
 
   // Markers (0.9.7 contract): the server marker first, the desktop mark last. report.json says
-  // incomplete ("markers pending") until both succeed, so a crash between the two is never verified.
+  // incomplete ("markers pending") until the server marker succeeds. The shell's mark_exported_097
+  // reads this device's run from report.json and refuses unless it says verified, so the report is
+  // written verified just before the desktop mark and back to incomplete if that mark fails. A crash
+  // in that gap leaves a verified report without exported-to.json, and the shell refuses to remove
+  // the old data without it.
   if (state === "verified") {
     state = "incomplete";
     missing.push({ kind: "marker", id: "*", reason: "markers pending" });
@@ -614,15 +618,18 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
       marked = false;
       missing.push({ kind: "marker", id: "*", reason: "marker: server failed" });
     }
+    missing.splice(pendingAt, 1);
     if (marked && desktop) {
+      state = "verified";
+      await persist();
       try {
         await desktop.bridge.markExported(desktop.folder);
       } catch {
         marked = false;
+        state = "incomplete";
         missing.push({ kind: "desktop", id: "*", reason: "marker: desktop failed" });
       }
     }
-    missing.splice(pendingAt, 1);
     if (marked) state = "verified";
   }
   const run = await persist();

@@ -12,6 +12,7 @@ import {
   type ShellInfo,
 } from "../inject";
 import { tauriCore, type TauriInternals } from "../tauri-core";
+import { readFileSync } from "node:fs";
 
 type Reply =
   | { status: "ok"; data: unknown }
@@ -345,4 +346,28 @@ test("hideSystemMenu leaves a menu the page already handled alone, and tolerates
   const bare = menuEvent(null);
   hideSystemMenu(bare, "   ");
   assert.equal(bare.prevented, true);
+});
+
+/** The 0.9.7 migration calls the page reads, and the shell command each one wraps. */
+const MIGRATE_097_WRAPPERS = [
+  ["migrate097Status", "migrate_097_status"],
+  ["migrate097Counts", "migrate_097_counts"],
+  ["migrate097Backup", "migrate_097_backup"],
+  ["migrate097Read", "migrate_097_read"],
+  ["migrate097RemoveOld", "migrate_097_remove_old"],
+  ["migrate097MarkExported", "mark_exported_097"],
+] as const;
+
+test("install puts each 0.9.7 migration wrapper on window.weaveforge, over a generated command", () => {
+  // bindings.ts imports @tauri-apps/api, which node cannot load here, so its text is checked.
+  const bindings = readFileSync(new URL("../bindings.ts", import.meta.url), "utf8");
+  const target: { weaveforge?: DesktopBridge } = {};
+  install(target, info, {
+    commands: fakeCommands().cmds,
+    listen: fakeEvents().events.listen,
+  });
+  for (const [member, command] of MIGRATE_097_WRAPPERS) {
+    assert.equal(typeof target.weaveforge?.[member], "function", `window.weaveforge.${member}`);
+    assert.ok(bindings.includes(`__TAURI_INVOKE("${command}"`), `bindings.ts invokes ${command}`);
+  }
 });
