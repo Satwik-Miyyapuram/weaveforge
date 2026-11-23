@@ -50,7 +50,7 @@ test("a failing picker leaves the choice unset and surfaces the error", async ()
       chooseFolder: async () => {
         throw new Error("dialog broke");
       },
-      setLocalMode: (on) => calls.push(`local:${on}`),
+      setLocalMode: (on: boolean) => calls.push(`local:${on}`),
       reload: () => calls.push("reload"),
     }),
     /dialog broke/,

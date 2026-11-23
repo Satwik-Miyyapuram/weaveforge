@@ -47,8 +47,9 @@ async function workspaceFolder(bridge: DesktopBridge | null): Promise<string | n
 }
 
 /**
- * A folder that verified is made the workspace folder, so the next launch opens it without the
- * gate. Only a verified pick gets here; the gate never persists an unverified one.
+ * A picked folder whose report the shell confirmed (`verified: true`) is made the workspace folder,
+ * so the next launch opens it without the gate. A fail-open "open" (check threw, odd answer, no
+ * old database) opens the app but never keeps the folder.
  */
 async function keepVerifiedFolder(bridge: DesktopBridge, folder: string): Promise<Gate> {
   // The check already passed; a failed save of the folder is not a reason to block.
@@ -111,7 +112,7 @@ export function Install097Gate({
       // Desktop: only this computer's old database decides (the check is per device).
       void resolved
         .then((path) => install097Check(bridge, path))
-        .then((verdict): Gate | Promise<Gate> => (verdict.kind === "open" && folder !== null ? keepVerifiedFolder(bridge, folder) : toGate(verdict)))
+        .then((verdict): Gate | Promise<Gate> => (verdict.kind === "open" && verdict.verified === true && folder !== null ? keepVerifiedFolder(bridge, folder) : toGate(verdict)))
         .then((next) => settle(next), () => settle({ phase: "open" }));
     }
     return () => {

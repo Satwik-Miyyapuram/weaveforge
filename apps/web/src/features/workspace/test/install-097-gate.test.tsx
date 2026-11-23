@@ -387,6 +387,44 @@ test("picker: a verified pick opens even when the shell cannot keep the folder (
   tree.unmount();
 });
 
+test("picker: a pick whose report check throws opens (fail open) but never sets the vault root", async () => {
+  let setCalls = 0;
+  stubBridge({
+    vaultRoot: () => Promise.resolve({ path: "/ws/old" }),
+    legacyDbPresent: () => Promise.resolve(true),
+    migrationReportVerified: (folder: string) => (folder === "/ws/old" ? Promise.resolve(false) : Promise.reject(new Error("boom"))),
+    pickFolder: () => Promise.resolve("/ws/moved"),
+    setVaultRoot: () => {
+      setCalls += 1;
+      return Promise.resolve();
+    },
+  });
+  const tree = await mount();
+  await press(buttonWith(tree, "Choose the folder you exported to"));
+  assert.equal(childCount(tree), 1, "a check that cannot answer still opens");
+  assert.equal(setCalls, 0, "only a verified folder is kept as the workspace folder");
+  tree.unmount();
+});
+
+test("picker: a pick whose report check answers a non-boolean opens but never sets the vault root", async () => {
+  let setCalls = 0;
+  stubBridge({
+    vaultRoot: () => Promise.resolve({ path: "/ws/old" }),
+    legacyDbPresent: () => Promise.resolve(true),
+    migrationReportVerified: (folder: string) => Promise.resolve(folder === "/ws/old" ? false : "yes"),
+    pickFolder: () => Promise.resolve("/ws/moved"),
+    setVaultRoot: () => {
+      setCalls += 1;
+      return Promise.resolve();
+    },
+  });
+  const tree = await mount();
+  await press(buttonWith(tree, "Choose the folder you exported to"));
+  assert.equal(childCount(tree), 1);
+  assert.equal(setCalls, 0);
+  tree.unmount();
+});
+
 test("timed-out check opens; a late old-database answer cannot close the open gate", async () => {
   const pending: Array<(v: boolean) => void> = [];
   stubBridge({

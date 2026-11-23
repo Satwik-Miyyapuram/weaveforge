@@ -65,7 +65,7 @@ test("legacy true and report method absent: unknown, open (fail open)", async ()
 test("legacy true and report verified: open, checked against the given folder", async () => {
   const verify = spyOf(async (_folder: string) => true);
   const bridge = { legacyDbPresent: legacyTrue, migrationReportVerified: verify.fn };
-  assert.deepEqual(await install097Check(bridge, "/ws/export"), { kind: "open" });
+  assert.deepEqual(await install097Check(bridge, "/ws/export"), { kind: "open", verified: true });
   assert.deepEqual(verify.calls, [["/ws/export"]]);
 });
 
@@ -85,7 +85,7 @@ test("legacy true, install gate answers false (0.9.7 secrets marker absent): ask
 
 test("legacy true, report verified and secrets moved (marker present, gate true): open", async () => {
   const bridge = { legacyDbPresent: legacyTrue, migrationReportVerified: async (_folder: string) => true };
-  assert.deepEqual(await install097Check(bridge, "/ws/moved"), { kind: "open" });
+  assert.deepEqual(await install097Check(bridge, "/ws/moved"), { kind: "open", verified: true });
 });
 
 test("the gate notice body is the exact 0.9.7 move instruction", () => {
