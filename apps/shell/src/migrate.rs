@@ -995,7 +995,20 @@ mod tests {
     #[test]
     fn a_fresh_install_with_a_shared_workspace_db_passes() {
         let (data, _) = data_with("gate-fresh-shared-ws-db", false, true);
-        assert!(install_gate_passes(Some(&data), None, |_| Ok(None)));
+        let mut read = false;
+        let passes = install_gate_passes(Some(&data), None, |_| {
+            read = true;
+            Ok(None)
+        });
+        assert!(passes);
+        assert!(!read, "a workspace db alone: the device id is never read");
+    }
+
+    /// The app `local-db` still gates when a workspace db sits beside it.
+    #[test]
+    fn an_app_db_beside_a_workspace_db_with_no_device_id_is_gated() {
+        let (data, _) = data_with("gate-app-and-ws-db", true, true);
+        assert!(!install_gate_passes(Some(&data), None, |_| Ok(None)));
     }
 
     #[test]
