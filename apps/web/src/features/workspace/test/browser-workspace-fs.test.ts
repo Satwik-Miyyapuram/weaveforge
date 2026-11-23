@@ -358,6 +358,32 @@ test("a rename whose copy does not read back the same keeps the source", async (
   assert.equal(await fs.readText("old.md"), "the whole body");
 });
 
+test("a rename whose copy does not read back removes the bad copy when the new name was free", async () => {
+  const { fs } = workspace();
+  await fs.writeFile("old.md", "the whole body");
+  const write = fs.writeFile.bind(fs);
+  fs.writeFile = (path, data) => write(path, path === "new.md" ? "the wh" : data);
+  await assert.rejects(() => fs.rename("old.md", "new.md"), /old\.md kept/);
+  assert.equal(await fs.stat("new.md"), null, "no half copy is left at the new name");
+  assert.equal(await fs.readText("old.md"), "the whole body");
+});
+
+test("a rename whose copy does not read back puts back the file that was at the new name", async () => {
+  const { fs } = workspace();
+  await fs.writeFile("old.md", "the whole body");
+  await fs.writeFile("new.md", "what was there");
+  const write = fs.writeFile.bind(fs);
+  let bad = true;
+  fs.writeFile = (path, data) => {
+    if (path !== "new.md" || !bad) return write(path, data);
+    bad = false;
+    return write(path, "the wh");
+  };
+  await assert.rejects(() => fs.rename("old.md", "new.md"), /old\.md kept/);
+  assert.equal(await fs.readText("new.md"), "what was there");
+  assert.equal(await fs.readText("old.md"), "the whole body");
+});
+
 test("a rename still replaces the file at the new name (a temp file saved over its target)", async () => {
   const { fs } = workspace();
   await fs.writeFile("a.md", "old");

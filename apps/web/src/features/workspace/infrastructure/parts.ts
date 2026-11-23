@@ -240,15 +240,19 @@ export class BrowserWorkspaceFs implements IWorkspaceFs {
    * No native move in the File System Access API: copy, read the copy back, then delete the source.
    * Like the desktop move, a file at `to` is replaced (temp-file saves rely on it). Web Locks on both
    * paths, taken in name order so two renames cannot deadlock, keep a checked save of either path
-   * out of the window between the copy and the delete. A rename onto itself does nothing.
+   * out of the window between the copy and the delete. A rename onto itself does nothing. A copy that
+   * does not read back the same is undone (removed, or the file that was at `to` written back) and the
+   * source is kept.
    */
   async rename(from: string, to: string): Promise<void> {
     const [src, dest] = [safeWorkspacePath(from), safeWorkspacePath(to)];
     if (src === dest) return;
     const run = async () => {
       const bytes = await this.readFile(src);
+      const before = (await this.stat(dest))?.kind === "file" ? await this.readFile(dest) : null;
       await this.writeFile(dest, bytes);
       if (!sameBytes(await this.readFile(dest), bytes)) {
+        await (before === null ? this.remove(dest) : this.writeFile(dest, before)).catch(() => undefined);
         throw new Error(`${dest}: the copy did not read back the same; ${src} kept.`);
       }
       await this.remove(src);
