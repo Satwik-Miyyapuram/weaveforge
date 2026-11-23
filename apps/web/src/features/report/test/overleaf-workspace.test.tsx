@@ -9,7 +9,7 @@ import { OverleafWorkspace } from "../ui/overleaf-workspace";
 import type { ProjectPicksStore } from "../ui/overleaf-project-picks";
 import { tabBlockers } from "../ui/overleaf-project-detail";
 import type { LinkedReportsGateway } from "../ui/use-linked-reports";
-import { canShowWorkshop, type WorkshopSessionStore } from "../ui/use-workshop-session";
+import type { WorkshopSessionStore } from "../ui/use-workshop-session";
 import { WorkshopPdfViewer } from "../ui/workshop-pdf-viewer";
 import { navFoldSnapshot } from "@/lib/hooks/use-nav-fold";
 import { setContainerForTests } from "@/bootstrap";
@@ -305,13 +305,6 @@ test("without sign-in routes there is no connect step and no request", async () 
   assert.equal(tree.root.findAll((n) => n.props.name === "cookies").length, 0);
   assert.equal(h.calls.length, 0);
   await act(async () => tree.unmount());
-});
-
-test("sign-in is offered with an account, and in the Tauri shell even without one", () => {
-  assert.equal(canShowWorkshop({ localMode: false }), true);
-  assert.equal(canShowWorkshop({ localMode: true }), false);
-  assert.equal(canShowWorkshop({ localMode: true, shell: true }), true);
-  assert.equal(canShowWorkshop({ localMode: false, shell: true }), true);
 });
 
 // ---- One list ----

@@ -118,14 +118,13 @@ pub fn specta_builder() -> tauri_specta::Builder<tauri::Wry> {
         crate::prefs::preference_write,
         crate::secrets::secret_read,
         crate::secrets::secret_write,
-        crate::secrets_moved::migrate_097_move_secrets,
-        crate::secrets_moved::legacy_db_present,
         crate::secrets::secret_clear,
         crate::cmd_experiments::sdk_inbox_drain,
         crate::device_settings::device_settings_read,
         crate::device_settings::device_settings_patch,
         crate::migrate::legacy_db_present,
         crate::migrate::migration_report_verified,
+        crate::migrate::install_gate_required,
         crate::cmd_files::file_write,
         crate::cmd_files::file_write_bytes,
         crate::cmd_files::file_delete,
@@ -261,48 +260,6 @@ mod tests {
     fn ipc_reply_string_ok_passes_through() {
         let reply = serde_json::json!({"ok": "true", "value": 1});
         assert_eq!(ipc_reply(reply.clone()), Ok(reply));
-    }
-
-    #[test]
-    fn the_read_write_database_runs_any_sql() {
-        assert_eq!(check_db_query(Mode::Database, "delete from notes"), Ok(()));
-    }
-
-    #[test]
-    fn the_read_only_database_runs_only_a_plain_select() {
-        assert_eq!(check_db_query(Mode::DatabaseReadOnly, "SELECT 1"), Ok(()));
-        assert_eq!(
-            check_db_query(Mode::DatabaseReadOnly, "  select * from notes;"),
-            Ok(())
-        );
-        for sql in [
-            "insert into notes values (1)",
-            "update notes set x = 1",
-            "delete from notes",
-            "with gone as (delete from notes returning *) select * from gone",
-            "select 1; delete from notes",
-            "",
-        ] {
-            assert!(
-                check_db_query(Mode::DatabaseReadOnly, sql).is_err(),
-                "{sql}"
-            );
-        }
-    }
-
-    #[test]
-    fn files_and_unavailable_folders_run_no_sql() {
-        for mode in [Mode::Files, Mode::Unavailable] {
-            assert!(check_db_query(mode, "SELECT 1").is_err(), "{mode:?}");
-        }
-    }
-
-    #[test]
-    fn only_the_read_write_database_is_reset() {
-        assert_eq!(check_db_reset(Mode::Database), Ok(()));
-        for mode in [Mode::DatabaseReadOnly, Mode::Files, Mode::Unavailable] {
-            assert!(check_db_reset(mode).is_err(), "{mode:?}");
-        }
     }
 
     #[test]

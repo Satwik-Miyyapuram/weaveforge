@@ -263,8 +263,6 @@ export interface BackendParts {
   settingsRepository: ISettingsRepository & SettingsWrites;
   /** Offline copies have no release notices; the server supplies them otherwise. */
   releaseNotices?: IReleaseNoticesRepository;
-  /** Local-first only: keeps the sync marker of shared rows in step with grant and revoke. */
-  shareMarks?: ShareMarks;
 }
 
 /** Wraps the database client before any repository is built on it (the desktop read-only guard). */
@@ -503,7 +501,7 @@ export function wirePostgrestBackend(
     projectUserCtx(projectContext, session),
   );
   const shareRepository = cacheRepo(
-    parts?.shareMarks ? withShareMarks(shareWrites, parts.shareMarks) : shareWrites,
+    shareWrites,
     ["listForResource", "listSharedWithMe"],
     ["grant", "revoke"],
     pid,

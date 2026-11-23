@@ -3,13 +3,11 @@
 
 use serde_json::{Value, json};
 
-use super::sdk::{SDK_PREFIX, route_sdk_request};
+use super::sdk::SDK_PREFIX;
 use super::sdk_files;
-use super::verified::{Mode, ModeSource, folder_mode};
 use super::token::grant_permissions;
-use super::{
-    Expected, LocalApiRequest, LocalApiResponse, McpRouter, Permission, SaveArtifact, SdkQuery,
-};
+use super::verified::{Mode, folder_mode};
+use super::{Expected, LocalApiRequest, LocalApiResponse, McpRouter, Permission};
 use crate::cmd_vault;
 use crate::vault::{EntryKindPayload, VaultState};
 use crate::vault_search::search_vault;
@@ -24,12 +22,6 @@ const MCP_PATH: &str = "/mcp";
 pub struct RouteDeps<'a> {
     /// The chosen workspace folder.
     pub vault: &'a VaultState,
-    /// Where the folder's migration state is kept; with `vault` it decides the storage mode.
-    pub mode: &'a ModeSource,
-    /// The local database for `/api/sdk/`. `None` means those paths are not served.
-    pub query: Option<&'a dyn SdkQuery>,
-    /// Saves experiment artifacts for `/api/sdk/`.
-    pub save_artifact: Option<&'a dyn SaveArtifact>,
     /// Answers `/mcp`. `None` answers 404, as an unserved route.
     pub mcp: Option<&'a dyn McpRouter>,
 }
@@ -57,15 +49,8 @@ pub async fn route_local_request(
     }
 
     if path.starts_with(SDK_PREFIX) {
-        let mode = folder_mode(deps.vault, deps.mode);
+        let mode = folder_mode(deps.vault);
         if let Some(answered) = sdk_files::route(mode, deps.vault, request, &path, search).await {
-            return answered;
-        }
-        if matches!(mode, Mode::Database | Mode::DatabaseReadOnly)
-            && let Some(query) = deps.query
-            && let Some(answered) =
-                route_sdk_request(query, request, &path, search, deps.save_artifact).await
-        {
             return answered;
         }
     }
@@ -77,9 +62,8 @@ pub async fn route_local_request(
         if request.method != "POST" {
             return LocalApiResponse::fail(405, "MCP is spoken over POST.");
         }
-        // A folder whose status cannot be trusted gets 503, never a guess at its storage.
-        let mode = folder_mode(deps.vault, deps.mode);
-        if mode == Mode::Unavailable {
+        // No open folder gets 503, never a guess at its storage.
+        if folder_mode(deps.vault) == Mode::Unavailable {
             return LocalApiResponse::json(503, &json!({ "error": sdk_files::UNAVAILABLE }));
         }
         let Ok(message) = serde_json::from_str::<Value>(&request.body) else {
@@ -95,8 +79,8 @@ pub async fn route_local_request(
             .route(
                 message,
                 allowed(Permission::McpSuggest),
-                // Experiment tracking writes SQL, so it is on only in the read-write database.
-                allowed(Permission::Experiments) && mode == Mode::Database,
+                // Experiment tracking wrote SQL; 0.9.8 has no local database, so it is off.
+                false,
             )
             .await
         {
@@ -282,13 +266,11 @@ mod tests {
     const TOKEN: &str = "secret";
     const NOW_MS: u64 = 1_800_000_000_000;
     const NOW_ISO: &str = "2027-01-15T08:00:00Z";
-    const DEVICE: &str = "device-a";
 
     /// A workspace with two notes, adopted as the chosen folder. Removed on drop.
     struct Fixture {
         root: PathBuf,
         vault: VaultState,
-        mode: ModeSource,
     }
 
     impl Fixture {
@@ -315,33 +297,13 @@ mod tests {
                     .expect("adopt workspace")
                     .is_some()
             );
-            let mode = ModeSource::new(root.join("pg"), DEVICE.to_owned());
-            Self { root, vault, mode }
+            Self { root, vault }
         }
     }
 
     impl Drop for Fixture {
         fn drop(&mut self) {
             let _ = fs::remove_dir_all(&self.root);
-        }
-    }
-
-    /// Counts the SQL the database route runs; every query answers no rows.
-    #[derive(Default)]
-    struct CountingDb {
-        calls: std::sync::atomic::AtomicUsize,
-    }
-
-    impl SdkQuery for CountingDb {
-        fn query<'a>(
-            &'a self,
-            _sql: &'a str,
-            _params: Vec<Value>,
-        ) -> BoxFuture<'a, Result<Vec<Value>, String>> {
-            let _ = self
-                .calls
-                .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
-            Box::pin(async { Ok(Vec::new()) })
         }
     }
 
@@ -385,32 +347,22 @@ mod tests {
         Expected::Single(TOKEN.to_owned())
     }
 
-    /// Writes the 0.9.7 report and a `workspace.json` naming project `Lab`.
-    fn verified_with_project(fixture: &Fixture, state: &str) {
-        let dir = fixture.root.join(".weaveforge").join("migration-0.9.7");
-        fs::create_dir_all(&dir).expect("create migration dir");
-        let report = json!({
-            "version": 1,
-            "state": state,
-            "runs": [{ "deviceId": DEVICE, "state": "verified", "finishedAt": NOW_ISO }],
-        })
-        .to_string();
-        fs::write(dir.join("report.json"), report).expect("write report");
+    /// Writes a `workspace.json` naming project `Lab`.
+    fn with_project(fixture: &Fixture) {
         let project = json!({ "id": "proj-1", "name": "Lab" }).to_string();
-        fs::write(fixture.root.join(".weaveforge").join("workspace.json"), project)
-            .expect("write workspace");
+        fs::write(
+            fixture.root.join(".weaveforge").join("workspace.json"),
+            project,
+        )
+        .expect("write workspace");
     }
 
     #[test]
-    fn a_verified_folder_answers_projects_with_zero_sql() {
+    fn an_open_folder_answers_projects_from_workspace_json() {
         let fixture = Fixture::new("zero-sql-verified");
-        verified_with_project(&fixture, "verified");
-        let db = CountingDb::default();
+        with_project(&fixture);
         let deps = RouteDeps {
             vault: &fixture.vault,
-            mode: &fixture.mode,
-            query: Some(&db),
-            save_artifact: None,
             mcp: None,
         };
         let answer = block_on(route_local_request(
@@ -423,28 +375,6 @@ mod tests {
         assert_eq!(answer.status, 200);
         let reply: Value = serde_json::from_str(&answer.body).expect("json");
         assert_eq!(reply["projectId"], json!("proj-1"));
-        assert_eq!(db.calls.load(std::sync::atomic::Ordering::SeqCst), 0);
-    }
-
-    #[test]
-    fn an_unverified_folder_runs_the_projects_sql() {
-        let fixture = Fixture::new("zero-sql-unverified");
-        let db = CountingDb::default();
-        let deps = RouteDeps {
-            vault: &fixture.vault,
-            mode: &fixture.mode,
-            query: Some(&db),
-            save_artifact: None,
-            mcp: None,
-        };
-        let _ = block_on(route_local_request(
-            &deps,
-            &request("GET", "/api/sdk/projects?name=Lab", ""),
-            &mut single(),
-            NOW_MS,
-            NOW_ISO,
-        ));
-        assert_eq!(db.calls.load(std::sync::atomic::Ordering::SeqCst), 1);
     }
 
     fn sha256_hex(text: &str) -> String {
@@ -477,9 +407,6 @@ mod tests {
     ) -> LocalApiResponse {
         let deps = RouteDeps {
             vault: &fixture.vault,
-            mode: &fixture.mode,
-            query: None,
-            save_artifact: None,
             mcp,
         };
         block_on(route_local_request(
@@ -504,9 +431,6 @@ mod tests {
         let req = request("POST", "/search/simple/?query=kettle", "");
         let deps = RouteDeps {
             vault: &fixture.vault,
-            mode: &fixture.mode,
-            query: None,
-            save_artifact: None,
             mcp: None,
         };
         let held = fixture.vault.clone();
@@ -819,7 +743,7 @@ mod tests {
         let answer: Value = serde_json::from_str(&res.body).expect("rpc json");
         assert_eq!(
             answer,
-            json!({ "id": 1, "suggest": true, "tracking": true })
+            json!({ "id": 1, "suggest": true, "tracking": false })
         );
 
         let mut read_only = grants(&[Permission::McpRead], None);
@@ -832,16 +756,11 @@ mod tests {
     }
 
     #[test]
-    fn mcp_answers_503_when_the_status_is_unavailable_with_zero_sql() {
-        let fixture = Fixture::new("mcp-unavailable");
-        verified_with_project(&fixture, "exporting");
-        let db = CountingDb::default();
+    fn mcp_answers_503_when_no_folder_is_open() {
+        let vault = VaultState::new();
         let mcp = FakeMcp;
         let deps = RouteDeps {
-            vault: &fixture.vault,
-            mode: &fixture.mode,
-            query: Some(&db),
-            save_artifact: None,
+            vault: &vault,
             mcp: Some(&mcp as &dyn McpRouter),
         };
         let body = json!({ "jsonrpc": "2.0", "id": 1, "method": "tools/list" }).to_string();
@@ -855,72 +774,14 @@ mod tests {
         assert_eq!(answer.status, 503);
         let reply: Value = serde_json::from_str(&answer.body).expect("json");
         assert_eq!(reply["error"], json!(sdk_files::UNAVAILABLE));
-        assert_eq!(db.calls.load(std::sync::atomic::Ordering::SeqCst), 0);
     }
 
     #[test]
-    fn a_read_only_folder_refuses_writes_with_423_and_zero_sql() {
-        let fixture = Fixture::new("read-only-writes");
-        verified_with_project(&fixture, "incomplete");
-        let report = fixture.root.join(".weaveforge/migration-0.9.7/report.json");
-        let incomplete = json!({
-            "version": 1,
-            "state": "incomplete",
-            "runs": [{ "deviceId": DEVICE, "state": "incomplete" }],
-        });
-        fs::write(report, incomplete.to_string()).expect("write incomplete report");
-        let db = CountingDb::default();
-        let deps = RouteDeps {
-            vault: &fixture.vault,
-            mode: &fixture.mode,
-            query: Some(&db),
-            save_artifact: None,
-            mcp: None,
-        };
-        let answer = block_on(route_local_request(
-            &deps,
-            &request("POST", "/api/sdk/metrics", "{}"),
-            &mut single(),
-            NOW_MS,
-            NOW_ISO,
-        ));
-        assert_eq!(answer.status, 423);
-        assert_eq!(db.calls.load(std::sync::atomic::Ordering::SeqCst), 0);
-    }
-
-    #[test]
-    fn an_unknown_status_answers_503_with_zero_sql() {
-        let fixture = Fixture::new("bogus-state");
-        verified_with_project(&fixture, "bogus");
-        let db = CountingDb::default();
-        let deps = RouteDeps {
-            vault: &fixture.vault,
-            mode: &fixture.mode,
-            query: Some(&db),
-            save_artifact: None,
-            mcp: None,
-        };
-        let answer = block_on(route_local_request(
-            &deps,
-            &request("GET", "/api/sdk/projects?name=Lab", ""),
-            &mut single(),
-            NOW_MS,
-            NOW_ISO,
-        ));
-        assert_eq!(answer.status, 503);
-        assert_eq!(db.calls.load(std::sync::atomic::Ordering::SeqCst), 0);
-    }
-
-    #[test]
-    fn files_mode_serves_whoami_locally_with_zero_sql() {
+    fn an_open_folder_serves_whoami_locally() {
         let fixture = Fixture::new("files-whoami");
-        verified_with_project(&fixture, "verified");
-        let db = CountingDb::default();
+        with_project(&fixture);
         let deps = RouteDeps {
             vault: &fixture.vault,
-            mode: &fixture.mode,
-            query: Some(&db),
-            save_artifact: None,
             mcp: None,
         };
         let answer = block_on(route_local_request(
@@ -931,18 +792,14 @@ mod tests {
             NOW_ISO,
         ));
         assert_eq!(answer.status, 200);
-        assert_eq!(db.calls.load(std::sync::atomic::Ordering::SeqCst), 0);
     }
 
     #[test]
-    fn files_mode_answers_experiments_503_naming_0_9_8() {
+    fn an_open_folder_answers_experiments_503() {
         let fixture = Fixture::new("files-experiments");
-        verified_with_project(&fixture, "verified");
+        with_project(&fixture);
         let deps = RouteDeps {
             vault: &fixture.vault,
-            mode: &fixture.mode,
-            query: None,
-            save_artifact: None,
             mcp: None,
         };
         let answer = block_on(route_local_request(
@@ -954,24 +811,16 @@ mod tests {
         ));
         assert_eq!(answer.status, 503);
         let reply: Value = serde_json::from_str(&answer.body).expect("json");
-        assert!(
-            reply["error"].as_str().unwrap_or_default().contains("0.9.8"),
-            "{}",
-            answer.body
-        );
+        assert_eq!(reply["error"], json!(sdk_files::EXPERIMENTS_LATER));
     }
 
     #[test]
-    fn a_verified_folder_runs_no_sql_on_any_sdk_or_mcp_route() {
+    fn an_open_folder_answers_every_unfiled_sdk_route_503_and_mcp_200() {
         let fixture = Fixture::new("zero-sql-every-route");
-        verified_with_project(&fixture, "verified");
-        let db = CountingDb::default();
+        with_project(&fixture);
         let mcp = FakeMcp;
         let deps = RouteDeps {
             vault: &fixture.vault,
-            mode: &fixture.mode,
-            query: Some(&db),
-            save_artifact: None,
             mcp: Some(&mcp as &dyn McpRouter),
         };
         // Whoami is answered locally in files mode (200), everything else is 503.
@@ -1008,7 +857,6 @@ mod tests {
             NOW_ISO,
         ));
         assert_eq!(answer.status, 200);
-        assert_eq!(db.calls.load(std::sync::atomic::Ordering::SeqCst), 0);
     }
 
     /// An MCP call made with the given token store, through the fake router.

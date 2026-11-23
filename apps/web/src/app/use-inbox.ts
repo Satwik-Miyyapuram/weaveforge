@@ -9,12 +9,11 @@ import type { InboxLink } from "@weaveforge/wasm";
 
 /**
  * The Inbox entries for whoever is signed in, kept fresh as AI suggestions
- * arrive, and whether this copy has no account (`local`).
+ * arrive.
  */
-export function useInbox(): { links: InboxLink[]; local: boolean } {
+export function useInbox(): { links: InboxLink[] } {
   const { profile } = useProfile();
   const [pendingProposals, setPendingProposals] = useState(0);
-  const [local, setLocal] = useState(false);
 
   useEffect(() => {
     const read = () =>
@@ -27,14 +26,10 @@ export function useInbox(): { links: InboxLink[]; local: boolean } {
       read();
     };
     read();
-    // Read through the auth facade rather than the local backend provider: this
-    // only needs the answer, and reaching for the provider is how a
-    // presentation file ends up knowing which backend a window was built with.
-    setLocal(getContainer().auth.isLocalMode());
     window.addEventListener(AI_PROPOSALS_CHANGED_EVENT, refresh);
     return () => window.removeEventListener(AI_PROPOSALS_CHANGED_EVENT, refresh);
   }, []);
 
   const canSupervise = !!profile && profile.role !== "masters";
-  return { links: readyCore().inboxLinks({ canSupervise, pendingProposals, local }), local };
+  return { links: readyCore().inboxLinks({ canSupervise, pendingProposals, local: false }) };
 }

@@ -6,6 +6,7 @@ import { FormError } from "@/components/form-error";
 import { Menu, type MenuItem } from "@/components/menu";
 import { Popover } from "@/components/popover";
 import { desktop } from "@/lib/desktop/desktop-bridge";
+import { isLocalMode } from "@/features/auth/infrastructure/no-account-mode";
 import { overleafSyncAvailable } from "@/features/overleaf/application/parts";
 import type { WorkshopClientDeps } from "@/features/overleaf/infrastructure/workshop-session-client";
 import {
@@ -14,7 +15,6 @@ import {
   pickedOverleafProjects,
   type OverleafProjectRow,
 } from "../lib/parts";
-import { local } from "./linked-overleaf-api";
 import { OverleafConnect } from "./overleaf-connect";
 import { OverleafProjectCard } from "./overleaf-project-card";
 import { OverleafProjectDetail } from "./overleaf-project-detail";
@@ -112,7 +112,7 @@ export function OverleafWorkspace({
 
   // A Git link is a server feature: a no-account copy has no link to offer, so the
   // link action and its form are not shown there at all.
-  const linkTarget = projectId && !local() ? projectId : null;
+  const linkTarget = projectId && !isLocalMode() ? projectId : null;
 
   const menuItems: MenuItem[] = [
     ...(signedIn ? [{ id: "account", kind: "header" as const, label: "Signed in to Overleaf" }] : []),
@@ -134,7 +134,8 @@ export function OverleafWorkspace({
   const linkForm = linkOpen && linkTarget && (
     <>
       <p className="linked-overleaf-disclosure">
-        With a Git link, WeaveForge's server fetches the LaTeX source from Overleaf with your token. The source stays in Overleaf and is not stored as WeaveForge project data.
+        {"With a Git link, WeaveForge's server fetches the LaTeX source from Overleaf with your token."}
+        {" "}The source stays in Overleaf and is not stored as WeaveForge project data.
       </p>
       <LinkOverleafForm
         projectId={linkTarget}

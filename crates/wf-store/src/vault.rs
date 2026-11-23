@@ -184,7 +184,7 @@ impl Vault {
     /// delete the user asked for goes through [`Vault::delete_to_trash`] (law V8).
     ///
     /// # Errors
-    /// Refused paths, escapes, a folder without `recursive`, or any removal failure.
+    /// Refused paths, escapes, a non-empty folder without `recursive`, or any removal failure.
     pub fn remove(&self, rel: &str, recursive: bool) -> Result<(), VaultError> {
         let target = self.resolve(rel)?;
         let meta = match fs::symlink_metadata(&target) {

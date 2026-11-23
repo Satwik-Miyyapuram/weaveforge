@@ -254,7 +254,6 @@
 .layout.nav-collapsed .app-name,
 .layout.nav-collapsed .proj-switcher,
 .layout.nav-collapsed .org-switcher,
-.layout.nav-collapsed .local-mode-badge,
 .layout.nav-collapsed .theme-toggle span { display: none; }
   .layout.nav-collapsed .nav-bottom.desktop-only {
     align-items: center; gap: 8px; padding-top: 16px; padding-bottom: 16px;
@@ -308,15 +307,6 @@ html[data-workspace-focus] .layout.editor-route .nav { display: none; }
   }
 }
 
-/* The offline badge. Quiet, but present wherever the account links are, so a
-   copy working without an account says so without being asked. */
-.local-mode-badge {
-  display: inline-flex; align-items: center; gap: 8px;
-  padding: 4px 12px; border-radius: var(--r-pill);
-  font-size: var(--fs-xs); font-weight: 600; letter-spacing: 0.02em;
-  color: var(--muted); border: 1px solid var(--border); background: transparent;
-}
-.nav-bottom .local-mode-badge, .desktop-only .local-mode-badge { align-self: flex-start; margin-bottom: 8px; }
 /* Sync needs a decision: louder than the storage badge, since it is the one way to find conflicts. */
 .sync-slot { display: inline-flex; align-self: flex-start; margin-bottom: 8px; }
 .sync-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); flex: none; }
@@ -537,17 +527,6 @@ html[data-workspace-focus] .layout.editor-route .nav { display: none; }
   .layout:not(.nav-collapsed) .nav-account-row .proj-switcher { flex: 1 1 0; width: auto; }
   .layout:not(.nav-collapsed) .nav-account-row .proj-switcher .popover,
   :root:root .layout:not(.nav-collapsed) .nav-account-row .proj-switcher .wf-btn { width: 100%; }
-  /* Storage mode is a status, not a control, so it reads as one: a dot and a
-     line of muted text under the chip, its dot on the chip's dot, rather than a
-     second bordered pill competing with the switcher above it. */
-  .layout:not(.nav-collapsed) .nav-bottom .local-mode-badge {
-    margin: 8px 16px 2px; padding: 0 0 0 16px;
-    border: none; border-radius: 0; font-weight: 500; letter-spacing: 0;
-  }
-  .layout:not(.nav-collapsed) .nav-bottom .local-mode-badge::before {
-    content: ""; width: 7px; height: 7px; border-radius: 50%;
-    background: var(--muted); opacity: 0.6; margin-right: 2px;
-  }
   /* In expanded mode, the sync badge spans cleanly with the account row's 14px insets. */
   .layout:not(.nav-collapsed) .nav-bottom .sync-slot {
     margin: 8px 16px 2px;

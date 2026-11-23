@@ -52,11 +52,21 @@ fn a_098_shell_exposes_the_legacy_gate_commands() {
         PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("bridge/bindings.ts"),
     )
     .unwrap();
-    assert!(text.contains("legacyDbPresent:"), "bindings lack legacyDbPresent");
+    assert!(
+        text.contains("legacyDbPresent:"),
+        "bindings lack legacyDbPresent"
+    );
     assert!(
         text.contains("migrationReportVerified:"),
         "bindings lack migrationReportVerified"
     );
-    assert!(!text.contains("migrate093Run:"), "migrate093Run must be gone");
+    assert!(
+        text.contains("installGateRequired:"),
+        "bindings lack installGateRequired"
+    );
+    assert!(
+        !text.contains("migrate093Run:"),
+        "migrate093Run must be gone"
+    );
     assert!(text.contains("pickFolder:"), "bindings lack pickFolder");
 }

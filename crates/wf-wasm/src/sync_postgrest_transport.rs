@@ -1,7 +1,6 @@
 //! Sync transport request builders for JavaScript (wf-core
 //! `sync::postgrest_transport`). The JS names are called from
 //! `apps/web/src/features/offline-sync/infra/postgrest-transport.ts`. `fetch` stays in TS.
-//! Reply decisions are in `sync_send_steps`.
 
 use serde_json::{Map, Value};
 use wasm_bindgen::JsValue;

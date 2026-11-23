@@ -78,7 +78,6 @@ export function PrivacyDisclaimerGate({
     setBusy(true);
     setError(null);
     try {
-      // Account rows are allowed in every folder state, so no folder check here.
       const light = getLightContainer();
       try {
         await light.preferences.acceptDisclaimer();

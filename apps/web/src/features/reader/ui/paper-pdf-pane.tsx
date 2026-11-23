@@ -23,21 +23,14 @@ import { logToApp } from "@/lib/error-report/app-log";
 import { describeRejection, formatError } from "@/lib/format-error";
 import { ScreenLoader } from "@/components/weaveforge-loader";
 import { PdfReader } from "./pdf-reader";
-import { downloadPaperPdfToCache, evictReaderPdfCache, fetchTypedPdfToCache, getReaderPdfByteCache, resolvePaperPdfSourceForReader } from "../application/parts-3";
-import {
-  linkPdfSource,
-  pdfDownloadNeedsConsent,
-  pdfDownloadRemembered,
-  rememberPdfDownload,
-} from "../application/parts";
-import { isLocalMode } from "@/features/auth/infrastructure/no-account-mode";
+import { evictReaderPdfCache, fetchTypedPdfToCache, getReaderPdfByteCache, resolvePaperPdfSourceForReader } from "../application/parts-3";
+import { linkPdfSource } from "../application/parts";
 import { AnnotationSidebar } from "./annotation-sidebar";
 import { readyCore } from "@/lib/rust-core";
 import { relayUrl } from "@/lib/parts";
 import { PaperHtmlView } from "./paper-html-view";
 import { Button } from "@/components/button";
 import { paperGuard } from "./paper-guard";
-import { fetchPendingPdf } from "./pending-pdf-fetch";
 
 async function keptHtmlPage(paperId: string): Promise<PaperHtmlPage | null> {
   const { paperHtmlStore } = await import("../infrastructure/paper-html-store");
@@ -99,16 +92,6 @@ export function PaperPdfPane({
   const [quotationTypes, setQuotationTypes] = useState<Map<string, QuotationType>>(new Map());
   const [loading, setLoading] = useState(Boolean(paperId));
   const [error, setError] = useState<string | null>(null);
-  /**
-   * A publisher URL the ladder resolved for the no-account copy, held until
-   * the person says to fetch it. Nothing leaves this computer before that.
-   */
-  const [pendingDownload, setPendingDownload] = useState<string | null>(null);
-  // The paper a fetch already ran for. A store that takes the bytes but does
-  // not answer with them next time round would otherwise fetch forever.
-  const fetchedFor = useRef<string | null>(null);
-  const [rememberChoice, setRememberChoice] = useState(false);
-  const [downloading, setDownloading] = useState(false);
   /** The address the person typed for a paper that has none. */
   const [typedUrl, setTypedUrl] = useState("");
   const [typedBusy, setTypedBusy] = useState(false);
@@ -135,9 +118,6 @@ export function PaperPdfPane({
   useEffect(() => {
     setError(null);
     setTitle(null);
-    setPendingDownload(null);
-    // A download left running for another paper no longer speaks for this view (P2-166).
-    setDownloading(false);
     setHtmlPage(null);
     setFreeStatus(null);
     openAccessIds.current = null;
@@ -214,18 +194,7 @@ export function PaperPdfPane({
           if (!cancelled) setQuotationTypes(new Map());
         }
         if (cancelled) return;
-        if (resolution.ok && isLocalMode() && !readyCore().isStoredPdfUrl(resolution.hit.url)) {
-          // The no-account copy fetches into its own store, on request, and
-          // then opens from there — so the paper is on disk for next time and
-          // nothing is fetched behind the person's back.
-          if (fetchedFor.current === paper.id) {
-            setError("The PDF was fetched but could not be kept on this computer.");
-          } else if (pdfDownloadRemembered()) {
-            await fetchPending(paper.id, resolution.hit.url);
-          } else {
-            setPendingDownload(resolution.hit.url);
-          }
-        } else if (resolution.ok) {
+        if (resolution.ok) {
           setPdfUrl(resolution.hit.url);
           if ("revokeUrl" in resolution && resolution.revokeUrl) {
             revokeOnCancel = resolution.revokeUrl;
@@ -265,35 +234,6 @@ export function PaperPdfPane({
       if (revokeOnCancel) URL.revokeObjectURL(revokeOnCancel);
     };
   }, [paperId, pdfFromParam, cacheSkippedFor, generation]);
-
-  /** Fetch a publisher's PDF into the store, then run the ladder again. */
-  async function fetchPending(id: string, url: string) {
-    setDownloading(true);
-    const outcome = await fetchPendingPdf(id, url, {
-      download: downloadPaperPdfToCache,
-      stillOpen: paperGuard(paperIdRef, id),
-    });
-    // Another paper is open by now: its view is not this fetch's to touch (P2-166).
-    if (outcome.kind === "stale") return;
-    setDownloading(false);
-    fetchedFor.current = id;
-    if (outcome.kind === "failed") {
-      setError(outcome.message);
-      return;
-    }
-    activityRef.current?.("reader", `Fetched the PDF from ${outcome.host}; it is kept on this computer.`);
-    setPendingDownload(null);
-    // Loading again before the ladder re-runs: the effect only sets it on
-    // its next pass, and the frame in between would say "Nothing to show".
-    setLoading(true);
-    setGeneration((n) => n + 1);
-  }
-
-  function acceptDownload() {
-    if (!paperId || !pendingDownload) return;
-    if (rememberChoice) rememberPdfDownload(true);
-    void fetchPending(paperId, pendingDownload);
-  }
 
   /**
    * A cached copy pdf.js refused to open. Drop it and re-run the ladder without
@@ -535,36 +475,7 @@ export function PaperPdfPane({
           }}
         />
       ) : null}
-      {downloading ? (
-        <ScreenLoader status="Fetching PDF…" />
-      ) : (
-        loading && <ScreenLoader status="Resolving source…" />
-      )}
-      {!loading && !downloading && !error && pendingDownload && (
-        <div className="card empty-state">
-          <h2>PDF not on this computer</h2>
-          <p>
-            Fetch it from {new URL(pendingDownload).hostname}? It is kept here afterwards, so
-            the paper opens offline from then on.
-          </p>
-          <div className="empty-actions">
-            <Button variant="primary" onClick={acceptDownload}>
-              Fetch PDF
-            </Button>
-            {loadButton}
-          </div>
-          {pdfDownloadNeedsConsent() && (
-            <label className="field-inline">
-              <input className="wf-check"
-                type="checkbox"
-                checked={rememberChoice}
-                onChange={(event) => setRememberChoice(event.target.checked)}
-              />
-              <span>Do not ask again — fetch PDFs whenever I open a paper</span>
-            </label>
-          )}
-        </div>
-      )}
+      {loading && <ScreenLoader status="Resolving source…" />}
       {!loading && error && !htmlPage && (
         <div className="card empty-state">
           <h2>Cannot open this source</h2>
@@ -574,7 +485,7 @@ export function PaperPdfPane({
           {loadButton}
         </div>
       )}
-      {!loading && !error && !pdfUrl && !htmlPage && !pendingDownload && !downloading && (
+      {!loading && !error && !pdfUrl && !htmlPage && (
         <div className="card empty-state">
           <h2>Nothing to show</h2>
           <p>No PDF was provided for this locus.</p>

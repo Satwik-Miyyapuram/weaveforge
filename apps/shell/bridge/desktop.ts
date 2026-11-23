@@ -134,7 +134,6 @@ export interface DesktopCommands {
   secretRead(name: DesktopSecretName): Promise<Result<string | null>>;
   secretWrite(name: DesktopSecretName, value: string): Promise<Result<null>>;
   secretClear(name: DesktopSecretName): Promise<Result<null>>;
-  migrate097MoveSecrets(): Promise<Result<string[]>>;
   legacyDbPresent(): Promise<boolean>;
   planWidgetState(): Promise<Result<DesktopPlanWidget>>;
   planWidgetSet(on: boolean): Promise<Result<DesktopPlanWidget>>;
@@ -143,6 +142,7 @@ export interface DesktopCommands {
   pickFolder(): Promise<Result<string | null>>;
   planWidgetData(): Promise<Result<unknown>>;
   planWidgetTheme(palette: unknown): Promise<Result<null>>;
+  installGateRequired(): Promise<Result<boolean>>;
   overleafRead(
     projectId: string,
     entryFile: string,
@@ -347,11 +347,11 @@ export type DesktopShim = Pick<
   | "readSecret"
   | "writeSecret"
   | "clearSecret"
-  | "migrate097MoveSecrets"
   | "legacyDbPresent"
   | "planWidgetState"
   | "setPlanWidget"
   | "setPlanWidgetTheme"
+  | "installGateRequired"
 > & {
   /** Required on desktop: the 0.9.7 install gate fails closed when these are missing. */
   legacyDbPresent: () => Promise<boolean>;
@@ -687,7 +687,6 @@ export function desktopShim(
     clearSecret: async (name) => {
       unwrap(await cmds.secretClear(name));
     },
-    migrate097MoveSecrets: async () => unwrap(await cmds.migrate097MoveSecrets()),
     legacyDbPresent: () => cmds.legacyDbPresent(),
     planWidgetState: async () => unwrap(await cmds.planWidgetState()),
     setPlanWidget: async (on) => unwrap(await cmds.planWidgetSet(on)),
@@ -698,6 +697,7 @@ export function desktopShim(
     migrationReportVerified: async (folder) => unwrap(await cmds.migrationReportVerified(folder)),
     pickFolder: async () => unwrap(await cmds.pickFolder()),
     planWidgetData: async () => unwrap(await cmds.planWidgetData()),
+    installGateRequired: async () => unwrap(await cmds.installGateRequired()),
   };
 }
 

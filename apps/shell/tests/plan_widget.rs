@@ -10,10 +10,9 @@ use base64::Engine as _;
 use base64::engine::general_purpose::STANDARD;
 use serde_json::{Value, json};
 use weaveforge_shell_lib::plan_widget::{
-    PLAN_WIDGET_HEIGHT, PLAN_WIDGET_WIDTH, WIDGET_PALETTE_KEYS, WidgetBounds, WorkArea,
-    clean_widget_palette, hwnd_from_handle, parse_bounds, parse_taskbar_created, pin_script,
-    place_widget, powershell_args, switch_plan_widget, theme_push_script,
-    WIDGET_SCRIPT, widget_asset,
+    PLAN_WIDGET_HEIGHT, PLAN_WIDGET_WIDTH, WIDGET_PALETTE_KEYS, WIDGET_SCRIPT, WidgetBounds,
+    WorkArea, clean_widget_palette, hwnd_from_handle, parse_bounds, parse_taskbar_created,
+    pin_script, place_widget, powershell_args, switch_plan_widget, theme_push_script, widget_asset,
 };
 
 /// The palette object with every colour key set to `colour`.
@@ -541,8 +540,14 @@ fn plan_widget_data_reads_milestone_files_and_skips_other_notes() {
         let _ = s.adopt(Some(dir.path())).unwrap();
         s
     };
-    crate::common::put(&dir.path().join("Thesis/draft.milestone.md"), MILESTONE.as_bytes());
-    crate::common::put(&dir.path().join("Thesis/note.md"), b"---\nweaveforge-id: n1\nweaveforge-type: note\ntitle: Not a plan\n---\n");
+    crate::common::put(
+        &dir.path().join("Thesis/draft.milestone.md"),
+        MILESTONE.as_bytes(),
+    );
+    crate::common::put(
+        &dir.path().join("Thesis/note.md"),
+        b"---\nweaveforge-id: n1\nweaveforge-type: note\ntitle: Not a plan\n---\n",
+    );
 
     let got = weaveforge_shell_lib::plan_widget::plan_widget_data_from_vault(&session, NOW_MS)
         .expect("a readable folder gives a summary");
@@ -558,7 +563,9 @@ fn plan_widget_data_reads_milestone_files_and_skips_other_notes() {
 #[test]
 fn plan_widget_data_without_a_folder_is_none() {
     let session = weaveforge_shell_lib::vault::VaultSession::new();
-    assert!(weaveforge_shell_lib::plan_widget::plan_widget_data_from_vault(&session, NOW_MS).is_none());
+    assert!(
+        weaveforge_shell_lib::plan_widget::plan_widget_data_from_vault(&session, NOW_MS).is_none()
+    );
 }
 
 #[test]
@@ -569,7 +576,9 @@ fn plan_widget_data_for_a_folder_that_went_missing_is_none() {
     let mut session = weaveforge_shell_lib::vault::VaultSession::new();
     let _ = session.adopt(Some(&gone)).unwrap();
     std::fs::remove_dir_all(&gone).unwrap();
-    assert!(weaveforge_shell_lib::plan_widget::plan_widget_data_from_vault(&session, NOW_MS).is_none());
+    assert!(
+        weaveforge_shell_lib::plan_widget::plan_widget_data_from_vault(&session, NOW_MS).is_none()
+    );
 }
 
 #[test]

@@ -237,7 +237,10 @@ pub fn widget_asset(path: &str) -> Option<(&'static str, &'static [u8])> {
 /// The widget's summary from the milestone files in the chosen folder, read only.
 /// `None` when no folder is chosen or the folder cannot be read, so the page can say so.
 #[must_use]
-pub fn plan_widget_data_from_vault(session: &VaultSession, now_ms: i64) -> Option<serde_json::Value> {
+pub fn plan_widget_data_from_vault(
+    session: &VaultSession,
+    now_ms: i64,
+) -> Option<serde_json::Value> {
     let root = session.root()?;
     if !Path::new(&root.path).is_dir() || session.list(None).is_err() {
         return None;

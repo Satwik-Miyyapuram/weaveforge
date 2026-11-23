@@ -66,12 +66,8 @@ boot snapshot paints the last screens as a picture meanwhile.
 - `node scripts/perf/memory.mjs [--json] [--dump]` reads WeaveForge Dev over
   CDP (port 9223, or `CDP_PORT`) and prints the JS heap, wasm memory, DOM,
   canvases, images, workers and the working set of every WebView2 process by
-  type, plus the shell and its local Postgres. `--dump` adds Chromium's own
-  split and takes about 5 seconds. It is read-only.
-- `node scripts/perf/db-start.mjs --bin <postgres bin dir> [--runs 5] [--json]`
-  times the phases of the local database start on a scratch cluster: initdb,
-  spawn until it answers, connect, migrate and the local user. It never touches
-  an app's data.
+  type, plus the shell. `--dump` adds Chromium's own split and takes about 5
+  seconds. It is read-only.
 - `npm run bundle:budget` (`scripts/check-bundle-budget.mjs`) sums the gzipped
   JS each route loads from the build manifest and compares the largest against
   a budget. It is a ratchet: the default is 340 KB, a few routes have a higher

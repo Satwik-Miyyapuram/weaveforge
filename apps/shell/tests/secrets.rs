@@ -69,6 +69,29 @@ fn never_written_known_name_reads_none() {
 }
 
 #[test]
+fn startup_retires_the_overleaf_token_left_by_0_9_7() {
+    let store = mock();
+    let s = secrets(&store);
+    s.write("overleaf-token", "old-git-token").expect("write");
+    s.write("ai-provider", "kept").expect("write");
+    s.retire_overleaf_token().expect("first start");
+    assert_eq!(s.read("overleaf-token"), Ok(None));
+    assert_eq!(s.read("ai-provider"), Ok(Some("kept".to_owned())));
+}
+
+#[test]
+fn retiring_the_overleaf_token_is_idempotent() {
+    let s = secrets(&mock());
+    assert_eq!(s.retire_overleaf_token(), Ok(()), "nothing stored yet");
+    assert_eq!(s.retire_overleaf_token(), Ok(()), "second start");
+}
+
+#[test]
+fn retiring_without_a_keychain_succeeds() {
+    assert_eq!(no_store().retire_overleaf_token(), Ok(()));
+}
+
+#[test]
 fn unknown_names_are_refused_by_read_write_and_clear() {
     let s = secrets(&mock());
     for name in UNKNOWN_NAMES {
