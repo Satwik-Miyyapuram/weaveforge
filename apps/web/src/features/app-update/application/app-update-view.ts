@@ -20,6 +20,7 @@ export interface AppUpdateView {
 const BUSY = new Set<DesktopAppUpdate["phase"]>(["checking", "downloading", "installing"]);
 
 const FAILED_FALLBACK = "Could not finish the update. Try again.";
+const HELD_FALLBACK = "This update is held until your local data is exported and verified.";
 
 function progress(percent: number | null): string {
   return percent === null ? "" : ` (${percent}%)`;
@@ -31,7 +32,10 @@ export function appUpdateView(status: DesktopAppUpdate): AppUpdateView {
   // to install; a failed check has none and only asks to check again.
   const canInstall = phase === "available" || (phase === "failed" && version !== null);
   const canCheck = phase !== "unsupported" && !BUSY.has(phase);
-  const error = phase === "failed" ? (status.error ?? FAILED_FALLBACK) : null;
+  const error =
+    phase === "failed" ? (status.error ?? FAILED_FALLBACK)
+    : phase === "held" ? (status.error ?? HELD_FALLBACK)
+    : null;
 
   let notice: string | null = null;
   let summary: string;
@@ -59,6 +63,10 @@ export function appUpdateView(status: DesktopAppUpdate): AppUpdateView {
     case "installing":
       summary = "Installing. WeaveForge will restart.";
       notice = `Installing WeaveForge ${version}. WeaveForge will restart.`;
+      break;
+    case "held":
+      // Refused by the bridge rule, not a failure: no install button, no retry.
+      summary = error ?? HELD_FALLBACK;
       break;
     case "failed":
       summary = error ?? FAILED_FALLBACK;

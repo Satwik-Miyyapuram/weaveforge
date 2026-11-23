@@ -27,6 +27,24 @@ pub fn get_or_create(dir: &Path) -> io::Result<String> {
     parse_id(&path, text.trim())
 }
 
+/// Returns the stored id if the file holds a valid one. Never writes: a missing, empty or corrupt
+/// file gives `None`, so a read-only check stays closed instead of creating an id.
+pub fn get_existing(dir: &Path) -> Option<String> {
+    let text = fs::read_to_string(dir.join(FILE)).ok()?;
+    let id = text.trim();
+    is_valid(id).then(|| id.to_owned())
+}
+
+/// Tauri command: this machine's id, created on first use in the app data folder.
+#[tauri::command]
+#[specta::specta]
+pub fn device_id(app: tauri::AppHandle) -> Result<String, String> {
+    use tauri::Manager;
+    let dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    get_or_create(&dir).map_err(|e| e.to_string())
+}
+
 /// Removes `path` only if it is still empty. Another call may have linked an id in since this
 /// call read the name, and that id must not be removed.
 ///
