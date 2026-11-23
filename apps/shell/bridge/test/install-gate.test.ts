@@ -12,8 +12,8 @@ function shimWith(installGateRequired: () => Promise<unknown>) {
   return desktopShim(cmds, {} as Events);
 }
 
-// The gate's decision (askInstallGate, including fail-closed on a missing member) is tested
-// on the real helper in apps/web/src/features/install-gate/test/install-gate.test.tsx.
+// The gate's decision (install097Check, fail-open on unreadable answers) is tested
+// on the real helper in apps/web/src/features/workspace/test/install-097-guard.test.ts.
 
 test("the shim exposes installGateRequired and returns the shell's answer", async () => {
   const shim = shimWith(async () => ok(true));

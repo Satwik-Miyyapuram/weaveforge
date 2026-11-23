@@ -21,6 +21,7 @@ type Install097Bridge = Partial<Pick<DesktopBridge, "legacyDbPresent" | "migrati
  * The per-device answers for a browser or Android WebView, read from this device's storage only
  * (no account, no server). `oldDataHere`: 0.9.7 started moving data in this browser.
  * `exportedHere`: that move finished here (this device's own verified report or the 0.9.7 flag).
+ * Other devices' reports and the legacy report.json do not count (migrate.rs report_state_verified).
  * The reader is infrastructure/install-097-browser-port.
  */
 export interface Install097OldUserPort {
