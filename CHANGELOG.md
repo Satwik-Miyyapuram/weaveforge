@@ -14,7 +14,7 @@ tracks at once.
 ## [Unreleased]
 
 ### Desktop
-- **Changed:** The "Start fresh" local-database recovery is removed. An old local database is now handled by the "Install 0.9.7 first" gate, which blocks the app until 0.9.7 has moved the data across.
+- **Changed:** The "Start fresh" local-database recovery is removed. An old local database is now handled by the "Open 0.9.7 once more." gate, which blocks the app until 0.9.7 has moved the data across.
 - **Fixed:** Deleting a note moves its `.md` and its `.inkb` ink file to the workspace trash folder, and a deleted note is no longer offered again on import. 0.9.6 listed this fix, but in 0.9.6 a deleted note's file stayed in place; it is fixed now.
 - **Fixed:** Ink cannot be drawn until the workspace has a folder, so strokes are never kept only in memory.
 - **Fixed:** Renaming a note rewrites the `[[links]]` that point to it, leaving links inside code alone; any note it could not update is named in a message.
@@ -23,7 +23,7 @@ tracks at once.
 
 ### Web
 - **Changed:** On the web, the "Install 0.9.7 first." gate is per device: it shows only in a browser where 0.9.7 started moving data and no finished 0.9.7 export report is in that browser's workspace. It no longer reads your account on the server. New accounts and browsers with no 0.9.7 data are never gated. See [Upgrading to 0.9.8](docs/using/upgrading-to-098.md).
-- **Changed:** Offline sync is removed; notes are files in the workspace folder. Keys stay sealed: server-held credentials stay encrypted.
+- **Changed:** Offline sync is removed; notes are files in the workspace folder. What the server still holds for you, your Overleaf sign-in, stays encrypted.
 - **Changed:** On the desktop and without an account, the app's database client now refuses personal tables before a request is sent, as the web app already did. Organisation, sharing and live-share rows still reach the server.
 - **Fixed:** Error messages no longer repeat text from Overleaf, the sign-in server or storage. They are fixed short messages, with the HTTP status where it helps. Too many confirmation-code requests now ask you to wait a minute, and a sign-in server problem while a code is checked no longer looks like a wrong code. Server logs record only the error kind or status.
 - **Changed:** Sync to folder no longer writes `.weaveforge/tables/`, and Apply no longer restores table rows. Table files that 0.9.7 wrote stay in the folder unread. See [The workspace folder](docs/using/workspace-folder.md).

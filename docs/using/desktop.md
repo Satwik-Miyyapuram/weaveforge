@@ -2,7 +2,7 @@
 covers:
   - apps/shell
   - apps/android
-checked: 2026-11-21
+checked: 2026-11-23
 ---
 # The desktop app
 
@@ -127,12 +127,11 @@ waiting for the browser to arrive. If it was closed or restarted mid-way,
 start the sign-in again from the app.
 
 **Something else is on the port.** WeaveForge listens on port 53682, and only
-while a sign-in is in flight. If another program holds it, the app logs
-`sign-in listener could not start` on startup and the sign-in has nowhere to
-land. Quitting the other program is enough; nothing needs configuring.
+while a sign-in is in flight. If another program holds it, the sign-in has
+nowhere to land. Quitting the other program is enough; nothing needs configuring.
 
-**You took too long.** The code the browser brings back is good for about five
-minutes and can only be used once. Past that, start again.
+**You took too long.** The code the browser brings back expires and can only be
+used once. If it no longer works, start again.
 
 ## Signing in with an email address
 
@@ -197,20 +196,14 @@ browser can do this too, but only for a folder you re-pick each session; the
 desktop app remembers the one you chose, and is the only place the folder is
 watched. See [`workspace-folder.md`](workspace-folder.md).
 
-### Upgrading a folder to 0.9.7
+### Upgrading a folder to 0.9.8
 
-A folder's notes, papers and settings now live as files in that folder, not in
-a local database. The first time 0.9.7 opens a folder, it moves the data across
-and shows an "Upgrading your workspace" screen until the move is checked. Keep
-WeaveForge open until it finishes.
-
-If the move does not finish, the screen says so, your old data is untouched,
-and it shows the path of the report. You can copy that path, then choose
-**Retry**, or **Keep using old data** to stay on the database for now.
-
-Once the move is verified, **Settings → Data → Remove old data** deletes the
-old local copy. It asks first and names the backup that stays behind. It only
-appears after a verified move to this folder.
+Your notes, papers and settings are files in the workspace folder, and 0.9.8
+keeps no local database. 0.9.7 moved the data out of the old database. If this
+computer still holds that old database and the move has not been checked,
+0.9.8 asks you to open 0.9.7 once before it starts. See
+[Upgrading to 0.9.8](upgrading-to-098.md) for when that happens and how to get
+past it.
 
 ## Links
 
@@ -220,87 +213,22 @@ from somewhere else does not get to run in it.
 
 ## Working without an account
 
-The desktop window offers **Use without an account, local only** on the
-sign-in screen (and **Work on this computer (offline)** on the "Couldn’t start the
-app" screen). Choosing it swaps four things — the database client, the
-identity, the auth service and the blob store — for local ones, and leaves every
-repository, screen and use case above them untouched. The data lives in PGlite
-under the app's own directory, with the same schema the server has (all the
-server migrations run locally), and the sidebar carries an **Offline · on this
-computer** badge for as long as that is true. Where a signed-in copy offers
-"Sign out", an account-less one offers **Sign in**: there is no session to end,
-and signing in later leaves what is on this computer where it is.
+A window that chose to work without an account keeps that choice, and the
+top of the window shows an **Offline · on this computer** tag while it does. **Sign in**
+in the account menu ends it: there is no session to end, so it brings back the
+sign-in screen, and what is on this computer stays where it is.
 
-What this covers and what it costs:
+What this covers:
 
-- Projects, notes, papers, lists, reports, experiments, the workspace folder
-  mirror, the local HTTP API and the MCP server all work with no network at all.
-  Launching needs no connection: a packaged copy in offline mode makes no
-  outbound request at boot.
-- The editor works, including in a document you are the only reader of. Typing
-  is recorded the way it always is — the change log a document is rebuilt from
-  is still written — but no sync channel is opened, because there is nobody on
-  the other end of it to reach. A copy with an account and a copy without both
-  end up with the same document; only one of them has anybody to send it to.
-- Overleaf reports can be linked, renamed, re-pointed and unlinked with no
-  account. See [Overleaf, with no account](integrations.md#overleaf-with-no-account)
-  for what the token does and where it is kept.
-- Attachments are kept in a local table (`local_blobs`) rather than object
-  storage, base64-encoded, because the bridge to the shell carries text.
-- Integration credentials are kept in `local_secrets` in the same local
-  database, not behind `/api/settings/credentials` — there is no server to hold
-  them and no other user to hold them from. They are protected by the file
-  permissions on the app's directory and nothing else.
+- Your notes, papers, lists, reports and experiments are files in the open
+  workspace folder, as they are with an account. No database is used. With no
+  folder open, the app asks you to open one.
+- Attachments and images are files too, under `assets/` in the folder, each
+  with a `.sha256` file beside it so a damaged copy is noticed.
+- Integration keys are kept in this computer's keychain, one entry per key.
+  They never go into a file in the folder or to the server.
 - Sharing, supervision and anything else that needs a second person are
   account features and stay unavailable.
-
-There is a fuller table of what does and does not survive the network being
-unplugged in [How WeaveForge is put together](../building/architecture-map.md#offline-precisely).
-
-### Where it lives, and what happens if it breaks
-
-The database is a directory, `local-db`, under the app's own data directory
-(`%APPDATA%\@weaveforge\desktop` on Windows, `~/Library/Application Support/
-@weaveforge/desktop` on macOS). A run that is cut off at the wrong moment — a
-force-quit, a crash, the power — can leave that directory in a state no later
-start can open. Three things stand between that and losing your notes:
-
-- **Copies.** Every ten minutes while something has changed, and again when
-  the app quits, the whole database is written out as a compressed archive to
-  `local-db-backups/` beside it — and, when a workspace folder is chosen, to
-  `.weaveforge/db-backups/` inside that folder too. In each place the newest
-  three are kept, plus the newest copy from each of the last seven days. The workspace folder is yours, not the app's: uninstalling
-  does not touch it.
-- **Restoring by itself.** When the database will not open, the broken
-  directory is moved aside as `local-db.broken-<time>` (never deleted) and the
-  newest copy is loaded into a fresh one, without asking. You lose at most what
-  changed since that copy. The *Couldn't start the app* screen with *Start with
-  a fresh database* appears only when there was no copy to restore from.
-- **Finding the way back after a reinstall.** The workspace folder's path is
-  also written to `~/.weaveforge/desktop.json`, a small file outside the app's
-  directory. A fresh install with nothing of its own reads it, takes the folder
-  up again, and — finding no database — restores the newest copy from the
-  folder's `.weaveforge/db-backups/`. Choose the same folder and everything
-  comes back.
-
-### Training scripts write into it too
-
-The local HTTP API also answers the Python SDK's routes, so a run logged from a
-training script lands in the same folder-sized database as everything else. Create
-a token in **Experiments → More → Python SDK token** (experiments
-only) or **Settings → Access tokens** (pick permissions and expiry). It shows once;
-only its hash is kept. Then:
-
-```bash
-export WEAVEFORGE_TOKEN=<the token the app shows once>
-export WEAVEFORGE_API_URL=http://127.0.0.1:27123
-```
-
-`weaveforge.track(...)` then behaves exactly as it does against a server: the
-same client, the same routes, the same rows. Re-sending a step overwrites it
-rather than duplicating it, so a script that retries a flush is safe. Artifacts
-are the exception — they are blobs, and the local API only knows how to run
-SQL — so figures logged this way have nowhere to go offline.
 
 ## Opening on your last screen
 
