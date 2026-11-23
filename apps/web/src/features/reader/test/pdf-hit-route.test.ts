@@ -91,3 +91,14 @@ test("fetchServedPdf is a single GET: its bytes on 200, null for anything else o
   );
   assert.ok(seen.every((line) => line.startsWith("GET ")));
 });
+
+test("fetchServedPdf hands its AbortSignal to the request, so a superseded probe can be cancelled", async () => {
+  const controller = new AbortController();
+  let seen: AbortSignal | undefined;
+  const fetchFn = async (_url: string, init?: RequestInit) => {
+    seen = init?.signal ?? undefined;
+    return new Response(new Blob(["%PDF"]), { status: 200 });
+  };
+  await fetchServedPdf(GITHUB_HIT, fetchFn, controller.signal);
+  assert.equal(seen, controller.signal);
+});
