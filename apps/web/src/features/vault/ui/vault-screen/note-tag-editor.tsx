@@ -17,7 +17,6 @@ export function NoteTagEditor({ page, onChanged }: { page: VaultPage; onChanged:
   async function removeTag(tag: string) {
     await runNoteAction(setBusy, setError, async () => {
       await removeNoteTag(getContainer().vault.manageVaultPage, page, tag);
-
       await onChanged();
     });
   }

@@ -2,6 +2,7 @@ import { getContainer } from "@/bootstrap";
 import type { DesktopBridge } from "@/lib/desktop/desktop-bridge";
 import { logToApp } from "@/lib/error-report/app-log";
 import { notifyEach } from "@/lib/parts";
+import { claimTrashFolder } from "@/lib/workspace-trash";
 import { loadCore, readyCore, typedCore } from "@/lib/rust-core";
 import type { IWorkspaceFs, WorkspaceProject, WorkspaceSnapshot } from "@weaveforge/core";
 import type { ReanchorPlan } from "@weaveforge/wasm";
@@ -148,9 +149,6 @@ export function watchForLoss(bridge: Pick<DesktopBridge, "onVaultWatchLost">): (
 }
 
 // --- remove-project-folder ---
-/** How many numbered trash names to try before giving up. */
-const TRASH_FOLDER_ATTEMPTS = 100;
-
 /**
  * Move a deleted project's folder to the workspace trash.
  *
@@ -176,12 +174,16 @@ export async function removeProjectFolder(
   const match = typed.pickProjectFolder(dirNames, exact, tail, otherTails) ?? null;
   if (!match) return null;
   if (!typed.holdsProjectLayout(names(await fs.list(match)))) return null;
-  const base = await freeTrashFolder(fs, match);
+  const { target: base, release } = await claimTrashFolder(fs, match, Date.now());
   const { files, dirs } = await treeUnder(fs, match);
-  for (const path of files) {
-    const target = base + path.slice(match.length);
-    await fs.mkdirp(target.slice(0, target.lastIndexOf("/")));
-    await fs.rename(path, target);
+  try {
+    for (const path of files) {
+      const target = base + path.slice(match.length);
+      await fs.mkdirp(target.slice(0, target.lastIndexOf("/")));
+      await fs.rename(path, target);
+    }
+  } finally {
+    await release();
   }
   // Remove the emptied folders deepest first, without recursion. The desktop's
   // remove refuses a folder that still holds something (a file written after the
@@ -235,14 +237,4 @@ async function treeUnder(fs: IWorkspaceFs, dir: string): Promise<{ files: string
     }
   }
   return { files, dirs };
-}
-
-/** The first trash name for `folder` today that is not taken. */
-async function freeTrashFolder(fs: IWorkspaceFs, folder: string): Promise<string> {
-  const now = Date.now();
-  for (let n = 1; n <= TRASH_FOLDER_ATTEMPTS; n += 1) {
-    const target = typedCore().trashPathFor(folder, now, n);
-    if (!(await fs.stat(target))) return target;
-  }
-  throw new Error(`${folder}: no free name in the trash; not removed.`);
 }
