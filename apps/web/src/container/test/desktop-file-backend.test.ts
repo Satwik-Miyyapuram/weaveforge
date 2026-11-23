@@ -176,19 +176,4 @@ test("with the overlay on, screening goes to the file repo and PostgREST sees no
   assert.deepEqual(dbCalls, [], "no PostgREST call for screening");
 });
 
-test("a personal image written through the desktop blob store is refused before any request", async () => {
-  const { bridge } = memoryVault();
-  const backend = wireBackend(config, { projectId: null }, () => null, {
-    migration: "verified",
-    onDesktop: true,
-    wireDesktopFileBackend: wireDesktopFileBackend(bridge, settings, keychainSecrets()),
-  });
-  await assert.rejects(
-    () => backend.rawBlobStore.upload("paper-images", "p1/figure.png", new Blob(["x"]), "image/png"),
-    new ReadOnlyError(),
-  );
-  await assert.rejects(
-    () => backend.rawBlobStore.remove("paper-images", "p1/figure.png"),
-    new ReadOnlyError(),
-  );
-});
+// Personal blobs on the desktop: files-mode-overlay.test.ts (the tiered HttpBlobStore with a `window`).

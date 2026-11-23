@@ -6,6 +6,7 @@ import { loadTestCore } from "@/lib/test/load-test-core";
 import type { BackendConfig } from "@/backend/parts";
 import { wirePostgrestBackend } from "@/backend/providers/postgrest/wire-postgrest-backend";
 import { wireBrowserFiles } from "../browser-file-backend";
+import { READ_ONLY_MESSAGE } from "../read-only-repositories";
 
 before(async () => {
   await loadTestCore();
@@ -81,13 +82,14 @@ test("with the browser file overlay, a personal round trip makes zero network ca
   }
 });
 
-test("the container db refuses personal tables and rpcs, including through schema()", async () => {
+test("the container db refuses personal writes and rpcs, including through schema()", async () => {
   const wire = await wireBrowserFiles(new MemoryWorkspaceFs());
   const backend = wire(config, { projectId: null }, () => null);
   try {
-    assert.throws(() => backend.db.from("papers"), /not allowed on the org server: papers/);
-    assert.throws(() => backend.db.schema("public").from("notes"), /not allowed on the org server/);
-    assert.throws(() => backend.db.rpc("delete_everything"), /not allowed on the org server/);
+    // The same guard as the desktop (readOnlyDb, one allowlist): writes and non-org rpcs throw.
+    assert.throws(() => backend.db.from("papers").insert({ id: "p-1" }), { message: READ_ONLY_MESSAGE });
+    assert.throws(() => backend.db.schema("public").from("notes").insert({}), { message: READ_ONLY_MESSAGE });
+    assert.throws(() => backend.db.rpc("delete_everything"), { message: READ_ONLY_MESSAGE });
   } finally {
     backend.dispose();
   }
