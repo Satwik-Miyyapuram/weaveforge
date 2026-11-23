@@ -15,6 +15,7 @@ pub mod comspec;
 pub mod db;
 pub mod host;
 pub mod import;
+pub mod read;
 pub mod restore;
 pub mod server;
 pub mod value;
