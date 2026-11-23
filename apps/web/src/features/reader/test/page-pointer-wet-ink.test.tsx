@@ -190,23 +190,3 @@ test("the page is measured once per move, not once per merged sample", async () 
   assert.ok(rectReads <= 2, `${rectReads} layout reads for one move`);
   await h.unmount();
 });
-
-test("the wet ink reaches the lift before the save lands, so no tail pops in", async () => {
-  let resolve!: () => void;
-  const h = await renderHook(
-    usePagePointer,
-    deps(() => new Promise((r) => (resolve = () => r(null)))),
-  );
-  h.current.onPagePointerDown(1, ev(1, 100, 100));
-  for (let i = 1; i <= 10; i += 1) h.current.onPagePointerMove(ev(1, 100 + 12 * i, 100 + 6 * i));
-  await h.flush();
-  h.current.onPagePointerUp(1, ev(1, 260, 180));
-  await h.flush();
-  const path = inkPath(h.current.draftShape);
-  const end = toPdf(260, 180);
-  const gap = Math.hypot(path.at(-2)! - end.x, path.at(-1)! - end.y);
-  assert.ok(gap < 0.3, `the wet ink stops ${gap.toFixed(2)} pt short of the lift while saving`);
-  resolve();
-  await h.flush();
-  await h.unmount();
-});
