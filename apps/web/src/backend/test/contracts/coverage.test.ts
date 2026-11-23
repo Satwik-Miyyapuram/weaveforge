@@ -31,7 +31,6 @@ const ALLOW: Record<string, string> = {
   blob_objects: "blob storage RPC, covered by the blob storage tests",
   plan_feed_links: "feed RPC, not a row repository",
   account: "account cascade, partly covered by src/backend/test/account-cascade.test.ts",
-  experiment_push: "push RPC, not a row repository",
   project_integrations: "0.9.8: no web caller; integration settings live in workspace files (FileIntegrationsStore)",
 };
 
