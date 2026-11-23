@@ -93,7 +93,6 @@ const GATE_FILES = [
   "apps/web/src/features/workspace/application/install-097-guard.ts",
   "apps/web/src/features/workspace/infrastructure/install-097-browser-port.ts",
   "apps/web/src/features/workspace/ui/install-097-gate.tsx",
-  "apps/web/src/features/install-gate/ui/install-gate.tsx",
   "apps/shell/src/migrate.rs",
 ];
 

@@ -4,10 +4,10 @@
  *
  * Old data here: the install id 0.9.7 wrote at `.weaveforge/local/install-id` when its in-browser
  * export started. 0.9.8 never writes that file, so its presence means 0.9.7 began a move here.
- * Exported here: the 0.9.7 completion flag is set, or a 0.9.7 report in this browser's workspace is
- * verified. That is this device's own report (`report-<installId>.json`) or another 0.9.7 report in
- * the same folder (`report-<otherId>.json`, legacy `report.json`, sync copies): the account's rows
- * moved. The folder is git-ignored, so GitHub sync never brings another device's report here.
+ * Exported here: the 0.9.7 completion flag is set, or this device's own report
+ * (`report-<installId>.json`) has a verified latest run of this device, the same rule as migrate.rs
+ * `report_state_verified`. Other devices' reports, the legacy `report.json` and sync copies do not count.
+ * The folder is git-ignored, so GitHub sync never brings another device's report here.
  *
  * Not found answers false. Any other read error, a malformed id or a report that is not a report
  * throws, so the guard fails open: the check cannot tell.
@@ -22,11 +22,6 @@ export const REPORT_DIR = ".weaveforge/migration-0.9.7";
 export const LEGACY_REPORT_PATH = `${REPORT_DIR}/report.json`;
 /** The shape 0.9.7 gave an install id. */
 const ID_SHAPE = /^[A-Za-z0-9-]{8,64}$/;
-/**
- * A 0.9.7 report file name, the same rule as the 0.9.7 reader: `report.json`, `report-<id>.json` or a
- * sync copy of either. The `.bad` files 0.9.7 set aside do not match.
- */
-const REPORT_NAME = /^report.*\.json$/;
 
 export function ownReportPath(installId: string): string {
   return `${REPORT_DIR}/report-${installId}.json`;
@@ -35,10 +30,14 @@ export function ownReportPath(installId: string): string {
 export interface BrowserOldDataDeps {
   /** Reads a workspace file; throws a not-found error (ENOENT or NotFoundError) when absent. */
   readText(path: string): Promise<string>;
-  /** Workspace paths of the entries in `dir`; empty when the folder is absent. */
-  listPaths(dir: string): Promise<readonly string[]>;
   /** Reads a localStorage value; null when unset. May throw (storage blocked). */
   readFlag(key: string): string | null;
+}
+
+type Json = Record<string, unknown>;
+
+function isObject(value: unknown): value is Json {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function isNotFound(error: unknown): boolean {
@@ -73,18 +72,58 @@ function flagSet(deps: BrowserOldDataDeps): boolean {
   }
 }
 
-/** True when the report at `path` is verified; false when absent or not verified. Throws when unreadable. */
-async function reportVerified(deps: BrowserOldDataDeps, path: string): Promise<boolean> {
-  const text = await readIfPresent(deps, path);
+/** One run is complete when nothing is missing and every kind's db count equals its files count. */
+function runComplete(run: Json): boolean {
+  if (!Array.isArray(run.missing) || run.missing.length > 0) return false;
+  if (!isObject(run.kinds) || Object.keys(run.kinds).length === 0) return false;
+  return Object.values(run.kinds).every(
+    (counts) => isObject(counts) && typeof counts.db === "number" && counts.db === counts.files,
+  );
+}
+
+/** A run is verified when its state is `verified` and it is complete. */
+function runVerified(run: Json): boolean {
+  return run.state === "verified" && runComplete(run);
+}
+
+/**
+ * This device's latest run across the report's runs: the one with the later `startedAt`. A tie goes to
+ * the run that is not verified. A run without a matching `deviceId` is never this device's.
+ */
+function ownLatestRun(runs: unknown[], deviceId: string): Json | null {
+  let seen: Json | null = null;
+  for (const run of runs) {
+    if (!isObject(run) || run.deviceId !== deviceId) continue;
+    if (seen === null) {
+      seen = run;
+      continue;
+    }
+    const seenAt = typeof seen.startedAt === "string" ? seen.startedAt : "";
+    const runAt = typeof run.startedAt === "string" ? run.startedAt : "";
+    const tieToIncomplete = runAt === seenAt && runVerified(seen) && !runVerified(run);
+    if (runAt > seenAt || tieToIncomplete) seen = run;
+  }
+  return seen;
+}
+
+/**
+ * True when this device's own report is verified: its top-level state is one that counts (verified,
+ * removing or removed) and this device's latest run is verified. False when absent or not verified.
+ * Throws when unreadable or when the state is unknown.
+ */
+async function ownReportVerified(deps: BrowserOldDataDeps, installId: string): Promise<boolean> {
+  const text = await readIfPresent(deps, ownReportPath(installId));
   if (text === null) return false;
   const report: unknown = JSON.parse(text);
-  if (typeof report !== "object" || report === null || Array.isArray(report)) {
-    throw new Error("install-097: report is not an object");
-  }
-  const state = (report as { state?: unknown }).state;
-  if (state === "verified") return true;
+  if (!isObject(report)) throw new Error("install-097: report is not an object");
+  const state = report.state;
   if (state === "incomplete" || state === "none") return false;
-  throw new Error("install-097: report has no known state");
+  if (state !== "verified" && state !== "removing" && state !== "removed") {
+    throw new Error("install-097: report has no known state");
+  }
+  const runs = Array.isArray(report.runs) ? report.runs : [];
+  const own = ownLatestRun(runs, installId);
+  return own !== null && runVerified(own);
 }
 
 export function createBrowserOldDataPort(deps: BrowserOldDataDeps): Install097OldUserPort {
@@ -96,14 +135,7 @@ export function createBrowserOldDataPort(deps: BrowserOldDataDeps): Install097Ol
       if (flagSet(deps)) return true;
       const id = await readInstallId(deps);
       if (id === null) return false;
-      const own = ownReportPath(id);
-      if (await reportVerified(deps, own)) return true;
-      for (const path of await deps.listPaths(REPORT_DIR)) {
-        const name = path.slice(path.lastIndexOf("/") + 1);
-        if (path === own || !REPORT_NAME.test(name)) continue;
-        if (await reportVerified(deps, path)) return true;
-      }
-      return false;
+      return ownReportVerified(deps, id);
     },
   };
 }
@@ -113,7 +145,6 @@ export async function browserOldDataPort(): Promise<Install097OldUserPort> {
   const fs = await BrowserWorkspaceFs.openOpfs();
   return createBrowserOldDataPort({
     readText: (path) => fs.readText(path),
-    listPaths: async (dir) => (await fs.list(dir)).filter((entry) => entry.kind === "file").map((entry) => entry.path),
     readFlag: (key) => globalThis.localStorage?.getItem(key) ?? null,
   });
 }
