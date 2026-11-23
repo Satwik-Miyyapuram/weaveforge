@@ -19,9 +19,18 @@ export function isLocalMode(): boolean {
   return readyCore().localIsLocalMode(readStored(choiceKey()) ?? undefined);
 }
 
-/** Remember the choice. Reloading is the caller's job: the wiring is built once. */
+/**
+ * Remember the choice. Reloading is the caller's job: the wiring is built once.
+ * Throws when turning it on does not stick (storage denied or full), so the
+ * caller shows why instead of reloading back onto the sign-in screen.
+ */
 export function setLocalMode(on: boolean): void {
-  // Storage denied: the window simply starts on the sign-in screen next time.
-  if (on) writeStored(choiceKey(), "1");
-  else removeStored(choiceKey());
+  if (!on) {
+    removeStored(choiceKey());
+    return;
+  }
+  writeStored(choiceKey(), "1");
+  if (!isLocalMode()) {
+    throw new Error("Could not remember this choice: browser storage is unavailable in this window.");
+  }
 }

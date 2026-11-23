@@ -31,11 +31,26 @@ test("the session-expired overlay does not offer it; the first sign-in screen do
 });
 
 test("folder warnings are shown with a Continue button before the reload", () => {
-  assert.match(login, /chooseFolder: async \(\) => \(await import\("@\/features\/workspace\/application\/workspace-folder"\)\)\.chooseDesktopFolder\(\{\}\)/);
   assert.match(login, /showWarnings: \(warnings\) => new Promise<void>/);
   assert.doesNotMatch(read("../../../backend/providers/files/enter-no-account.ts"), /@\/features\//);
   assert.match(login, /folderWarnings && \(/);
   assert.match(login, />\s*Continue\s*</);
+});
+
+test("signed out, the folder is only picked, never connected (no watcher, no sync)", () => {
+  assert.doesNotMatch(login, /chooseDesktopFolder|connectDesktopFolder|workspace-folder|requestSync/);
+  assert.doesNotMatch(login, /chooseFolder:/);
+});
+
+test("Sign out in the account menu clears the session caches, which forget the boot snapshot (desktop.md)", () => {
+  const menu = read("../../../app/header-actions.tsx");
+  assert.match(menu, /import \{ useAuth \} from "@\/features\/auth";/);
+  assert.match(menu, /onClick=\{\(\) => void signOut\(\)\}/);
+  const provider = read("../ui/auth-provider.tsx");
+  assert.match(provider, /const signOut = useCallback\(async \(\) => \{[\s\S]*?clearSessionCaches\(\);[\s\S]*?auth\.signOut\(\)/);
+  // clearSessionCaches running the recorder's reset (and so forgetBootSnapshot)
+  // is tested in app/test/boot-snapshot-recorder.test.tsx.
+  assert.match(read("../../../app/boot-snapshot.tsx"), /registerSessionReset\(\(\) => \{[\s\S]*?forgetBootSnapshot\(\);/);
 });
 
 test("there is no no-account badge", () => {

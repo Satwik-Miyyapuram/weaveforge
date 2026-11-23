@@ -250,9 +250,8 @@ export function LoginScreen({ offerNoAccount = true }: { offerNoAccount?: boolea
                 <Button variant="link"
                   disabled={busy}
                   onClick={() => void run(async () => {
+                    // Picks the folder only; the reloaded window connects it.
                     await enterNoAccountOnDesktop({
-                      // Loaded on click: the folder module pulls in the full app, not the sign-in bundle.
-                      chooseFolder: async () => (await import("@/features/workspace/application/workspace-folder")).chooseDesktopFolder({}),
                       showWarnings: (warnings) => new Promise<void>((resolve) => {
                         setFolderWarnings({ text: warnings.join(" "), ok: resolve });
                       }),
