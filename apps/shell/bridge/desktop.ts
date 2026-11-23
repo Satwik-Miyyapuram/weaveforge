@@ -138,6 +138,10 @@ export interface DesktopCommands {
   legacyDbPresent(): Promise<boolean>;
   planWidgetState(): Promise<Result<DesktopPlanWidget>>;
   planWidgetSet(on: boolean): Promise<Result<DesktopPlanWidget>>;
+  legacyDbPresent(): Promise<Result<boolean>>;
+  migrationReportVerified(folder: string): Promise<Result<boolean>>;
+  pickFolder(): Promise<Result<string | null>>;
+  planWidgetData(): Promise<Result<unknown>>;
   planWidgetTheme(palette: unknown): Promise<Result<null>>;
   overleafRead(
     projectId: string,
@@ -348,7 +352,13 @@ export type DesktopShim = Pick<
   | "planWidgetState"
   | "setPlanWidget"
   | "setPlanWidgetTheme"
->;
+> & {
+  /** Required on desktop: the 0.9.7 install gate fails closed when these are missing. */
+  legacyDbPresent: () => Promise<boolean>;
+  migrationReportVerified: (folder: string) => Promise<boolean>;
+  pickFolder: () => Promise<string | null>;
+  planWidgetData: () => Promise<unknown>;
+};
 
 /** Wraps the generated commands as the desktop members of `DesktopBridge`. */
 export function desktopShim(
@@ -684,6 +694,10 @@ export function desktopShim(
     setPlanWidgetTheme: (palette) => {
       void cmds.planWidgetTheme(palette).catch(() => {});
     },
+    legacyDbPresent: async () => unwrap(await cmds.legacyDbPresent()),
+    migrationReportVerified: async (folder) => unwrap(await cmds.migrationReportVerified(folder)),
+    pickFolder: async () => unwrap(await cmds.pickFolder()),
+    planWidgetData: async () => unwrap(await cmds.planWidgetData()),
   };
 }
 

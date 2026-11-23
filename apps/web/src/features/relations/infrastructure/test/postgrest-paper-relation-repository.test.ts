@@ -5,7 +5,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { IPaperRelationRepository } from "@weaveforge/core";
 
 import { projectUserCtx, rustRepository } from "@/backend/providers/postgrest/rust-repository";
-import { createLocalClient, type LocalQuery } from "@/backend/providers/local/pglite-client";
+import { createLocalClient, type LocalQuery } from "@/backend/test/pglite-client";
 
 /**
  * A paper's relations (26-10). The id used to be spliced into a PostgREST

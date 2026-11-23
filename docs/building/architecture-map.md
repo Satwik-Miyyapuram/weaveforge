@@ -89,16 +89,16 @@ Counted from the files git is tracking, not remembered — run `npm run docs:gen
 
 | Where | Size | What lives there |
 | --- | --- | --- |
-| `packages/core` | 24,756 lines | Domain and application logic shared by every surface |
-| `apps/web` | 280,855 lines | The app itself: screens, features, API routes, backend wiring |
-| `apps/shell` | 6,094 lines | The Tauri shell — what only an installed app can do |
+| `packages/core` | 24,639 lines | Domain and application logic shared by every surface |
+| `apps/web` | 261,723 lines | The app itself: screens, features, API routes, backend wiring |
+| `apps/shell` | 5,727 lines | The Tauri shell — what only an installed app can do |
 | `apps/pitch` | 406 lines | The public site and this documentation |
 | `python/weaveforge` | 3,403 lines | The SDK training scripts import |
 | `python/tests` | 2,304 lines | Its tests |
 | `db/migrations` | 161 files | The schema, as an ordered sequence |
-| `docs` | 219 files | Documentation, this page included |
+| `docs` | 220 files | Documentation, this page included |
 
-**317,818 lines of code in all**, across 2,481 source files.
+**298,202 lines of code in all**, across 2,341 source files.
 
 <!-- /generated:code-map -->
 
@@ -116,9 +116,6 @@ changing the folder.
 
 86 typed commands:
 
-- `db_query` — `dbQuery`
-- `db_state` — `dbState`
-- `db_reset` — `dbReset`
 - `local_api_call` — `localApiCall`
 - `local_file_read` — `localFileRead`
 - `local_file_write` — `localFileWrite`
@@ -130,6 +127,8 @@ changing the folder.
 - `sdk_inbox_drain` — `sdkInboxDrain`
 - `device_settings_read` — `deviceSettingsRead`
 - `device_settings_patch` — `deviceSettingsPatch`
+- `legacy_db_present` — `legacyDbPresent`
+- `migration_report_verified` — `migrationReportVerified`
 - `file_write` — `fileWrite`
 - `file_write_bytes` — `fileWriteBytes`
 - `file_delete` — `fileDelete`
@@ -144,6 +143,7 @@ changing the folder.
 - `git_file_history` — `gitFileHistory`
 - `vault_root` — `vaultRoot`
 - `vault_choose` — `vaultChoose`
+- `pick_folder` — `pickFolder`
 - `workspace_setup` — `workspaceSetup`
 - `workspace_skip` — `workspaceSkip`
 - `vault_missing` — `vaultMissing`
@@ -200,8 +200,8 @@ changing the folder.
 - `plan_widget_set` — `planWidgetSet`
 - `plan_widget_theme` — `planWidgetTheme`
 - `plan_widget_palette` — `planWidgetPalette`
-- `plan_widget_data` — `planWidgetData`
 - `plan_widget_open` — `planWidgetOpen`
+- `plan_widget_data` — `planWidgetData`
 
 <!-- /generated:desktop-ipc -->
 

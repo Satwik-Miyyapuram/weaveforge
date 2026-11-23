@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { VaultPage } from "@weaveforge/core";
-import { createLocalClient, type LocalQuery } from "@/backend/providers/local/pglite-client";
+import { createLocalClient, type LocalQuery } from "@/backend/test/pglite-client";
 import { rustVaultPageRepository } from "@/backend/providers/postgrest/rust-repository";
 import { testDb } from "../pg-test-db";
 import { clientFor, projectFor, seedProject, type Db } from "./harness";

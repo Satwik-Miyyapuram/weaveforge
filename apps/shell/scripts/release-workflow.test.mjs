@@ -1,5 +1,5 @@
 // Keeps .github/workflows/release-desktop.yml in step with the release scripts and CI:
-// every updater platform is built, the x64 Postgres pin matches CI's, and the release
+// every updater platform is built, and the release
 // goes out as a pre-release (Latest stays a manual promotion).
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -14,12 +14,6 @@ const ci = readFileSync(`${root}.github/workflows/ci.yml`, "utf8");
 test("builds every arch latest.json needs", () => {
   const arches = [...workflow.matchAll(/^\s+- arch: (\S+)$/gm)].map((m) => m[1]);
   assert.deepEqual(arches.sort(), Object.values(PLATFORMS).sort());
-});
-
-test("x64 Postgres pin matches CI", () => {
-  const ciHash = ci.match(/\$hash -ne "([0-9A-F]{64})"/)[1];
-  const x64 = workflow.match(/arch: x64[\s\S]*?postgres_sha256: ([0-9A-F]{64})/)[1];
-  assert.equal(x64, ciHash);
 });
 
 test("triggers on desktop tags only", () => {

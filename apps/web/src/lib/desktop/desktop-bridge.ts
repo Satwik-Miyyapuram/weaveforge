@@ -27,17 +27,6 @@ export interface DesktopImage {
   url: string;
 }
 
-export interface DesktopLocalDbState {
-  failure: string | null;
-  dataDir: string;
-  /** The backup this run's database was rebuilt from, when it was. */
-  restoredFrom?: string | null;
-  /** True when this run started an empty database over lost data: the folder must not be written over. */
-  recreatedEmpty?: boolean;
-  /** Where the old data was kept aside when the database was recreated empty. */
-  keptAside?: string | null;
-}
-
 export interface DesktopBridge {
   /** Version of the desktop shell, so a mismatch can be reported rather than crash. */
   readonly version: string;
@@ -143,45 +132,21 @@ export interface DesktopBridge {
   clearSecret(name: DesktopSecretName): Promise<void>;
 
   /**
-   * One-time move of the old local database secrets row into the keychain, for the
-   * 0.9.7 upgrade. Reads the row read-only, stores each field, and records the move in
-   * `<folder>/.weaveforge/migration-0.9.7/secrets-moved-<deviceId>.json`. Rejects when any part fails
-   * (no keychain, locked keychain, unreadable row), so the caller shows the move as not done.
-   * Resolves with the NAMES of write-only fields the move did not copy (never values).
+   * Whether old (pre-0.9.7) native-Postgres or PGlite data is on this computer. Read-only. Absent on
+   * a desktop shell that predates the call is unknown, and the install gate opens on unknown (fail open).
    */
-  migrate097MoveSecrets(): Promise<string[]>;
-  /** True when the old local database folder exists. Metadata only: the database is never opened. */
-  legacyDbPresent(): Promise<boolean>;
+  legacyDbPresent?(): Promise<boolean>;
+  /**
+   * Whether `folder` holds a verified 0.9.7 migration report (`.weaveforge/migration-0.9.7/report.json`).
+   * Read-only; rejects when the report is unreadable. Absent on shells that predate the call; the
+   * install gate reads that as unknown and opens (fail open).
+   */
+  migrationReportVerified?(folder: string): Promise<boolean>;
 
   /**
-   * Run one statement against the local database and get its rows.
-   *
-   * Present only on the desktop, and only meaningful there: the local database
-   * is a process the browser does not have. Each call is its own transaction on
-   * the far side, so nothing here can hold a connection open.
-   */
-  queryLocalDb(
-    sql: string,
-    params?: readonly (string | number | boolean | null | Uint8Array)[],
-  ): Promise<unknown[]>;
-
-  /**
-   * Whether the local database could be opened, and where it lives.
-   *
-   * `failure` is `null` until an open has failed. When it is set, every
-   * `queryLocalDb` is failing for the same reason, and `resetLocalDb` is the
-   * way out: it moves the data directory aside (never deletes it) so the next
-   * query starts a fresh one. Refused while the database is healthy. The shell
-   * may relaunch itself to complete the move; the promise then never settles.
-   */
-  localDbState(): Promise<DesktopLocalDbState>;
-  resetLocalDb(): Promise<void>;
-
-  /**
-   * Offline attachment bytes as files in the app's data folder, one per
-   * `(bucket, path)`, so the local database holds only the index. The shell
-   * names each file by a hash of the pair; the page never names a disk path.
-   * Optional: a shell without them keeps the bytes in the database.
+   * Attachment bytes as files in the app's data folder, one per `(bucket, path)`.
+   * The shell names each file by a hash of the pair; the page never names a disk path.
+   * Optional, and no page code calls them since 0.9.8.
    */
   readLocalFile?(bucket: string, path: string): Promise<Uint8Array | null>;
   writeLocalFile?(bucket: string, path: string, bytes: Uint8Array): Promise<void>;
@@ -202,6 +167,18 @@ export interface DesktopBridge {
    * dialog is dismissed.
    */
   chooseVaultRoot(): Promise<DesktopVaultRoot | null>;
+  /**
+   * Opens a folder dialog and answers with the chosen path, or null when dismissed. Read-only:
+   * it does not switch the workspace folder, so the install gate can use it. Absent on shells
+   * that predate it; the gate then fails closed.
+   */
+  pickFolder?(): Promise<string | null>;
+  /**
+   * Makes the folder the workspace folder, so the next launch opens it. The install gate calls
+   * it only after the folder's 0.9.7 report verified. Absent on shells that predate it, or when
+   * it throws, the gate still opens; the folder is then not kept for the next launch.
+   */
+  setVaultRoot?(path: string): Promise<void>;
   /** The folder currently in use, or null when none has been chosen. */
   vaultRoot(): Promise<DesktopVaultRoot | null>;
   /**
@@ -210,14 +187,6 @@ export interface DesktopBridge {
    */
   missingVaultRoot?(): Promise<string | null>;
 
-  /**
-   * 0.9.7 export, desktop only: writes pre-migration.dump in `folder` before
-   * any export read or write. Rejects when the dump cannot be written, and the
-   * export then does not run. Answers with this install's id for report.json.
-   */
-  migrate097Backup?(folder: string): Promise<{ deviceId: string; dump: string }>;
-  /** 0.9.7 export, desktop only: records a verified export. Never called otherwise. */
-  migrate097MarkExported?(folder: string): Promise<void>;
   /** Try the remembered folder again; rejects with why it still cannot be used. */
   retryVaultRoot?(): Promise<DesktopVaultRoot | null>;
   /** Stop using, watching and remembering the folder; answers any warnings. The files stay. */
@@ -469,28 +438,6 @@ export interface DesktopBridge {
   invokeMenuItem?(id: string): Promise<void>;
   onMenuChange?(cb: () => void): () => void;
 
-  /**
-   * The 0.9.7 move of a workspace folder from the local database to files.
-   *
-   * Optional because an installed shell may predate it; without them the page
-   * keeps the database backend, which is exactly what it does today. `status`
-   * reads the folder's report, `run` performs the move and returns the report
-   * it wrote. `run` is the TS exporter (WEB-EXPORT) and reports progress
-   * in-process, so the bridge carries no progress event.
-   */
-  migrate097Status?(folder: string): Promise<{
-    state: Migrate097StateName;
-    removedAt?: string;
-    /** True when the export went to the open folder (EXPORT lands it; missing means false). */
-    exportedHere?: boolean;
-    backupPath?: string;
-    missing?: string[];
-    removingDeviceId?: string;
-    deviceId?: string;
-  }>;
-  migrate097Run?(folder: string): Promise<{ state: Migrate097StateName }>;
-  /** Deletes the old local data after a verified migration; the user confirms first. */
-  migrate097RemoveOld?(folder: string): Promise<void>;
   /** Tint the system's window buttons to the page: two `#rrggbb` colours. */
   setTitleBarColors?(colors: { background: string; ink: string }): void;
   /** Whether the OS taskbar is in light mode. Optional: an installed shell may predate it. */
@@ -797,16 +744,6 @@ export interface DesktopWorkspaceSetup {
   defaultFolder: string | null;
 }
 export type DesktopPreferenceValue = string | boolean | null;
-
-/** A folder's 0.9.7 migration state, as the shell's report records it. */
-export type Migrate097StateName = "none" | "verified" | "incomplete" | "removing" | "removed";
-
-/** One step of a running migration; `done` of `total` items are through. */
-export interface Migrate097Progress {
-  kind: string;
-  done: number;
-  total: number;
-}
 
 export interface DesktopUpdate {
   /** The newer version, as `0.6.0`. */

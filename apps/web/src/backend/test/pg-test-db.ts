@@ -24,7 +24,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { PGlite } from "@electric-sql/pglite";
 import { pgcrypto } from "@electric-sql/pglite/contrib/pgcrypto";
-import { LOCAL_BOOTSTRAP_SQL, applyMigrations } from "@weaveforge/core";
+import { LOCAL_BOOTSTRAP_SQL } from "./local-bootstrap-sql";
 import { readyCore } from "@/lib/rust-core";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -72,6 +72,21 @@ export function freshTestDb(): Promise<TestDb> {
   return build();
 }
 
+/** Run migrations in order. A failure is rethrown with the migration's file name, so it points at the file. */
+export async function runMigrations(
+  exec: (sql: string) => Promise<unknown>,
+  migrations: ReadonlyArray<{ name: string; sql: string }>,
+): Promise<void> {
+  for (const migration of migrations) {
+    try {
+      await exec(migration.sql);
+    } catch (err) {
+      const reason = err instanceof Error ? err.message : String(err);
+      throw new Error(`Migration ${migration.name} failed: ${reason}`, { cause: err });
+    }
+  }
+}
+
 async function build(): Promise<TestDb> {
   const db = await PGlite.create({ extensions: { pgcrypto } });
   await db.exec(LOCAL_BOOTSTRAP_SQL);
@@ -81,7 +96,7 @@ async function build(): Promise<TestDb> {
       .sort()
       .map((name) => ({ name: `${path.basename(dir)}/${name}`, sql: readFileSync(path.join(dir, name), "utf8") })),
   );
-  await applyMigrations(migrations, (sql) => db.exec(sql));
+  await runMigrations((sql) => db.exec(sql), migrations);
 
   const sql = async <T = Record<string, unknown>>(query: string, params: unknown[] = []): Promise<T[]> =>
     (await db.query<T>(query, params)).rows;

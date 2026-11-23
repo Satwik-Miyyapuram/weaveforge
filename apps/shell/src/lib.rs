@@ -20,7 +20,6 @@ pub mod cmd_ink;
 pub mod cmd_tools;
 pub mod cmd_vault;
 pub mod commands;
-pub mod db_lock;
 pub mod device_id;
 pub mod device_settings;
 #[cfg(desktop)]
@@ -39,13 +38,10 @@ pub mod local_api;
 pub mod local_artifacts;
 pub mod local_files;
 pub mod local_http;
-pub mod local_pg;
 pub mod mattermost;
 pub mod mcp_bridge;
 pub mod menu;
 pub mod migrate;
-pub mod migrate_093;
-pub mod migrate_097;
 pub mod model_cache;
 pub mod outside_gate;
 pub mod overleaf_links;
@@ -147,7 +143,6 @@ pub fn run() -> tauri::Result<()> {
             start_vault_watch(app.handle());
             start_resume_097(app.handle());
             start_routes(app.handle());
-            start_local_db(app.handle());
             start_local_api(app.handle());
             open_main_window(app.handle())?;
             plan_widget_window::open_at_start(app.handle());
@@ -178,14 +173,6 @@ pub fn run() -> tauri::Result<()> {
     app.run(|handle, event| {
         if let tauri::RunEvent::Exit = event {
             stop_local_api(handle);
-            // After a removal the cluster is gone, so there is nothing to back up on exit.
-            use tauri::Manager;
-            let removed = handle.path().app_data_dir().is_ok_and(|data| {
-                migrate_097::remove::old_db_removed(&native_root(&data))
-            });
-            if let Err(e) = stop_local_db(handle, !removed) {
-                local_api::warn(handle, &format!("postgres stop on exit failed: {e}"));
-            }
             stop_helpers(handle);
         }
     });
@@ -217,7 +204,7 @@ fn start_stores(app: &tauri::AppHandle) {
         .map(|h| h.to_string_lossy().into_owned())
         .unwrap_or_default();
     let prefs = prefs::Prefs::new(data.join("preferences.json"));
-    // Before start_local_db creates the data folder: existing users are not asked the first-open question.
+    // Before the app data folder is created: existing users are not asked the first-open question.
     let electron = paths
         .config_dir()
         .ok()
@@ -414,105 +401,6 @@ fn native_store() -> Option<Arc<keyring_core::CredentialStore>> {
     store
 }
 
-/// The lock name the native database holds while this app has it open.
-const NATIVE_LOCK_APP: &str = "weaveforge-native-db";
-
-/// The native database's folder under the app data dir.
-fn native_root(data: &std::path::Path) -> PathBuf {
-    data.join("local-pg")
-}
-
-/// The native Postgres database. `Err` says why it cannot run; the caller reports it.
-fn native_db(
-    app: &tauri::AppHandle,
-    data: &std::path::Path,
-    resources: &std::path::Path,
-    source: &launch::AppSource,
-) -> Result<commands::NativeDb, String> {
-    let bin_override = std::env::var_os("WEAVEFORGE_PG_BIN").map(PathBuf::from);
-    // initdb cannot run postgres from a `\\?\` path, which Tauri's resource dir has on Windows.
-    let resources = launch::without_verbatim_prefix(resources);
-    let bin = local_pg::server::locate_bin(bin_override.as_deref(), Some(&resources))
-        .map_err(|e| format!("the native database has no Postgres: {e}"))?;
-    let root = native_root(data);
-    db_lock::acquire(&root, NATIVE_LOCK_APP, std::time::SystemTime::now())
-        .map_err(|e| e.to_string())?;
-    let log = app.clone();
-    let backups = local_pg::backup::Backups::new(vec![data.join("local-db-backups")]);
-    let host = local_pg::host::PgHost::new(
-        local_pg::host::PgEngine::new(bin, root, Some(backups.clone())),
-        launch::migration_dirs(source),
-    )
-    .with_log(Arc::new(move |line: &str| local_api::warn(&log, line)))
-    .with_backups(backups);
-    let host = Arc::new(host);
-    spawn_backups(app, &host);
-    Ok(host)
-}
-
-/// How often the native database is backed up while it changes.
-const BACKUP_EVERY: std::time::Duration = std::time::Duration::from_secs(120);
-
-/// Backs up the native database every `BACKUP_EVERY` when it changed; quitting takes the last one.
-fn spawn_backups(app: &tauri::AppHandle, host: &commands::NativeDb) {
-    let app = app.clone();
-    let host = Arc::downgrade(host);
-    let _task = tauri::async_runtime::spawn(async move {
-        let start = tokio::time::Instant::now() + BACKUP_EVERY;
-        let mut every = tokio::time::interval_at(start, BACKUP_EVERY);
-        loop {
-            let _ = every.tick().await;
-            let Some(host) = host.upgrade() else { return };
-            if let Err(e) = host.backup_if_changed(std::time::SystemTime::now()).await {
-                local_api::warn(&app, &format!("[local-db] backup failed: {}", e.message));
-            }
-        }
-    });
-}
-
-/// Opens the native database and manages its `LocalDb`. Any failure is reported through
-/// `db_state`, never aborts startup.
-fn start_local_db(app: &tauri::AppHandle) {
-    use tauri::Manager;
-    let paths = app.path();
-    let db = match (paths.app_data_dir(), paths.resource_dir()) {
-        (Ok(data), Ok(resources)) => {
-            let source = launch::app_source(resources.clone());
-            // After a 0.9.7 removal the cluster stays gone: no start, so no restore from backups.
-            let pg_root = native_root(&data);
-            let refused = migrate_097::remove::start_refusal(migrate_097::remove::old_db_removed(&pg_root))
-                .map(str::to_owned)
-                .or_else(|| {
-                    let root = app.try_state::<vault::VaultState>()?.lock().root()?;
-                    // Without a device id the start is refused: the report it reads is per device.
-                    let device = match crate::device_id::get_or_create(&data) {
-                        Ok(device) => device,
-                        Err(e) => return Some(format!("refused: device id unreadable: {e}")),
-                    };
-                    migrate_097::remove::removal_refusal(&std::path::PathBuf::from(&root.path), &device, &pg_root)
-                });
-            let native = if let Some(reason) = refused {
-                Err(reason)
-            } else {
-                native_db(app, &data, &resources, &source)
-            };
-            if let Err(reason) = &native {
-                local_api::warn(app, reason);
-            }
-            let data_dir = native_root(&data).join("data");
-            commands::LocalDb::new(native, data_dir.to_string_lossy().into_owned())
-        }
-        (Err(e), _) | (_, Err(e)) => commands::LocalDb::new(Err(e.to_string()), String::new()),
-    };
-    let _ = app.manage(db);
-    // Boot Postgres now, beside the webview, so the page's first query does not wait ~1.5 s for it.
-    let app = app.clone();
-    drop(tauri::async_runtime::spawn(async move {
-        let db = app.state::<commands::LocalDb>();
-        let _ = db.query("select 1".to_owned(), Vec::new()).await;
-    }));
-}
-
 /// What the local API needs from the app, or `None` when the stores are not managed yet.
 fn local_api_deps(app: &tauri::AppHandle) -> Option<(local_http::control::LocalApiDeps, bool)> {
     use tauri::Manager;
@@ -537,11 +425,9 @@ fn local_api_deps(app: &tauri::AppHandle) -> Option<(local_http::control::LocalA
         Arc::new(app.clone()),
         Arc::new(move |line: &str| local_api::warn(&log, line)),
     ));
-    let query: Arc<dyn local_http::SdkQuery> = Arc::new(local_api::AppQuery(app.clone()));
     let mcp = local_http::mcp::LocalMcp::new(
         vault.clone(),
-        mode.clone(),
-        Some(query.clone()),
+        None,
         Some(ranker.clone()),
         Some(local_http::McpHome {
             api_url: format!("http://127.0.0.1:{}", local_http::server::LOCAL_API_PORT),
@@ -555,7 +441,7 @@ fn local_api_deps(app: &tauri::AppHandle) -> Option<(local_http::control::LocalA
         prefs: Arc::new(prefs),
         secrets: Arc::new(secrets),
         opener: Arc::new(local_api::TauriOpener(app.clone())),
-        query: Some(query),
+        query: None,
         save_artifact: Some(Arc::new(local_api::AppArtifacts(artifacts))),
         mcp: Some(Arc::new(mcp)),
         ranker,
@@ -616,35 +502,6 @@ fn stop_local_api(app: &tauri::AppHandle) {
     if let Some(control) = app.try_state::<local_http::control::LocalApiControl>() {
         tauri::async_runtime::block_on(control.close());
     }
-}
-
-/// Stops Postgres and refuses while a live postgres still names its cluster in `postmaster.pid`.
-/// A stale file left by a crash does not refuse. Keeps the database lock, so a caller that still
-/// needs the cluster down (the removal) can hold it until its work is done.
-pub(crate) fn stop_postgres(app: &tauri::AppHandle, backup: bool) -> Result<(), String> {
-    use tauri::Manager;
-    if let Some(db) = app.try_state::<commands::LocalDb>() {
-        tauri::async_runtime::block_on(db.shutdown_with(backup));
-    }
-    let data = app.path().app_data_dir().map_err(|e| e.to_string())?;
-    match migrate_097::remove::live_postmaster(&native_root(&data).join("data").join("postmaster.pid")) {
-        Some(running) => Err(format!("refused: postgres did not stop ({running})")),
-        None => Ok(()),
-    }
-}
-
-/// Drops only this process's database lock; a no-op when it never opened.
-pub(crate) fn release_db_lock(app: &tauri::AppHandle) -> Result<(), String> {
-    use tauri::Manager;
-    let data = app.path().app_data_dir().map_err(|e| e.to_string())?;
-    db_lock::release(&native_root(&data));
-    Ok(())
-}
-
-/// Stops Postgres, then drops the database lock. Used on exit.
-fn stop_local_db(app: &tauri::AppHandle, backup: bool) -> Result<(), String> {
-    stop_postgres(app, backup)?;
-    release_db_lock(app)
 }
 
 /// Makes the `app://` routes' folders and clients; the folders sit in app data, as in Electron.
@@ -1022,13 +879,11 @@ mod tests {
     fn bundle_ships_the_web_export() {
         let bundle = include_str!("../tauri.bundle.json");
         assert!(bundle.contains("\"dist/web/\": \"web/\""));
-        // `launch::migration_dirs` and `launch::bridge_source` look in `<resources>/app`.
-        assert!(bundle.contains("\"../../db/migrations/*.sql\": \"app/migrations/\""));
-        assert!(bundle.contains("\"../../db/migrations-local/*.sql\": \"app/migrations-local/\""));
         assert!(bundle.contains("\"app/weaveforge-mcp.mjs\""));
         assert!(!bundle.contains("sidecar"));
-        // `local_pg::server::locate_bin` looks in `<resources>/postgres/bin`.
-        assert!(bundle.contains("\"target/stage/postgres/\": \"postgres/\""));
+        // 0.9.8: no bundled Postgres and no server migrations in the desktop app.
+        assert!(!bundle.contains("migrations"));
+        assert!(!bundle.contains("target/stage/postgres"));
     }
 
     #[test]

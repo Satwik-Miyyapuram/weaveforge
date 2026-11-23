@@ -47,12 +47,10 @@ describe("org db guard", () => {
     const { db, calls } = spyDb();
     const guarded = guardOrgDb(db);
     const live = [
-      "experiments", "experiment_metric_points", "experiment_metric_chunks", "experiment_metric_names",
+      "experiment_metric_points", "experiment_metric_chunks", "experiment_metric_names",
       "lab_snapshots", "crdt_updates", "profiles", "organizations", "org_memberships", "org_invite_codes",
       "shares", "share_links", "share_link_rate_limits", "blob_objects", "shared_docs", "api_tokens",
-      "sdk_inbox", "release_notices", "project_keys", "sync_tables", "sync_tombstones", "user_settings",
-      "overleaf_connections", "overleaf_linked_reports", "overleaf_workshop_sessions", "milestones", "projects",
-      "comments",
+      "sdk_inbox", "release_notices", "project_keys", "sync_tables", "sync_tombstones", "comments",
     ];
     for (const t of live) assert.doesNotThrow(() => guarded.from(t), t);
     assert.equal(calls.length, live.length);
@@ -65,6 +63,54 @@ describe("org db guard", () => {
       assert.throws(() => guarded.from(t), /not allowed on the org server/, t);
     }
     assert.deepEqual(calls, []);
+  });
+
+  it("blocks the personal tables 0165 keeps live (0.9.8 reads none of them)", () => {
+    const { db, calls } = spyDb();
+    const guarded = guardOrgDb(db);
+    const personal = [
+      "projects", "user_settings", "milestones", "experiments", "log_entries",
+      "overleaf_connections", "overleaf_linked_reports", "overleaf_workshop_sessions",
+    ];
+    for (const t of personal) assert.throws(() => guarded.from(t), /not allowed on the org server/, t);
+    assert.deepEqual(calls, []);
+  });
+
+  it("lets the live-share crdt compaction rpc through (the type is checked by limitCrdtUpdateStore)", () => {
+    const { db, calls } = spyDb();
+    assert.deepEqual(guardOrgDb(db).rpc("compact_crdt_log"), { name: "compact_crdt_log" });
+    assert.deepEqual(calls, ["rpc:compact_crdt_log"]);
+  });
+
+  it("refuses any storage call, read or write, on a bucket that is not an org-server bucket, before any request", () => {
+    const opened: string[] = [];
+    const bucket = (name: string) => {
+      opened.push(name);
+      return { upload: () => name, remove: () => name, createSignedUrls: () => name };
+    };
+    const guarded = guardOrgDb({ ...spyDb().db, storage: { from: bucket } });
+    assert.throws(() => guarded.storage.from("paper-images").upload(), /not allowed on the org server: paper-images/);
+    assert.throws(() => guarded.storage.from("paper-images").remove(), /not allowed on the org server/);
+    assert.throws(() => guarded.storage.from("paper-images").createSignedUrls(), /not allowed on the org server/);
+    assert.deepEqual(opened, []);
+  });
+
+  it("refuses every storage member but from(), such as emptyBucket and deleteBucket, before any request", () => {
+    const reached: string[] = [];
+    const storage = {
+      from: () => ({}),
+      listBuckets: () => reached.push("listBuckets"),
+      getBucket: () => reached.push("getBucket"),
+      createBucket: () => reached.push("createBucket"),
+      updateBucket: () => reached.push("updateBucket"),
+      emptyBucket: () => reached.push("emptyBucket"),
+      deleteBucket: () => reached.push("deleteBucket"),
+    };
+    const guarded = guardOrgDb({ ...spyDb().db, storage }).storage as unknown as Record<string, (b?: string) => unknown>;
+    for (const m of ["listBuckets", "getBucket", "createBucket", "updateBucket", "emptyBucket", "deleteBucket"]) {
+      assert.throws(() => guarded[m]!("paper-images"), /not allowed on the org server/, m);
+    }
+    assert.deepEqual(reached, []);
   });
 
   it("leaves other members of the db untouched", () => {

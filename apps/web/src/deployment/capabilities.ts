@@ -23,7 +23,7 @@
 
 import { useEffect, useState } from "react";
 
-import { isLocalMode } from "@/backend/providers/local/local-identity";
+import { isLocalMode } from "@/features/auth/infrastructure/no-account-mode";
 import { isOfflineBuild } from "./build-target";
 
 export type Capability =

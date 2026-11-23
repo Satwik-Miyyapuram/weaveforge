@@ -1,8 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import type { IBlobStore } from "@weaveforge/core";
+import type { IBlobFetcher, IBlobStore } from "@weaveforge/core";
 import { FileModeBlobStore } from "../file-mode-blob-store";
+import { FetchingBlobStore } from "../../storage/fetching-blob-store";
 
 /**
  * Files mode keeps personal blobs on the device. Only a shared image is written to the
@@ -26,7 +27,7 @@ function recorder(): IBlobStore & { calls: string[] } {
 const png = () => new Blob([new Uint8Array([1, 2, 3])], { type: "image/png" });
 
 test("a personal upload makes zero server calls", async () => {
-  const personal = recorder();
+  const personal = fetcher();
   const server = recorder();
   await new FileModeBlobStore(personal, server).upload("images", "p-1/fig.png", png(), "image/png");
   assert.deepEqual(server.calls, []);
@@ -34,9 +35,59 @@ test("a personal upload makes zero server calls", async () => {
 });
 
 test("a shared image goes to the server blob route and not to the personal store", async () => {
-  const personal = recorder();
+  const personal = fetcher();
   const server = recorder();
   await new FileModeBlobStore(personal, server).uploadShared("paper-images", "u/p/a.webp", png(), "image/webp");
   assert.deepEqual(server.calls, ["upload:paper-images/u/p/a.webp"]);
   assert.deepEqual(personal.calls, []);
+});
+
+test("a personal remove goes to the device store and makes zero server calls", async () => {
+  const personal = fetcher();
+  const server = recorder();
+  await new FileModeBlobStore(personal, server).remove("images", "p-1/fig.png");
+  assert.deepEqual(server.calls, []);
+  assert.deepEqual(personal.calls, ["remove:images/p-1/fig.png"]);
+});
+
+function fetcher(): IBlobFetcher & { calls: string[] } {
+  const base = recorder();
+  const bytes = new Uint8Array([7, 8]);
+  return {
+    ...base,
+    fetchBytes: async (bucket, path) => {
+      base.calls.push(`fetch:${bucket}/${path}`);
+      return bytes;
+    },
+    fetchBlob: async (bucket, path) => {
+      base.calls.push(`fetch:${bucket}/${path}`);
+      return new Blob([bytes]);
+    },
+    fetchBlobs: async (bucket, paths) => {
+      base.calls.push(...paths.map((p) => `fetch:${bucket}/${p}`));
+      return new Map(paths.map((p) => [p, new Blob([bytes])]));
+    },
+  };
+}
+
+test("a personal image is read from the device, not through a signed url", async () => {
+  const personal = fetcher();
+  const server = recorder();
+  const reader = new FetchingBlobStore(new FileModeBlobStore(personal, server));
+  assert.deepEqual([...(await reader.fetchBytes("images", "p-1/fig.png"))], [7, 8]);
+  assert.equal((await reader.fetchBlob("images", "p-1/fig.png")).size, 2);
+  assert.deepEqual([...(await reader.fetchBlobs("images", ["p-1/a.png"])).keys()], ["p-1/a.png"]);
+  assert.deepEqual(server.calls, []);
+  assert.equal(personal.calls.length, 3);
+});
+test("fetchBlobs skips a missing or unreadable device file instead of failing the batch", async () => {
+  const personal = fetcher();
+  personal.fetchBlob = async (bucket, path) => {
+    personal.calls.push(`fetch:${bucket}/${path}`);
+    if (path === "p-1/missing.png") throw new Error("not found");
+    return new Blob([new Uint8Array([7])]);
+  };
+  const store = new FileModeBlobStore(personal, recorder());
+  const got = await store.fetchBlobs("images", ["p-1/a.png", "p-1/missing.png", "p-1/b.png"]);
+  assert.deepEqual([...got.keys()], ["p-1/a.png", "p-1/b.png"]);
 });

@@ -13,48 +13,27 @@ tracks at once.
 
 ## [Unreleased]
 
+### Desktop
+- **Changed:** The "Start fresh" local-database recovery is removed. An old local database is now handled by the "Install 0.9.7 first" gate, which blocks the app until 0.9.7 has moved the data across.
+- **Fixed:** Deleting a note moves its `.md` and its `.inkb` ink file to the workspace trash folder, and a deleted note is no longer offered again on import. 0.9.6 listed this fix, but in 0.9.6 a deleted note's file stayed in place; it is fixed now.
+- **Fixed:** Ink cannot be drawn until the workspace has a folder, so strokes are never kept only in memory.
+- **Fixed:** Renaming a note rewrites the `[[links]]` that point to it, leaving links inside code alone; any note it could not update is named in a message.
+- **Added:** Settings shows which repository the workspace backs up to, with a link to it.
+- **Fixed:** The privacy notice now says where your data really goes: your files on your device and in your workspace folder are the source of truth, GitHub holds a copy when GitHub sync is on, and the server holds only what you share and your lab's organisation data. It no longer claims encryption WeaveForge does not do, and says that the text of a PDF you opened can reach the AI when papers are an allowed source.
+
+### Web
+- **Changed:** The "Export from 0.9.7 first." gate applies only to an account with old server data and no 0.9.7 export. New accounts are never gated. See [Upgrading to 0.9.8](docs/using/upgrading-to-098.md).
+- **Changed:** Offline sync is removed; notes are files in the workspace folder. Keys stay sealed: server-held credentials stay encrypted.
+- **Changed:** On the desktop and without an account, the app's database client now refuses personal tables before a request is sent, as the web app already did. Organisation, sharing and live-share rows still reach the server.
+- **Fixed:** Error messages no longer repeat text from Overleaf, the sign-in server or storage. They are fixed short messages, with the HTTP status where it helps. Too many confirmation-code requests now ask you to wait a minute, and a sign-in server problem while a code is checked no longer looks like a wrong code. Server logs record only the error kind or status.
+- **Changed:** Sync to folder no longer writes `.weaveforge/tables/`, and Apply no longer restores table rows. Table files that 0.9.7 wrote stay in the folder unread. See [The workspace folder](docs/using/workspace-folder.md).
+
 ### Python SDK
 - **Added:** The SDK reads the token file the desktop app's Connect panel writes under `~/.weaveforge`, so it reaches the local API without a pasted token.
 
 ### Android
 
 ### iOS
-
-## [1.0.0] - TBD
-
-WeaveForge 1.0.0 is the first stable release. Your notes and papers live in your workspace folder as plain files.
-
-### Desktop
-- **Changed:** Stable release. Everything in 0.9.8 is included.
-
-### Server
-- **Not yet:** The server's personal-table removal (`db/held/0167_archive_ported_tables.sql`) is held and is not applied in 1.0.0. Its prerequisites (RELAY-PORT released, 0165 run for a full release cycle, a pg_dump) are not met. Release notes for it are omitted until it is applied.
-
-## [0.9.8] - TBD
-
-Desktop (`v0.9.8`). Python SDK stays on 0.7.1; Android stays on 0.9.7; iOS stays on 0.8.0.
-Your data is already in your workspace folder from 0.9.7. Update to 0.9.7 first: 0.9.8 does not move old database data itself.
-
-### Desktop
-- **Changed:** Device passwords and tokens live only in the OS keychain, never in a file.
-- **Changed:** The no-account copy of your data runs on the workspace files, not the local database.
-- **Changed:** The Overleaf token saved by 0.9.7 is removed from the keychain at startup.
-- **Removed:** The 0.9.7 local Postgres sync modules are removed from the shared core.
-
-## [0.9.7] - 2026-11-23 (set at tag time)
-
-Desktop (`v0.9.7`). Python SDK stays on 0.7.1; iOS stays on 0.8.0. Android (`0.9.7`) stores its data as files too, with no local database; sharing and organisations use the server only.
-Your notes, papers, ink and other work now live as normal files in your workspace folder, not in the app's internal database. Nothing is deleted automatically.
-
-### Desktop
-- **Changed:** Your data moves from the app's internal database into your workspace folder as ordinary files. You can open, back up and sync them yourself.
-- **Changed:** A workspace folder is now required. Choose a folder for your workspace before you start working.
-- **Changed:** The first time you open 0.9.7, a one-time upgrade screen shows progress, then a report: how many items moved for each kind, any conflict copies, and where the backup is.
-- **Safe:** Nothing is deleted automatically. Your old data stays where it is, and a backup is saved in `.weaveforge/migration-0.9.7/` in your workspace.
-- **Added:** A "Remove old data" button appears only after the move is verified. Nothing is removed until you press it.
-- **Changed:** Sharing and organisations stay on the WeaveForge server. Everything else stays in your folder. Signed out, the app works fully and sharing is off.
-- **Changed:** Passwords and tokens are kept in your operating system's keychain, never in a file. On Linux, install a keyring that provides Secret Service first, for example `sudo apt install gnome-keyring`.
-- **Changed:** Deleted files go to the `.weaveforge/trash` folder in your workspace instead of being erased, so a delete can be undone by moving the file back.
 
 ## [0.9.6] - 2026-11-21
 

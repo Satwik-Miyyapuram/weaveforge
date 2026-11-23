@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { ReadOnlyError, readOnlyBackend, readOnlyDb } from "../read-only-repositories";
+import { ReadOnlyError, readOnlyDb } from "../read-only-repositories";
 
 /** A db stand-in that counts each call that reaches it, so a test can tell a refused call from a passed one. */
 function fakeDb() {
@@ -55,12 +55,23 @@ test("an rpc that writes a personal table is refused; an org rpc and a read rpc 
   assert.deepEqual(calls, ["rpc create_organization_atomic", "rpc api_token_scopes"]);
 });
 
-test("readOnlyBackend guards db and keeps org writes working", () => {
+test("a lab snapshot publish and remove pass: it is what a member shares with the lab", () => {
   const { db, calls } = fakeDb();
-  const backend = readOnlyBackend({ db, projectRepository: { create: () => "made" } });
-  assert.throws(() => backend.db.from("projects").insert({}), new ReadOnlyError());
-  assert.equal(backend.db.from("comments").insert({}), "inserted");
-  assert.deepEqual(calls, ["insert comments"]);
+  const guarded = readOnlyDb(db);
+  assert.equal(guarded.from("lab_snapshots").insert({}), "inserted");
+  assert.equal(guarded.from("lab_snapshots").delete(), "deleted");
+  assert.deepEqual(calls, ["insert lab_snapshots", "delete lab_snapshots"]);
+});
+
+test("compact_crdt_log runs only for a live-share type; a personal or missing type is refused", () => {
+  const { db, calls } = fakeDb();
+  const guarded = readOnlyDb(db);
+  assert.equal(guarded.rpc("compact_crdt_log", { p_resource_type: "experiment" }), "called");
+  assert.equal(guarded.rpc("compact_crdt_log", { p_resource_type: "lab_snapshot" }), "called");
+  for (const args of [{ p_resource_type: "vault_page" }, { p_resource_type: "note" }, {}, undefined]) {
+    assert.throws(() => guarded.rpc("compact_crdt_log", args), new ReadOnlyError(), JSON.stringify(args));
+  }
+  assert.deepEqual(calls, ["rpc compact_crdt_log", "rpc compact_crdt_log"]);
 });
 
 test("projects, user_settings, milestones and experiments refuse insert, update and upsert", () => {

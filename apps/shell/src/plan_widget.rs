@@ -2,20 +2,16 @@
 
 use std::collections::BTreeMap;
 use std::future::Future;
+use std::path::Path;
 
 use base64::Engine as _;
 use base64::engine::general_purpose::STANDARD;
+use wf_core::plan::feed::FeedMilestone;
+use wf_core::plan::milestone_file::milestone_feed_item;
+use wf_core::sync::entity_file::parse_entity_file;
 
-/// The owner's open milestones and their project names, from the local database.
-pub const PLAN_WIDGET_SQL: &str = r#"
-select m.id, m.title, m.description, m.status, m.target_date, m.dependencies, m.compute, m.created_at,
-       p.name as project_name
-from milestones m
-left join projects p on p.id = m.project_id and p.deleted_at is null
-where m.deleted_at is null
-  and m.user_id = auth.uid()
-  and (m.project_id is null or p.id is not null)
-"#;
+use crate::vault::VaultSession;
+use crate::vault_search::walk_vault;
 
 /// How many deadlines the widget has room for.
 pub const PLAN_WIDGET_LIMIT: usize = 6;
@@ -238,26 +234,32 @@ pub fn widget_asset(path: &str) -> Option<(&'static str, &'static [u8])> {
         .map(|(_, kind, bytes)| (*kind, *bytes))
 }
 
-/// Milestone rows from `PLAN_WIDGET_SQL` as the core's feed input. Rows without an id are dropped.
+/// The widget's summary from the milestone files in the chosen folder, read only.
+/// `None` when no folder is chosen or the folder cannot be read, so the page can say so.
 #[must_use]
-pub fn rows_to_milestones(rows: &[serde_json::Value]) -> Vec<wf_core::plan::feed::FeedMilestone> {
-    let text = |row: &serde_json::Value, key: &str| {
-        row.get(key)
-            .and_then(serde_json::Value::as_str)
-            .map(str::to_owned)
-    };
-    rows.iter()
-        .filter_map(|row| {
-            Some(wf_core::plan::feed::FeedMilestone {
-                id: text(row, "id")?,
-                title: text(row, "title").unwrap_or_default(),
-                description: text(row, "description"),
-                status: text(row, "status").unwrap_or_default(),
-                target_date: text(row, "target_date"),
-                project_name: text(row, "project_name"),
-            })
+pub fn plan_widget_data_from_vault(session: &VaultSession, now_ms: i64) -> Option<serde_json::Value> {
+    let root = session.root()?;
+    if !Path::new(&root.path).is_dir() || session.list(None).is_err() {
+        return None;
+    }
+    let mut paths = Vec::new();
+    walk_vault(session, "", &mut paths);
+    let items: Vec<FeedMilestone> = paths
+        .iter()
+        .filter_map(|path| session.read_text(path).ok().flatten())
+        .filter_map(|text| parse_entity_file(&text))
+        .filter(|file| file.entity_type == "milestone")
+        .map(|file| {
+            let project = file.field("project");
+            milestone_feed_item(&file, project.as_deref()).item
         })
-        .collect()
+        .collect();
+    Some(wf_core::plan::feed::plan_widget_data(
+        &items,
+        false,
+        Some(PLAN_WIDGET_LIMIT),
+        now_ms,
+    ))
 }
 
 /// The script that hands a new palette to an open widget page.
@@ -275,7 +277,7 @@ pub const WIDGET_SCRIPT: &str = r#"(() => {
     open: () => invoke("plan_widget_open").catch(() => {}),
     hide: () => invoke("plan_widget_set", { on: false }).catch(() => {}),
     onData(cb) {
-      const pull = () => invoke("plan_widget_data").then(cb, () => {});
+      const pull = () => invoke("plan_widget_data").then((data) => cb(data ?? null), () => cb(null));
       pull();
       setInterval(pull, REFRESH_MS);
     },

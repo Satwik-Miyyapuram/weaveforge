@@ -2,8 +2,8 @@ import type { Metadata, Viewport } from "next";
 import { FONT_VARIABLES } from "./fonts";
 import "./globals.css";
 import { AuthProvider } from "@/features/auth/ui/auth-provider";
+import { Install097Gate } from "@/features/workspace/ui/install-097-gate";
 import { AppShell } from "./app-shell";
-import { Migrate097Web } from "@/lib/desktop/migrate-097-web";
 import { BootSnapshot } from "./boot-snapshot";
 import { THEME_BOOT_SCRIPT } from "@/lib/theme/theme";
 import { ThemeColorMeta } from "./theme-color-meta";
@@ -14,7 +14,6 @@ import { PlanWidgetTheme } from "@/components/plan-widget-theme";
 import { ReactiveMotion } from "./reactive-motion";
 import { ServiceWorkerRegister } from "@/components/service-worker-register";
 import { ClientRuntimeRecovery } from "@/components/client-runtime-recovery";
-import { SyncLoop } from "@/features/offline-sync/ui/sync-loop-lazy";
 
 export const metadata: Metadata = {
   title: "WeaveForge",
@@ -85,20 +84,16 @@ export default function RootLayout({
         <ReactiveMotion />
         <ServiceWorkerRegister />
         <ClientRuntimeRecovery />
-        {/* The offline outbox's pump. Renders nothing, does nothing off the
-            desktop app or before sync has been adopted, and is lazy so that the
-            engine and its transport stay out of every route's first-load JS. */}
-        <SyncLoop />
         <WindowScrollbar />
         <DesktopTitleBar />
         <DesktopWindowIcon />
         <PlanWidgetTheme />
-        <AuthProvider>
-          <BootSnapshot />
-          <Migrate097Web>
+        <Install097Gate>
+          <AuthProvider>
+            <BootSnapshot />
             <AppShell>{children}</AppShell>
-          </Migrate097Web>
-        </AuthProvider>
+          </AuthProvider>
+        </Install097Gate>
       </body>
     </html>
   );

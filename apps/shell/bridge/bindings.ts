@@ -7,12 +7,6 @@ import { invoke as __TAURI_INVOKE } from "@tauri-apps/api/core";
 
 /** Commands */
 export const commands = {
-	/**  Runs a SQL query on the local database. */
-	dbQuery: (sql: string, params: unknown[]) => typedError<unknown[], ShellError_Serialize>(__TAURI_INVOKE("db_query", { sql, params })),
-	/**  Reports the local database's health. */
-	dbState: () => typedError<DbState_Serialize, ShellError_Serialize>(__TAURI_INVOKE("db_state")),
-	/**  Resets the local database. */
-	dbReset: () => typedError<null, ShellError_Serialize>(__TAURI_INVOKE("db_reset")),
 	/**  Calls a local-API channel on the Rust local API, as `ipcRenderer.invoke` did under Electron. */
 	localApiCall: (channel: string, args: unknown[]) => typedError<unknown, ShellError_Serialize>(__TAURI_INVOKE("local_api_call", { channel, args })),
 	/**  Reads one offline file as standard base64; `null` when it is missing. */
@@ -74,22 +68,14 @@ export const commands = {
 	 *  See [`patch_device_settings`]; also no folder chosen.
 	 */
 	deviceSettingsPatch: (patch: string) => typedError<string, ShellError_Serialize>(__TAURI_INVOKE("device_settings_patch", { patch })),
+	/**  Bridge: whether old local-database data is on this device (`legacyDbPresent`). */
+	legacyDbPresent: () => typedError<boolean, ShellError_Serialize>(__TAURI_INVOKE("legacy_db_present")),
 	/**
-	 *  Exports the 0.9.2 data into workspace files, verifies it, and writes the report. Shares are
-	 *  counted, not granted: the grant sink is not wired, so any grantable share keeps the
-	 *  migration incomplete.
-	 * 
-	 *  # Errors
-	 *  No folder chosen, the database cannot be read, or the report cannot be written.
+	 *  Bridge: whether this device's own run in the 0.9.7 report of the workspace at `folder` is
+	 *  verified (`migrationReportVerified`). Reads this device's id from app data, never creates it.
+	 *  An unreadable report or id file is a typed error.
 	 */
-	migrate093Run: () => typedError<MigrateReply_Serialize, ShellError_Serialize>(__TAURI_INVOKE("migrate_093_run")),
-	/**
-	 *  Where the migration stands, and its report if one exists.
-	 * 
-	 *  # Errors
-	 *  No folder chosen, or the report cannot be read.
-	 */
-	migrate093Status: () => typedError<MigrateReply_Serialize, ShellError_Serialize>(__TAURI_INVOKE("migrate_093_status")),
+	migrationReportVerified: (folder: string) => typedError<boolean, ShellError_Serialize>(__TAURI_INVOKE("migration_report_verified", { folder })),
 	/**
 	 *  Writes a text file atomically if it still has digest `expected_hash` (`None` = always).
 	 * 
@@ -192,6 +178,14 @@ export const commands = {
 	 *  The reason the picked folder cannot hold a workspace; nothing changes.
 	 */
 	vaultChoose: () => typedError<Choice_Serialize, ShellError_Serialize>(__TAURI_INVOKE("vault_choose")),
+	/**
+	 *  Bridge (`pickFolder`): opens the folder dialog and returns the path, or `None` on cancel or
+	 *  on a phone. Read-only: it never changes the workspace; `vault_choose` does that.
+	 * 
+	 *  # Errors
+	 *  A second dialog while one is open.
+	 */
+	pickFolder: () => typedError<string | null, ShellError_Serialize>(__TAURI_INVOKE("pick_folder")),
 	/**
 	 *  Whether the first-open question is due, and the folder Skip would use.
 	 * 
@@ -598,19 +592,20 @@ export const commands = {
 	 */
 	planWidgetPalette: () => typedError<{ [key in string]: string } | null, ShellError_Serialize>(__TAURI_INVOKE("plan_widget_palette")),
 	/**
-	 *  The widget's deadlines from the local database, as the web feed's widget JSON.
-	 * 
-	 *  # Errors
-	 *  Returns an error when the local database cannot be read.
-	 */
-	planWidgetData: () => typedError<unknown, ShellError_Serialize>(__TAURI_INVOKE("plan_widget_data")),
-	/**
 	 *  Brings the app forward on its plan page, opening the main window if it is closed.
 	 * 
 	 *  # Errors
 	 *  Returns an error when the main window cannot be opened.
 	 */
 	planWidgetOpen: () => typedError<null, ShellError_Serialize>(__TAURI_INVOKE("plan_widget_open")),
+	/**
+	 *  The widget's deadlines from the chosen folder's milestone files. `None` when no folder is
+	 *  chosen or it cannot be read; the page then asks the owner to open WeaveForge.
+	 * 
+	 *  # Errors
+	 *  Returns an error when the background read fails or the summary cannot be sent.
+	 */
+	planWidgetData: () => typedError<unknown | null, ShellError_Serialize>(__TAURI_INVOKE("plan_widget_data")),
 };
 
 /* Types */
@@ -762,37 +757,6 @@ export type CommitReply_Serialize = {
 	commit: WorkspaceCommit | null,
 	/**  Why nothing was committed, if it was refused or failed. */
 	reason?: string,
-};
-
-/**  The local database's health, as `DesktopLocalDbState` in apps/web/src/lib/desktop/desktop-bridge.ts. */
-export type DbState = DbState_Serialize | DbState_Deserialize;
-
-/**  The local database's health, as `DesktopLocalDbState` in apps/web/src/lib/desktop/desktop-bridge.ts. */
-export type DbState_Deserialize = {
-	/**  Why the database is unusable, or `None` when healthy. */
-	failure?: string | null,
-	/**  The database's data directory. */
-	dataDir: string,
-	/**  The backup this run's database was rebuilt from, when it was. */
-	restoredFrom?: string | null,
-	/**  True when this run started an empty database over lost data, so the page must warn. */
-	recreatedEmpty?: boolean,
-	/**  Where the old data was kept aside when the database was recreated empty. */
-	keptAside?: string | null,
-};
-
-/**  The local database's health, as `DesktopLocalDbState` in apps/web/src/lib/desktop/desktop-bridge.ts. */
-export type DbState_Serialize = {
-	/**  Why the database is unusable, or `None` when healthy. */
-	failure: string | null,
-	/**  The database's data directory. */
-	dataDir: string,
-	/**  The backup this run's database was rebuilt from, when it was. */
-	restoredFrom: string | null,
-	/**  True when this run started an empty database over lost data, so the page must warn. */
-	recreatedEmpty: boolean,
-	/**  Where the old data was kept aside when the database was recreated empty. */
-	keptAside: string | null,
 };
 
 /**  The digest `base_set` stored. */
@@ -1216,34 +1180,6 @@ export type MenuItem_Serialize = {
 	/**  A page action the page runs itself. */
 	command?: string,
 };
-
-/**  Reply of `migrate_093_status` and `migrate_093_run`. */
-export type MigrateReply = MigrateReply_Serialize | MigrateReply_Deserialize;
-
-/**  Reply of `migrate_093_status` and `migrate_093_run`. */
-export type MigrateReply_Deserialize = {
-	/**  Where the migration stands. */
-	state: MigrateState,
-	/**  The report's workspace path, once one is written. */
-	report_path?: string | null,
-};
-
-/**  Reply of `migrate_093_status` and `migrate_093_run`. */
-export type MigrateReply_Serialize = {
-	/**  Where the migration stands. */
-	state: MigrateState,
-	/**  The report's workspace path, once one is written. */
-	report_path: string | null,
-};
-
-/**  Where the migration stands. */
-export type MigrateState = 
-/**  No report yet. */
-"not_started" | 
-/**  A report exists, but something is pending or failed, so the 0.9.2 database must be kept. */
-"incomplete" | 
-/**  Every row is in files, every grant is in, and the report says so. The database may go. */
-"verified";
 
 /**  One download's progress, as the page reads it. Sizes are bytes. */
 export type ModelDownload = ModelDownload_Serialize | ModelDownload_Deserialize;

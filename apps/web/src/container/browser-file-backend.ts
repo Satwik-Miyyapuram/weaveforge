@@ -8,11 +8,9 @@ import { openFileSettingsSection } from "@/backend/providers/files/file-settings
 import { wireFileBackend } from "@/backend/providers/files/wire-file-backend";
 import { wirePostgrestBackend } from "@/backend/providers/postgrest/wire-postgrest-backend";
 import { BrowserWorkspaceFs } from "@/features/workspace/infrastructure/parts";
-import { browserReportVerified } from "@/features/migration-097/domain/report";
-import { reportFolderSink } from "@/features/migration-097/infrastructure/report-folder-sink";
-import { readOrCreateInstallId, type InstallIdFs } from "./browser-install-id";
 import type { WiredBackend } from "./parts";
 import { guardOrgDb } from "./org-db-guard";
+import { readOnlyDb } from "./read-only-repositories";
 import { overlayFileRepositories } from "./with-file-repositories";
 
 /** A backend whose personal data lives in files: `filesMode` is always true here. */
@@ -32,7 +30,8 @@ export type BrowserFileWiring = (
 export async function wireBrowserFiles(fs: IWorkspaceFs): Promise<BrowserFileWiring> {
   const settings = await openFileSettingsSection(fs, "");
   return (config, projectContext, pid) => {
-    const postgrest = wirePostgrestBackend(config, projectContext, pid, undefined, { filesMode: true });
+    // readOnlyDb refuses writes outside the org write tables, as on desktop and no-account.
+    const postgrest = wirePostgrestBackend(config, projectContext, pid, undefined, { filesMode: true }, readOnlyDb);
     const files = wireFileBackend({ fs, settings, secrets: new RefusingSecretsStore() });
     // The container reaches the server only through `db`, so the guard sits there: personal
     // tables and rpcs throw before any request. Org and share tables stay reachable.
@@ -52,27 +51,20 @@ export async function wireBrowserFiles(fs: IWorkspaceFs): Promise<BrowserFileWir
   };
 }
 
-/** The OPFS folder for the browser and Android WebView. Opened only when the migration allows files. */
-export async function openBrowserFileWiring(): Promise<BrowserFileWiring> {
-  return wireBrowserFiles(await BrowserWorkspaceFs.openOpfs());
-}
-
-/** The OPFS folder the report check reads (the report folder listing) and the install id is stored in. */
-type ReportCheckFs = Parameters<typeof reportFolderSink>[0] & InstallIdFs;
+export const BROWSER_STORAGE_MESSAGE =
+  "This browser's storage could not be opened, so your notes cannot load. Allow site storage (not a private window) and reload.";
 
 /**
- * True only when the OPFS folder holds a clean verified 0.9.7 export for this browser install (its
- * own run is matched by its stable install id). The first call may write the install id, creating
- * it when none is stored. A failed write makes this return false, as does any other failure,
- * including no id.
+ * The OPFS folder for the browser and Android WebView: their personal-data backend.
+ * A failure is rethrown with a clear message; nothing falls back to the server.
  */
-export async function browserReportOk(
-  openFs: () => Promise<ReportCheckFs> = () => BrowserWorkspaceFs.openOpfs(),
-): Promise<boolean> {
+export async function openBrowserFileWiring(
+  open: () => Promise<IWorkspaceFs> = () => BrowserWorkspaceFs.openOpfs(),
+): Promise<BrowserFileWiring> {
   try {
-    const fs = await openFs();
-    return await browserReportVerified(reportFolderSink(fs), await readOrCreateInstallId(fs));
-  } catch {
-    return false;
+    return await wireBrowserFiles(await open());
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : String(error);
+    throw new Error(`${BROWSER_STORAGE_MESSAGE} (${detail})`, { cause: error });
   }
 }

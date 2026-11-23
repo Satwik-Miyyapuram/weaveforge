@@ -1,7 +1,8 @@
 /**
  * Every row of every synced table, one JSON file per table under
- * `.weaveforge/tables/`. A folder-mirror clone rebuilds the database from these
- * files: export writes them, import reads them back parents first.
+ * `.weaveforge/tables/`, the 0.9.7 table export. Since 0.9.8 the app neither writes
+ * nor reads these files (the workspace files are the only personal store); only tests
+ * use this module, as the record of that format.
  *
  * Rows travel as `row_to_json` text, not as typed values, so timestamps keep
  * their full precision and the import reads them back unchanged.

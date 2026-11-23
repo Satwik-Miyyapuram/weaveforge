@@ -7,6 +7,7 @@ import type {
   ITagManager,
   Paper,
 } from "@weaveforge/core";
+import { isLocalMode } from "@/features/auth/infrastructure/no-account-mode";
 import { getDataClient, relayUrl } from "@/lib/parts";
 import type { IZoteroLibrarySync, IZoteroExporter, IZoteroAnnotationPull } from "@/features/papers/domain/zotero";
 import { toBibliographyAnnotationPull } from "@/features/papers/domain/zotero";
@@ -59,6 +60,8 @@ export class ZoteroBibliographyIntegration implements IBibliographyIntegration {
     library = normalizeZoteroLibrary(library);
     if (!apiKey || !library) return [];
     if (!this.deps.fetchFn) {
+      // No account: there is no session to relay with, so there are no collections to list.
+      if (isLocalMode()) return [];
       const { data: sessionData } = await getDataClient().auth.getSession();
       const token = sessionData.session?.access_token;
       if (!token) return [];

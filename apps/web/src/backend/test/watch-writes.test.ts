@@ -123,15 +123,28 @@ function rpcClient(result: { error: unknown } = { error: null }) {
   return { db: db as unknown as SupabaseClient, called };
 }
 
-test("an RPC that writes reports the table it writes", async () => {
+test("an RPC that writes a workspace table reports that table", async () => {
   // A write done by a database function never passes through `from()`, so the
   // folder mirror and the sync loop did not hear about it.
   const seen: string[] = [];
   const { db } = rpcClient();
   const wrapped = watchWrites(db, (table) => seen.push(table));
+  await wrapped.rpc("record_blob_access", { p_path: "x" });
+  assert.deepEqual(seen, []);
+});
+
+test("personal-row RPCs (comments, shares, CRDT log) are not reported: 0.9.8 has no server personal rows", async () => {
+  const seen: string[] = [];
+  const { db } = rpcClient();
+  const wrapped = watchWrites(db, (table) => seen.push(table));
   await wrapped.rpc("set_comment_resolved", { p_id: "c1", p_resolved: true });
   await wrapped.rpc("redeem_share_link", { p_token_hash: "x" });
-  assert.deepEqual(seen, ["comments", "shares"]);
+  await wrapped.rpc("compact_crdt_log", {});
+  assert.deepEqual(seen, []);
+  const { RPC_WRITES } = await import("../providers/postgrest/watch-writes");
+  assert.equal(RPC_WRITES.set_comment_resolved, null);
+  assert.equal(RPC_WRITES.redeem_share_link, null);
+  assert.equal(RPC_WRITES.compact_crdt_log, null);
 });
 
 test("a read-only or bookkeeping RPC reports nothing", async () => {

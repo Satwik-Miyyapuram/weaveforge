@@ -7,7 +7,7 @@
  */
 import { BlobNotFoundError, ConflictError, type IBlobFetcher, type IWorkspaceFs } from "@weaveforge/core";
 import { moveToTrash } from "@/lib/workspace-trash";
-import { conflictCopyPath } from "@/features/migration-097/domain/conflict-path";
+import { conflictCopyPath } from "./conflict-path";
 import { tempPathFor } from "@/lib/temp-path";
 
 /** `ASSET_DIR` in crates/wf-core/src/sync/folder_layout.rs. */

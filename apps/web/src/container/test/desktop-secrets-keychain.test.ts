@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { before, test } from "node:test";
 
 import type { BackendConfig } from "../../backend/parts";
-import { DeviceSecretsStore, type DeviceKeychain } from "../../backend/providers/local/parts";
+import { DeviceSecretsStore, type DeviceKeychain } from "../../backend/device-secrets-store";
 import type { VaultFileBridge } from "../../features/workspace/infrastructure/parts";
 import { loadTestCore } from "@/lib/test/load-test-core";
 import { wireBackend } from "../parts";
@@ -58,34 +58,20 @@ function memoryVault(): VaultFileBridge {
   };
 }
 
-/** A secrets store over the keychain only: no local database row and no legacy move. */
+/** A secrets store over the keychain only: there is no local database to read. */
 function keychainSecrets(keychain: DeviceKeychain) {
-  return new DeviceSecretsStore(
-    async () => {
-      throw new Error("no local database in files mode");
-    },
-    keychain,
-    async () => {},
-  );
+  return new DeviceSecretsStore(keychain);
 }
 
 test("a credential saved in files mode is still there after a restart", async () => {
   const bridge = memoryVault();
   const keychain = fakeKeychain();
   const before = keychainSecrets(keychain);
-  const first = wireBackend(config, { projectId: null }, () => null, {
-    migration: "verified",
-    onDesktop: true,
-    wireDesktopFileBackend: wireDesktopFileBackend(bridge, settings, before),
-  });
+  const first = wireBackend(config, { projectId: null }, () => null, wireDesktopFileBackend(bridge, settings, before));
   await first.manageSettings.save({ zoteroApiKey: "tok-restart" });
 
   // A restart: a new container and a new store, over the same keychain.
   const after = keychainSecrets(keychain);
-  wireBackend(config, { projectId: null }, () => null, {
-    migration: "verified",
-    onDesktop: true,
-    wireDesktopFileBackend: wireDesktopFileBackend(bridge, settings, after),
-  });
+  wireBackend(config, { projectId: null }, () => null, wireDesktopFileBackend(bridge, settings, after));
   assert.equal((await after.load()).zoteroApiKey, "tok-restart");
 });

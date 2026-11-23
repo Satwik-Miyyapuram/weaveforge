@@ -8,7 +8,6 @@ import {
   type SyncTable,
   type SyncTableStore,
 } from "../application/sync-tables";
-import { describeRestoreConflicts } from "../application/workspace-folder-tables";
 
 /**
  * G4: a restore that fails halfway must be retryable. The retry inserts only the
@@ -170,19 +169,4 @@ test("a stored table is read for its key and the folder's columns only", async (
   );
   const projectsRead = reads.find((r) => r.table === "projects");
   assert.deepEqual(projectsRead?.columns, ["id", "name"], "server stamps are not read back");
-});
-
-// Gap 2 (review): the conflict warning names at most 20 rows and counts the rest.
-test("a short conflict list names every row", () => {
-  assert.equal(
-    describeRestoreConflicts([{ table: "projects", key: { id: "p1" } }]),
-    'projects {"id":"p1"}',
-  );
-});
-
-test("a long conflict list names the first 20 rows and counts the rest", () => {
-  const conflicts = Array.from({ length: 25 }, (_, i) => ({ table: "projects" as const, key: { id: `p${i}` } }));
-  const text = describeRestoreConflicts(conflicts);
-  assert.equal(text.split("; ").length, 21, "20 named rows and one count");
-  assert.ok(text.endsWith("and 5 more"), `ends with the count: ${text.slice(-30)}`);
 });

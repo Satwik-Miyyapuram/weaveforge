@@ -60,10 +60,10 @@ test("leaves other stage contents untouched", () => {
   const native = nativeWith(["ink-recogniser/win-x64/ink-recogniser.exe"]);
   const stage = fs.mkdtempSync(path.join(os.tmpdir(), "wf-ink-stage-"));
   try {
-    fs.mkdirSync(path.join(stage, "postgres"), { recursive: true });
-    fs.writeFileSync(path.join(stage, "postgres", "x.txt"), "x");
+    fs.mkdirSync(path.join(stage, "other"), { recursive: true });
+    fs.writeFileSync(path.join(stage, "other", "x.txt"), "x");
     stageInkRecogniser(native, stage, "x64");
-    assert.equal(fs.readFileSync(path.join(stage, "postgres", "x.txt"), "utf8"), "x");
+    assert.equal(fs.readFileSync(path.join(stage, "other", "x.txt"), "utf8"), "x");
   } finally {
     fs.rmSync(native, { recursive: true, force: true });
     fs.rmSync(stage, { recursive: true, force: true });

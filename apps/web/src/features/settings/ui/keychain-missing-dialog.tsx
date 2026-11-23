@@ -1,4 +1,4 @@
-import { KEYCHAIN_HELP } from "@/backend/providers/local/parts";
+import { KEYCHAIN_HELP } from "@/backend/device-secrets-store";
 import { Button } from "@/components/button";
 import { Modal, ModalActions } from "@/components/modal";
 

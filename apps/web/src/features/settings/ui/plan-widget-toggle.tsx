@@ -3,17 +3,15 @@
 import { useEffect, useState } from "react";
 import { FormError } from "@/components/form-error";
 import { desktop, type DesktopPlanWidget } from "@/lib/desktop/desktop-bridge";
-import { isLocalMode } from "@/backend/providers/local/local-identity";
-import { localFirstActive } from "@/backend/providers/local/local-first-marker";
 import { formatError } from "@/lib/format-error";
 
 /**
  * Settings → Calendar, desktop app on Windows only: the deadlines widget that
  * sits on the wallpaper, under every window.
  *
- * It reads the copy of the plan kept on this computer, so it needs one: a
- * signed-in app that works online only has nothing on disk for it to read,
- * and is told so rather than shown an empty widget.
+ * It reads the plan from the workspace folder on this computer. Signed-in desktop
+ * is files mode only with a folder, so the toggle is always available when the
+ * bridge supports the widget, and the line below says what it shows without one.
  */
 export function PlanWidgetToggle() {
   const bridge = desktop();
@@ -35,7 +33,6 @@ export function PlanWidgetToggle() {
 
   if (!bridge?.setPlanWidget || !state?.supported) return null;
   const setPlanWidget = bridge.setPlanWidget;
-  const hasLocalCopy = isLocalMode() || localFirstActive() !== null;
 
   async function toggle(on: boolean) {
     setBusy(true);
@@ -59,21 +56,18 @@ export function PlanWidgetToggle() {
         desktop, and starts with Windows. Drag its header to move it.
       </p>
       <FormError>{error}</FormError>
-      {hasLocalCopy || state.enabled ? (
-        <label className="calendar-feed-check">
-          <input className="wf-check"
-            type="checkbox"
-            checked={state.enabled}
-            disabled={busy}
-            onChange={(e) => void toggle(e.target.checked)}
-          />
-          Show deadlines on the desktop
-        </label>
-      ) : (
-        <p className="muted">
-          The widget reads the copy of your plan kept on this computer. Keep a copy here in Settings, Sync to use it.
-        </p>
-      )}
+      <label className="calendar-feed-check">
+        <input className="wf-check"
+          type="checkbox"
+          checked={state.enabled}
+          disabled={busy}
+          onChange={(e) => void toggle(e.target.checked)}
+        />
+        Show deadlines on the desktop
+      </label>
+      <p className="muted api-token-intro">
+        Deadlines come from the workspace folder on this computer. Without a folder open, the card stays empty.
+      </p>
     </section>
   );
 }

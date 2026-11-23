@@ -5,7 +5,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import type { IVaultPageRepository } from "@weaveforge/core";
 import { rustVaultPageRepository } from "@/backend/providers/postgrest/rust-repository";
-import { createLocalClient, type LocalQuery } from "@/backend/providers/local/pglite-client";
+import { createLocalClient, type LocalQuery } from "@/backend/test/pglite-client";
 import { testDb } from "@/backend/test/pg-test-db";
 import { loadTestCore } from "@/lib/test/load-test-core";
 

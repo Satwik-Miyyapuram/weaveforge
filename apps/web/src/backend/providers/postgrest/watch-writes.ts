@@ -45,9 +45,11 @@ export type WriteListener = (table: string) => void;
  * "read" by being forgotten.
  */
 export const RPC_WRITES: Readonly<Record<string, string | null>> = {
-  set_comment_resolved: "comments",
-  redeem_share_link: "shares",
-  compact_crdt_log: "crdt_updates",
+  // Personal rows (comments, shares, CRDT log) no longer reach the server in 0.9.8,
+  // so they are not workspace tables the mirror listens to.
+  set_comment_resolved: null,
+  redeem_share_link: null,
+  compact_crdt_log: null,
 
   api_token_scopes: null,
   claim_ai_mcp_relay_requests: null,

@@ -316,3 +316,14 @@ export function supervisionRepository(db: SupabaseClient): ISupervisionRepositor
     listLogsFor: async (memberIds) => new Map(await rust.listLogsFor(memberIds)),
   };
 }
+
+/**
+ * Files mode (0.9.8): a supervisee's milestones and logs are personal rows, so nothing is read
+ * from the server. Every requested id still gets an entry, so the view shows "nothing yet".
+ */
+export const emptySupervisionRepository: ISupervisionRepository = {
+  listMilestones: async () => [],
+  listLogs: async () => [],
+  listMilestonesFor: async (memberIds) => new Map(memberIds.map((id) => [id, []])),
+  listLogsFor: async (memberIds) => new Map(memberIds.map((id) => [id, []])),
+};

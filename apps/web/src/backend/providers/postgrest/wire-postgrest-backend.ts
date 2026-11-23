@@ -8,6 +8,7 @@ import {
 import {
   labSnapshotRepository as rustLabSnapshotRepository,
   supervisionRepository as rustSupervisionRepository,
+  emptySupervisionRepository,
 } from "@/features/org/infrastructure/parts";
 import { memberRepository as rustMemberRepository } from "@/features/org/infrastructure/postgrest-member-repository";
 import {
@@ -15,7 +16,7 @@ import {
   rustPaperFieldRepository,
 } from "@/features/papers/infrastructure/parts-1";
 import { rustPaperRepository } from "@/features/papers/infrastructure/postgrest-paper-repository";
-import { type ShareMarks, withShareMarks } from "@/features/offline-sync/domain/shared-rows";
+import { type ShareMarks, withShareMarks } from "@/features/sharing/domain/share-marks";
 import { rustMilestoneRepository } from "@/features/plan/infrastructure/milestone-rows";
 import { rustReaderAnnotationRepository } from "@/features/reader/infrastructure/parts-1";
 import {
@@ -89,6 +90,7 @@ import {
 import type { ISharedReader, SharedItem } from "../../../features/sharing/domain/shared-reader";
 import type { Integration, SyncProvider } from "../../../features/sync/domain/parts";
 import { guardOrgDb } from "@/container/org-db-guard";
+import { guardSharedReadDb } from "@/container/shared-read-guard";
 import { SupabaseAdminUserProvisioner, SupabaseSessionProvider } from "../supabase-auth/parts";
 import { createDataClient } from "./parts-1";
 import { projectUserCtx, rustAiStores, rustRepository, rustVaultPageRepository } from "./rust-repository";
@@ -152,9 +154,9 @@ function rustSharedReader(db: SupabaseClient): ISharedReader {
 }
 
 /**
- * Files mode: the named methods reject before any request. The org allowlist keeps `projects`
- * and `user_settings` live for other reads, so guardOrgDb cannot refuse these by table. The
- * release-notice `unseen` read joins the personal seen marker, so files mode shows no banner.
+ * Files mode: the named methods reject before any request, even where guardOrgDb would let the
+ * table through. The release-notice `unseen` read joins the personal seen marker, so files mode
+ * shows no banner.
  */
 function refuseInFilesMode<T extends object>(repo: T, names: readonly (keyof T)[], filesMode: boolean): T {
   if (!filesMode) return repo;
@@ -250,7 +252,7 @@ export interface WiredPostgrestBackend {
  * Everything below this line is the same for both: the repositories only ever
  * see `db`, `session` and `auth`, so swapping those three swaps the backend
  * without a second copy of the wiring. See
- * `backend/providers/local/wire-local-backend.ts`.
+ * `backend/providers/files/wire-file-backend.ts`.
  */
 export interface BackendParts {
   db: SupabaseClient;
@@ -290,11 +292,11 @@ export function wirePostgrestBackend(
     parts?.db ??
     watchWrites(createDataClient(url as string, anonKey as string, config.dataUrl), notifyWorkspaceChange);
   // Guarded before the first repository below is built, so no repository holds the raw client.
-  const db = guardDb ? guardDb(rawDb) : rawDb;
+  const guardedDb = guardDb ? guardDb(rawDb) : rawDb;
+  // In files mode every repository below is built over the org-guarded client: a call to a table or
+  // rpc outside the org server allowlist throws before any request is sent (0.9.8).
+  const db = options?.filesMode ? guardOrgDb(guardedDb) : guardedDb;
   // A session built here listens on the client; one passed in is its owner's.
-  // In files mode the repos below that the container still wires over this client may reach only
-  // the org server allowlist: a personal call throws before any request is sent.
-  const serverDb = options?.filesMode ? guardOrgDb(db) : db;
   const ownSession = parts?.session ? null : new SupabaseSessionProvider(db);
   const session = parts?.session ?? ownSession!;
   const auth = parts?.auth ?? new SupabaseAuthService(db);
@@ -308,7 +310,7 @@ export function wirePostgrestBackend(
   const releaseNoticesRepository =
     parts?.releaseNotices ??
     refuseInFilesMode(
-      rustRepository<IReleaseNoticesRepository>(serverDb, "release_notices", ["latest"], async () => ({
+      rustRepository<IReleaseNoticesRepository>(db, "release_notices", ["latest"], async () => ({
         userId: (await session.getCurrentUserId()) ?? undefined,
       })),
       ["latest"],
@@ -336,8 +338,8 @@ export function wirePostgrestBackend(
     pid,
     { resourceType: "graph_settings" },
   );
-  const integrationsStore: IIntegrationsStore = rustIntegrationsStore(serverDb);
-  // AI tables are not on the org allowlist, so they take the personal db (guarded by guardDb).
+  const integrationsStore: IIntegrationsStore = rustIntegrationsStore(db);
+  // AI tables are not on the org allowlist: in files mode these calls throw (the file repos replace them).
   const ai = rustAiStores(db, projectContext, session);
   const paperRepository = cachePaperRepository(rustPaperRepository(db, projectContext), pid);
 
@@ -468,7 +470,7 @@ export function wirePostgrestBackend(
   );
   // Not cached: a decision another reviewer records is the point of the screen,
   // and a cache would show you your own half of it until something evicted.
-  const screeningRepository = rustRepository<IScreeningRepository>(serverDb, "screening_decisions", [
+  const screeningRepository = rustRepository<IScreeningRepository>(db, "screening_decisions", [
     "listForItems",
     "record",
     "remove",
@@ -511,7 +513,9 @@ export function wirePostgrestBackend(
   // What you can read depends on the grants, so a share change (yours or a
   // peer's broadcast) clears this memo with the share repository's.
   const sharedReader: ISharedReader = cacheRepo(
-    rustSharedReader(serverDb),
+    // Files mode: the owner's shared rows are personal tables, so this read gets its own
+    // select-only guard over the shared tables instead of the org allowlist (0.9.8).
+    rustSharedReader(options?.filesMode ? guardSharedReadDb(guardedDb) : db),
     ["read"],
     [],
     pid,
@@ -536,9 +540,10 @@ export function wirePostgrestBackend(
     [],
     pid,
   );
-  const supervisionRepository = rustSupervisionRepository(db);
+  // A supervisee's milestones and logs are personal rows: files mode reads none from the server (0.9.8).
+  const supervisionRepository = options?.filesMode ? emptySupervisionRepository : rustSupervisionRepository(db);
   const projectBibliographyCollection = refuseInFilesMode(
-    rustProjectZoteroStore(serverDb),
+    rustProjectZoteroStore(db),
     ["setCollection"],
     options?.filesMode === true,
   );

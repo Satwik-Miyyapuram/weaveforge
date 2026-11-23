@@ -1,13 +1,13 @@
 import assert from "node:assert/strict";
+import type { IBlobFetcher } from "@weaveforge/core";
 import { before, test } from "node:test";
 
 import type { BackendConfig } from "../../backend/parts";
-import { DeviceSecretsStore } from "../../backend/providers/local/parts";
+import { DeviceSecretsStore } from "../../backend/device-secrets-store";
 import type { VaultFileBridge } from "../../features/workspace/infrastructure/parts";
 import { loadTestCore } from "@/lib/test/load-test-core";
 import { wireBackend } from "../parts";
 import { wireDesktopFileBackend } from "../desktop-file-backend";
-import { ReadOnlyError } from "../read-only-repositories";
 
 // The wiring reads the storage config from the Rust core, so the core loads before any test runs.
 before(loadTestCore);
@@ -24,21 +24,15 @@ const settings = { load: async () => ({}), save: async () => {} } as never;
 /** Credentials in an in-memory keychain: this machine has no OS keychain under test. */
 function keychainSecrets() {
   const entries = new Map<string, string>();
-  return new DeviceSecretsStore(
-    async () => {
-      throw new Error("no local database in files mode");
+  return new DeviceSecretsStore({
+    read: async (key) => entries.get(key) ?? null,
+    write: async (key, text) => {
+      entries.set(key, text);
     },
-    {
-      read: async (key) => entries.get(key) ?? null,
-      write: async (key, text) => {
-        entries.set(key, text);
-      },
-      clear: async (key) => {
-        entries.delete(key);
-      },
+    clear: async (key) => {
+      entries.delete(key);
     },
-    async () => {},
-  );
+  });
 }
 
 /** An in-memory vault: what the shell would write to disk, keyed by path. Text and bytes share one store. */
@@ -59,7 +53,10 @@ function memoryVault() {
       files.set(path, data);
     },
     listVaultFiles: async () => [],
-    statVaultFile: async () => null,
+    statVaultFile: async (path) => {
+      const data = files.get(path);
+      return data ? { path, kind: "file" as const, size: data.length, modifiedAt: "2026-01-01T00:00:00Z" } : null;
+    },
     removeVaultFile: async (path) => {
       files.delete(path);
     },
@@ -69,27 +66,9 @@ function memoryVault() {
 
 test("verified desktop writes personal data to the folder through the bridge", async () => {
   const { bridge, files } = memoryVault();
-  const backend = wireBackend(config, { projectId: null }, () => null, {
-    migration: "verified",
-    onDesktop: true,
-    wireDesktopFileBackend: wireDesktopFileBackend(bridge, settings),
-  });
+  const backend = wireBackend(config, { projectId: null }, () => null, wireDesktopFileBackend(bridge, settings));
   await backend.projectRepository.create({ name: "Desktop project" });
   assert.ok(files.size > 0, "the project was written to the folder");
-});
-
-test("unavailable desktop stays read-only and writes nothing", async () => {
-  const { bridge, files } = memoryVault();
-  const backend = wireBackend(config, { projectId: null }, () => null, {
-    migration: "unavailable",
-    onDesktop: true,
-    wireDesktopFileBackend: wireDesktopFileBackend(bridge, settings),
-  });
-  await assert.rejects(
-    () => Promise.resolve().then(() => backend.projectRepository.create({ name: "Blocked" })),
-    new ReadOnlyError(),
-  );
-  assert.equal(files.size, 0, "no file was written");
 });
 
 test("with the overlay on, a settings write lands in the file repo and PostgREST sees no write", async () => {
@@ -101,11 +80,7 @@ test("with the overlay on, a settings write lands in the file repo and PostgREST
       sets.push(path.join("."));
     },
   } as never;
-  const backend = wireBackend(config, { projectId: null }, () => null, {
-    migration: "verified",
-    onDesktop: true,
-    wireDesktopFileBackend: wireDesktopFileBackend(bridge, recorded, keychainSecrets()),
-  });
+  const backend = wireBackend(config, { projectId: null }, () => null, wireDesktopFileBackend(bridge, recorded, keychainSecrets()));
   const dbCalls: string[] = [];
   const realFrom = backend.db.from.bind(backend.db);
   backend.db.from = (table: string) => {
@@ -125,11 +100,7 @@ test("with the overlay on, a settings write lands in the file repo and PostgREST
 test("with the overlay on, a credential save never reaches the database client", async () => {
   const { bridge } = memoryVault();
   const section = { get: () => undefined, set: () => {} } as never;
-  const backend = wireBackend(config, { projectId: null }, () => null, {
-    migration: "verified",
-    onDesktop: true,
-    wireDesktopFileBackend: wireDesktopFileBackend(bridge, section, keychainSecrets()),
-  });
+  const backend = wireBackend(config, { projectId: null }, () => null, wireDesktopFileBackend(bridge, section, keychainSecrets()));
   const dbCalls: string[] = [];
   backend.db.from = (table: string) => {
     dbCalls.push(`from ${table}`);
@@ -145,11 +116,7 @@ test("with the overlay on, a credential save never reaches the database client",
 
 test("with the overlay on, screening goes to the file repo and PostgREST sees no write", async () => {
   const { bridge } = memoryVault();
-  const backend = wireBackend(config, { projectId: null }, () => null, {
-    migration: "verified",
-    onDesktop: true,
-    wireDesktopFileBackend: wireDesktopFileBackend(bridge, settings),
-  });
+  const backend = wireBackend(config, { projectId: null }, () => null, wireDesktopFileBackend(bridge, settings));
   const dbCalls: string[] = [];
   const realFrom = backend.db.from.bind(backend.db);
   backend.db.from = (table: string) => {
@@ -176,19 +143,12 @@ test("with the overlay on, screening goes to the file repo and PostgREST sees no
   assert.deepEqual(dbCalls, [], "no PostgREST call for screening");
 });
 
-test("a personal image written through the desktop blob store is refused before any request", async () => {
-  const { bridge } = memoryVault();
-  const backend = wireBackend(config, { projectId: null }, () => null, {
-    migration: "verified",
-    onDesktop: true,
-    wireDesktopFileBackend: wireDesktopFileBackend(bridge, settings, keychainSecrets()),
-  });
-  await assert.rejects(
-    () => backend.rawBlobStore.upload("paper-images", "p1/figure.png", new Blob(["x"]), "image/png"),
-    new ReadOnlyError(),
-  );
-  await assert.rejects(
-    () => backend.rawBlobStore.remove("paper-images", "p1/figure.png"),
-    new ReadOnlyError(),
-  );
+test("a personal image written through the desktop blob store lands in the folder and is read back from it", async () => {
+  const { bridge, files } = memoryVault();
+  const backend = wireBackend(config, { projectId: null }, () => null, wireDesktopFileBackend(bridge, settings, keychainSecrets()));
+  await backend.rawBlobStore.upload("paper-images", "p1/figure.png", new Blob(["x"]), "image/png");
+  const written = [...files.keys()].find((k) => k.endsWith("paper-images/p1/figure.png"));
+  assert.ok(written, JSON.stringify([...files.keys()]));
+  const fetched = await (backend.rawBlobStore as unknown as IBlobFetcher).fetchBytes("paper-images", "p1/figure.png");
+  assert.equal(new TextDecoder().decode(fetched), "x");
 });

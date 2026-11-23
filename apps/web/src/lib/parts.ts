@@ -1,6 +1,5 @@
 import { readBackendConfig } from "@/backend/parts";
-import { isLocalMode } from "@/backend/providers/local/local-identity";
-import { localBackendParts } from "@/backend/providers/local/parts";
+import { isLocalMode } from "@/features/auth/infrastructure/no-account-mode";
 import { createDataClient } from "@/backend/providers/postgrest/parts-1";
 import type { CitationFormat } from "@/features/overleaf/application/parts";
 import { hasScreenCacheData, screenCacheKey } from "@/lib/cache/parts-2";
@@ -233,7 +232,7 @@ export function getDataClient() {
   // The legacy call sites reach for the client directly rather than through
   // the container, so this is where a copy working on this computer has to be
   // answered too — otherwise those few screens alone would go to the network.
-  if (isLocalMode()) return localBackendParts().db;
+  if (isLocalMode()) throw new Error("This is not available in 0.9.8 files mode: the no-account copy has no database.");
 
   const config = readBackendConfig();
   const url = config.supabaseUrl;

@@ -9,7 +9,7 @@ import { yCollab } from "y-codemirror.next";
 import * as Y from "yjs";
 import { Awareness } from "y-protocols/awareness";
 import type { CollabSession } from "../application/parts.js";
-import { isLocalMode } from "@/backend/providers/local/local-identity";
+import { isLocalMode } from "@/features/auth/infrastructure/no-account-mode";
 import { RealtimeYjsProvider } from "../infrastructure/realtime-yjs-provider.js";
 import {
   applyStoredBody,

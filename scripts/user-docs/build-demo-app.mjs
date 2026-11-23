@@ -1,13 +1,12 @@
 // Builds the docs' demo app into docs/.site-demo/: the real app's static export
 // (apps/shell/scripts/build-web.mjs, the desktop build) with demo-bridge.js first
-// in every page, PGlite, and the demo database from demo-db.mts under /_demo/.
+// in every page, and the demo workspace from demo-workspace.mts under /_demo/.
 // Served at its own root (the app uses absolute paths), read-only in the docs.
 //
 //   node scripts/user-docs/build-demo-app.mjs           build everything
 //   node scripts/user-docs/build-demo-app.mjs --reuse   reuse apps/shell/dist/web and docs/.demo
 import { spawnSync } from "node:child_process";
 import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
-import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -24,8 +23,8 @@ function run(cmd, args, opts) {
   if (r.status !== 0) throw new Error(`${cmd} ${args.join(" ")} failed`);
 }
 
-if (!reuse || !existsSync(path.join(demo, "db.tar.gz"))) {
-  run("node", ["--import", "tsx", "--import", "./src/lib/test/preload-core.mts", "../../scripts/user-docs/demo-db.mts"], {
+if (!reuse || !existsSync(path.join(demo, "workspace.json"))) {
+  run("node", ["--import", "tsx", "--import", "./src/lib/test/preload-core.mts", "../../scripts/user-docs/demo-workspace.mts"], {
     cwd: web,
     env: { ...process.env, TSX_TSCONFIG_PATH: "tsconfig.test.json" },
   });
@@ -42,7 +41,7 @@ rmSync(OUT, { recursive: true, force: true });
 cpSync(exported, OUT, { recursive: true });
 
 // The bridge opens the demo project before the app's scripts ask for one.
-const { projectId, pdfPaperId } = JSON.parse(readFileSync(path.join(demo, "files.json"), "utf8"));
+const { projectId, pdfPaperId } = JSON.parse(readFileSync(path.join(demo, "workspace.json"), "utf8"));
 const TAG = `<script src="/_demo/bridge.js" data-project="${projectId}" data-pdf-paper="${pdfPaperId}"></script>`;
 function inject(dir) {
   for (const name of readdirSync(dir)) {
@@ -54,12 +53,8 @@ function inject(dir) {
 inject(OUT);
 
 const assets = path.join(OUT, "_demo");
-const pglite = path.join(path.dirname(createRequire(path.join(web, "package.json")).resolve("@electric-sql/pglite")), ".");
 mkdirSync(assets, { recursive: true });
-cpSync(pglite, path.join(assets, "pglite"), {
-  recursive: true,
-  filter: (src) => !/\.(map|cjs|d\.ts|d\.cts)$/.test(src) && path.basename(src) !== "desktop.ini",
-});
-for (const f of ["db.tar.gz", "files.json", "demo-paper.pdf"]) cpSync(path.join(demo, f), path.join(assets, f));
-for (const f of ["demo-query.mjs", "demo-bridge.js"]) cpSync(path.join(here, f), path.join(assets, f === "demo-bridge.js" ? "bridge.js" : f));
+for (const f of ["workspace.json", "demo-paper.pdf"]) cpSync(path.join(demo, f), path.join(assets, f));
+cpSync(path.join(demo, "assets"), path.join(assets, "assets"), { recursive: true });
+cpSync(path.join(here, "demo-bridge.js"), path.join(assets, "bridge.js"));
 console.log(`demo app -> ${path.relative(root, OUT)}`);

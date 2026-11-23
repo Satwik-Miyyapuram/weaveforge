@@ -24,8 +24,7 @@ import {
   KeychainUnavailableError,
   desktopKeychain,
   type DeviceKeychain,
-} from "../providers/local/parts";
-import type { LocalQuery } from "../providers/local/pglite-client";
+} from "../device-secrets-store";
 import { secretsStoreFor } from "../providers/secrets-store";
 
 before(loadTestCore);
@@ -44,11 +43,10 @@ async function withWindow(weaveforge: unknown, body: () => Promise<void>): Promi
   }
 }
 
-/** A fake desktop bridge: the keychain is a map, and every local-database query is recorded. */
+/** A fake desktop bridge: the keychain is a map. */
 function fakeBridge() {
   const keychain = new Map<string, string>();
   const writes: string[] = [];
-  const queries: string[] = [];
   const bridge = {
     fetchTitle: async () => "",
     readSecret: async (name: string) => keychain.get(name) ?? null,
@@ -59,14 +57,8 @@ function fakeBridge() {
     clearSecret: async (name: string) => {
       keychain.delete(name);
     },
-    queryLocalDb: async (sql: string) => {
-      queries.push(sql);
-      return [];
-    },
-    legacyDbPresent: async () => false,
-    migrate097MoveSecrets: async () => [],
   };
-  return { bridge: bridge as unknown as DesktopBridge, writes, queries };
+  return { bridge: bridge as unknown as DesktopBridge, writes };
 }
 
 /** A client that can answer the only thing the route store asks it. */
@@ -95,13 +87,12 @@ describe("choosing a credentials store", () => {
 });
 
 describe("the offline credentials store", () => {
-  it("writes through the keychain and never the device table", async () => {
+  it("writes through the keychain", async () => {
     const fake = fakeBridge();
     await withWindow(fake.bridge, async () => {
       const store = secretsStoreFor(clientWithToken(), false);
       await store.save({ zoteroApiKey: "k" });
       assert.ok(fake.writes.includes(`${DEVICE_SECRETS_NAME}/zoteroApiKey`), "the key went to the keychain");
-      assert.deepEqual(fake.queries, [], "no local-database statement ran");
       assert.deepEqual(await store.load(), { zoteroApiKey: "k" });
     });
   });
@@ -121,10 +112,7 @@ describe("the offline credentials store", () => {
         kept.delete(key);
       },
     };
-    const unusedRun = (async () => {
-      throw new Error("the device table is not used for saves");
-    }) as LocalQuery;
-    const store = new DeviceSecretsStore(unusedRun, keychain, async () => {}, async () => false);
+    const store = new DeviceSecretsStore(keychain);
     await assert.rejects(store.save({ zoteroApiKey: "k" }), KeychainUnavailableError);
     assert.equal(attempts.length, 1, "the save stopped at the first refused write");
   });

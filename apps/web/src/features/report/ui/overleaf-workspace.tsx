@@ -110,9 +110,13 @@ export function OverleafWorkspace({
     setDraft(null);
   };
 
+  // A Git link is a server feature: a no-account copy has no link to offer, so the
+  // link action and its form are not shown there at all.
+  const linkTarget = projectId && !local() ? projectId : null;
+
   const menuItems: MenuItem[] = [
     ...(signedIn ? [{ id: "account", kind: "header" as const, label: "Signed in to Overleaf" }] : []),
-    ...(projectId
+    ...(linkTarget
       ? [{ id: "link", label: "Link a project (Git token)", title: "Link a project you can't sign in to", onSelect: () => setLinkOpen(true) }]
       : []),
     ...(signedIn ? [{ id: "disconnect", label: "Disconnect", danger: true, onSelect: () => void session.disconnect() }] : []),
@@ -127,16 +131,13 @@ export function OverleafWorkspace({
     <OverleafConnect session={session} hasSignInWindow={Boolean(signInWindow)} inShell={inShell} canEditAsFiles={canEditAsFiles} />
   );
 
-  const linkForm = linkOpen && projectId && (
+  const linkForm = linkOpen && linkTarget && (
     <>
       <p className="linked-overleaf-disclosure">
-        {local()
-          ? "With a Git link, this app fetches the LaTeX source from Overleaf with the token kept in your computer's keychain. Nothing goes through a server of ours."
-          : "With a Git link, WeaveForge's server fetches the LaTeX source from Overleaf with your token."}
-        {" "}The source stays in Overleaf and is not stored as WeaveForge project data.
+        With a Git link, WeaveForge's server fetches the LaTeX source from Overleaf with your token. The source stays in Overleaf and is not stored as WeaveForge project data.
       </p>
       <LinkOverleafForm
-        projectId={projectId}
+        projectId={linkTarget}
         onLinked={() => { setLinkOpen(false); void linked.reload(); }}
         onError={linked.setError}
       />
@@ -205,11 +206,11 @@ export function OverleafWorkspace({
           <h2>No Overleaf projects yet</h2>
           <p className="muted">
             {signedIn ? "This Overleaf account has no projects. " : ""}
-            Start one from this project&apos;s report as a ZIP, or link an existing one with a Git token.
+            Start one from this project&apos;s report as a ZIP{linkTarget ? ", or link an existing one with a Git token" : ""}.
           </p>
           <div className="linked-overleaf-form__actions">
             <Button variant="primary" onClick={onExport}>Export for Overleaf</Button>
-            {projectId && !linkOpen && <Button onClick={() => setLinkOpen(true)}>Link a project (Git token)</Button>}
+            {linkTarget && !linkOpen && <Button onClick={() => setLinkOpen(true)}>Link a project (Git token)</Button>}
             {accountMenu}
           </div>
           {linkForm}

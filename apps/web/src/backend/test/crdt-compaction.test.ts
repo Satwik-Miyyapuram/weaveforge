@@ -4,7 +4,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { ICrdtUpdateStore } from "@weaveforge/core";
 
 import { rustCrdtUpdateStore } from "@/features/collab/infrastructure/parts";
-import { createLocalClient, type LocalQuery } from "@/backend/providers/local/pglite-client";
+import { createLocalClient, type LocalQuery } from "@/backend/test/pglite-client";
 import { testDb } from "./pg-test-db";
 
 /**

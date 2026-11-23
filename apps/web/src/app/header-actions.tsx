@@ -15,9 +15,6 @@ import type { AccountLinkId } from "@weaveforge/wasm";
 import { NavIcon } from "./nav-icon";
 import { useInbox } from "./use-inbox";
 import { MenuItemButton, MenuItemLink } from "@/components/controls";
-import { useLiveSync } from "@/features/offline-sync/ui/use-live-sync";
-import { syncStatus } from "@/features/offline-sync/domain/parts";
-import { desktop } from "@/lib/desktop/desktop-bridge";
 import { readyCore, typedCore } from "@/lib/rust-core";
 
 /** A person, for the account menu. The ellipsis said "more things"; this says
@@ -90,10 +87,7 @@ export function HeaderActions({
   const router = useRouter();
   const pathname = usePathname();
   const { links: inboxRows, local } = useInbox();
-  const live = useLiveSync();
-  const attention = readyCore().accountAttention({ conflicts: live.conflictsCount, inbox: inboxRows, inboxInMenu: inbox });
-  // Sync runs on the desktop only; its state is words in the menu, not a dot.
-  const sync = desktop() ? syncStatus(live) : null;
+  const attention = readyCore().accountAttention({ conflicts: 0, inbox: inboxRows, inboxInMenu: inbox });
   const labs = memberships ? memberships.filter(typedCore().isExplicitLabMembership) : [];
 
   if (!user) return null;
@@ -222,7 +216,6 @@ export function HeaderActions({
             <div className="account-menu-head">
               {profile?.fullName && <b>{profile.fullName}</b>}
               {user.email && <span>{user.email}</span>}
-              {sync && sync.state !== "conflict" && <span className="account-menu-sync">{sync.label}</span>}
             </div>
           )}
           {/* What needs the person comes first; the icon's count is these. */}

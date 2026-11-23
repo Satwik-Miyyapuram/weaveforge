@@ -1,5 +1,5 @@
 //! The `request.jwt.claims` JSON that row-level security policies read
-//! (TS before this port: `sessionClaims` in `packages/core/src/database/local-postgres.ts`).
+//! (the TypeScript `sessionClaims` was in the retired `packages/core/src/database/local-postgres.ts`).
 
 /// The claims JSON for a user. `None` or an empty id is a request with no identity (`anon`),
 /// which policies refuse.

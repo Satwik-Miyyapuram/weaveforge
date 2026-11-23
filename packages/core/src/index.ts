@@ -288,4 +288,4 @@ export type { AuthUser, AuthChangeCallback, IAuthService } from "./backend/parts
 export type { ICurrentUserProvider } from "./backend/parts.js";
 export type { IAdminUserProvisioner, ProvisionUserInput } from "./backend/parts.js";
 // database
-export * from "./database/local-postgres.js";
+export * from "./local-user.js";

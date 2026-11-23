@@ -56,26 +56,6 @@ const FolderConflictCard = dynamic(
   { ssr: false },
 );
 
-/** Where the local database is (desktop only: a browser has none). */
-function useDatabaseLocation(): { dataDir: string; failure: string | null } | null {
-  const [state, setState] = useState<{ dataDir: string; failure: string | null } | null>(null);
-  useEffect(() => {
-    const bridge = desktop();
-    if (!bridge) return;
-    let live = true;
-    void bridge
-      .localDbState()
-      .then((value) => {
-        if (live) setState({ dataDir: value.dataDir, failure: value.failure });
-      })
-      .catch(() => {}); // an older shell without the channel: no row
-    return () => {
-      live = false;
-    };
-  }, []);
-  return state;
-}
-
 /** One labelled fact in the `.account-info-grid`; a real row element keeps the two columns. */
 function StatusRow({
   label,
@@ -139,7 +119,6 @@ export function WorkspaceFolderPanel() {
   // Resolved after mount: the server has no shell, and disagreeing would be a hydration mismatch.
   const [hasShell, setHasShell] = useState(false);
   useEffect(() => setHasShell(desktop() !== null), []);
-  const database = useDatabaseLocation();
   const folderPath = useFolderPath(session);
 
   // The folder's commits show on open, not only after a manual write.
@@ -281,16 +260,10 @@ export function WorkspaceFolderPanel() {
             )}
           </StatusRow>
         )}
-        {database?.dataDir && (
-          <StatusRow label="Database">
-            <PathValue path={database.dataDir} />
-          </StatusRow>
-        )}
       </dl>
 
       {error && <FormError>{error}</FormError>}
       {status && <p className="muted">{status}</p>}
-      {database?.failure && <FormError>{database.failure}</FormError>}
 
       <h4 className="settings-group">Folder</h4>
       {!session ? (

@@ -1,16 +1,6 @@
-//! Tauri commands for the local database, served by native Postgres (step 5.3f).
-
-use std::sync::Arc;
+//! Tauri commands shared by the app: the error type, the JSON wrapper and the local API bridge.
 
 use serde_json::Value;
-
-use crate::local_pg::host::{PgEngine, PgHost};
-use crate::local_http::verified::{Mode, ModeSource, folder_mode};
-use crate::local_pg::import::TableReport;
-use crate::vault::VaultState;
-
-/// The native Postgres database.
-pub type NativeDb = Arc<PgHost<PgEngine>>;
 
 /// The error every command returns. The bridge shim throws `new Error(message)`, with `code` set when there is one.
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, specta::Type)]
@@ -33,25 +23,6 @@ impl ShellError {
     }
 }
 
-/// The local database's health, as `DesktopLocalDbState` in apps/web/src/lib/desktop/desktop-bridge.ts.
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize, specta::Type)]
-#[serde(rename_all = "camelCase")]
-pub struct DbState {
-    /// Why the database is unusable, or `None` when healthy.
-    pub failure: Option<String>,
-    /// The database's data directory.
-    pub data_dir: String,
-    /// The backup this run's database was rebuilt from, when it was.
-    #[serde(default)]
-    pub restored_from: Option<String>,
-    /// True when this run started an empty database over lost data, so the page must warn.
-    #[serde(default)]
-    pub recreated_empty: bool,
-    /// Where the old data was kept aside when the database was recreated empty.
-    #[serde(default)]
-    pub kept_aside: Option<String>,
-}
-
 /// A JSON value as the database sends it (`$bigint` / `$bytes` tagged). TypeScript sees `unknown`;
 /// `serde_json::Value` cannot be exported because its numbers include i64.
 pub type Json = specta_typescript::Unknown<Value>;
@@ -70,157 +41,6 @@ impl From<String> for ShellError {
             code: None,
         }
     }
-}
-
-/// Tauri-managed handle to the native database. A failed start is kept, so every command can report it.
-pub struct LocalDb {
-    native: Result<NativeDb, ShellError>,
-    data_dir: String,
-}
-
-impl LocalDb {
-    /// Wraps the native database, or why it could not be made.
-    #[must_use]
-    pub fn new(native: Result<NativeDb, String>, data_dir: String) -> Self {
-        Self {
-            native: native.map_err(ShellError::from),
-            data_dir,
-        }
-    }
-
-    fn native(&self) -> Result<&NativeDb, ShellError> {
-        self.native.as_ref().map_err(Clone::clone)
-    }
-
-    /// True when the old database folder exists. Metadata only: the database is never opened.
-    /// An unnamed folder (no native database) is not present.
-    #[must_use]
-    pub fn legacy_db_present(&self) -> bool {
-        !self.data_dir.is_empty() && std::path::Path::new(&self.data_dir).is_dir()
-    }
-
-    /// Runs `sql` with `params` and returns the rows.
-    pub async fn query(&self, sql: String, params: Vec<Value>) -> Result<Vec<Value>, ShellError> {
-        self.native()?
-            .query(&sql, &params)
-            .await
-            .map_err(ShellError::from)
-    }
-
-    /// The database's health; a database that cannot be used is reported in `failure`.
-    #[must_use]
-    pub fn state(&self) -> DbState {
-        match &self.native {
-            Ok(native) => native.state(),
-            Err(e) => self.down(e.message.clone()),
-        }
-    }
-
-    /// Resets the database.
-    pub async fn reset(&self) -> Result<(), ShellError> {
-        self.native()?.reset().await.map_err(ShellError::from)
-    }
-
-    /// Imports `rows` into `table` on the owner session; each call commits or rolls back on its own.
-    /// `last` marks the table's final batch.
-    pub async fn import_table(
-        &self,
-        table: &str,
-        rows: &[Value],
-        last: bool,
-    ) -> Result<TableReport, ShellError> {
-        self.native()?
-            .import_table(table, rows, last)
-            .await
-            .map_err(ShellError::from)
-    }
-
-    /// Writes the import marker in the data dir once every table in `tables` is in the ledger.
-    pub async fn import_finish(
-        &self,
-        tables: &[String],
-        marker: &std::path::Path,
-    ) -> Result<(), ShellError> {
-        let names: Vec<&str> = tables.iter().map(String::as_str).collect();
-        self.native()?
-            .import_done(&names, marker)
-            .await
-            .map_err(ShellError::from)
-    }
-
-    /// Closes the native database.
-    pub async fn shutdown(&self) {
-        self.shutdown_with(true).await;
-    }
-
-    /// Closes the native database; `backup` false skips the quit backup.
-    pub async fn shutdown_with(&self, backup: bool) {
-        if let Ok(native) = &self.native {
-            native.close_with(backup).await;
-        }
-    }
-
-    /// A state for when the database cannot be used.
-    fn down(&self, failure: String) -> DbState {
-        DbState {
-            failure: Some(failure),
-            data_dir: self.data_dir.clone(),
-            restored_from: None,
-            recreated_empty: false,
-            kept_aside: None,
-        }
-    }
-}
-
-/// Whether `sql` is one plain SELECT: no data-modifying CTE, no second statement.
-fn is_plain_select(sql: &str) -> bool {
-    let first = sql
-        .trim_start()
-        .split(|c: char| c.is_whitespace() || c == '(')
-        .next()
-        .unwrap_or_default();
-    let body = sql.trim().trim_end_matches(';');
-    first.eq_ignore_ascii_case("select") && !body.contains(';')
-}
-
-/// Decides whether `sql` may run in `mode`. Files and unavailable folders run no SQL;
-/// the read-only database runs only a plain SELECT. Fails closed.
-pub(crate) fn check_db_query(mode: Mode, sql: &str) -> Result<(), ShellError> {
-    match mode {
-        Mode::Database => Ok(()),
-        Mode::DatabaseReadOnly if is_plain_select(sql) => Ok(()),
-        Mode::DatabaseReadOnly => Err(shell_error(
-            "the folder's database is read-only while its migration is in progress",
-        )),
-        Mode::Files | Mode::Unavailable => {
-            Err(shell_error("the database is not used for this folder"))
-        }
-    }
-}
-
-/// Only the read-write database may be reset.
-pub(crate) fn check_db_reset(mode: Mode) -> Result<(), ShellError> {
-    if mode == Mode::Database {
-        Ok(())
-    } else {
-        Err(shell_error("the database cannot be reset for this folder"))
-    }
-}
-
-/// Runs a SQL query on the local database.
-#[tauri::command]
-#[specta::specta]
-pub async fn db_query(
-    db: tauri::State<'_, LocalDb>,
-    vault: tauri::State<'_, VaultState>,
-    source: tauri::State<'_, ModeSource>,
-    sql: String,
-    params: Vec<Json>,
-) -> Result<Vec<Json>, ShellError> {
-    check_db_query(folder_mode(&vault, &source), &sql)?;
-    let params = json_params(params)?;
-    let rows = db.query(sql, params).await?;
-    rows.into_iter().map(json_row).collect()
 }
 
 /// Unwraps the TypeScript-facing params into plain JSON.
@@ -286,33 +106,11 @@ pub async fn local_api_call(
     json_row(ipc_reply(reply)?)
 }
 
-/// Reports the local database's health.
-#[tauri::command]
-#[specta::specta]
-pub async fn db_state(db: tauri::State<'_, LocalDb>) -> Result<DbState, ShellError> {
-    Ok(db.state())
-}
-
-/// Resets the local database.
-#[tauri::command]
-#[specta::specta]
-pub async fn db_reset(
-    db: tauri::State<'_, LocalDb>,
-    vault: tauri::State<'_, VaultState>,
-    source: tauri::State<'_, ModeSource>,
-) -> Result<(), ShellError> {
-    check_db_reset(folder_mode(&vault, &source))?;
-    db.reset().await
-}
-
 /// The command set, shared by the app (invoke handler) and the bindings export.
 #[must_use]
 #[allow(clippy::too_many_lines, reason = "the command list is data")]
 pub fn specta_builder() -> tauri_specta::Builder<tauri::Wry> {
     tauri_specta::Builder::<tauri::Wry>::new().commands(tauri_specta::collect_commands![
-        db_query,
-        db_state,
-        db_reset,
         local_api_call,
         crate::local_files::local_file_read,
         crate::local_files::local_file_write,
@@ -326,12 +124,8 @@ pub fn specta_builder() -> tauri_specta::Builder<tauri::Wry> {
         crate::cmd_experiments::sdk_inbox_drain,
         crate::device_settings::device_settings_read,
         crate::device_settings::device_settings_patch,
-        crate::migrate_093::migrate_093_run,
-        crate::migrate_093::migrate_093_status,
-        crate::migrate_097::cmd::migrate_097_status,
-        crate::migrate_097::cmd::migrate_097_counts,
-        crate::migrate_097::cmd::migrate_097_remove_old,
-        crate::migrate_097::cmd::mark_exported_097,
+        crate::migrate::legacy_db_present,
+        crate::migrate::migration_report_verified,
         crate::cmd_files::file_write,
         crate::cmd_files::file_write_bytes,
         crate::cmd_files::file_delete,
@@ -346,6 +140,7 @@ pub fn specta_builder() -> tauri_specta::Builder<tauri::Wry> {
         crate::cmd_files::git_file_history,
         crate::cmd_vault::vault_root,
         crate::cmd_vault::vault_choose,
+        crate::cmd_vault::pick_folder,
         crate::cmd_vault::workspace_setup,
         crate::cmd_vault::workspace_skip,
         crate::cmd_vault::vault_missing,
@@ -406,8 +201,8 @@ pub fn specta_builder() -> tauri_specta::Builder<tauri::Wry> {
         crate::plan_widget_window::plan_widget_set,
         crate::plan_widget_window::plan_widget_theme,
         crate::plan_widget_window::plan_widget_palette,
-        crate::plan_widget_window::plan_widget_data,
-        crate::plan_widget_window::plan_widget_open
+        crate::plan_widget_window::plan_widget_open,
+        crate::plan_widget_window::plan_widget_data
     ])
 }
 
@@ -537,46 +332,5 @@ mod tests {
         assert_eq!(LOCAL_API_CHANNELS.len(), 8);
         let unique: std::collections::BTreeSet<_> = LOCAL_API_CHANNELS.iter().collect();
         assert_eq!(unique.len(), LOCAL_API_CHANNELS.len());
-    }
-
-    #[tokio::test]
-    async fn a_failed_start_is_reported_by_every_command() {
-        let db = LocalDb::new(Err("no postgres".to_owned()), "/d".to_owned());
-        assert_eq!(
-            db.query("select 1".to_owned(), Vec::new()).await,
-            Err(shell_error("no postgres"))
-        );
-        assert_eq!(db.reset().await, Err(shell_error("no postgres")));
-        let state = db.state();
-        assert_eq!(state.failure.as_deref(), Some("no postgres"));
-        assert_eq!(state.data_dir, "/d");
-        db.shutdown().await;
-    }
-
-    #[tokio::test]
-    async fn native_db_serves_query_state_and_reset() {
-        let tmp = std::env::temp_dir().join(format!(
-            "wf-native-route-{}-{}",
-            std::process::id(),
-            std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .map_or(0, |d| d.as_nanos())
-        ));
-        let engine = PgEngine::new(tmp.join("no-such-bin"), tmp.join("pg"), None);
-        let native = Arc::new(PgHost::new(engine, Vec::new()));
-        let db = LocalDb::new(Ok(native), "/d".to_owned());
-        assert_eq!(db.state().failure, None);
-        let error = db.query("select 1".to_owned(), Vec::new()).await;
-        assert!(
-            error.as_ref().is_err_and(|e| e
-                .message
-                .starts_with("The local database could not be opened.")),
-            "{error:?}"
-        );
-        assert!(db.state().failure.is_some());
-        assert_eq!(db.reset().await, Ok(()));
-        assert_eq!(db.state().failure, None);
-        db.shutdown().await;
-        let _ = std::fs::remove_dir_all(&tmp);
     }
 }

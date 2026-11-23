@@ -40,13 +40,9 @@ import {
 } from "@weaveforge/core";
 import type { OpenAlexWork, ResourceType } from "@weaveforge/wasm";
 import { type BackendConfig, readBackendConfig } from "../backend/parts";
-import type { Migrate097Resolved } from "@/lib/desktop/migrate-097";
-import { chooseFileBackend } from "./file-backend-choice";
-import { readOnlyBackend, readOnlyDb } from "./read-only-repositories";
-import {
-  type WiredPostgrestBackend,
-  wirePostgrestBackend,
-} from "../backend/providers/postgrest/wire-postgrest-backend";
+import { wireNoAccountBackend } from "./no-account-file-backend";
+import { isLocalMode } from "@/features/auth/infrastructure/no-account-mode";
+import type { WiredPostgrestBackend } from "../backend/providers/postgrest/wire-postgrest-backend";
 import { SupabaseAdminUserProvisioner } from "../backend/providers/supabase-auth/parts";
 import type { InkChunkStore } from "../features/ink/application/parts-1";
 import type {
@@ -349,51 +345,33 @@ export class WebCryptoShareLinkTokenHasher implements IShareLinkTokenHasher {
 /** The wiring result. `filesMode` is true only when personal data is served from the folder's files. */
 export type WiredBackend = WiredPostgrestBackend & { filesMode: boolean };
 
-/** Personal-data file wiring for the 0.9.7 kill switch. Absent means PostgREST as before. */
-export interface PersonalFileWiring {
-  /** From migrate097Status for this folder; only "verified" wires files. */
-  migration?: Migrate097Resolved;
-  /** True on the desktop shell: its fallback is read-only, never writes-on. */
-  onDesktop?: boolean;
-  /** Supplied by the browser/Android container lane. */
-  wireBrowserFileBackend?: (
-    config: BackendConfig,
-    projectContext: { projectId: string | null },
-    pid: () => string | null,
-  ) => WiredPostgrestBackend;
-  /** Supplied by the desktop shell: its folder's files, over the vault bridge. */
-  wireDesktopFileBackend?: (
-    config: BackendConfig,
-    projectContext: { projectId: string | null },
-    pid: () => string | null,
-  ) => WiredPostgrestBackend;
-}
+/**
+ * The personal-data file backend: the desktop folder over the vault bridge, or the
+ * browser/Android OPFS folder. Org and sharing rows stay on PostgREST inside it.
+ */
+export type PersonalFileWiring = (
+  config: BackendConfig,
+  projectContext: { projectId: string | null },
+  pid: () => string | null,
+) => WiredPostgrestBackend;
+
+export const NO_FILE_BACKEND_MESSAGE =
+  "No workspace folder is wired: personal data is kept only in the folder's files, never on the server.";
 
 export function wireBackend(
   config: BackendConfig = readBackendConfig(),
   projectContext = { projectId: null as string | null },
   pid: () => string | null = () => projectContext.projectId,
-  files?: PersonalFileWiring,
+  personal?: PersonalFileWiring,
 ): WiredBackend {
-  // 0.9.7: local mode (PGlite) and the local-first account copy are never selected
-  // at runtime on web, desktop or Android. The personal-data choice below is the
-  // only runtime switch.
+  // 0.9.8: personal data is the folder's files on every platform. No account wires the
+  // open folder; an account wires the folder its container hands in. There is no
+  // PostgREST personal backend to fall back to, so a missing wiring fails closed.
+  if (isLocalMode() && config.provider === "postgrest") return { ...wireNoAccountBackend(config, projectContext, pid), filesMode: true };
   switch (config.provider) {
     case "postgrest": {
-      // The desktop shell wires its own files; without that wiring it stays read-only.
-      const wire = files?.onDesktop ? files.wireDesktopFileBackend : files?.wireBrowserFileBackend;
-      return chooseFileBackend<WiredBackend>(
-        files?.migration,
-        {
-          files: wire ? () => ({ ...wire(config, projectContext, pid), filesMode: true }) : undefined,
-          old: () => ({ ...wirePostgrestBackend(config, projectContext, pid), filesMode: false }),
-          readOnly: () => ({
-            ...readOnlyBackend(wirePostgrestBackend(config, projectContext, pid, undefined, undefined, readOnlyDb)),
-            filesMode: false,
-          }),
-        },
-        files?.onDesktop === true,
-      );
+      if (!personal) throw new Error(NO_FILE_BACKEND_MESSAGE);
+      return { ...personal(config, projectContext, pid), filesMode: true };
     }
     // `postgres` selects the server-side blob registry (storage/server/blob-api.ts),
     // never a browser data layer: these repositories reach the database over

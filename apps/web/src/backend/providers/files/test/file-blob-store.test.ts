@@ -1,8 +1,12 @@
-import { test } from "node:test";
+import { before, test } from "node:test";
 import assert from "node:assert/strict";
 import { BlobNotFoundError } from "@weaveforge/core";
 import { MemoryWorkspaceFs } from "@core-test/memory-workspace-fs";
+import { loadTestCore } from "@/lib/test/load-test-core";
 import { FileBlobStore } from "../file-blob-store";
+
+// The workspace path check runs in the Rust core, which has to be loaded first.
+before(loadTestCore);
 
 function setup() {
   const fs = new MemoryWorkspaceFs();

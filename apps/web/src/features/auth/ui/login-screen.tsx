@@ -6,7 +6,6 @@ import { FormError } from "@/components/form-error";
 import { WeaveForgeLogo } from "@/components/weave-forge-logo";
 import { appOrigin, authRedirectTo, pastedSignInQuery } from "@/lib/desktop/desktop-auth";
 import { desktop } from "@/lib/desktop/desktop-bridge";
-import { enterLocalOnly, localOnlyEntryVisible } from "@/lib/desktop/local-only-entry";
 import { runBusy } from "./run-busy";
 import { Button } from "@/components/button";
 
@@ -25,13 +24,6 @@ export function LoginScreen() {
   const [otp, setOtp] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // Only the desktop app has a database of its own to work in, and only it can
-  // answer this before there is a session. A browser never sees the offer.
-  const [onThisComputer, setOnThisComputer] = useState(false);
-  useEffect(() => {
-    setOnThisComputer(typeof desktop()?.queryLocalDb === "function");
-  }, []);
-
   // When another program holds the sign-in port, the browser's redirect never
   // reaches this window, so the reader pastes the address it was sent to.
   const [portTaken, setPortTaken] = useState(false);
@@ -241,24 +233,6 @@ export function LoginScreen() {
                   </div>
                   <Button type="submit" disabled={busy || !pasted.trim()}>Finish sign-in</Button>
                 </form>
-              )}
-
-              {onThisComputer && localOnlyEntryVisible(desktop() !== null) && (
-                <Button variant="link"
-                  onClick={() => {
-                    // Desktop only (the web entry is hidden): pick a folder, then
-                    // enter the migration run for it; the window reloads onto it.
-                    const shell = desktop();
-                    if (!shell) return;
-                    void run(async () => {
-                      const outcome = await enterLocalOnly(shell);
-                      if (outcome === "reload") window.location.reload();
-                      if (outcome === "unavailable") throw new Error("This app cannot open a workspace folder for local-only use yet.");
-                    });
-                  }}
-                >
-                  Use without an account, local only
-                </Button>
               )}
 
               {error && <FormError>{error}</FormError>}

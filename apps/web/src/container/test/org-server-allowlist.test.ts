@@ -14,6 +14,20 @@ const ARCHIVED = ["papers", "notes", "tags", "metrics", "relations", "pins", "re
  */
 const PERSONAL = [...ARCHIVED, "projects", "user_settings", "milestones", "experiments"];
 
+/**
+ * Personal tables 0165 keeps live but 0.9.8 no longer reads over the org server: files are the
+ * source of truth, and no shared or org path reads them (supervision shows nothing in files mode).
+ */
+const PERSONAL_LIVE_098 = [
+  "projects",
+  "user_settings",
+  "milestones",
+  "experiments",
+  "overleaf_connections",
+  "overleaf_linked_reports",
+  "overleaf_workshop_sessions",
+];
+
 /** Personal sync and sharing names that must never reach the org server allowlist. */
 const PERSONAL_SYNC = [
   "sync_outbox",
@@ -42,6 +56,9 @@ describe("org server allowlist", () => {
   it("reads no archived personal table", () => {
     for (const t of ARCHIVED) assert.equal((ORG_SERVER_READ_TABLES as readonly string[]).includes(t), false, t);
   });
+  it("reads none of the personal tables 0165 keeps live (0.9.8)", () => {
+    for (const t of PERSONAL_LIVE_098) assert.equal((ORG_SERVER_READ_TABLES as readonly string[]).includes(t), false, t);
+  });
   it("writes no personal table, including the live ones projects, user_settings, milestones and experiments", () => {
     for (const t of PERSONAL) assert.equal((ORG_SERVER_WRITE_TABLES as readonly string[]).includes(t), false, t);
   });
@@ -55,6 +72,9 @@ describe("org server allowlist", () => {
       assert.equal((ORG_SERVER_READ_TABLES as readonly string[]).includes(t), true, t);
       assert.equal((ORG_SERVER_WRITE_TABLES as readonly string[]).includes(t), true, t);
     }
+  });
+  it("writes lab_snapshots, the snapshot a member publishes to the lab (org data, like a share)", () => {
+    assert.equal((ORG_SERVER_WRITE_TABLES as readonly string[]).includes("lab_snapshots"), true);
   });
   it("reads crdt_snapshots, the watermark getSnapshotUpto reads for the live-share log", () => {
     assert.equal((ORG_SERVER_READ_TABLES as readonly string[]).includes("crdt_snapshots"), true, "crdt_snapshots");

@@ -31,16 +31,12 @@ jobs:
       fail-fast: true
       matrix:
         include:
-          # Each arch builds natively, so the Postgres build, the ink recogniser
-          # and the Rust crates all match the installer without cross-compiling.
+          # Each arch builds natively, so the ink recogniser and the Rust crates
+          # match the installer without cross-compiling.
           - arch: x64
             runner: windows-latest
-            postgres: postgresql-18.6.1-x86_64-pc-windows-msvc
-            postgres_sha256: 0C0C845626ED77C605D716051C9E8DF3368D07FBBD9F61EA39A4C5C0536FDE7E
           - arch: arm64
             runner: windows-11-arm
-            postgres: postgresql-18.6.1-aarch64-pc-windows-msvc
-            postgres_sha256: 29669A4E020F252D8FF7A59E5E5C4632901FCFF0E5EE7793F8B011A0E2157F68
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 60
     env:
@@ -90,25 +86,13 @@ jobs:
       - name: Build web export
         run: node scripts/build-web.mjs
 
-      - name: Stage Postgres
-        working-directory: .
-        shell: pwsh
-        run: |
-          if (Test-Path apps/shell/target/stage) { Remove-Item apps/shell/target/stage -Recurse -Force }
-          $name = "${{ matrix.postgres }}"
-          $tar = Join-Path $env:RUNNER_TEMP "$name.tar.gz"
-          Invoke-WebRequest -Uri "https://github.com/theseus-rs/postgresql-binaries/releases/download/18.6.1/$name.tar.gz" -OutFile $tar
-          $hash = (Get-FileHash $tar -Algorithm SHA256).Hash
-          if ($hash -ne "${{ matrix.postgres_sha256 }}") { throw "Postgres archive hash mismatch: $hash" }
-          tar -xzf $tar -C $env:RUNNER_TEMP
-          node apps/shell/scripts/stage-postgres.mjs (Join-Path $env:RUNNER_TEMP $name) apps/shell/target/stage
-
       - name: Stage ink recogniser
         working-directory: .
         shell: pwsh
         # An arm64 installer also carries the x64 helper (ink_recogniser_path falls back to it),
         # so build both arches and let the stage script pick what this installer needs.
         run: |
+          if (Test-Path apps/shell/target/stage) { Remove-Item apps/shell/target/stage -Recurse -Force }
           node apps/shell/scripts/build-ink-recogniser.mjs
           if ($LASTEXITCODE -ne 0) { throw "ink recogniser build failed" }
           node apps/shell/scripts/stage-ink-recogniser.mjs apps/shell/target/stage --arch=${{ matrix.arch }}

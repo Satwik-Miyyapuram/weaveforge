@@ -1,27 +1,22 @@
 /**
- * The device credentials live in the OS keychain, one entry per field, listed by
- * `_index`. The local database row is read-only here: it is never copied (the shell's
- * one-time migration moves it), written, or deleted.
+ * The device credentials live in the OS keychain only, one entry per field, listed by
+ * `_index`. No database row is read, copied, written or deleted.
  */
 import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
-import { readFileSync } from "node:fs";
-import { fileURLToPath } from "node:url";
-import { before, describe, it } from "node:test";
+import { describe, it } from "node:test";
 import type { DesktopBridge } from "@/lib/desktop/desktop-bridge";
-import { loadCore } from "../../lib/rust-core";
 import {
   DeviceSecretsStore,
   desktopKeychain,
   KEYCHAIN_HELP,
+  InvalidSecretNameError,
+  KeychainFieldCorruptError,
   KeychainIndexCorruptError,
   KeychainUnavailableError,
-  desktopMoveSecrets,
   keychainHelp,
-  LegacySecretsReadError,
   PartialSaveError,
   type DeviceKeychain,
-} from "../providers/local/parts";
+} from "../device-secrets-store";
 
 const LOCKED = "The keychain is locked, so the saved credentials cannot be read. Unlock it and try again. Nothing was changed.";
 
@@ -64,139 +59,57 @@ const noKeychain: DeviceKeychain = {
   clear: async () => undefined,
 };
 
-/** Records every statement the store runs against the local database. */
-function fakeRun(rows: unknown[] | Error) {
-  const asked: string[] = [];
-  const run = async (sql: string) => {
-    asked.push(sql);
-    if (rows instanceof Error) throw rows;
-    return rows;
-  };
-  return { asked, run };
-}
-
-const indexOf = (keys: string[], source = "move") => JSON.stringify({ source, keys });
+const indexOf = (keys: string[], source = "save") => JSON.stringify({ source, keys });
 
 /** A flat field map for a save: top-level names the typed `Secrets` does not list (the test fixtures). */
 const flat = (fields: Record<string, string>) => fields as unknown as Parameters<DeviceSecretsStore["save"]>[0];
 
-// Every web test file preloads the core (preload-core.mts), so an in-process test cannot
-// observe "core not loaded". This runs the same guard in a child process with no preload.
-describe("the Rust core is required to read the legacy row", () => {
-  it("a core that is not loaded throws, and never reads as no credentials", () => {
-    const moduleUrl = new URL("../providers/local/parts.ts", import.meta.url).href;
-    const script = `
-      const { DeviceSecretsStore } = await import(${JSON.stringify(moduleUrl)});
-      const keychain = { read: async () => null, write: async () => {}, clear: async () => {} };
-      const run = async () => [{ secrets: '{"zoteroApiKey":"k"}' }];
-      const store = new DeviceSecretsStore(run, keychain, async () => {}, async () => false);
-      try {
-        await store.load();
-        console.log("RESULT:resolved");
-      } catch (e) {
-        console.log("RESULT:" + String(e && e.message));
-      }
-    `;
-    const run = spawnSync(process.execPath, ["--import", "tsx", "--input-type=module", "-e", script], {
-      cwd: fileURLToPath(new URL("../../../", import.meta.url)),
-      timeout: 120_000,
-      encoding: "utf8",
-    });
-    assert.equal(run.status, 0, run.stderr);
-    assert.match(run.stdout, /RESULT:.*Rust core not loaded/);
-  });
-});
-
 describe("device credentials in the keychain", () => {
-  before(async () => {
-    await loadCore(readFileSync(new URL("../../../../../packages/wf-wasm/pkg/wf_wasm_bg.wasm", import.meta.url)));
-  });
-
-  it("rebuilds the credentials from the listed fields without touching the local database", async () => {
+  it("rebuilds the credentials from the listed fields", async () => {
     const { keychain } = fakeKeychain({
       "_index": indexOf(["zoteroApiKey", "integrations.overleaf"]),
       zoteroApiKey: "k",
       "integrations.overleaf": '{"token":"t"}',
     });
-    const db = fakeRun([]);
-    const store = new DeviceSecretsStore(db.run, keychain);
-    assert.deepEqual(await store.load(), { zoteroApiKey: "k", integrations: { overleaf: { token: "t" } } });
-    assert.equal(db.asked.length, 0);
+    assert.deepEqual(await new DeviceSecretsStore(keychain).load(), { zoteroApiKey: "k", integrations: { overleaf: { token: "t" } } });
   });
 
-  it("reads the legacy row read-only and copies nothing into the keychain", async () => {
-    const { entries, writes, keychain } = fakeKeychain();
-    const db = fakeRun([{ secrets: '{"zoteroApiKey":"k"}' }]);
-    const store = new DeviceSecretsStore(db.run, keychain);
-
-    assert.deepEqual(await store.load(), { zoteroApiKey: "k" });
-    assert.equal(writes.length, 0, "no keychain entry is written on load");
-    assert.equal(entries.size, 0);
-    assert.ok(db.asked.length > 0);
-    for (const sql of db.asked) {
-      assert.match(sql, /^\s*select\b/i, "the row is read, never written or deleted");
-    }
-  });
-
-  it("accepts a row whose json column is already an object", async () => {
-    const store = new DeviceSecretsStore(
-      fakeRun([{ secrets: { zoteroApiKey: "k", integrations: { overleaf: { token: "t" } } } }]).run,
-      fakeKeychain().keychain,
-    );
-    assert.deepEqual(await store.load(), { zoteroApiKey: "k", integrations: { overleaf: { token: "t" } } });
-  });
-
-  it("answers with nothing and writes nothing when there is no index and no row", async () => {
+  it("answers with nothing and writes nothing when there is no index", async () => {
     const { writes, keychain } = fakeKeychain();
-    const store = new DeviceSecretsStore(fakeRun([]).run, keychain);
-    assert.deepEqual(await store.load(), {});
+    assert.deepEqual(await new DeviceSecretsStore(keychain).load(), {});
     assert.equal(writes.length, 0);
   });
 
-  it("reads as no credentials when the local database is missing or stopped, and writes nothing", async () => {
-    const { writes, keychain } = fakeKeychain();
-    const store = new DeviceSecretsStore(fakeRun(new Error("db down")).run, keychain);
-    assert.deepEqual(await store.load(), {});
-    assert.equal(writes.length, 0);
-  });
-
-  it("saves an empty set as an index with no keys, so a later load reads nothing from the database", async () => {
-    const { entries, keychain } = fakeKeychain();
-    const db = fakeRun([{ secrets: '{"zoteroApiKey":"old"}' }]);
-    const store = new DeviceSecretsStore(db.run, keychain);
+  it("saves an empty set as an index with no keys", async () => {
+    const { entries, keychain } = fakeKeychain({ zoteroApiKey: "old" });
+    const store = new DeviceSecretsStore(keychain);
     await store.save({});
-    assert.equal(entries.get("_index"), indexOf([], "save"));
-    assert.deepEqual(await new DeviceSecretsStore(db.run, keychain).load(), {});
+    assert.equal(entries.get("_index"), indexOf([]));
+    assert.deepEqual(await store.load(), {});
+  });
+
+  it("a save with no index starts from nothing: it writes the new name and the index, and throws nothing", async () => {
+    const { keychain, writes } = fakeKeychain();
+    await new DeviceSecretsStore(keychain).save({ zoteroApiKey: "k" });
+    assert.deepEqual(writes, ["zoteroApiKey", "_index"]);
   });
 
   it("encodes an odd sub-key as hex behind an underscore and reads it back", async () => {
     const { entries, keychain } = fakeKeychain();
-    const store = new DeviceSecretsStore(fakeRun([]).run, keychain);
+    const store = new DeviceSecretsStore(keychain);
     await store.save({ "ai-provider": { "a b": { key: "v" } } } as never);
     // "a b" is 61 20 62 in hex.
     assert.equal(entries.get("ai-provider._612062"), '{"key":"v"}');
     assert.deepEqual(await store.load(), { "ai-provider": { "a b": { key: "v" } } });
   });
 
-  it("refuses a top-level name with a dot before writing anything", async () => {
-    const { writes, keychain } = fakeKeychain();
-    const store = new DeviceSecretsStore(fakeRun([]).run, keychain);
-    await assert.rejects(() => store.save({ "a.b": "x" } as never), /a\.b/);
-    assert.equal(writes.length, 0);
+  it("a locked keychain rejects the load", async () => {
+    await assert.rejects(() => new DeviceSecretsStore(lockedKeychain).load(), /keychain is locked/);
   });
 
-  it("a locked keychain rejects the load and never falls back to the database", async () => {
-    const db = fakeRun([{ secrets: '{"zoteroApiKey":"k"}' }]);
-    const store = new DeviceSecretsStore(db.run, lockedKeychain);
-    await assert.rejects(() => store.load(), /keychain is locked/);
-    assert.equal(db.asked.length, 0);
-  });
-
-  it("saves one entry per field, then the index, and runs no statement", async () => {
+  it("saves one entry per field, then the index", async () => {
     const { entries, writes, keychain } = fakeKeychain();
-    const db = fakeRun([]);
-    const store = new DeviceSecretsStore(db.run, keychain);
-    await store.save({ zoteroApiKey: "k", integrations: { overleaf: { token: "t" } } });
+    await new DeviceSecretsStore(keychain).save({ zoteroApiKey: "k", integrations: { overleaf: { token: "t" } } });
 
     assert.deepEqual(writes, ["zoteroApiKey", "integrations.overleaf", "_index"]);
     assert.equal(entries.get("zoteroApiKey"), "k");
@@ -205,7 +118,6 @@ describe("device credentials in the keychain", () => {
       source: "save",
       keys: ["zoteroApiKey", "integrations.overleaf"],
     });
-    assert.equal(db.asked.length, 0);
   });
 
   it("clears the entries a save no longer has", async () => {
@@ -214,7 +126,7 @@ describe("device credentials in the keychain", () => {
       zoteroApiKey: "k",
       semanticScholarKey: "s",
     });
-    await new DeviceSecretsStore(fakeRun([]).run, keychain).save({ zoteroApiKey: "k" });
+    await new DeviceSecretsStore(keychain).save({ zoteroApiKey: "k" });
     assert.equal(entries.has("semanticScholarKey"), false);
     assert.deepEqual(JSON.parse(entries.get("_index") ?? "{}").keys, ["zoteroApiKey"]);
   });
@@ -231,18 +143,16 @@ describe("device credentials in the keychain", () => {
     assert.ok(JSON.stringify(secrets).length > WINDOWS_CAP, "the whole payload is over the cap");
 
     const { entries, keychain } = fakeKeychain();
-    await new DeviceSecretsStore(fakeRun([]).run, keychain).save(secrets);
+    await new DeviceSecretsStore(keychain).save(secrets);
     for (const [key, text] of entries) {
       assert.ok(Buffer.byteLength(text, "utf8") <= WINDOWS_CAP, `${key} fits one entry`);
     }
-    assert.deepEqual(await new DeviceSecretsStore(fakeRun([]).run, keychain).load(), secrets);
+    assert.deepEqual(await new DeviceSecretsStore(keychain).load(), secrets);
   });
 
   it("says so, with the install command, when a save has no keychain", async () => {
-    const db = fakeRun([]);
-    const store = new DeviceSecretsStore(db.run, noKeychain);
     await assert.rejects(
-      () => store.save({ zoteroApiKey: "k" }),
+      () => new DeviceSecretsStore(noKeychain).save({ zoteroApiKey: "k" }),
       (err: unknown) => {
         assert.ok(err instanceof KeychainUnavailableError);
         assert.equal(err.message, KEYCHAIN_HELP);
@@ -250,8 +160,8 @@ describe("device credentials in the keychain", () => {
         return true;
       },
     );
-    assert.equal(db.asked.length, 0, "nothing is written to a file or a row");
   });
+
   it("never writes a secret value to a log", async () => {
     const secret = "SECRET-VALUE-XYZ-123456";
     const logged: string[] = [];
@@ -262,30 +172,28 @@ describe("device credentials in the keychain", () => {
     });
     try {
       const { keychain } = fakeKeychain();
-      const store = new DeviceSecretsStore(fakeRun([]).run, keychain);
+      const store = new DeviceSecretsStore(keychain);
       await store.save({ zoteroApiKey: secret });
       await store.load();
-      await assert.rejects(() => new DeviceSecretsStore(fakeRun([]).run, noKeychain).save({ zoteroApiKey: secret }));
+      await assert.rejects(() => new DeviceSecretsStore(noKeychain).save({ zoteroApiKey: secret }));
     } finally {
       spies.forEach((restore) => restore());
     }
     assert.equal(logged.filter((line) => line.includes(secret)).length, 0);
   });
+
   it("accepts a field of exactly 2560 bytes (1280 UTF-16 units)", async () => {
     const { entries, keychain } = fakeKeychain();
-    const store = new DeviceSecretsStore(fakeRun([]).run, keychain);
-    await store.save(flat({ overleafToken: "x".repeat(1280) }));
+    await new DeviceSecretsStore(keychain).save(flat({ overleafToken: "x".repeat(1280) }));
     assert.equal(entries.get("overleafToken"), "x".repeat(1280));
   });
 
   it("refuses a 2 KB token over the cap before writing anything, never truncating", async () => {
     const { entries, writes, keychain } = fakeKeychain();
-    const db = fakeRun([]);
-    const store = new DeviceSecretsStore(db.run, keychain);
     // A 1281-unit field is 2562 bytes: over the cap by two.
     const huge = "x".repeat(1281);
     await assert.rejects(
-      () => store.save(flat({ zoteroApiKey: "k", overleafToken: huge })),
+      () => new DeviceSecretsStore(keychain).save(flat({ zoteroApiKey: "k", overleafToken: huge })),
       (err: unknown) => {
         assert.ok(err instanceof Error);
         assert.match(err.message, /overleafToken/);
@@ -295,7 +203,21 @@ describe("device credentials in the keychain", () => {
     );
     assert.equal(writes.length, 0, "no entry is written when a field is too large");
     assert.equal(entries.size, 0);
-    assert.equal(db.asked.length, 0);
+  });
+
+  it("refuses a top-level name with a dot before writing anything", async () => {
+    const { writes, keychain } = fakeKeychain();
+    await assert.rejects(() => new DeviceSecretsStore(keychain).save({ "a.b": "x" } as never), /a\.b/);
+    assert.equal(writes.length, 0);
+  });
+
+  it("refuses a top-level name the keychain cannot store, before writing any field", async () => {
+    const { writes, keychain } = fakeKeychain();
+    await assert.rejects(
+      () => new DeviceSecretsStore(keychain).save(flat({ zoteroApiKey: "k", "bad name": "v" })),
+      /bad name is not a name the keychain can store/,
+    );
+    assert.deepEqual(writes, []);
   });
 });
 
@@ -358,53 +280,6 @@ describe("the desktop keychain adapter", () => {
   });
 });
 
-describe("the save gate waits for the one-time move", () => {
-  const INDEX = "_index";
-
-  it("refuses to save with secrets-move-pending and writes nothing when the move fails (stopped database, no index)", async () => {
-    const { keychain, writes } = fakeKeychain();
-    const moveSecrets = async () => {
-      throw new Error("the local database is stopped");
-    };
-    const store = new DeviceSecretsStore(fakeRun([]).run, keychain, moveSecrets);
-    await assert.rejects(store.save({ zoteroApiKey: "k" }), (err: { code?: string }) => err.code === "secrets-move-pending");
-    assert.deepEqual(writes, []);
-  });
-
-  it("saves once the move has written the index", async () => {
-    const { keychain, writes, entries } = fakeKeychain();
-    const moveSecrets = async () => {
-      entries.set(INDEX, indexOf([]));
-    };
-    const store = new DeviceSecretsStore(fakeRun([]).run, keychain, moveSecrets);
-    await store.save({ zoteroApiKey: "k" });
-    assert.deepEqual(writes, ["zoteroApiKey", INDEX]);
-    assert.deepEqual(await store.load(), { zoteroApiKey: "k" });
-  });
-
-  it("does not run the move again once the index exists", async () => {
-    const { keychain } = fakeKeychain({ [INDEX]: indexOf(["zoteroApiKey"]), zoteroApiKey: "old" });
-    let moves = 0;
-    const store = new DeviceSecretsStore(fakeRun([]).run, keychain, async () => {
-      moves += 1;
-    });
-    await store.save({ zoteroApiKey: "new" });
-    assert.equal(moves, 0);
-  });
-});
-
-describe("keychain names", () => {
-  it("refuses a top-level name the keychain cannot store, before writing any field", async () => {
-    const { writes, keychain } = fakeKeychain();
-    const store = new DeviceSecretsStore(fakeRun([]).run, keychain);
-    await assert.rejects(
-      () => store.save(flat({ zoteroApiKey: "k", "bad name": "v" })),
-      /bad name is not a name the keychain can store/,
-    );
-    assert.deepEqual(writes, []);
-  });
-});
-
 const NO_KEYCHAIN_TEXT =
   "This machine has no keychain available, so there is nowhere safe to keep it. It stays in memory for this session.";
 
@@ -417,106 +292,14 @@ describe("no keychain on this machine (Linux without a Secret Service)", () => {
     } as unknown as DesktopBridge;
     await assert.rejects(() => desktopKeychain(bridge).read("_index"), KeychainUnavailableError);
   });
-
-  it("maps the shell's refusal on the one-time move to KeychainUnavailableError", async () => {
-    const bridge = {
-      migrate097MoveSecrets: async () => {
-        throw new Error(NO_KEYCHAIN_TEXT);
-      },
-    } as unknown as DesktopBridge;
-    await assert.rejects(() => desktopMoveSecrets(bridge)(), KeychainUnavailableError);
-  });
-
-  it("a move that left write-only fields behind shows their names in a notice and resolves", async () => {
-    const bridge = {
-      migrate097MoveSecrets: async () => ["overleafToken.extra", "zoteroApiKey.x"],
-    } as unknown as DesktopBridge;
-    const shown: string[] = [];
-    await desktopMoveSecrets(bridge, (message) => shown.push(message))();
-    assert.deepEqual(shown, [
-      "These keys were not moved to the keychain: Overleaf git token, Zotero API key. Re-enter them in Settings.",
-    ]);
-  });
-
-  it("the notice names fields by their Settings label, never by the internal key name", async () => {
-    const bridge = {
-      migrate097MoveSecrets: async () => ["overleafToken.extra", "overleafToken.other"],
-    } as unknown as DesktopBridge;
-    const shown: string[] = [];
-    await desktopMoveSecrets(bridge, (message) => shown.push(message))();
-    assert.deepEqual(shown, [
-      "These keys were not moved to the keychain: Overleaf git token. Re-enter them in Settings.",
-    ]);
-    assert.doesNotMatch(shown[0]!, /overleafToken|\.extra|\.other/);
-  });
-
-  it("a move that moved every field shows no notice", async () => {
-    const bridge = {
-      migrate097MoveSecrets: async () => [],
-    } as unknown as DesktopBridge;
-    const shown: string[] = [];
-    await desktopMoveSecrets(bridge, (message) => shown.push(message))();
-    assert.deepEqual(shown, []);
-  });
-
-  it("a save after a move that left fields behind still saves, so the first save is not lost", async () => {
-    const { keychain, writes } = fakeKeychain();
-    const bridge = {
-      migrate097MoveSecrets: async () => ["overleafToken.extra"],
-    } as unknown as DesktopBridge;
-    const warn = console.warn;
-    console.warn = () => {};
-    try {
-      const store = new DeviceSecretsStore(fakeRun([]).run, keychain, desktopMoveSecrets(bridge, () => {}));
-      await store.save({ zoteroApiKey: "k" });
-    } finally {
-      console.warn = warn;
-    }
-    assert.ok(writes.length > 0, "the save must write its fields");
-  });
-
-  it("a move that moved every field still resolves", async () => {
-    const bridge = {
-      migrate097MoveSecrets: async () => [],
-    } as unknown as DesktopBridge;
-    await desktopMoveSecrets(bridge)();
-  });
-
-  it("a save whose move hits no keychain rejects with KeychainUnavailableError, not secrets-move-pending", async () => {
-    const { keychain, writes } = fakeKeychain();
-    const moveSecrets = async () => {
-      throw new KeychainUnavailableError();
-    };
-    const store = new DeviceSecretsStore(fakeRun([]).run, keychain, moveSecrets);
-    await assert.rejects(store.save({ zoteroApiKey: "k" }), KeychainUnavailableError);
-    assert.deepEqual(writes, []);
-  });
 });
 
 describe("reserved keychain names", () => {
   it("refuses a top-level credential named _index, because it would overwrite the index entry", async () => {
     const { writes, keychain } = fakeKeychain();
-    const store = new DeviceSecretsStore(fakeRun([]).run, keychain);
+    const store = new DeviceSecretsStore(keychain);
     await assert.rejects(() => store.save(flat({ _index: "x" })), /_index is reserved/);
     assert.deepEqual(writes, []);
-  });
-});
-
-describe("the old database folder probe", () => {
-  const noMove = async () => undefined;
-
-  it("a failed legacy read with no old folder is no secrets, not an error", async () => {
-    const { keychain } = fakeKeychain();
-    const db = fakeRun(new Error("no such table"));
-    const store = new DeviceSecretsStore(db.run, keychain, noMove, async () => false);
-    assert.deepEqual(await store.load(), {});
-  });
-
-  it("a failed legacy read with the old folder present throws, never reads as empty", async () => {
-    const { keychain } = fakeKeychain();
-    const db = fakeRun(new Error("database is stopped"));
-    const store = new DeviceSecretsStore(db.run, keychain, noMove, async () => true);
-    await assert.rejects(store.load(), LegacySecretsReadError);
   });
 });
 
@@ -526,7 +309,7 @@ describe("a field the index lists but the keychain lacks", () => {
       "_index": indexOf(["zoteroApiKey", "integrations.overleaf"]),
       "integrations.overleaf": '{"token":"SECRETVALUE"}',
     });
-    const store = new DeviceSecretsStore(fakeRun([]).run, keychain);
+    const store = new DeviceSecretsStore(keychain);
     await assert.rejects(store.load(), (err: { code?: string; message: string }) => {
       assert.equal(err.code, "keychain-field-missing");
       assert.match(err.message, /zoteroApiKey/);
@@ -551,7 +334,7 @@ describe("write-only names in the index", () => {
       write: keychain.write,
       clear: keychain.clear,
     };
-    const store = new DeviceSecretsStore(fakeRun([]).run, watched);
+    const store = new DeviceSecretsStore(watched);
     assert.deepEqual(await store.load(), { zoteroApiKey: "k" });
     await store.save({ zoteroApiKey: "k" });
     assert.equal(reads.includes("overleafToken"), false);
@@ -561,16 +344,13 @@ describe("write-only names in the index", () => {
 
   it("save writes a write-only entry but never lists it in the index", async () => {
     const { entries, keychain } = fakeKeychain({});
-    const store = new DeviceSecretsStore(fakeRun([]).run, keychain);
+    const store = new DeviceSecretsStore(keychain);
     const secrets = { zoteroApiKey: "k", overleafToken: "t" } as unknown as Parameters<typeof store.save>[0];
     await store.save(secrets);
     assert.equal(entries.get("overleafToken"), "t");
     assert.deepEqual(JSON.parse(entries.get("_index") ?? "{}").keys, ["zoteroApiKey"]);
   });
 });
-
-const noMove = async () => undefined;
-const noLegacy = async () => false;
 
 describe("the save queue, mid-save failure and the index", () => {
   it("runs two concurrent saves one after the other, never interleaved", async () => {
@@ -587,7 +367,7 @@ describe("the save queue, mid-save failure and the index", () => {
         entries.delete(key);
       },
     };
-    const store = new DeviceSecretsStore(fakeRun([]).run, keychain, noMove, noLegacy);
+    const store = new DeviceSecretsStore(keychain);
     await Promise.all([store.save(flat({ zoteroApiKey: "one" })), store.save(flat({ zoteroApiKey: "two" }))]);
     const index = indexOf(["zoteroApiKey"], "save");
     assert.deepEqual(log, ["zoteroApiKey=one", `_index=${index}`, "zoteroApiKey=two", `_index=${index}`]);
@@ -603,7 +383,7 @@ describe("the save queue, mid-save failure and the index", () => {
         return keychain.write(key, text);
       },
     };
-    const store = new DeviceSecretsStore(fakeRun([]).run, failing, noMove, noLegacy);
+    const store = new DeviceSecretsStore(failing);
     await assert.rejects(() => store.save(flat({ a: "new", b: "x" })), (err: unknown) => {
       assert.ok(err instanceof PartialSaveError);
       assert.match(err.message, /: b \(/);
@@ -624,7 +404,7 @@ describe("the save queue, mid-save failure and the index", () => {
         return keychain.write(key, text);
       },
     };
-    const store = new DeviceSecretsStore(fakeRun([]).run, failing, noMove, noLegacy);
+    const store = new DeviceSecretsStore(failing);
     await assert.rejects(() => store.save(flat({ a: "new", b: "x" })), (err: unknown) => {
       assert.ok(err instanceof PartialSaveError);
       assert.match(err.message, /: a \(/);
@@ -635,7 +415,7 @@ describe("the save queue, mid-save failure and the index", () => {
 
   it("refuses to save over a corrupt index, and writes nothing", async () => {
     const { entries, writes, keychain } = fakeKeychain({ "_index": "not json" });
-    const store = new DeviceSecretsStore(fakeRun([]).run, keychain, noMove, noLegacy);
+    const store = new DeviceSecretsStore(keychain);
     await assert.rejects(() => store.save(flat({ zoteroApiKey: "k" })), KeychainIndexCorruptError);
     assert.deepEqual(writes, []);
     assert.equal(entries.get("_index"), "not json");
@@ -643,13 +423,13 @@ describe("the save queue, mid-save failure and the index", () => {
 
   it("reports a corrupt index on load as well", async () => {
     const { keychain } = fakeKeychain({ "_index": "{\"keys\":\"nope\"}" });
-    const store = new DeviceSecretsStore(fakeRun([]).run, keychain, noMove, noLegacy);
+    const store = new DeviceSecretsStore(keychain);
     await assert.rejects(() => store.load(), KeychainIndexCorruptError);
   });
 
   it("clears an unreadable index on reset, so a save can run again", async () => {
     const { entries, keychain } = fakeKeychain({ "_index": "not json" });
-    const store = new DeviceSecretsStore(fakeRun([]).run, keychain, noMove, noLegacy);
+    const store = new DeviceSecretsStore(keychain);
     assert.equal(await store.resetCorruptIndex(), true);
     assert.equal(entries.has("_index"), false);
     await store.save(flat({ zoteroApiKey: "k" }));
@@ -658,9 +438,198 @@ describe("the save queue, mid-save failure and the index", () => {
 
   it("leaves a readable index alone on reset", async () => {
     const { entries, keychain } = fakeKeychain({ "_index": indexOf(["zoteroApiKey"]), zoteroApiKey: "k" });
-    const store = new DeviceSecretsStore(fakeRun([]).run, keychain, noMove, noLegacy);
+    const store = new DeviceSecretsStore(keychain);
     assert.equal(await store.resetCorruptIndex(), false);
     assert.equal(entries.get("_index"), indexOf(["zoteroApiKey"]));
+  });
+
+  it("never reads a write-only entry the save itself writes", async () => {
+    const { entries, keychain } = fakeKeychain({ overleafToken: "old" });
+    const reads: string[] = [];
+    const watched: DeviceKeychain = { ...keychain, read: async (key) => (reads.push(key), keychain.read(key)) };
+    await new DeviceSecretsStore(watched).save(flat({ zoteroApiKey: "k", overleafToken: "new" }));
+    assert.equal(reads.includes("overleafToken"), false);
+    assert.equal(entries.get("overleafToken"), "new");
+  });
+
+  it("puts the fields and the index back when the index write fails", async () => {
+    const { entries, keychain } = fakeKeychain({ "_index": indexOf(["a"]), a: "old" });
+    let indexWrites = 0;
+    const failing: DeviceKeychain = {
+      ...keychain,
+      write: async (key, text) => {
+        if (key === "_index" && ++indexWrites === 1) {
+          entries.set(key, text);
+          throw new Error("index write refused after landing");
+        }
+        return keychain.write(key, text);
+      },
+    };
+    await assert.rejects(() => new DeviceSecretsStore(failing).save(flat({ b: "x" })), PartialSaveError);
+    assert.equal(entries.get("a"), "old");
+    assert.equal(entries.has("b"), false);
+    assert.equal(entries.get("_index"), indexOf(["a"]));
+  });
+
+  it("puts back an entry the first write half-wrote, and keeps that write's own error", async () => {
+    const { entries, keychain } = fakeKeychain({ "_index": indexOf(["a"]), a: "old" });
+    let aWrites = 0;
+    const failing: DeviceKeychain = {
+      ...keychain,
+      write: async (key, text) => {
+        if (key === "a" && ++aWrites === 1) {
+          entries.set(key, "garbled");
+          throw new KeychainUnavailableError();
+        }
+        return keychain.write(key, text);
+      },
+    };
+    await assert.rejects(() => new DeviceSecretsStore(failing).save(flat({ a: "new" })), KeychainUnavailableError);
+    assert.equal(entries.get("a"), "old");
+    assert.equal(entries.get("_index"), indexOf(["a"]));
+  });
+
+  it("a load asked during a save waits for it, and never sees half a save", async () => {
+    const entries = new Map<string, string>([["_index", indexOf(["a"])], ["a", "old"]]);
+    const keychain: DeviceKeychain = {
+      read: async (key) => entries.get(key) ?? null,
+      write: async (key, text) => {
+        await new Promise((resolve) => setTimeout(resolve, 1));
+        entries.set(key, text);
+      },
+      clear: async (key) => {
+        entries.delete(key);
+      },
+    };
+    const store = new DeviceSecretsStore(keychain);
+    const saving = store.save(flat({ b: "new" }));
+    const loaded = await store.load();
+    await saving;
+    assert.deepEqual(loaded, { b: "new" });
+  });
+
+  it("names only the key when a listed field is not the JSON the store wrote", async () => {
+    const { keychain } = fakeKeychain({ "_index": indexOf(["integrations.p1"]), "integrations.p1": "{secret-value" });
+    await assert.rejects(() => new DeviceSecretsStore(keychain).load(), (err: unknown) => {
+      assert.ok(err instanceof KeychainFieldCorruptError);
+      assert.equal(err.key, "integrations.p1");
+      assert.doesNotMatch(err.message, /secret-value/);
+      return true;
+    });
+  });
+
+  it("refuses prototype names on save and treats them in the index as corrupt", async () => {
+    const { writes, keychain } = fakeKeychain({});
+    const store = new DeviceSecretsStore(keychain);
+    await assert.rejects(() => store.save(JSON.parse('{"__proto__":{"x":"1"}}')), InvalidSecretNameError);
+    await assert.rejects(() => store.save(flat({ constructor: "v" })), InvalidSecretNameError);
+    assert.deepEqual(writes, []);
+    const listed = fakeKeychain({ "_index": indexOf(["__proto__.polluted"]), "__proto__.polluted": "true" });
+    await assert.rejects(() => new DeviceSecretsStore(listed.keychain).load(), KeychainIndexCorruptError);
+    assert.equal(({} as Record<string, unknown>).polluted, undefined);
+  });
+
+  it("names the half-written first entry when putting it back also fails", async () => {
+    const { entries, keychain } = fakeKeychain({ "_index": indexOf(["a"]), a: "old" });
+    const failing: DeviceKeychain = {
+      ...keychain,
+      write: async (key, text) => {
+        if (key === "a") {
+          entries.set(key, "garbled");
+          throw new Error("refused");
+        }
+        return keychain.write(key, text);
+      },
+    };
+    await assert.rejects(() => new DeviceSecretsStore(failing).save(flat({ a: "new" })), (err: unknown) => {
+      assert.ok(err instanceof PartialSaveError);
+      assert.deepEqual(err.fields, ["a"]);
+      return true;
+    });
+  });
+
+  it("names a write-only entry that was written before a later failure", async () => {
+    const { entries, keychain } = fakeKeychain({});
+    const failing: DeviceKeychain = {
+      ...keychain,
+      write: async (key, text) => {
+        if (key === "b") throw new Error("refused");
+        return keychain.write(key, text);
+      },
+    };
+    await assert.rejects(() => new DeviceSecretsStore(failing).save(flat({ "overleaf-token": "t", b: "x" })), (err: unknown) => {
+      assert.ok(err instanceof PartialSaveError);
+      assert.deepEqual(err.fields, ["b", "overleaf-token"]);
+      return true;
+    });
+    assert.equal(entries.get("overleaf-token"), "t");
+    assert.equal(entries.has("_index"), false);
+  });
+
+  it("names a write-only entry whose own write failed, even when a rollback also fails", async () => {
+    const { keychain } = fakeKeychain({ "_index": indexOf(["a"]), a: "old" });
+    let aWrites = 0;
+    const failing: DeviceKeychain = {
+      ...keychain,
+      write: async (key, text) => {
+        if (key === "overleaf-token") throw new Error("refused");
+        if (key === "a" && ++aWrites > 1) throw new Error("restore refused");
+        return keychain.write(key, text);
+      },
+    };
+    await assert.rejects(() => new DeviceSecretsStore(failing).save(flat({ a: "new", "overleaf-token": "t" })), (err: unknown) => {
+      assert.ok(err instanceof PartialSaveError);
+      assert.deepEqual(err.fields, ["a", "overleaf-token"]);
+      return true;
+    });
+  });
+
+  it("refuses an index over the cap before writing anything", async () => {
+    const { writes, keychain } = fakeKeychain({});
+    const many = Object.fromEntries(Array.from({ length: 200 }, (_, i) => [`field${i}`, "v"]));
+    await assert.rejects(() => new DeviceSecretsStore(keychain).save(flat(many)), /_index is \d+ bytes/);
+    assert.deepEqual(writes, []);
+  });
+
+  it("refuses a number, a boolean or an array before writing anything", async () => {
+    const { writes, keychain } = fakeKeychain({});
+    const store = new DeviceSecretsStore(keychain);
+    for (const value of [3, true, ["a"]]) {
+      await assert.rejects(() => store.save(flat({ a: value as unknown as string })), InvalidSecretNameError);
+    }
+    assert.deepEqual(writes, []);
+  });
+
+  it("treats an index listing _index, a bad name or a bad sub-key as corrupt", async () => {
+    const cases: Array<[string, Record<string, string>]> = [
+      ["_index", {}],
+      ["a b", { "a b": "v" }],
+      ["a._zz", { "a._zz": "1" }],
+      ["a._6", { "a._6": "1" }],
+      ["a._ff", { "a._ff": "1" }],
+      ["a.b-c", { "a.b-c": "1" }],
+    ];
+    for (const [key, rest] of cases) {
+      const { keychain } = fakeKeychain({ "_index": indexOf([key]), ...rest });
+      await assert.rejects(() => new DeviceSecretsStore(keychain).load(), KeychainIndexCorruptError, key);
+    }
+  });
+
+  it("treats a name listed both as text and as fields as corrupt, in either order", async () => {
+    for (const keys of [["a", "a.x"], ["a.x", "a"]]) {
+      const { keychain } = fakeKeychain({ "_index": indexOf(keys), a: "text", "a.x": "1" });
+      await assert.rejects(() => new DeviceSecretsStore(keychain).load(), KeychainIndexCorruptError, keys.join());
+    }
+  });
+
+  it("round-trips an empty sub-key and a hyphenated write-only name stays unlisted", async () => {
+    const { entries, keychain } = fakeKeychain({});
+    const store = new DeviceSecretsStore(keychain);
+    await store.save({ integrations: { "": "e" } } as unknown as Parameters<DeviceSecretsStore["save"]>[0]);
+    assert.deepEqual(await store.load(), { integrations: { "": "e" } });
+    await store.save(flat({ "git-sync-token": "t", b: "x" }));
+    assert.equal(entries.get("_index"), indexOf(["b"]));
+    assert.deepEqual(await store.load(), { b: "x" });
   });
 });
 

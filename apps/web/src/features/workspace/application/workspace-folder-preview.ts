@@ -7,7 +7,7 @@
 import { ASSET_DIR, type IWorkspaceFs, type JsonDiff } from "@weaveforge/core";
 import { loadCore } from "@/lib/rust-core";
 import { activeProject } from "./parts";
-import { diffAgainstWorkspace } from "./parts-1";
+import { type applyFolderImport, diffAgainstWorkspace } from "./parts-1";
 import {
   readPreviewFolder,
   sanitizeArchiveEntries,
@@ -17,7 +17,9 @@ import {
   unzipWithinLimits,
 } from "./parts-2";
 import { followProjectRename, type FolderDiff, readMirrorBase, readMirrorBases } from "./parts-3";
-import type { FolderImportDiff } from "./workspace-folder-tables";
+export type FolderImportDiff = Parameters<typeof applyFolderImport>[0];
+export type FolderImportPicks = Parameters<typeof applyFolderImport>[1];
+export type FolderImportResult = Awaited<ReturnType<typeof applyFolderImport>>;
 
 export type FolderPreview = FolderDiff & { json: JsonDiff; skipped: SkippedFile[] };
 

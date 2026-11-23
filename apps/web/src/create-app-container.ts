@@ -123,8 +123,9 @@ import { ExperimentArtifactStore } from "@/features/experiments/infrastructure/p
 import { createCredentialReader } from "@/integrations/parts";
 import { WorkspaceSearch } from "@/features/search/application/workspace-search";
 import { clearActiveProvider } from "@/features/ai-assistant/application/parts";
-import { reresolveOnFocus, resolveMigrationChoice } from "@/container/resolve-migration-choice";
+import { openBrowserFileWiring } from "@/container/browser-file-backend";
 import { wireDesktopFileBackend } from "@/container/desktop-file-backend";
+import { isLocalMode } from "@/features/auth/infrastructure/no-account-mode";
 import { workspaceSettings } from "@/features/settings/application/workspace-settings";
 import { watchProjectChannel } from "@/container/project-watch";
 
@@ -170,23 +171,17 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
     projectLww.notifyPeers(resourceType);
     search?.markStale(resourceType);
   });
-  // Awaited before `wireBackend`: the personal-data backend is chosen once, from
-  // the folder's migration report, so the choice never races a late answer.
-  const migration = await resolveMigrationChoice(desktop());
+  // 0.9.8: personal data is the folder's files on every platform. The desktop shell wires its
+  // folder over the vault bridge; the browser and Android WebView open their OPFS folder. An
+  // old user with data still on the server is stopped earlier by the Install 0.9.7 gate.
+  // No account wires its own folder inside `wireBackend`, so OPFS is not opened for it.
   const shell = desktop();
-  // Browser and Android do not open OPFS yet. Legacy detection is not wired, so the 0.9.8 chooser
-  // ("unknown") always answers export-first and the OPFS report read and open would be wasted work.
-  // Restore the chooser call here (chooseBrowserBackend plus browserReportOk and openBrowserFileWiring
-  // from browser-file-backend) once legacy detection exists.
-  const browserFiles = undefined;
-  // Desktop only: a folder still settling re-asks on focus, and the first usable answer reloads.
-  if (shell) reresolveOnFocus(migration, shell, window, () => window.location.reload());
-  const backend = wireBackend(readBackendConfig(), projectContext, pid, {
-    migration,
-    onDesktop: Boolean(shell),
-    wireDesktopFileBackend: shell ? wireDesktopFileBackend(shell, workspaceSettings) : undefined,
-    wireBrowserFileBackend: browserFiles,
-  });
+  const personal = shell
+    ? wireDesktopFileBackend(shell, workspaceSettings)
+    : isLocalMode()
+      ? undefined
+      : await openBrowserFileWiring();
+  const backend = wireBackend(readBackendConfig(), projectContext, pid, personal);
   watchProjectChannel(projectLww, backend, pid());
 
   // Files mode: the server CRDT log keeps only the non-personal types (files-mode-crdt-limit).

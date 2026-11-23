@@ -4,7 +4,7 @@ import {
   type SecretsStore,
 } from "@/features/settings/infrastructure/parts";
 import { isOfflineBuild } from "@/deployment/build-target";
-import { DeviceSecretsStore } from "./local/parts";
+import { DeviceSecretsStore } from "../device-secrets-store";
 
 /**
  * Where integration credentials live for the build this window came from.

@@ -5,7 +5,8 @@ covers:
   - apps/shell/src/vault_choice.rs
   - apps/shell/src/local_http/server.rs
   - crates/wf-core/src/workspace
-checked: 2026-11-17
+  - apps/web/src/features/workspace/application/workspace-folder.ts
+checked: 2026-11-22
 ---
 # The workspace folder
 
@@ -37,12 +38,11 @@ are asked again on the next launch.
 
 One directory per kind of thing (`notes/`, `papers/`, `reading-lists/`,
 `report/`, `experiments/`, `plan/`, `logbook/`), plus a `.weaveforge/` directory
-holding the mirror's own bookkeeping. On the desktop, the local database lives in
-the workspace folder's `.weaveforge/db` when the app finds it there; otherwise it
-stays in WeaveForge's own data directory.
-
-Backups are different: they are written to WeaveForge's own data directory
-(`local-db-backups`), not into the folder. See
+holding the mirror's own bookkeeping. Since 0.9.8 the files are the only copy of
+your work: there is no local database, and no personal copy of your work is kept
+on the server. Sync to folder no longer writes table files to `.weaveforge/tables/`,
+and Apply no longer restores rows from them. Table files that 0.9.7 wrote stay
+in the folder, and 0.9.8 does not read them. See
 [the desktop app](desktop.md) for the rest of what the app keeps where.
 
 [How your work is stored and synced](sync.md) is the full picture.
@@ -56,9 +56,8 @@ same note.
 Writing out is automatic. Reading back is not.
 
 The mirror follows your workspace: save something in the app, and the folder
-catches up a moment later. It is one-way and best-effort: the database is the
-source of truth, and a folder that cannot be written (disk unplugged, permission
-revoked) does not take your save down with it.
+catches up a moment later. The files in the folder are the source of truth. The
+server holds only what you share and your lab's organisation data.
 
 Pulling folder edits back in is an explicit action, and it shows you a diff
 first before anything is applied.

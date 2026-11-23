@@ -1,18 +1,10 @@
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic, missing_docs)]
-//! Tests for the local database commands' types and the generated TypeScript bindings.
+//! Tests for the shell command types and the generated TypeScript bindings.
 
 use std::path::PathBuf;
 
 use serde_json::json;
-use weaveforge_shell_lib::commands::{DbState, Json, LocalDb, ShellError, export_bindings};
-
-#[tokio::test]
-async fn a_database_that_failed_to_start_says_why() {
-    let db = LocalDb::new(Err("no postgres".to_owned()), "/d".to_owned());
-    let failed = Err(ShellError::from("no postgres".to_owned()));
-    assert_eq!(db.query("select 1".to_owned(), Vec::new()).await, failed);
-    assert_eq!(db.state().failure.as_deref(), Some("no postgres"));
-}
+use weaveforge_shell_lib::commands::{Json, ShellError, export_bindings};
 
 #[test]
 fn a_coded_error_sends_its_code_and_a_plain_one_sends_none() {
@@ -24,31 +16,6 @@ fn a_coded_error_sends_its_code_and_a_plain_one_sends_none() {
         serde_json::to_value(ShellError::from("plain".to_owned())).unwrap(),
         json!({"message": "plain"})
     );
-}
-
-#[test]
-fn db_state_is_camel_case() {
-    let state = DbState {
-        failure: None,
-        data_dir: "/x".into(),
-        restored_from: None,
-        recreated_empty: false,
-        kept_aside: None,
-    };
-    assert_eq!(
-        serde_json::to_value(state).unwrap(),
-        json!({
-            "failure": null,
-            "dataDir": "/x",
-            "restoredFrom": null,
-            "recreatedEmpty": false,
-            "keptAside": null
-        })
-    );
-    let parsed: DbState = serde_json::from_value(json!({"failure": "f", "dataDir": "/y"})).unwrap();
-    assert_eq!(parsed.restored_from, None);
-    assert!(!parsed.recreated_empty);
-    assert_eq!(parsed.kept_aside, None);
 }
 
 #[test]
@@ -77,4 +44,19 @@ fn bindings_are_fresh() {
         generated.replace("\r\n", "\n"),
         "bridge/bindings.ts is stale: run WF_UPDATE_BINDINGS=1 cargo test --test shell commands::"
     );
+}
+
+#[test]
+fn a_098_shell_exposes_the_legacy_gate_commands() {
+    let text = std::fs::read_to_string(
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("bridge/bindings.ts"),
+    )
+    .unwrap();
+    assert!(text.contains("legacyDbPresent:"), "bindings lack legacyDbPresent");
+    assert!(
+        text.contains("migrationReportVerified:"),
+        "bindings lack migrationReportVerified"
+    );
+    assert!(!text.contains("migrate093Run:"), "migrate093Run must be gone");
+    assert!(text.contains("pickFolder:"), "bindings lack pickFolder");
 }

@@ -49,6 +49,21 @@ test("security docs and README do not claim data is encrypted at rest", () => {
   }
 });
 
+// 0.9.8: the files are the only copy. There is no local database, the server keeps no
+// personal copy of the workspace, supervision reads nothing, and personal images and
+// credentials stay on the device.
+test("no copy mentions a local database or a server copy of the workspace", () => {
+  assert.doesNotMatch(all, /local database|database on (this computer|your device)/i);
+  assert.doesNotMatch(account, /account sync stores your workspace/i);
+  assert.doesNotMatch(account, /also stores your workspace on this server/i);
+});
+
+test("account copy does not say supervisors see unshared work, or that the server holds personal images or keys", () => {
+  assert.doesNotMatch(account, /supervisors can view/i);
+  assert.doesNotMatch(account, /files you upload are kept in private object storage on the server/i);
+  assert.doesNotMatch(account, /credentials[^.]*are held by the server/i);
+});
+
 test("local backup advice mentions GitHub sync", () => {
   assert.match(local, /or turn on GitHub sync/);
 });

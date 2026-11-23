@@ -5,7 +5,8 @@ import { MemoryWorkspaceFs } from "@core-test/memory-workspace-fs";
 import { loadTestCore } from "@/lib/test/load-test-core";
 import type { BackendConfig } from "@/backend/parts";
 import { wirePostgrestBackend } from "@/backend/providers/postgrest/wire-postgrest-backend";
-import { wireBrowserFiles } from "../browser-file-backend";
+import { BROWSER_STORAGE_MESSAGE, openBrowserFileWiring, wireBrowserFiles } from "../browser-file-backend";
+import { READ_ONLY_MESSAGE } from "../read-only-repositories";
 
 before(async () => {
   await loadTestCore();
@@ -93,6 +94,21 @@ test("the container db refuses personal tables and rpcs, including through schem
   }
 });
 
+test("a non-org write on an org read table is refused before any request, as on desktop", async () => {
+  const wire = await wireBrowserFiles(new MemoryWorkspaceFs());
+  const backend = wire(config, { projectId: null }, () => null);
+  const spy = spyNetwork();
+  try {
+    for (const t of ["release_notices", "sync_tables", "api_tokens", "project_keys"]) {
+      assert.throws(() => backend.db.from(t).delete(), { message: READ_ONLY_MESSAGE }, t);
+    }
+    assert.deepEqual(spy.urls, []);
+  } finally {
+    spy.restore();
+    backend.dispose();
+  }
+});
+
 test("with the overlay, org and sharing reads still go to PostgREST", async () => {
   const fs = new MemoryWorkspaceFs();
   const wire = await wireBrowserFiles(fs);
@@ -146,4 +162,11 @@ test("in files mode a settings save goes to the file repo and never PostgREST", 
     spy.restore();
     backend.dispose();
   }
+});
+
+test("a browser storage open failure throws a clear message instead of a raw error", async () => {
+  const failing = async () => {
+    throw new Error("SecurityError: OPFS denied");
+  };
+  await assert.rejects(openBrowserFileWiring(failing), (e: Error) => e.message.startsWith(BROWSER_STORAGE_MESSAGE) && /OPFS denied/.test(e.message));
 });

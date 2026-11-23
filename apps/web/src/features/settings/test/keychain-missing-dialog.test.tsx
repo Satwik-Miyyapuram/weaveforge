@@ -7,7 +7,7 @@ import assert from "node:assert/strict";
 import ReactDOM from "react-dom";
 import { act, create } from "react-test-renderer";
 
-import { KEYCHAIN_HELP } from "@/backend/providers/local/parts";
+import { KEYCHAIN_HELP } from "@/backend/device-secrets-store";
 import { KeychainMissingDialog } from "../ui/keychain-missing-dialog";
 
 type Json = string | { children?: Json[] | null } | null;

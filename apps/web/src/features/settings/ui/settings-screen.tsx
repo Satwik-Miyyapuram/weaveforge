@@ -7,7 +7,7 @@ import type { UserSettings, UserIntegrationDescriptor } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { userSettingsFromCore, userSettingsToCore } from "@/features/settings/infrastructure/parts";
 import { Modal, ModalActions } from "@/components/modal";
-import { KeychainUnavailableError } from "@/backend/providers/local/parts";
+import { KeychainUnavailableError } from "@/backend/device-secrets-store";
 import { KeychainMissingDialog } from "./keychain-missing-dialog";
 import { ScreenHead } from "@/components/screen-head";
 import { ConnectionState } from "@/components/connection-state";
@@ -30,7 +30,6 @@ import { userIntegrationsForConfig } from "@/integrations/descriptors-resolve";
 import { isOfflineBuild } from "@/deployment/build-target";
 import { AiAccessPanel } from "./ai-access-panel";
 import { AppearancePanel } from "./appearance-panel";
-import { SyncIssuesPanel, SyncSettingsPanel } from "@/features/offline-sync";
 import { DesktopUpdatePanel, useDesktopUpdate } from "./desktop-update-panel";
 import { desktop } from "@/lib/desktop/desktop-bridge";
 import { formatError } from "@/lib/format-error";
@@ -54,7 +53,6 @@ const mcpTokensServed = GENERATED_MCP_ENABLED && hasServerRoutes();
 const OrgPanel = dynamic(() => import("@/features/org").then((m) => m.OrgPanel), { ssr: false });
 const AppLogPanel = dynamic(() => import("./app-log-panel").then((m) => m.AppLogPanel), { ssr: false });
 const StoragePanel = dynamic(() => import("./storage-panel").then((m) => m.StoragePanel), { ssr: false });
-const RemoveOldDataSection = dynamic(() => import("@/lib/desktop/migrate-097-remove-old-button").then((m) => m.RemoveOldDataSection), { ssr: false });
 const CalendarFeedPanel = dynamic(() => import("./calendar-feed-panel").then((m) => m.CalendarFeedPanel), { ssr: false });
 const DeleteAccountPanel = dynamic(() => import("./delete-account-panel").then((m) => m.DeleteAccountPanel), { ssr: false });
 
@@ -627,8 +625,6 @@ export function SettingsScreen() {
           <ScreenLoader status="Loading settings…" compact />
         ) : (
           <div id="settings-sync" className="settings-anchor" role="tabpanel" aria-labelledby="settings-tab-sync">
-            <SyncSettingsPanel />
-          <SyncIssuesPanel />
             <SyncSettings />
           </div>
         ))}
@@ -645,7 +641,6 @@ export function SettingsScreen() {
               is one they will not find while stuck. */}
           <AppLogPanel />
           <StoragePanel />
-          <RemoveOldDataSection />
           <PrivacyNotice />
           {/* Linking a provider and deleting an account both need the account. */}
           {hasAccount && <GitHubLinkCard />}
