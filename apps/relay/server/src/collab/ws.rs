@@ -533,11 +533,12 @@ async fn flush_deferred(
             return false;
         }
     }
-    if step1_due && client.take_sync_slot(now) {
-        if let Some(sv) = client.deferred_sv.take() {
-            let diff = diff_for(room, &sv).await;
-            return send(socket, Message::Binary(protocol::sync_step2(diff).into())).await;
-        }
+    if step1_due
+        && client.take_sync_slot(now)
+        && let Some(sv) = client.deferred_sv.take()
+    {
+        let diff = diff_for(room, &sv).await;
+        return send(socket, Message::Binary(protocol::sync_step2(diff).into())).await;
     }
     true
 }

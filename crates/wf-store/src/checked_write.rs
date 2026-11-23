@@ -847,6 +847,7 @@ fn rename_with(
     dest: &Path,
     rename: impl Fn(&Path, &Path) -> io::Result<()>,
 ) -> io::Result<()> {
+    // The probe handle is dropped here, before the rename.
     drop(
         fs::OpenOptions::new()
             .write(true)
