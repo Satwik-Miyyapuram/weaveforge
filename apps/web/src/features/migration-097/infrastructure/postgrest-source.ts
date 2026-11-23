@@ -64,6 +64,15 @@ const COMMENT_ITEM_TABLES: Readonly<Record<string, string>> = {
   milestone: "milestones",
 };
 
+/** Page order of tables with no id column; every other table pages by id. */
+const ORDER_BY: Readonly<Record<string, string>> = {
+  experiment_metrics: "experiment_id.asc,metric.asc,step.asc",
+  user_settings: "user_id.asc",
+};
+
+/** A server project: the export maps each to a workspace folder. */
+export type ServerProject = { id: string; name: string; createdAt: string };
+
 /** Item ids per comment query, so the URL stays well under proxy limits (50 uuids is about 1.9 KB). */
 const IDS_PER_QUERY = 50;
 
@@ -135,10 +144,11 @@ export class PostgrestSource implements ServerSource {
     return res;
   }
 
-  /** Every row of `base` (a filtered table URL), paged and in id order. */
+  /** Every row of `base` (a filtered table URL), paged in key order (id, or ORDER_BY for a table without one). */
   private async listAll(base: string, table: string): Promise<Row[]> {
+    const order = ORDER_BY[table] ?? "id.asc";
     return listAllPages<Row>(async (offset, limit) => {
-      const res = await this.request(`${base}&order=id.asc&limit=${limit}&offset=${offset}`, { method: "GET" }, table);
+      const res = await this.request(`${base}&order=${order}&limit=${limit}&offset=${offset}`, { method: "GET" }, table);
       return (await res.json()) as Row[];
     }, PAGE_SIZE);
   }
@@ -179,6 +189,13 @@ export class PostgrestSource implements ServerSource {
       return (await res.json()) as Row[];
     }, PAGE_SIZE);
     return rows.map(toCamelRow);
+  }
+
+  /** The user's live projects, so the export can give each its workspace folder. */
+  async listProjects(): Promise<ServerProject[]> {
+    const url = `${this.opts.baseUrl}/projects?select=id,name,created_at&user_id=eq.${this.opts.userId}&deleted_at=is.null`;
+    const rows = await this.listAll(url, "projects");
+    return rows.map((r) => ({ id: String(r.id), name: String(r.name), createdAt: String(r.created_at) }));
   }
 
   async countRows(kind: string): Promise<number> {
