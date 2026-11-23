@@ -134,7 +134,6 @@ export interface DesktopCommands {
   secretRead(name: DesktopSecretName): Promise<Result<string | null>>;
   secretWrite(name: DesktopSecretName, value: string): Promise<Result<null>>;
   secretClear(name: DesktopSecretName): Promise<Result<null>>;
-  legacyDbPresent(): Promise<boolean>;
   planWidgetState(): Promise<Result<DesktopPlanWidget>>;
   planWidgetSet(on: boolean): Promise<Result<DesktopPlanWidget>>;
   legacyDbPresent(): Promise<Result<boolean>>;
@@ -687,7 +686,6 @@ export function desktopShim(
     clearSecret: async (name) => {
       unwrap(await cmds.secretClear(name));
     },
-    legacyDbPresent: () => cmds.legacyDbPresent(),
     planWidgetState: async () => unwrap(await cmds.planWidgetState()),
     setPlanWidget: async (on) => unwrap(await cmds.planWidgetSet(on)),
     setPlanWidgetTheme: (palette) => {

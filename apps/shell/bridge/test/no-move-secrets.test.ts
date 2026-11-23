@@ -9,7 +9,6 @@ const files = [
   "apps/shell/bridge/inject.ts",
   "apps/shell/bridge/desktop.ts",
   "apps/web/src/lib/desktop/desktop-bridge.ts",
-  "apps/web/src/backend/providers/local/parts.ts",
 ];
 
 for (const file of files) {
