@@ -53,11 +53,11 @@ export const PERSONAL_ALIASES: Record<string, keyof FileRepositories> = {
 export function overlayFileRepositories<W extends object>(
   postgrestBackend: W,
   fileRepos: FileRepositories,
-): W & FileRepositories {
+): Omit<W, keyof FileRepositories> & FileRepositories {
   const aliased = Object.fromEntries(
     Object.entries(PERSONAL_ALIASES).map(([alias, target]) => [alias, fileRepos[target]]),
   );
-  return { ...postgrestBackend, ...fileRepos, ...aliased } as W & FileRepositories;
+  return { ...postgrestBackend, ...fileRepos, ...aliased } as Omit<W, keyof FileRepositories> & FileRepositories;
 }
 
 /**
