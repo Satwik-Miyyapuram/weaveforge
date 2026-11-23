@@ -171,6 +171,66 @@ test("a save from a stale page keeps the outside edit and puts the page in a con
   assert.equal((await repo.getById("n-1"))?.body, "mine\n");
 });
 
+/** Loads the note, then edits its body on disk as another writer would; returns the page as loaded. */
+async function editedOutside(fs: MemoryWorkspaceFs, repo: FileNoteRepository): Promise<VaultPage> {
+  await repo.save(page());
+  const loaded = (await repo.getById("n-1"))!;
+  const [path] = await files(fs);
+  await fs.writeFile(path ?? "", (await fs.readText(path ?? "")).replace("We measure things.", "They edited this."));
+  return loaded;
+}
+
+test("a stale save with its base conflicts even after an unrelated read", async () => {
+  const { fs, repo } = setup();
+  const loaded = await editedOutside(fs, repo);
+  await repo.list();
+  await assert.rejects(repo.save({ ...loaded, body: "mine\n" }, loaded), { name: "ConflictError" });
+  assert.equal((await repo.list()).length, 2);
+  assert.match((await repo.getById("n-1"))!.body, /They edited this/);
+});
+
+test("three retries of a stale save leave exactly one conflict copy", async () => {
+  const { fs, repo } = setup();
+  const loaded = await editedOutside(fs, repo);
+  for (let i = 0; i < 3; i += 1) {
+    await assert.rejects(repo.save({ ...loaded, body: "mine\n" }, loaded), { name: "ConflictError" });
+  }
+  const copies = (await repo.list()).filter((p) => p.id !== "n-1");
+  assert.equal(copies.length, 1);
+  assert.equal(copies[0]?.body, "mine\n");
+});
+
+test("a retry with new content updates the one conflict copy", async () => {
+  const { fs, repo } = setup();
+  const loaded = await editedOutside(fs, repo);
+  await assert.rejects(repo.save({ ...loaded, body: "mine\n" }, loaded), { name: "ConflictError" });
+  await assert.rejects(repo.save({ ...loaded, body: "mine, more\n" }, loaded), { name: "ConflictError" });
+  const copies = (await repo.list()).filter((p) => p.id !== "n-1");
+  assert.equal(copies.length, 1);
+  assert.equal(copies[0]?.body, "mine, more\n");
+});
+
+test("a conflict copy edited since is kept and a retry writes a new copy", async () => {
+  const { fs, repo } = setup();
+  const loaded = await editedOutside(fs, repo);
+  await assert.rejects(repo.save({ ...loaded, body: "mine\n" }, loaded), { name: "ConflictError" });
+  const first = (await repo.list()).find((p) => p.id !== "n-1")!;
+  const firstPath = (await repo.pathOf(first.id))!;
+  await fs.writeFile(firstPath, (await fs.readText(firstPath)).replace("mine", "user kept this"));
+  await assert.rejects(repo.save({ ...loaded, body: "mine, more\n" }, loaded), { name: "ConflictError" });
+  assert.equal((await repo.list()).filter((p) => p.id !== "n-1").length, 2);
+  assert.match(await fs.readText(firstPath), /user kept this/);
+});
+
+test("a save whose base matches the file goes through", async () => {
+  const { repo } = setup();
+  await repo.save(page());
+  const loaded = (await repo.getById("n-1"))!;
+  await repo.save({ ...loaded, body: "mine\n" }, loaded);
+  assert.equal((await repo.getById("n-1"))?.body, "mine\n");
+  assert.equal((await repo.list()).length, 1);
+});
+
 test("a page edited outside only in keys the repo does not own saves without a conflict", async () => {
   const { fs, repo } = setup();
   await repo.save(page());
