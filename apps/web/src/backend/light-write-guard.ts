@@ -23,6 +23,8 @@ export const PERSONAL_SETTINGS_WRITES = ["save", "saveDisclaimer", "saveAppearan
 
 type PersonalSettingsWrite = (typeof PERSONAL_SETTINGS_WRITES)[number];
 
+type Fn = (...args: unknown[]) => unknown;
+
 /**
  * Whether personal-data writes are refused right now. Same rule as
  * chooseFileBackend: on desktop, a folder in a read-only state (not wired to
@@ -55,22 +57,36 @@ export function guardWrites<T extends object, K extends keyof T>(
   blocked: () => Promise<boolean>,
 ): T {
   const guarded = new Set<PropertyKey>(writes);
+  // One wrapper per key, so `guarded.save === guarded.save` holds across reads.
+  const wrappers = new Map<PropertyKey, { source: Fn; wrapper: Fn }>();
   return new Proxy(target, {
     get(obj, key) {
       const value: unknown = Reflect.get(obj, key, obj);
       if (typeof value !== "function") return value;
-      if (!guarded.has(key)) return value.bind(obj);
-      return async (...args: unknown[]) => {
-        if (await blocked()) throw new PersonalWritesBlockedError();
-        return value.apply(obj, args);
-      };
+      const source = value as Fn;
+      const cached = wrappers.get(key);
+      if (cached?.source === source) return cached.wrapper;
+      const wrapper: Fn = guarded.has(key)
+        ? async (...args: unknown[]) => {
+            if (await blocked()) throw new PersonalWritesBlockedError();
+            return source.apply(obj, args);
+          }
+        : source.bind(obj);
+      wrappers.set(key, { source, wrapper });
+      return wrapper;
     },
   });
 }
 
-/** A settings repository whose personal writes follow the read-only rule; account rows pass. */
-export function guardPersonalSettings<T extends Record<PersonalSettingsWrite, (...args: never[]) => unknown>>(
-  repo: T,
-): T {
-  return guardWrites(repo, PERSONAL_SETTINGS_WRITES, personalWritesBlocked);
+/**
+ * A settings repository whose personal writes follow the read-only rule; account
+ * rows pass. Wraps only the personal writes the repository actually has, so a
+ * repository without one (such as saveNoticeSeen) is still wrapped and passes
+ * everything else through.
+ */
+export function guardPersonalSettings<T extends object>(repo: T): T {
+  const present = PERSONAL_SETTINGS_WRITES.filter(
+    (name): name is PersonalSettingsWrite & keyof T => typeof (repo as Record<string, unknown>)[name] === "function",
+  );
+  return guardWrites(repo, present, personalWritesBlocked);
 }
