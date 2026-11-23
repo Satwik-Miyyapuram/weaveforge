@@ -2,7 +2,8 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { renderToStaticMarkup } from "react-dom/server";
 
-import { Migrate097Gate } from "../migrate-097-gate";
+import type { DesktopBridge } from "../desktop-bridge";
+import { Migrate097Gate, desktopRunExport } from "../migrate-097-gate";
 import { shouldShowFinishRemoving, shouldShowRetry, shouldShowUpgrade } from "../migrate-097-gate-decision";
 
 const FOLDER = "C:\\Users\\me\\Documents\\WeaveForge";
@@ -14,6 +15,15 @@ test("only an incomplete migration in an open folder shows the upgrade screen", 
   assert.equal(shouldShowUpgrade("verified", FOLDER), false, "a verified folder needs no screen");
   assert.equal(shouldShowUpgrade("unavailable", FOLDER), false, "an unanswered read shows nothing");
   assert.equal(shouldShowUpgrade("incomplete", null), false, "no folder, no upgrade");
+});
+
+test("a verified run whose desktop mark never landed shows the upgrade screen, not removal", async () => {
+  const { migrate097Status } = await import("../migrate-097");
+  const { canRemoveOld } = await import("../migrate-097-remove-old");
+  const status = { state: "verified", deviceId: "d", ownRunVerified: true, exportedHere: false, backupPath: "C:/b.dump" } as const;
+  const resolved = await migrate097Status({ migrate097Status: async () => status }, FOLDER);
+  assert.equal(shouldShowUpgrade(resolved, FOLDER), true);
+  assert.equal(canRemoveOld(status), false);
 });
 
 test("any state that leaves the window read-only or unknown shows a Retry banner", () => {
@@ -42,4 +52,22 @@ test("outside the desktop shell the gate renders its children and no upgrade scr
     </Migrate097Gate>,
   );
   assert.equal(html, "<p>workspace</p>");
+});
+
+test("inside the shell the desktop upgrade gets a real exporter, never null", async () => {
+  const calls: string[] = [];
+  const shell = {
+    migrate097Read: async () => [],
+    vaultRoot: async () => ({ path: "C:\\other", state: "existing" }),
+    migrate097Backup: async () => {
+      calls.push("backup");
+      return { deviceId: "d", dumpPath: "x.dump" };
+    },
+  } as unknown as DesktopBridge;
+  const runner = desktopRunExport(shell);
+  assert.ok(runner, "the desktop exporter is wired");
+  // The real runner checks the open folder first: a different one refuses before any backup.
+  await assert.rejects(runner(FOLDER, () => {}), /open workspace is not the folder/);
+  assert.deepEqual(calls, []);
+  assert.equal(desktopRunExport(null), null, "outside the shell there is no desktop exporter");
 });

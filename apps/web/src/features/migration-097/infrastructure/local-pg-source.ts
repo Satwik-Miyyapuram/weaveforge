@@ -39,6 +39,13 @@ const PAGE_LIMIT = 1000;
 
 const NOT_WIRED = "not wired";
 
+/** Ciphertext columns 0099 dropped. A row still holding one cannot be exported in plain text. */
+const CIPHER_COLUMNS = ["content_enc", "list_content_enc"] as const;
+
+function hasCiphertext(row: Row): boolean {
+  return CIPHER_COLUMNS.some((column) => row[column] !== null && row[column] !== undefined);
+}
+
 /** A row is trashed when the local deleted_at column is set (the same column PostgREST filters on). */
 function isTrashed(row: Row): boolean {
   return row.deleted_at !== null && row.deleted_at !== undefined;
@@ -50,7 +57,6 @@ export interface LocalPgSourceOptions {
   pageSize?: number;
   /** Unflushed local writes. Not part of the old local database, so the caller supplies it or the export refuses. */
   pendingOutbox?: () => Promise<number>;
-  undecryptable?: (kind: string) => Promise<number>;
   secretProviders?: () => Promise<string[]>;
   fetchBlob?: (ref: BlobRef) => Promise<Uint8Array>;
   markExported097?: () => Promise<void>;
@@ -63,16 +69,30 @@ export interface LocalPgSourceOptions {
  */
 export class LocalPgSource implements ServerSource {
   private readonly opts: LocalPgSourceOptions;
+  /** Rows per kind, read once per source (one source per run), so count, list and trash see the same rows. */
+  private readonly cache = new Map<string, Promise<Row[]>>();
 
   constructor(opts: LocalPgSourceOptions) {
     this.opts = opts;
   }
 
+  /** Every row of `kind`, read once per source. A failed read is dropped from the cache, so a retry reads again. */
+  private readAll(kind: string): Promise<Row[]> {
+    let rows = this.cache.get(kind);
+    if (!rows) {
+      rows = this.readPages(kind);
+      this.cache.set(kind, rows);
+      rows.catch(() => this.cache.delete(kind));
+    }
+    return rows;
+  }
+
   /** Reads every page of `kind` in key order. A refused read rejects the whole listing. */
-  private async readAll(kind: string): Promise<Row[]> {
+  private async readPages(kind: string): Promise<Row[]> {
     const key = KEY_BY_KIND[kind];
     if (!key) throw new Error(`unknown kind: ${kind}`);
-    const limit = this.opts.pageSize ?? PAGE_LIMIT;
+    // The shell clamps a page to PAGE_LIMIT; asking for more would read a clamped full page as the last one.
+    const limit = Math.min(this.opts.pageSize ?? PAGE_LIMIT, PAGE_LIMIT);
     const out: Row[] = [];
     let after: readonly unknown[] | null = null;
     for (;;) {
@@ -80,7 +100,17 @@ export class LocalPgSource implements ServerSource {
       if (page.length === 0) return out;
       out.push(...page);
       const last = page[page.length - 1] as Row;
-      after = key.map((column) => last[column]);
+      const next = key.map((column) => {
+        const value = last[column];
+        if (value === null || value === undefined) throw new Error(`${kind}: read cursor key ${column} is missing`);
+        return value;
+      });
+      // A page ending on the cursor it was asked from would repeat forever; refuse instead.
+      if (after !== null && JSON.stringify(next) === JSON.stringify(after)) {
+        throw new Error(`${kind}: read cursor did not advance`);
+      }
+      if (page.length < limit) return out;
+      after = next;
     }
   }
 
@@ -105,7 +135,7 @@ export class LocalPgSource implements ServerSource {
     return trashed.map(toCamelRow);
   }
 
-  /** The live row count. One read is one snapshot, so it agrees with listRows by construction. */
+  /** The live row count. It filters the same cached rows listRows returns, so the two agree. */
   async countRows(kind: string): Promise<number> {
     if (FILE_ONLY_KINDS.includes(kind)) return 0;
     return (await this.listRows(kind)).length;
@@ -121,9 +151,13 @@ export class LocalPgSource implements ServerSource {
     return this.opts.pendingOutbox();
   }
 
+  /**
+   * Rows (live or trashed) that still hold ciphertext. 0099 dropped content_enc and the local schema replays
+   * the migrations, so this is 0; a nonzero count makes the run list the kind missing instead of passing it.
+   */
   async undecryptable(kind: string): Promise<number> {
-    if (!this.opts.undecryptable) throw new Error(`undecryptable ${NOT_WIRED}`);
-    return this.opts.undecryptable(kind);
+    if (FILE_ONLY_KINDS.includes(kind)) return 0;
+    return (await this.readAll(kind)).filter(hasCiphertext).length;
   }
 
   async listBlobs(): Promise<BlobRef[]> {

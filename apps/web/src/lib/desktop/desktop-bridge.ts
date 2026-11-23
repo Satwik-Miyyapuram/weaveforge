@@ -214,9 +214,10 @@ export interface DesktopBridge {
    * 0.9.7 export, desktop only: dumps the old local database before any export
    * read, and never overwrites an existing dump. Rejects when the dump cannot be
    * written, and the export then does not run. Answers with this install's id
-   * and the dump path (the shell's `migrate_097_backup`).
+   * and the dump path, kept in `folder`'s migration dir where the rotation never
+   * prunes it (the shell's `migrate_097_backup`).
    */
-  migrate097Backup?(): Promise<{ deviceId: string; dumpPath: string }>;
+  migrate097Backup?(folder: string): Promise<{ deviceId: string; dumpPath: string }>;
   /**
    * 0.9.7 export, desktop only: one read-only page of an exporter kind from the
    * old local database. `after` is the last row's key values (null for the first
@@ -225,6 +226,8 @@ export interface DesktopBridge {
   migrate097Read?(kind: string, after: readonly unknown[] | null, limit: number): Promise<Record<string, unknown>[]>;
   /** 0.9.7 export, desktop only: records a verified export. Never called otherwise. */
   migrate097MarkExported?(folder: string): Promise<void>;
+  /** 0.9.7, desktop only: row counts per old local table, plus the CRDT tail past each snapshot. */
+  migrate097Counts?(): Promise<{ counts: Record<string, number>; crdtTail: Record<string, number> }>;
   /** Try the remembered folder again; rejects with why it still cannot be used. */
   retryVaultRoot?(): Promise<DesktopVaultRoot | null>;
   /** Stop using, watching and remembering the folder; answers any warnings. The files stay. */
@@ -486,8 +489,14 @@ export interface DesktopBridge {
    * in-process, so the bridge carries no progress event.
    */
   migrate097Status?(folder: string): Promise<{
-    state: Migrate097StateName;
+    /** A Migrate097StateName, or a state the shell added later (`unexported`, `unavailable`). */
+    state: string;
     removedAt?: string;
+    verifiedAt?: string;
+    exportedTo?: string;
+    ownRunVerified?: boolean;
+    reason?: string;
+    step?: string;
     /** True when the export went to the open folder (EXPORT lands it; missing means false). */
     exportedHere?: boolean;
     backupPath?: string;

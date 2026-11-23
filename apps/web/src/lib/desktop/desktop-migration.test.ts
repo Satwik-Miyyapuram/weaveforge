@@ -2,18 +2,25 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { desktopMigrationFromBridge, type MigrationBridge } from "./desktop-migration";
 
-test("backup maps the shell's dumpPath to the engine's dump and drops the folder argument", async () => {
+test("backup passes the folder and maps the shell's dumpPath to a plain dump file name", async () => {
   const calls: string[] = [];
   const bridge: MigrationBridge = {
-    migrate097Backup: async () => {
-      calls.push("backup");
+    migrate097Backup: async (folder) => {
+      calls.push(`backup:${folder}`);
       return { deviceId: "dev-1", dumpPath: "C:/data/pre-097.sql" };
     },
     migrate097MarkExported: async () => {},
   };
   const migration = desktopMigrationFromBridge(bridge);
-  assert.deepEqual(await migration.backup("C:/folder"), { deviceId: "dev-1", dump: "C:/data/pre-097.sql" });
-  assert.deepEqual(calls, ["backup"]);
+  assert.deepEqual(await migration.backup("C:/folder"), { deviceId: "dev-1", dump: "pre-097.sql" });
+  assert.deepEqual(calls, ["backup:C:/folder"]);
+});
+
+test("backup names the migration-folder dump by its file name only, as the shell's remove step requires", async () => {
+  const bridge: MigrationBridge = {
+    migrate097Backup: async () => ({ deviceId: "d", dumpPath: "C:\\ws\\.weaveforge/migration-0.9.7\\pre-migration-1.dump" }),
+  };
+  assert.equal((await desktopMigrationFromBridge(bridge).backup("C:/folder")).dump, "pre-migration-1.dump");
 });
 
 test("backup failure propagates and no mark is written", async () => {

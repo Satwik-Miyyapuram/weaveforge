@@ -74,7 +74,7 @@ test("tables without deleted_at have no trash and keep every row", async () => {
   assert.deepEqual(await source.listRows("settings"), [{ userId: "u1", themeName: "crt" }]);
 });
 
-test("paging: each page cursors on the last row's key, stops on an empty page, cap is 1000", async () => {
+test("paging: each page cursors on the last row's key, stops on a short page, cap is 1000", async () => {
   const rows = Array.from({ length: 5 }, (_, i) => ({ id: `n${i}`, body: i }));
   const { read, calls } = fakeRead({ notes: rows });
   const source = new LocalPgSource({ read, pageSize: 2 });
@@ -82,9 +82,17 @@ test("paging: each page cursors on the last row's key, stops on an empty page, c
   assert.equal(got.length, 5);
   assert.deepEqual(
     calls.map((c) => c.after),
-    [null, ["n1"], ["n3"], ["n4"]],
+    [null, ["n1"], ["n3"]],
   );
   assert.ok(calls.every((c) => c.limit === 2));
+});
+
+test("a page size above the shell's 1000 cap is clamped, so a clamped full page does not end the listing", async () => {
+  const rows = Array.from({ length: 1500 }, (_, i) => ({ id: `n${String(i).padStart(4, "0")}` }));
+  const inner = fakeRead({ notes: rows });
+  const read: ReadPage = (kind, after, limit) => inner.read(kind, after, Math.min(limit, 1000));
+  assert.equal((await new LocalPgSource({ read, pageSize: 2000 }).listRows("notes")).length, 1500);
+  assert.ok(inner.calls.every((c) => c.limit === 1000));
 });
 
 test("default page size is the 1000-row cap the shell enforces", async () => {
@@ -117,6 +125,59 @@ test("a refused read rejects the whole listing (no partial rows)", async () => {
   await assert.rejects(source.listRows("notes"), /25006/);
 });
 
+test("a page that does not move the cursor past its last key rejects instead of looping", async () => {
+  let reads = 0;
+  const read: ReadPage = async () => {
+    reads += 1;
+    return [{ id: "n0" }, { id: "n1" }];
+  };
+  await assert.rejects(new LocalPgSource({ read, pageSize: 2 }).listRows("notes"), /cursor did not advance/);
+  assert.equal(reads, 2);
+});
+
+test("an exact multiple of the page size stops on the empty page after it", async () => {
+  const rows = Array.from({ length: 4 }, (_, i) => ({ id: `n${i}` }));
+  const { read, calls } = fakeRead({ notes: rows });
+  assert.equal((await new LocalPgSource({ read, pageSize: 2 }).listRows("notes")).length, 4);
+  assert.deepEqual(calls.map((c) => c.after), [null, ["n1"], ["n3"]]);
+});
+
+test("a null or missing key value rejects instead of paging on it", async () => {
+  for (const last of [{ id: null }, { body: 1 }]) {
+    const read: ReadPage = async () => [{ id: "n0" }, last];
+    await assert.rejects(new LocalPgSource({ read, pageSize: 2 }).listRows("notes"), /key id is missing/);
+  }
+  const metrics: ReadPage = async () => [{ experiment_id: "e1", metric: "loss", step: undefined }];
+  await assert.rejects(new LocalPgSource({ read: metrics, pageSize: 1 }).listRows("metrics"), /key step is missing/);
+});
+
+test("countRows, listRows and listTrashed read each kind once per run, so they see the same rows", async () => {
+  const { read, calls } = fakeRead({
+    papers: [
+      { id: "p1", deleted_at: null },
+      { id: "p2", deleted_at: "2026-11-01T00:00:00Z" },
+    ],
+  });
+  const source = new LocalPgSource({ read });
+  assert.equal(await source.countRows("papers"), 1);
+  assert.equal((await source.listRows("papers")).length, 1);
+  assert.equal((await source.listTrashed("papers")).length, 1);
+  assert.equal(calls.filter((c) => c.kind === "papers").length, 1);
+});
+
+test("a failed read is not cached: the next listing reads again", async () => {
+  let reads = 0;
+  const read: ReadPage = async () => {
+    reads += 1;
+    if (reads === 1) throw new Error("busy");
+    return [];
+  };
+  const source = new LocalPgSource({ read });
+  await assert.rejects(source.listRows("notes"), /busy/);
+  assert.deepEqual(await source.listRows("notes"), []);
+  assert.equal(reads, 2);
+});
+
 test("countRows is the live row count the listing returned", async () => {
   const { read } = fakeRead({
     papers: [
@@ -125,6 +186,22 @@ test("countRows is the live row count the listing returned", async () => {
     ],
   });
   assert.equal(await new LocalPgSource({ read }).countRows("papers"), 1);
+});
+
+test("undecryptable counts live and trashed rows that still carry ciphertext (0099 dropped content_enc)", async () => {
+  const { read } = fakeRead({
+    papers: [
+      { id: "p1", deleted_at: null },
+      { id: "p2", deleted_at: null, content_enc: "x" },
+      { id: "p3", deleted_at: "2026-11-01T00:00:00Z", list_content_enc: "y" },
+      { id: "p4", deleted_at: null, content_enc: null },
+    ],
+    settings: [{ user_id: "u1" }],
+  });
+  const source = new LocalPgSource({ read });
+  assert.equal(await source.undecryptable("papers"), 2);
+  assert.equal(await source.undecryptable("settings"), 0);
+  assert.equal(await source.undecryptable("ink"), 0);
 });
 
 test("listBlobs maps size_bytes to sizeBytes", async () => {
@@ -140,7 +217,6 @@ test("options that need the old database's other paths throw until wired", async
   const { read } = fakeRead({});
   const source = new LocalPgSource({ read });
   await assert.rejects(source.pendingOutbox(), /not wired/);
-  await assert.rejects(source.undecryptable("notes"), /not wired/);
   await assert.rejects(source.secretProviders(), /not wired/);
   await assert.rejects(source.fetchBlob({ bucket: "b", path: "p", sizeBytes: 1 }), /not wired/);
   await assert.rejects(source.markExported097(), /not wired/);
@@ -151,10 +227,8 @@ test("wired options are delegated", async () => {
   const source = new LocalPgSource({
     read,
     pendingOutbox: async () => 3,
-    undecryptable: async () => 2,
     secretProviders: async () => ["openai"],
   });
   assert.equal(await source.pendingOutbox(), 3);
-  assert.equal(await source.undecryptable("notes"), 2);
   assert.deepEqual(await source.secretProviders(), ["openai"]);
 });

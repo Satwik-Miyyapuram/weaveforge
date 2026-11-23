@@ -4,7 +4,9 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
+use weaveforge_shell_lib::local_pg::backup::list;
 use weaveforge_shell_lib::migrate_097::backup::write_backup;
+use weaveforge_shell_lib::migrate_097::cmd::keep_migration_copy;
 
 const DIR: &str = ".weaveforge/migration-0.9.7";
 const STAMP: &str = "20261122T100000Z";
@@ -68,4 +70,31 @@ fn rejects_a_stamp_that_is_not_a_plain_name_part() {
     let err = write_backup(&f, "dev-a", "../escape", &mut |_p: &Path| Ok(())).unwrap_err();
     assert!(err.contains("stamp"), "{err}");
     assert!(!f.join("escape.dump").exists());
+}
+
+#[test]
+fn the_migration_copy_is_outside_the_rotation_and_outlives_it() {
+    let f = folder("copy");
+    let rotation = f.join("local-db-backups");
+    fs::create_dir_all(&rotation).unwrap();
+    let source = rotation.join("local-pg-2026-11-23T01-02-03-004.dump");
+    fs::write(&source, b"PGDMP-rows").unwrap();
+    let out = keep_migration_copy(&f, "dev-a", &source).unwrap();
+    assert_eq!(out.dump, "pre-migration-2026-11-23T01-02-03-004.dump");
+    let dir = f.join(DIR);
+    // Prune only ever removes what `list` returns; the migration copy is never listed.
+    assert!(list(&dir).is_empty());
+    // Removing the old data deletes the rotation; the copy report.json names stays.
+    fs::remove_dir_all(&rotation).unwrap();
+    assert_eq!(fs::read(dir.join(&out.dump)).unwrap(), b"PGDMP-rows");
+}
+
+#[test]
+fn the_migration_copy_refuses_a_file_that_is_not_a_rotation_dump() {
+    let f = folder("notrot");
+    let source = f.join("other.dump");
+    fs::write(&source, b"x").unwrap();
+    let err = keep_migration_copy(&f, "dev-a", &source).unwrap_err();
+    assert!(err.contains("not a rotation dump"), "{err}");
+    assert!(!f.join(DIR).exists());
 }

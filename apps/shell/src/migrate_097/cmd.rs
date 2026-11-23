@@ -65,22 +65,51 @@ pub struct MigrationBackup {
     pub dump_path: String,
 }
 
-/// Dumps the local database before the export, changed or not. Never overwrites a backup; any
-/// failure is an error, and the web gate then marks nothing.
+/// Dumps the local database before the export, changed or not, and keeps a copy as
+/// `<folder>/.weaveforge/migration-0.9.7/pre-migration-<stamp>.dump`. The rotation in
+/// `local-db-backups` prunes its own `local-pg-*` files and is deleted with the old data; the
+/// migration copy is in neither, so the dump `report.json` names outlives both. Never overwrites a
+/// backup; any failure is an error, and the web gate then marks nothing.
 #[tauri::command]
 #[specta::specta]
 pub async fn migrate_097_backup(
     app: tauri::AppHandle,
     db: tauri::State<'_, LocalDb>,
+    folder: String,
 ) -> Result<MigrationBackup, ShellError> {
     let device = device_id(&app)?;
     let written = db.backup_now(SystemTime::now()).await?;
-    let dump = written
+    let source = written
         .first()
         .ok_or_else(|| ShellError::from("backup wrote no file".to_owned()))?;
+    let folder = PathBuf::from(folder);
+    let kept = keep_migration_copy(&folder, &device, source).map_err(ShellError::from)?;
     Ok(MigrationBackup {
         device_id: device,
-        dump_path: dump.to_string_lossy().into_owned(),
+        dump_path: folder
+            .join(crate::migrate_097::remove::MIGRATION_DIR)
+            .join(kept.dump)
+            .to_string_lossy()
+            .into_owned(),
+    })
+}
+
+/// Copies the rotation dump `source` (`local-pg-<stamp>.dump`) into the migration folder under
+/// the same stamp, through `write_backup` (never overwrites, cleans up a failed copy).
+pub fn keep_migration_copy(
+    folder: &std::path::Path,
+    device: &str,
+    source: &std::path::Path,
+) -> Result<crate::migrate_097::backup::BackupOut, String> {
+    let name = source.file_name().and_then(|n| n.to_str()).unwrap_or("");
+    let stamp = name
+        .strip_prefix("local-pg-")
+        .and_then(|n| n.strip_suffix(".dump"))
+        .ok_or_else(|| format!("refused: {name:?} is not a rotation dump"))?;
+    crate::migrate_097::backup::write_backup(folder, device, stamp, &mut |path| {
+        std::fs::copy(source, path)
+            .map(|_| ())
+            .map_err(|e| format!("cannot copy the backup: {e}"))
     })
 }
 
