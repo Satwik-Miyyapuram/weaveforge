@@ -200,11 +200,10 @@ export function wireLightBackend(config: BackendConfig = readBackendConfig()): L
   const db = createDataClient(url, anonKey, config.dataUrl);
   const session = new SupabaseSessionProvider(db);
   const auth = new SupabaseAuthService(db);
-  // The same credentials store the full container will pick, and for the same
-  // reason: this container is the one that handles the sign-in and the very
-  // first settings write, so on a build with no routes of its own it must not
-  // reach for `/api/settings/credentials` either.
-  const settingsRepository = new PostgrestSettingsRepository(db, session, secretsStoreFor(db));
+  // The same credentials store the full container will pick: this container
+  // handles the sign-in and the very first settings write, so it must keep keys
+  // where the full container would (see `secretsStoreFor`).
+  const settingsRepository = new PostgrestSettingsRepository(db, session, secretsStoreFor());
   const manageSettings = new ManageSettingsUseCaseClass({ repository: settingsRepository, clock: systemClock });
   return {
     auth,

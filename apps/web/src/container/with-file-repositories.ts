@@ -69,7 +69,6 @@ export const SERVER_BACKEND_KEYS: ReadonlySet<string> = new Set([
   "db", // database client; guarded by readOnlyDb in read-only mode
   "session", // current-user identity provider, not stored data
   "auth", // sign-in service (Supabase), not stored data
-  "adminProvisioner", // org admin provisioning on the server
   "projectContext", // active project id, not stored data
   "releaseNoticesRepository", // release notices are published by the server, not user data
   "manageSettings", // settings use case; the desktop overlay rebuilds it over the file settings repo

@@ -22,7 +22,6 @@ import {
   type AddPaperDeps,
   AddPaperUseCase,
   type IAccountProvisioner,
-  type IAdminUserProvisioner,
   type IBlobFetcher,
   type ICurrentUserProvider,
   type IMetadataSource,
@@ -43,7 +42,6 @@ import { type BackendConfig, readBackendConfig } from "../backend/parts";
 import { wireNoAccountBackend } from "./no-account-file-backend";
 import { isLocalMode } from "@/features/auth/infrastructure/no-account-mode";
 import type { WiredPostgrestBackend } from "../backend/providers/postgrest/wire-postgrest-backend";
-import { SupabaseAdminUserProvisioner } from "../backend/providers/supabase-auth/parts";
 import type { InkChunkStore } from "../features/ink/application/parts-1";
 import type {
   ReferenceLookupCache,
@@ -53,12 +51,19 @@ import type { IVaultAssetStore } from "../features/vault/domain/vault-assets";
 
 // --- app-parts ---
 // --- http-account-provisioner ---
+/** The request body: the member is invited, so any password a caller passes stays here. */
+function withoutPassword(input: NewMemberInput): Omit<NewMemberInput, "password"> {
+  const { password: _ignored, ...body } = input;
+  return body;
+}
 /**
  * Provisions accounts by POSTing to our own privileged server route
  * (/api/admin/create-user), which holds the Supabase service-role key. The
  * caller's access token authenticates the request so the server can re-check
- * permissions. This is the only adapter that talks to that route.
+ * permissions. The server invites the member by email, so no password is sent.
+ * This is the only adapter that talks to that route.
  */
+
 export class HttpAccountProvisioner implements IAccountProvisioner {
   constructor(
     private readonly auth: Pick<IAuthService, "getAccessToken">,
@@ -74,7 +79,7 @@ export class HttpAccountProvisioner implements IAccountProvisioner {
         "Content-Type": "application/json",
         Authorization: `Bearer ${token}`,
       },
-      body: JSON.stringify(input),
+      body: JSON.stringify(withoutPassword(input)),
     });
     const payload = (await res.json().catch(() => ({}))) as {
       member?: Member;
@@ -385,12 +390,6 @@ export function wireBackend(
   }
 }
 
-/** Server-only admin provisioner (null when service role key is unset). */
-export function getAdminProvisioner(config: BackendConfig = readBackendConfig()): IAdminUserProvisioner | null {
-  const { supabaseUrl, supabaseServiceRoleKey } = config;
-  if (!supabaseUrl || !supabaseServiceRoleKey) return null;
-  return new SupabaseAdminUserProvisioner(supabaseUrl, supabaseServiceRoleKey);
-}
 
 // --- lifecycle ---
 /**

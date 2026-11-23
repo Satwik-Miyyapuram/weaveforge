@@ -211,7 +211,6 @@ function CreateAccountForm({
 }) {
   const [email, setEmail] = useState("");
   const [fullName, setFullName] = useState("");
-  const [password, setPassword] = useState("");
   const [role, setRole] = useState<Role>(allowedRoles[0] ?? "masters");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -225,14 +224,12 @@ function CreateAccountForm({
     try {
       const created = await getContainer().org.createMember({
         email,
-        password,
         fullName: fullName || undefined,
         role,
       });
-      setDone(`Created ${created.email} as ${ROLE_LABELS[created.role]}.`);
+      setDone(`Invited ${created.email} as ${ROLE_LABELS[created.role]}. They set a password from the email.`);
       setEmail("");
       setFullName("");
-      setPassword("");
       await onCreated();
     } catch (err) {
       setError(formatError(err));
@@ -245,7 +242,7 @@ function CreateAccountForm({
     <form className="add-form" onSubmit={submit}>
       <h3 className="settings-group">Create an account</h3>
       <p className="muted" style={{ margin: "4px 0 12px" }}>
-        The new member will be supervised by you.
+        We email the new member an invite to set their password. They will be supervised by you.
       </p>
 
       <div className="field">
@@ -279,18 +276,6 @@ function CreateAccountForm({
           onChange={(e) => setEmail(e.target.value)}
           placeholder="ada@university.edu"
           autoComplete="off"
-          required
-        />
-      </div>
-      <div className="field">
-        <label htmlFor="new-password">Temporary password</label>
-        <input
-          id="new-password"
-          type="password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          placeholder="at least 8 characters"
-          autoComplete="new-password"
           required
         />
       </div>

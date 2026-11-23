@@ -14,8 +14,7 @@
  */
 import assert from "node:assert/strict";
 import { before, describe, it } from "node:test";
-import type { SupabaseClient } from "@supabase/supabase-js";
-import { RouteSecretsStore } from "@/features/settings/infrastructure/parts";
+import { ApiKeysNotInBrowserError, RefusingSecretsStore } from "../providers/files/refusing-secrets-store";
 import { loadTestCore } from "@/lib/test/load-test-core";
 import type { DesktopBridge } from "@/lib/desktop/desktop-bridge";
 import {
@@ -61,28 +60,33 @@ function fakeBridge() {
   return { bridge: bridge as unknown as DesktopBridge, writes };
 }
 
-/** A client that can answer the only thing the route store asks it. */
-function clientWithToken(token: string | null = "token"): SupabaseClient {
-  return {
-    auth: {
-      getSession: async () => ({ data: { session: token ? { access_token: token } : null } }),
-    },
-  } as unknown as SupabaseClient;
-}
 
 describe("choosing a credentials store", () => {
-  it("asks the route when this deployment has routes of its own", () => {
-    const store = secretsStoreFor(clientWithToken(), true);
-    assert.ok(store instanceof RouteSecretsStore);
-    assert.ok(!(store instanceof DeviceSecretsStore));
+  it("keeps none on the hosted web and never asks the retired route (0.9.8)", async () => {
+    // `/api/settings/credentials` answers 410 from 0.9.8: the hosted web uses the same
+    // store as the browser workspace, which holds no keys and sends nothing anywhere.
+    const store = secretsStoreFor(true);
+    assert.ok(store instanceof RefusingSecretsStore);
+    const real = globalThis.fetch;
+    let fetched = 0;
+    globalThis.fetch = (async () => {
+      fetched += 1;
+      return new Response("{}", { status: 410 });
+    }) as typeof fetch;
+    try {
+      assert.deepEqual(await store.load(), {});
+      await assert.rejects(store.save({ zoteroApiKey: "k" }), ApiKeysNotInBrowserError);
+    } finally {
+      globalThis.fetch = real;
+    }
+    assert.equal(fetched, 0, "no request reaches the server");
   });
 
   it("keeps them on this machine when it has none", () => {
     // The desktop export: signed in or not, `/api/settings/credentials` is not
     // in the bundle, so there is no route to ask.
-    const store = secretsStoreFor(clientWithToken(), false);
+    const store = secretsStoreFor(false);
     assert.ok(store instanceof DeviceSecretsStore);
-    assert.ok(!(store instanceof RouteSecretsStore));
   });
 });
 
@@ -90,7 +94,7 @@ describe("the offline credentials store", () => {
   it("writes through the keychain", async () => {
     const fake = fakeBridge();
     await withWindow(fake.bridge, async () => {
-      const store = secretsStoreFor(clientWithToken(), false);
+      const store = secretsStoreFor(false);
       await store.save({ zoteroApiKey: "k" });
       assert.ok(fake.writes.includes(`${DEVICE_SECRETS_NAME}/zoteroApiKey`), "the key went to the keychain");
       assert.deepEqual(await store.load(), { zoteroApiKey: "k" });
@@ -120,35 +124,5 @@ describe("the offline credentials store", () => {
   it("the desktop keychain with no bridge refuses a write with KeychainUnavailableError", async () => {
     // null, not undefined: an undefined argument would fall back to the default (the window's bridge).
     await assert.rejects(desktopKeychain(null).write("zoteroApiKey", "k"), KeychainUnavailableError);
-  });
-});
-
-describe("the route credentials store", () => {
-  it("goes to the same-origin route, carrying the session's token", async () => {
-    // The other half of the pair: on a deployment that has the route, this is
-    // still where secrets belong, and the two stores must differ in what they
-    // actually do rather than only in type.
-    const seen: Array<{ url: string; init: RequestInit | undefined }> = [];
-    const real = globalThis.fetch;
-    globalThis.fetch = (async (url: string, init?: RequestInit) => {
-      seen.push({ url, init });
-      return { ok: true, json: async () => ({ zoteroApiKey: "k" }) } as unknown as Response;
-    }) as unknown as typeof globalThis.fetch;
-
-    try {
-      const store = new RouteSecretsStore(clientWithToken("abc"));
-      assert.deepEqual(await store.load(), { zoteroApiKey: "k" });
-    } finally {
-      globalThis.fetch = real;
-    }
-
-    assert.equal(seen.length, 1);
-    const request = seen[0];
-    if (!request) assert.fail("the store made no request");
-    assert.equal(request.url, "/api/settings/credentials");
-    assert.equal(
-      (request.init?.headers as Record<string, string> | undefined)?.Authorization,
-      "Bearer abc",
-    );
   });
 });
