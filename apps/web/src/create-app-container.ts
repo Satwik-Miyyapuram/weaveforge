@@ -55,7 +55,6 @@ import { withDeleteTrashesFile } from "@/features/vault/application/delete-trash
 import { withRenameLinkRewrite } from "@/features/vault/application/rename-updates-links";
 import { LoadReportScreenUseCase } from "@/features/report/application/parts";
 import { LoadPlanScreenUseCase } from "@/features/plan/application/parts";
-import { PlanFeedLinks } from "@/features/plan/infrastructure/plan-feed-links";
 import { LoadReadingListsScreenUseCase } from "@/features/reading-lists/application/parts";
 import { DuplicateSharedVaultPageUseCase } from "@/features/library/application/duplicate-shared-vault.use-case";
 import { LoadSharedWithMeScreenUseCase } from "@/features/sharing/application/parts";
@@ -663,8 +662,6 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
       milestones: milestoneRepository,
       manageMilestone,
       notifications,
-      feedLinks: new PlanFeedLinks(backend.db, backend.session),
-      feedLinksAvailable: !filesMode,
     }),
     logbook: new LogbookFacade({
       logEntries: logEntryRepository,

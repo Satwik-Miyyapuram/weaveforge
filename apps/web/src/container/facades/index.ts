@@ -18,7 +18,6 @@ import type {
   LoadPlanScreenUseCase,
   PlanScreenData as PlanScreenLoadData,
 } from "@/features/plan/application/parts";
-import type { PlanFeedLinks } from "@/features/plan/infrastructure/plan-feed-links";
 import type {
   createReferenceActions,
   ReferenceLookupService,
@@ -227,19 +226,11 @@ export class PlanFacade {
       milestones: IMilestoneRepository;
       manageMilestone: IMilestoneManager;
       notifications: INotificationIntegration;
-      /** The calendar / widget link (Settings → Calendar). */
-      feedLinks: PlanFeedLinks;
-      /** False in files mode: the calendar link is an api_tokens row the files-mode guard refuses. */
-      feedLinksAvailable?: boolean;
     },
   ) {}
 
   loadScreenData(): Promise<PlanScreenData> {
     return this.deps.load.execute();
-  }
-
-  get feedLinksAvailable(): boolean {
-    return this.deps.feedLinksAvailable ?? true;
   }
 
   getMilestone(id: string) {
@@ -248,10 +239,6 @@ export class PlanFacade {
 
   notifyMilestone(event: "added" | "status", milestone: Milestone) {
     return this.deps.notifications.notifyMilestone(event, milestone);
-  }
-
-  get feedLinks() {
-    return this.deps.feedLinks;
   }
 
   get manageMilestone() {

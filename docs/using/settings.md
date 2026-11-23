@@ -8,7 +8,7 @@ checked: 2026-11-14
 # Settings
 
 Settings hold your appearance, your theme file, your integration keys, your
-access tokens, your calendar link and the acceptance of the privacy disclaimer.
+access tokens and the acceptance of the privacy disclaimer.
 Most of them are saved to your account, so they follow you to every device you
 sign in on. The one exception is integration keys in the desktop app, which stay
 on the computer you are using.
@@ -49,8 +49,8 @@ The tabs appear in this order.
 - **Integrations**: the metadata sources for your library. Click one to enter its keys.
 - **Sync**: how your changes are kept in step. **Needs you** lists anything that
   needs your attention, such as **Changes that could not be saved**.
-- **Calendar**: the private link that puts your deadlines in a calendar app. See
-  the calendar section below.
+- **Calendar**: the desktop deadlines card, and a note that old calendar links
+  stopped working. See the calendar section below.
 - **Data**: **Your data** to export, the **Application log**, **Space on this
   computer**, and **Delete account** at the bottom if you have an account.
 - **Updates**: the version you are running and any update for the desktop app.
@@ -126,45 +126,16 @@ To stop an AI tool from connecting, click **Revoke** on its row. WeaveForge asks
 This section only appears where AI tool tokens are served. In the desktop app, AI
 tools connect to this computer instead; see [Integrations](integrations.md).
 
-## Calendar feed
+## Calendar
 
-One private link puts every dated milestone in your calendar app as an all-day
-event, and keeps it up to date as your dates change. Widgets on your phone read the
-same link. In the desktop app there is also a widget for your wallpaper, which reads
-this computer's own copy instead of the link.
+Calendar links made in versions before 0.9.8 no longer work, and the app no
+longer makes them. The calendar they were added to stops updating. You can
+remove it from your calendar app.
 
-On the **Calendar** tab you can choose:
-
-- **Reminder**: **No reminder**, **1 day before** (the default), **3 days before**
-  or **1 week before**.
-- **Include finished milestones**: tick this to keep milestones you have already
-  finished in the calendar. They are left out by default.
-
-To make the link, click **Make a link**. You get two links: the **Calendar link** for
-calendar apps, and the **Widget link** for phone widgets. Click **Copy** next to the
-one you need. The full link is shown only once, right after it is made. After that
-the panel only says a link is on, and shows a short prefix for it.
-
-To add the link to your calendar app, use the "add a calendar from a URL" option in
-the app and paste the **Calendar link** into it:
-
-- **Google Calendar**: add a calendar from a URL in the other calendars menu, and
-  paste the link.
-- **Outlook**: add a calendar that you subscribe to from the web, and paste the link.
-- **Apple Calendar**: open the link straight away. The panel has an **open in
-  calendar app** link that does this.
-
-If you change the options above, you do not need a new link. Click **Copy** again,
-and the same link takes the new options.
-
-To replace the link, click **Make a new link** and confirm **Make new link**. The
-calendars and widgets using the old link stop updating, so you will need to add the
-new one to them. To stop the feed altogether, click **Turn off** and confirm. Their
-events stay in the calendar until you remove that calendar.
-
-**Privacy warning:** the link is a secret. Anyone who has it can see your milestones.
-Do not post it in a chat, a shared document or a
-public place. If you think it has leaked, click **Make a new link** straight away.
+In the desktop app on Windows, the **Calendar** tab has **Show deadlines on the
+desktop**. It puts a small card with your next deadlines on your wallpaper. The
+card reads the workspace folder on this computer, so it stays empty when no
+folder is open.
 
 ## Reference
 
