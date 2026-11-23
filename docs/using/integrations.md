@@ -147,8 +147,7 @@ channel (otherwise the default channel):
 - **Citation alerts**: new papers cite a paper you track.
 - **Daily and weekly logs**: a log entry is saved.
 
-Milestone deadlines are not posted. For deadline reminders, use the Plan calendar feed,
-which can remind you 1 day, 3 days, or 1 week before a due date.
+Milestone deadlines are not posted.
 
 ---
 

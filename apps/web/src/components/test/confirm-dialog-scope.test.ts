@@ -19,7 +19,6 @@ const ALLOWED = [
   // Replacing the saved Overleaf token, which every linked report uses.
   "features/report/ui/overleaf-report-forms.tsx",
   "features/settings/ui/api-tokens-panel.tsx",
-  "features/settings/ui/calendar-feed-panel.tsx",
   "features/settings/ui/local-api-panel.tsx",
   "features/settings/ui/mcp-tokens-panel.tsx",
 ];
