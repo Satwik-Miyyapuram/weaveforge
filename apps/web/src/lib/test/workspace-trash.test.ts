@@ -39,3 +39,31 @@ test("two same-day deletes of the same path keep both copies", async () => {
   const texts = await Promise.all(all.map((p) => fs.readText(p)));
   assert.deepEqual(texts.sort(), ["first", "second"]);
 });
+test("a rename that throws while the source cannot be checked leaves no empty claim", async () => {
+  const fs = new MemoryWorkspaceFs();
+  await fs.writeFile("notes/a.md", "keep me");
+  const stat = fs.stat.bind(fs);
+  fs.rename = async () => {
+    throw new Error("disk full");
+  };
+  fs.stat = async () => {
+    throw new Error("io error");
+  };
+  await assert.rejects(moveToTrash(fs, "notes/a.md", Date.now()), /disk full/);
+  fs.stat = stat;
+  assert.deepEqual(await files(fs), ["notes/a.md"]);
+});
+
+test("a move that lands and then reports a failure keeps the trashed copy", async () => {
+  const fs = new MemoryWorkspaceFs();
+  await fs.writeFile("notes/a.md", "");
+  const rename = fs.rename.bind(fs);
+  fs.rename = async (from, to) => {
+    await rename(from, to);
+    throw new Error("lost reply");
+  };
+  await moveToTrash(fs, "notes/a.md", Date.now());
+  const all = await files(fs);
+  assert.equal(all.length, 1, all.join());
+  assert.match(all[0] ?? "", /^\.weaveforge\/trash\//);
+});
