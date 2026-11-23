@@ -50,6 +50,6 @@ applies in the right order from one command.
 
 ## What lives here?
 
-Extra schema that **must not** exist on Supabase Cloud — e.g. a minimal `auth.users` stub and `auth.uid()` reading the JWT `sub` set per request (PostgREST does this in production; the desktop shell does it in `apps/shell/src/local_pg/db.rs`).
+Extra schema that **must not** exist on Supabase Cloud — e.g. a minimal `auth.users` stub and `auth.uid()` reading the JWT `sub` set per request (PostgREST does this in production).
 
 See [`docs/running/postgres-provider.md`](../../docs/running/postgres-provider.md).

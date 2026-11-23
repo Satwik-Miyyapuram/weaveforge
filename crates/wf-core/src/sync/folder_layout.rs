@@ -611,9 +611,6 @@ pub const DEVICE_SETTINGS_PATH: &str = ".weaveforge/local/device.json";
 /// Local bases database; never synced.
 pub const BASES_DB_PATH: &str = ".weaveforge/local/bases.sqlite";
 
-/// Local search and cache database; never synced.
-pub const CACHE_DB_PATH: &str = ".weaveforge/cache/cache.sqlite";
-
 /// Trash folder for removed files, one dated subfolder per day.
 pub const TRASH_DIR: &str = ".weaveforge/trash";
 
