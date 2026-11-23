@@ -40,38 +40,72 @@ const TEST_DB_HELPERS = new Set([
 ]);
 const inTestFolder = (rel: string) => /[\\/]test[\\/]/.test(rel);
 
+/** The code only: whole-line comments (`//`, `/*`, ` * `) are dropped so prose cannot trip a guard. */
+function code(text: string): string {
+  return text.split("\n").filter((line) => !/^\s*(?:\/\/|\/\*|\*)/.test(line)).join("\n");
+}
+
 function offenders(pattern: RegExp, except: (rel: string) => boolean = () => false): string[] {
   return sources
     .filter((rel) => !except(rel))
-    .filter((rel) => pattern.test(readFileSync(join(REPO, rel), "utf8")));
+    .filter((rel) => pattern.test(code(readFileSync(join(REPO, rel), "utf8"))));
 }
 
+/** A module specifier: after `from`, a side-effect `import`, or `import(` / `require(`. */
+const SPEC = /(?:\bfrom\s+|\bimport\s+|\bimport\(\s*|\brequire\(\s*)["'`]/.source;
+
+const LOCAL_DB = new RegExp([
+  /["'`][^"'`\n]*(?:providers\/local(?:\/|["'`])|pglite|local-pg|local_pg)/.source,
+  // The local provider from next door: ./local, ../local, ../local.ts, ../local/x.
+  /["'`](?:\.{1,2}\/)+local(?:\.[cm]?[jt]sx?)?["'`/]/.source,
+  // A bare "local" specifier (a path alias or package named local).
+  `${SPEC}local["'\`/]`,
+  /\bLocalRunner\b|LocalModeBadge|local-mode-badge/.source,
+].join("|"), "i");
+
+const TEST_IMPORT = new RegExp(`${SPEC}[^"'\`\\n]*\\/test\\/`);
+
 test("no source file imports the local database or uses LocalRunner or the badge", () => {
-  const LOCAL_DB = new RegExp([
-    /["'`][^"'`\n]*(?:providers\/local(?:\/|["'`])|pglite|local-pg|local_pg)/.source,
-    /["'`]\.\.\/local["'`/]/.source,
-    /\bLocalRunner\b|LocalModeBadge|local-mode-badge/.source,
-  ].join("|"), "i");
   assert.deepEqual(offenders(LOCAL_DB, (rel) => TEST_DB_HELPERS.has(rel)), []);
 });
 
-test("the guard's pattern catches index, relative and template imports", () => {
-  const LOCAL_DB = /["'`][^"'`\n]*(?:providers\/local(?:\/|["'`])|pglite|local-pg|local_pg)|["'`]\.\.\/local["'`/]/i;
+test("the guard's pattern catches index, relative, bare and template imports", () => {
   for (const line of [
     `import x from "@/backend/providers/local";`,
     `import x from "@/backend/providers/local/runner";`,
     `import x from "../local";`,
+    `import x from "./local";`,
+    `import x from "../local.ts";`,
+    `import x from "../../local/runner";`,
+    `import x from "local";`,
+    `import "local/side-effect";`,
     "await import(`@/backend/providers/local/pglite-client`);",
     `import { PGlite } from "@electric-sql/pglite";`,
   ]) assert.match(line, LOCAL_DB, line);
-  for (const line of [`import x from "./local-storage";`, `import x from "@/backend/providers/files";`]) {
-    assert.doesNotMatch(line, LOCAL_DB, line);
-  }
+  for (const line of [
+    `import x from "./local-storage";`,
+    `import x from "../localize";`,
+    `import x from "@/backend/providers/files";`,
+    `const area: StorageArea = "local";`,
+    `providers: ["local"],`,
+  ]) assert.doesNotMatch(line, LOCAL_DB, line);
 });
 
 test("no shipped file imports a test helper", () => {
-  const TEST_IMPORT = /from\s+["'`][^"'`\n]*\/test\/|import\(\s*["'`][^"'`\n]*\/test\//;
   assert.deepEqual(offenders(TEST_IMPORT, inTestFolder), []);
+});
+
+test("the test-helper pattern catches named, side-effect and dynamic imports, not comments", () => {
+  for (const line of [
+    `import { x } from "@/backend/test/pg-test-db";`,
+    `import "../test/setup";`,
+    "const m = await import(`./test/helper`);",
+  ]) assert.match(line, TEST_IMPORT, line);
+  for (const line of [`import x from "./latest/thing";`, `const url = "/api/test/";`]) {
+    assert.doesNotMatch(line, TEST_IMPORT, line);
+  }
+  const commented = ["// see import x from \"../test/fixture\"", " * import \"../test/setup\"", "/* from \"./test/a\" */"].join("\n");
+  assert.doesNotMatch(code(commented), TEST_IMPORT);
 });
 
 test("PGlite is a dev dependency only", () => {

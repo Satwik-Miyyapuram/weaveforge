@@ -1,3 +1,5 @@
+import { desktop, type DesktopBridge } from "@/lib/desktop/desktop-bridge";
+
 /** What "Use without an account" needs from the app. */
 export interface EnterNoAccountDeps {
   /** Opens the folder dialog; `false` when it was dismissed or there is no shell. */
@@ -25,15 +27,27 @@ export async function enterNoAccount(deps: EnterNoAccountDeps): Promise<boolean>
 }
 
 /**
- * The desktop wiring: the caller brings the folder dialog and the warnings
- * notice; the flag is set only here, through the files provider, and its
- * module loads on click so the sign-in bundle stays light.
+ * Ask the shell for a folder and nothing more: the shell remembers the pick,
+ * and the reloaded window connects it. Connecting here would watch and sync the
+ * folder while the window is still signed out, before the choice is remembered.
  */
-export function enterNoAccountOnDesktop(
-  ui: Pick<EnterNoAccountDeps, "chooseFolder" | "showWarnings">,
-): Promise<boolean> {
+export async function pickFolderOnly(
+  bridge: Pick<DesktopBridge, "chooseVaultRoot"> | null,
+): Promise<false | { warnings: readonly string[] }> {
+  const root = await bridge?.chooseVaultRoot();
+  if (!root) return false;
+  return { warnings: root.warnings ?? [] };
+}
+
+/**
+ * The desktop wiring: the caller brings the warnings notice; the flag is set
+ * only here, through the files provider, and its module loads on click so the
+ * sign-in bundle stays light.
+ */
+export function enterNoAccountOnDesktop(ui: Pick<EnterNoAccountDeps, "showWarnings">): Promise<boolean> {
   return enterNoAccount({
     ...ui,
+    chooseFolder: () => pickFolderOnly(desktop()),
     remember: async () => (await import("./no-account-mode")).setLocalMode(true),
     reload: () => window.location.reload(),
   });

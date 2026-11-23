@@ -32,7 +32,7 @@ The first screen is the sign-in screen. You can sign in in a few ways, and
 
 On the desktop app you can also press **Use without an account**. You pick a
 workspace folder, read any warnings about it and press **Continue**, and the
-app restarts with your work as files in that folder on this computer. **Sign
+window reloads with your work as files in that folder on this computer. **Sign
 out** in the account menu brings the sign-in screen back; your files stay where
 they are.
 

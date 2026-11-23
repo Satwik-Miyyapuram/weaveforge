@@ -252,7 +252,7 @@ from somewhere else does not get to run in it.
 ## Working without an account
 
 **Use without an account** on the sign-in screen asks for a workspace folder,
-shows any warnings about it until you press **Continue**, then restarts the app
+shows any warnings about it until you press **Continue**, then reloads the window
 on that folder. The choice is kept for the next launch. **Sign out** in the
 account menu ends it: there is no session to end, so it brings back the sign-in
 screen, and what is on this computer stays where it is. The button is not
