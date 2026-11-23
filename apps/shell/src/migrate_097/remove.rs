@@ -448,7 +448,7 @@ pub(super) fn own_report_path(folder: &Path, device_id: &str) -> PathBuf {
 
 /// Why the migration reports cannot be read as a whole. Either one refuses.
 #[derive(Debug, PartialEq, Eq)]
-pub(super) enum ReportsError {
+pub(crate) enum ReportsError {
     /// The migration folder cannot be listed.
     Listing(String),
     /// A report this device restores from its backup or by running the export again: the legacy
@@ -491,7 +491,7 @@ impl ReportsError {
 
 /// Every report file in the migration folder (report.json and each report*.json, conflict copies
 /// included), parsed. An absent folder has none. A listing failure or one unreadable file is an error.
-pub(super) fn read_reports(
+pub(crate) fn read_reports(
     folder: &Path,
     device_id: &str,
 ) -> Result<Vec<(String, serde_json::Value)>, ReportsError> {
@@ -537,7 +537,7 @@ pub(super) fn read_reports(
 
 /// The report the status reads for this device: its own file, else the legacy report.json. Another
 /// device's file never stands in for it.
-pub(super) fn base_report<'a>(
+pub(crate) fn base_report<'a>(
     reports: &'a [(String, serde_json::Value)],
     device_id: &str,
 ) -> Option<&'a serde_json::Value> {
@@ -546,7 +546,7 @@ pub(super) fn base_report<'a>(
 
 /// The report this device verifies and removes from: its own file, else the legacy report.json.
 /// Another device's file never stands in for it.
-pub(super) fn device_report<'a>(
+pub(crate) fn device_report<'a>(
     reports: &'a [(String, serde_json::Value)],
     device_id: &str,
 ) -> Option<&'a serde_json::Value> {
@@ -596,7 +596,7 @@ fn mark_removed(pg_root: &Path) -> Result<(), String> {
 
 /// This device's newest run: the last entry of `runs` whose `deviceId` is `device_id`. A run from
 /// another device never counts; no run from this device refuses.
-pub(super) fn own_run<'a>(
+pub(crate) fn own_run<'a>(
     report: &'a serde_json::Value,
     device_id: &str,
 ) -> Result<&'a serde_json::Value, String> {
