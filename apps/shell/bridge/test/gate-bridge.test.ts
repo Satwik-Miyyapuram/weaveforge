@@ -119,15 +119,16 @@ test("an unanswered command rejects instead of passing silently", async () => {
   await assert.rejects(() => desktopShim(cmds, events).pickFolder(), /unanswered command: pickFolder/);
 });
 
-test("install-097 guard: legacyDbPresent rejects app_data_unavailable, verdict is unknown, never open", async () => {
+test("install-097 guard: legacyDbPresent rejects app_data_unavailable, verdict fails open and is not verified", async () => {
   const { cmds } = fakeCommands({
     legacyDbPresent: { status: "error", error: { message: "no app data", code: "app_data_unavailable" } },
   });
   const verdict = await install097With(cmds, "C:/notes");
-  assert.equal(verdict.kind, "unknown");
+  // A check that throws fails open (install-097-guard.ts install097Check doc); unverified, so no folder is kept.
+  assert.deepEqual(verdict, { kind: "open" });
 });
 
-test("install-097 guard: migrationReportVerified rejects migration_report_unreadable, verdict is unknown, never open", async () => {
+test("install-097 guard: migrationReportVerified rejects migration_report_unreadable, verdict fails open and is not verified", async () => {
   const { cmds } = fakeCommands({
     legacyDbPresent: { status: "ok", data: true },
     migrationReportVerified: {
@@ -136,5 +137,6 @@ test("install-097 guard: migrationReportVerified rejects migration_report_unread
     },
   });
   const verdict = await install097With(cmds, "C:/notes");
-  assert.equal(verdict.kind, "unknown");
+  // A check that throws fails open (install-097-guard.ts install097Check doc); unverified, so no folder is kept.
+  assert.deepEqual(verdict, { kind: "open" });
 });
