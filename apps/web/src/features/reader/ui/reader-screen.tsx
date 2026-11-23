@@ -9,6 +9,7 @@ import { readyCore } from "@/lib/rust-core";
 import { getContainer } from "@/bootstrap";
 import { logToApp } from "@/lib/error-report/app-log";
 import { PaperPdfPane } from "./paper-pdf-pane";
+import { PaneErrorBoundary } from "./pane-error-boundary";
 import {
   appendActivityLog,
   type ActivityLogEntry,
@@ -162,6 +163,7 @@ export function ReaderScreen() {
         // The reader's bar goes up into the one document toolbar, which folds
         // into More as it narrows, as the Editor's does, rather than wrapping.
         <DocumentToolbar onError={() => undefined}>
+        <PaneErrorBoundary label="Reader">
         <PaperPdfPane
           paperId={paperId}
           pdfUrl={pdfFromParam}
@@ -183,6 +185,7 @@ export function ReaderScreen() {
             ) : undefined
           }
         />
+        </PaneErrorBoundary>
         </DocumentToolbar>
       )}
     </section>

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { routePdfHit, safeHostname } from "../ui/pdf-hit-route";
+import { routePdfHit, safeHostname, servedPdfExists } from "../ui/pdf-hit-route";
 
 // The exact article from the crash report (labs.baseten.co). Its PDF ladder finds
 // no PDF (resolve_paper_pdf_url -> null), so the GitHub-repo step answers with its
@@ -56,4 +56,36 @@ test("outside local mode every hit opens directly", () => {
     routePdfHit({ url: "https://arxiv.org/pdf/2301.00001", resolverId: "open-access", localMode: false, stored: false, webArticle: false }),
     "open",
   );
+});
+
+test("a GitHub-repo guess for a paper that is not an article, with no such file, falls through to the no-PDF fallback", () => {
+  assert.equal(
+    routePdfHit({ url: GITHUB_HIT, resolverId: "github-repo", localMode: true, stored: false, webArticle: false, guessFound: false }),
+    "none",
+  );
+});
+
+test("a GitHub-repo guess whose file exists opens as before", () => {
+  assert.equal(
+    routePdfHit({ url: GITHUB_HIT, resolverId: "github-repo", localMode: true, stored: false, webArticle: false, guessFound: true }),
+    "open",
+  );
+});
+
+test("servedPdfExists is true only for a 2xx HEAD answer, and false when the request fails", async () => {
+  const seen: string[] = [];
+  const answer = (status: number) => async (url: string, init?: RequestInit) => {
+    seen.push(`${init?.method ?? "GET"} ${url}`);
+    return new Response(null, { status });
+  };
+  assert.equal(await servedPdfExists(GITHUB_HIT, answer(200)), true);
+  assert.equal(await servedPdfExists(GITHUB_HIT, answer(404)), false);
+  assert.equal(await servedPdfExists(GITHUB_HIT, answer(204)), false);
+  assert.equal(
+    await servedPdfExists(GITHUB_HIT, async () => {
+      throw new TypeError("network");
+    }),
+    false,
+  );
+  assert.ok(seen.every((line) => line.startsWith("HEAD ")));
 });
