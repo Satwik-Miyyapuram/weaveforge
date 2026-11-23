@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { MemoryWorkspaceFs } from "@core-test/memory-workspace-fs";
 import { loadTestCore } from "@/lib/test/load-test-core";
 import { readyCore } from "@/lib/rust-core";
+import { moveToTrash } from "@/lib/workspace-trash";
 import { FileEntityStore } from "../file-entity-store";
 
 before(loadTestCore);
@@ -110,6 +111,60 @@ test("delete moves the file to .weaveforge/trash/<day>/, a second delete takes a
   assert.ok(all.every((p) => p.startsWith(".weaveforge/trash/")), all.join());
   assert.equal(await store.get(row().id), null);
   await store.delete("missing");
+});
+
+test("0.9.8: a file that appears at the trash name after the look is never overwritten", async () => {
+  const { fs, store } = setup();
+  await store.save(row());
+  const mkdirp = fs.mkdirp.bind(fs);
+  let planted = "";
+  // Another app writes into the trash between the free-name look and the move.
+  fs.mkdirp = async (path: string) => {
+    await mkdirp(path);
+    if (!planted && path.startsWith(".weaveforge/trash/")) {
+      const target = readyCore().trashPathFor((await files(fs)).find((p) => !p.startsWith(".weaveforge/"))!, Date.now(), 1);
+      await fs.writeFile(target, "THEIRS");
+      planted = target;
+    }
+  };
+  await store.delete(row().id);
+  assert.equal(await fs.readText(planted), "THEIRS", "the other file is kept");
+  const all = await files(fs);
+  assert.equal(all.length, 2, all.join());
+  assert.ok(all.every((p) => p.startsWith(".weaveforge/trash/")), all.join());
+});
+
+test("0.9.8: a failed move leaves no empty placeholder in the trash and keeps the file", async () => {
+  const { fs, store } = setup();
+  await store.save(row());
+  const [path] = await files(fs);
+  assert.ok(path);
+  const text = await fs.readText(path);
+  fs.rename = async () => {
+    throw new Error("EACCES");
+  };
+  await assert.rejects(store.delete(row().id), /EACCES/);
+  assert.deepEqual(await files(fs), [path]);
+  assert.equal(await fs.readText(path), text);
+});
+
+test("0.9.8: a move that lands and then reports a failure keeps the trashed copy, even an empty file", async () => {
+  const { fs, store } = setup();
+  await store.save(row());
+  const [path] = await files(fs);
+  assert.ok(path);
+  // An empty user file looks just like our empty claim at the trash name.
+  await fs.writeFile(path, "");
+  const rename = fs.rename.bind(fs);
+  fs.rename = async (from, to) => {
+    await rename(from, to);
+    throw new Error("EIO after move");
+  };
+  await moveToTrash(fs, path, Date.now());
+  const all = await files(fs);
+  assert.equal(all.length, 1, all.join());
+  assert.ok(all[0]!.startsWith(".weaveforge/trash/"), all.join());
+  assert.equal(await fs.readText(all[0]!), "");
 });
 
 test("unreadable, empty, foreign and newer files are skipped, not fatal", async () => {

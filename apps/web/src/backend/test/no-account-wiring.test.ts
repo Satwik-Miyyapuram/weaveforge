@@ -48,3 +48,11 @@ test("the no-account filesystem lives in backend/providers/files", () => {
   assert.match(src("backend/providers/files/no-account-fs.ts"), /export class NoAccountWorkspaceFs/);
   assert.doesNotMatch(src("container/no-account-file-backend.ts"), /export class NoAccountWorkspaceFs/);
 });
+
+test("0.9.8: the no-account conditional write never falls back to a plain overwrite", () => {
+  // It shows the open folder's own capability (or none), so callers keep their checked fallback.
+  const body = src("backend/providers/files/no-account-fs.ts").split("get writeTextIf(")[1]?.split("\n  }\n")[0] ?? "";
+  assert.ok(body, "writeTextIf is a getter");
+  assert.doesNotMatch(body, /writeFile\(/);
+  assert.match(body, /fs\?\.writeTextIf \? fs\.writeTextIf\.bind\(fs\) : undefined/);
+});

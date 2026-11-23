@@ -45,6 +45,107 @@ test("a missing asset throws BlobNotFoundError", async () => {
   await assert.rejects(store.fetchBytes("notes", "nope.png"), BlobNotFoundError);
 });
 
+/** An fs where the asset is deleted between stat and readFile, as another window or app can. */
+class VanishingFs extends MemoryWorkspaceFs {
+  failure: Error = new Error("ENOENT: gone");
+  override async readFile(path: string): Promise<Uint8Array> {
+    if (path === "assets/notes/n1/gone.png") {
+      await this.remove(path);
+      throw this.failure;
+    }
+    return super.readFile(path);
+  }
+}
+
+test("0.9.8: an asset deleted between stat and read throws BlobNotFoundError", async () => {
+  const fs = new VanishingFs();
+  const store = new FileBlobStore(fs);
+  await store.upload("notes", "n1/gone.png", png(1), "image/png");
+  for (const failure of [new Error("ENOENT: gone"), new DOMException("gone", "NotFoundError") as unknown as Error]) {
+    await fs.writeFile("assets/notes/n1/gone.png", new Uint8Array([1]));
+    fs.failure = failure;
+    await assert.rejects(store.fetchBytes("notes", "n1/gone.png"), BlobNotFoundError);
+  }
+});
+
+test("0.9.8: an asset removed after its bytes were read throws BlobNotFoundError, not a checksum error", async () => {
+  const file = "assets/notes/n1/late.png";
+  for (const when of ["before the sidecar look", "between the sidecar look and its read"] as const) {
+    const fs = new (class extends MemoryWorkspaceFs {
+      override async readFile(path: string): Promise<Uint8Array> {
+        const bytes = await super.readFile(path);
+        // Another window removes the asset (bytes, then sidecar) right after this read.
+        if (path === file && when === "before the sidecar look") {
+          await this.remove(file);
+          await this.remove(`${file}.sha256`);
+        }
+        return bytes;
+      }
+      override async readText(path: string): Promise<string> {
+        if (path === `${file}.sha256` && when !== "before the sidecar look") {
+          await this.remove(file);
+          await this.remove(path);
+          throw new Error("ENOENT: gone");
+        }
+        return super.readText(path);
+      }
+    })();
+    const store = new FileBlobStore(fs);
+    await store.upload("notes", "n1/late.png", png(1), "image/png");
+    await assert.rejects(store.fetchBytes("notes", "n1/late.png"), BlobNotFoundError, when);
+  }
+});
+
+test("0.9.8: a missing sidecar beside an asset still there stays a checksum error", async () => {
+  const { fs, store } = setup();
+  await store.upload("notes", "n1/bare.png", png(1), "image/png");
+  await fs.remove("assets/notes/n1/bare.png.sha256");
+  await assert.rejects(store.fetchBytes("notes", "n1/bare.png"), /checksum mismatch/);
+});
+
+test("0.9.8: fetchBlob keeps the sidecar's type and reads the sidecar once", async () => {
+  const { fs, store } = setup();
+  await store.upload("notes", "n1/t.png", png(1), "image/png");
+  const reads: string[] = [];
+  const readText = fs.readText.bind(fs);
+  fs.readText = async (p) => (reads.push(p), readText(p));
+  assert.equal((await store.fetchBlob("notes", "n1/t.png")).type, "image/png");
+  assert.deepEqual(reads, ["assets/notes/n1/t.png.sha256"]);
+});
+
+test("0.9.8: a sidecar that vanishes while the asset stays is a checksum error, not a raw read error", async () => {
+  const file = "assets/notes/n1/side.png";
+  const fs = new (class extends MemoryWorkspaceFs {
+    override async readText(path: string): Promise<string> {
+      if (path === `${file}.sha256`) {
+        await this.remove(path);
+        throw new Error("ENOENT: gone");
+      }
+      return super.readText(path);
+    }
+  })();
+  const store = new FileBlobStore(fs);
+  await store.upload("notes", "n1/side.png", png(1), "image/png").catch(() => {});
+  await fs.writeFile(`${file}.sha256`, "x\nimage/png");
+  await assert.rejects(store.fetchBytes("notes", "n1/side.png"), /checksum mismatch/);
+});
+
+test("0.9.8: a read failure on an asset still there is not reported as missing", async () => {
+  const fs = new (class extends MemoryWorkspaceFs {
+    override async readFile(path: string): Promise<Uint8Array> {
+      if (path === "assets/notes/n1/locked.png") throw new Error("EACCES: locked");
+      return super.readFile(path);
+    }
+  })();
+  const store = new FileBlobStore(fs);
+  await store.upload("notes", "n1/locked.png", png(1), "image/png");
+  await assert.rejects(store.fetchBytes("notes", "n1/locked.png"), (err: unknown) => {
+    assert.ok(!(err instanceof BlobNotFoundError));
+    assert.match(String(err), /EACCES/);
+    return true;
+  });
+});
+
 test("re-uploading identical bytes is fine", async () => {
   const { store } = setup();
   await store.upload("notes", "n1/a.png", png(4, 5), "image/png");

@@ -24,12 +24,14 @@ export class NoAccountWorkspaceFs implements IWorkspaceFs {
   async writeFile(path: string, data: Uint8Array | string): Promise<void> {
     return openFolder().writeFile(path, data);
   }
-  /** Same contract as the interface: an adapter without the check gets a plain write. */
-  async writeTextIf(path: string, text: string, expected: string | null): Promise<boolean> {
-    const fs = openFolder();
-    if (fs.writeTextIf) return fs.writeTextIf(path, text, expected);
-    await fs.writeFile(path, text);
-    return true;
+  /**
+   * The open folder's own conditional write, or none when that folder has none (or no folder
+   * is open), so callers see the folder's real capability and take their own checked fallback
+   * or refuse. Never a plain write: that would overwrite a file changed meanwhile.
+   */
+  get writeTextIf(): IWorkspaceFs["writeTextIf"] {
+    const fs = activeWorkspaceFs();
+    return fs?.writeTextIf ? fs.writeTextIf.bind(fs) : undefined;
   }
   async remove(path: string, options?: { recursive?: boolean }): Promise<void> {
     return openFolder().remove(path, options);

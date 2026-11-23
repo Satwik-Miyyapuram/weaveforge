@@ -228,6 +228,16 @@ test("F97-P2-3: a folder already gone when removed is kept without a log", async
   assert.deepEqual(await logsWhenRemovalFails(coded("ENOENT")), []);
 });
 
+test("0.9.8: a browser folder that is not empty (InvalidModificationError) is kept without a log", async () => {
+  const failure = new DOMException("The directory is not empty.", "InvalidModificationError") as unknown as Error;
+  assert.deepEqual(await logsWhenRemovalFails(failure), []);
+});
+
+test("0.9.8: a browser folder already gone (NotFoundError) is kept without a log", async () => {
+  const failure = new DOMException("A requested file or directory could not be found.", "NotFoundError") as unknown as Error;
+  assert.deepEqual(await logsWhenRemovalFails(failure), []);
+});
+
 test("F97-P2-3: any other failure to remove a folder is logged", async () => {
   const logged = await logsWhenRemovalFails(coded("EACCES"));
   assert.equal(logged.length, 1);

@@ -99,20 +99,47 @@ export class FileBlobStore implements IBlobFetcher {
   }
 
   async fetchBytes(bucket: string, path: string): Promise<Uint8Array> {
+    return (await this.readVerified(bucket, path)).bytes;
+  }
+
+  /** The asset's bytes, checked against its sidecar, and the sidecar's content type. */
+  private async readVerified(bucket: string, path: string): Promise<{ bytes: Uint8Array; type: string }> {
     assertSafe(bucket, path);
     const file = assetFile(bucket, path);
     if (!(await this.fs.stat(file))) throw new BlobNotFoundError(bucket, path);
-    const bytes = await this.fs.readFile(file);
+    // Deleted between our look and a read (another window or app): still "not found".
+    // A stat that fails too says nothing, so the read's own error is kept.
+    const notFoundIfGone = async (error: unknown): Promise<never> => {
+      if (await this.isGone(file)) throw new BlobNotFoundError(bucket, path);
+      throw error;
+    };
+    const bytes = await this.fs.readFile(file).catch(notFoundIfGone);
     const sidecar = `${file}.sha256`;
     // A missing sidecar yields "" here, which never matches: unverified bytes are not returned.
-    const expected = (await this.fs.stat(sidecar)) ? (await this.fs.readText(sidecar)).split("\n")[0] : "";
-    if ((await sha256Hex(bytes)) !== expected) throw new Error(`asset checksum mismatch: ${file}`);
-    return bytes;
+    const text = (await this.fs.stat(sidecar))
+      ? await this.fs.readText(sidecar).catch(async (error: unknown) => {
+          if (await this.isGone(file)) throw new BlobNotFoundError(bucket, path);
+          // The sidecar alone went after the look: treated as missing, so a checksum error below.
+          if (await this.isGone(sidecar)) return "";
+          throw error;
+        })
+      : "";
+    const [expected = "", type = ""] = text.split("\n");
+    if ((await sha256Hex(bytes)) !== expected) {
+      // The asset itself went after the read (a remove trashes bytes, then sidecar): "not found".
+      if (await this.isGone(file)) throw new BlobNotFoundError(bucket, path);
+      throw new Error(`asset checksum mismatch: ${file}`);
+    }
+    return { bytes, type };
+  }
+
+  /** True only when a stat says the file is not there; a failing stat proves nothing. */
+  private async isGone(file: string): Promise<boolean> {
+    return (await this.fs.stat(file).catch(() => "unknown")) === null;
   }
 
   async fetchBlob(bucket: string, path: string, fallbackContentType?: string): Promise<Blob> {
-    const bytes = await this.fetchBytes(bucket, path);
-    const type = (await this.fs.readText(`${assetFile(bucket, path)}.sha256`)).split("\n")[1];
+    const { bytes, type } = await this.readVerified(bucket, path);
     return new Blob([new Uint8Array(bytes)], { type: type || fallbackContentType || "application/octet-stream" });
   }
 
