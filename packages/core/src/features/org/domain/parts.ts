@@ -230,9 +230,9 @@ export interface Member extends Identifiable {
   activeOrgId?: string;
 }
 
+/** A member to invite: they set their own password from the emailed link. */
 export interface NewMemberInput {
   email: string;
-  password: string;
   fullName?: string;
   role: Role;
   /** Ignored — the creator is always recorded as supervisor server-side. */

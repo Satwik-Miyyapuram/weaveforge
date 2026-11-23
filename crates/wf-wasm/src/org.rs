@@ -237,7 +237,6 @@ pub fn needs_org_setup_js(
 #[serde(rename_all = "camelCase")]
 struct NewMemberInput {
     email: String,
-    password: String,
     #[serde(default)]
     full_name: Option<String>,
     role: String,
@@ -258,14 +257,13 @@ struct NewMemberInput {
 )]
 pub fn validate_new_member_js(
     #[wasm_bindgen(
-        unchecked_param_type = "Pick<B.NewMember, 'email' | 'password' | 'role'> & Partial<Pick<B.NewMember, 'fullName' | 'supervisorId'>>"
+        unchecked_param_type = "Pick<B.NewMember, 'email' | 'role'> & Partial<Pick<B.NewMember, 'fullName' | 'supervisorId'>>"
     )]
     input: JsValue,
 ) -> Result<JsValue, JsValue> {
     let input: NewMemberInput = serde_wasm_bindgen::from_value(input)?;
     let member = member::validate_new_member(
         &input.email,
-        &input.password,
         input.full_name.as_deref(),
         &input.role,
         input.supervisor_id.as_deref(),

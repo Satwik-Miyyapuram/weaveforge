@@ -52,7 +52,7 @@ import type { IVaultAssetStore } from "../features/vault/domain/vault-assets";
 // --- app-parts ---
 // --- http-account-provisioner ---
 /** The request body: the member is invited, so any password a caller passes stays here. */
-function withoutPassword(input: NewMemberInput): Omit<NewMemberInput, "password"> {
+function withoutPassword(input: NewMemberInput & { password?: unknown }): NewMemberInput {
   const { password: _ignored, ...body } = input;
   return body;
 }

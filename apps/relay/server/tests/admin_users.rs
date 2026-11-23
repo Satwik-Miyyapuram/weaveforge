@@ -167,7 +167,7 @@ async fn non_string_email_is_400() {
 }
 
 #[tokio::test]
-async fn a_short_or_missing_password_is_ignored_and_never_sent() {
+async fn a_stray_password_of_any_shape_is_ignored_and_never_sent() {
     for body in [
         r#"{"email":"a@example.com","password":"short","role":"phd"}"#,
         r#"{"email":"a@example.com","password":5,"role":"phd"}"#,

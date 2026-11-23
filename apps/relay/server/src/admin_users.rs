@@ -57,11 +57,6 @@ pub async fn create_user(
     }
 }
 
-/// Stands in for the password that `validate_new_member` still requires. The account is an
-/// invite (the user sets their own password from the email), so any `password` in the body
-/// is ignored and this value is never sent anywhere. Drop it once wf-core stops asking.
-const INVITE_PLACEHOLDER_PASSWORD: &str = "invite-placeholder";
-
 /// The body as a validated new member; a non-object body reads as `{}`. Any `password`
 /// field is ignored: the account is invited, not given a password.
 fn parse_input(body: &[u8]) -> Result<NewMember, Response> {
@@ -77,7 +72,6 @@ fn parse_input(body: &[u8]) -> Result<NewMember, Response> {
     let role = role_text(&object);
     validate_new_member(
         &email,
-        INVITE_PLACEHOLDER_PASSWORD,
         full_name.as_deref(),
         &role,
         supervisor_id.as_deref(),

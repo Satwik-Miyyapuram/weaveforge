@@ -371,16 +371,11 @@ mod tests {
     }
 
     #[test]
-    fn create_validation_normalizes_and_rejects_a_short_password() {
-        let ok =
-            crate::member::validate_new_member("New@Uni.edu", "supersecret", None, "phd", None)
-                .unwrap();
+    fn create_validation_normalizes_and_rejects_an_unknown_role() {
+        let ok = crate::member::validate_new_member("New@Uni.edu", None, "phd", None).unwrap();
         assert_eq!(ok.email, "new@uni.edu");
-        let short = crate::member::validate_new_member("x@uni.edu", "short", None, "phd", None);
-        assert_eq!(
-            short,
-            Err("Password must be at least 8 characters.".to_owned())
-        );
+        let bad = crate::member::validate_new_member("x@uni.edu", None, "admin", None);
+        assert_eq!(bad, Err("Unknown role: admin".to_owned()));
     }
 
     #[test]

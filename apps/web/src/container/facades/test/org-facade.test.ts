@@ -20,7 +20,8 @@ function facade(calls: unknown[]) {
 
 test("createMember needs no password: the member is invited by email (0.9.8)", async () => {
   const calls: unknown[] = [];
-  await facade(calls).createMember({ email: "n@example.com", fullName: "N", role: "masters" });
+  const stray = { email: "n@example.com", fullName: "N", role: "masters", password: "password1" };
+  await facade(calls).createMember(stray as never);
   assert.equal(calls[0], "gate masters");
   const sent = calls[1] as Record<string, unknown>;
   assert.equal(sent.email, "n@example.com");

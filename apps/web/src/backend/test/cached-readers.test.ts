@@ -112,7 +112,6 @@ test("creating an account clears the cached team (xapi-06)", async (t) => {
     })) as typeof fetch;
   await new HttpAccountProvisioner({ getAccessToken: async () => "token" }).createMember({
     email: "n@example.com",
-    password: "secret-pass",
     role: "masters",
   });
 
@@ -137,7 +136,6 @@ test("a refused account creation keeps the cached team", async (t) => {
   await assert.rejects(
     new HttpAccountProvisioner({ getAccessToken: async () => "token" }).createMember({
       email: "n@example.com",
-      password: "secret-pass",
       role: "masters",
     }),
   );
@@ -158,12 +156,15 @@ test("account creation sends no password: the relay invites the member by email 
       status: 200,
     });
   }) as typeof fetch;
-  // A caller that still hands in a password (the core type asks for one) must not leak it.
-  await new HttpAccountProvisioner({ getAccessToken: async () => "token" }).createMember({
+  // A stray password from an untyped caller must not leak into the request.
+  const stray = {
     email: "n@example.com",
     password: "secret-pass",
     fullName: "N",
-    role: "masters",
+    role: "masters" as const,
+  };
+  await new HttpAccountProvisioner({ getAccessToken: async () => "token" }).createMember({
+    ...stray,
   });
   assert.deepEqual(sent, { email: "n@example.com", fullName: "N", role: "masters" });
 });
