@@ -13,7 +13,7 @@ import { onScreenShown } from "@/lib/screen-shown";
 /**
  * The last screen, painted the moment the window opens.
  *
- * A cold start waits for the Rust core, the session and the local database
+ * A cold start waits for the Rust core, the session and the workspace folder
  * before any screen can render, which is seconds after a crash. The screen
  * the person left is kept as markup (`lib/boot-snapshot.ts`) and painted over
  * the loader as a picture: inert, hidden from assistive tech, taking no input.

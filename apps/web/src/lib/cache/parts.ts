@@ -58,9 +58,9 @@ export function clearSessionCaches(): void {
 // --- device-snapshot ---
 /**
  * The last data a screen showed, kept on this device so a cold start can paint
- * it while the app's own database is still starting (seconds, after a crash).
+ * it while the Rust core and the workspace are still starting (seconds, after a crash).
  *
- * Desktop and phone only: a browser has no local database to wait for, and
+ * Desktop and phone only: a browser has no slow native start to wait for, and
  * account data left in its storage would outlive a shared computer's session.
  * Keys start with `weaveforge.`, so sign-out wipes them with the rest
  * (`clearLocalDeviceData`). A snapshot from another version reads as none.
