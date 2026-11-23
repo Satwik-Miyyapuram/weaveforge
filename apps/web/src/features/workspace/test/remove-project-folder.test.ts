@@ -3,6 +3,7 @@ import { test } from "node:test";
 
 import { MemoryWorkspaceFs } from "@core-test/memory-workspace-fs";
 
+import { typedCore } from "@/lib/rust-core";
 import { removeProjectFolder } from "../application/parts";
 
 const project = { id: "ac0e9a12-0000-4000-8000-000000000000", name: "ZZ verify 082" };
@@ -233,4 +234,26 @@ test("F97-P2-3: any other failure to remove a folder is logged", async () => {
   assert.equal(logged.length, 1);
   assert.equal(logged[0]!.level, "warn");
   assert.match(logged[0]!.message, /zz-verify-082--ac0e9a\/notes/);
+});
+
+test("a trash of the same folder name landing during this one keeps both trees", async () => {
+  const fs = new MemoryWorkspaceFs();
+  await fs.writeFile("zz-verify-082--ac0e9a/notes/a.md", "mine");
+  const mkdirp = fs.mkdirp.bind(fs);
+  let raced = false;
+  fs.mkdirp = async (dir) => {
+    await mkdirp(dir);
+    if (raced) return;
+    raced = true;
+    // Another trash of a folder with this name takes the first trash name now.
+    const other = typedCore().trashPathFor("zz-verify-082--ac0e9a", Date.now(), 1);
+    await fs.writeFile(`${other}/notes/a.md`, "the other trash");
+  };
+  assert.equal(await removeProjectFolder(fs, project), "zz-verify-082--ac0e9a");
+  const texts = await Promise.all(
+    Object.keys(fs.toRecord())
+      .filter((path) => path.startsWith(".weaveforge/trash/"))
+      .map((path) => fs.readText(path)),
+  );
+  assert.deepEqual(texts.sort(), ["mine", "the other trash"]);
 });
