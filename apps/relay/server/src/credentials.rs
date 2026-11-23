@@ -21,7 +21,7 @@ use crate::credential_crypto::{open, seal};
 use crate::legacy_credentials::{legacy_guard, legacy_secrets, seal_patch};
 use crate::postgrest::eq;
 use crate::routes::AppState;
-use crate::sdk::{caller, db_failure, error_response, json_response, user_db};
+use crate::sdk::{db_failure, error_response, json_response, session, user_db};
 
 /// The trimmed secrets and the non-blank integration fields worth storing; everything else is dropped.
 #[must_use]
@@ -64,7 +64,7 @@ pub fn clean_secrets(input: &Value) -> Map<String, Value> {
 
 /// `GET /api/settings/credentials`: the caller's integration secrets, decrypted when sealed.
 pub async fn credentials_get(State(state): State<Arc<AppState>>, headers: HeaderMap) -> Response {
-    let caller = match caller(&state, &headers).await {
+    let caller = match session(&state, &headers).await {
         Ok(caller) => caller,
         Err(response) => return response,
     };
@@ -121,7 +121,7 @@ pub async fn credentials_post(
     headers: HeaderMap,
     body: Bytes,
 ) -> Response {
-    let caller = match caller(&state, &headers).await {
+    let caller = match session(&state, &headers).await {
         Ok(caller) => caller,
         Err(response) => return response,
     };
