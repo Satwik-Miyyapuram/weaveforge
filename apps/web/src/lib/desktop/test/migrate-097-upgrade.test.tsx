@@ -215,6 +215,48 @@ test("web verified view names the reconnect providers and offers Continue before
   assert.doesNotMatch(html, /Retry/);
 });
 
+test("verified and stopped views count rows kept in the archive only per kind and point at the report", () => {
+  const archivedOnly = [
+    { kind: "tags", id: "t2", reason: "conflict" as const },
+    { kind: "tags", id: "t3", reason: "write failed" as const },
+    { kind: "settings", id: "u1", reason: "write failed" as const },
+  ];
+  for (const phase of ["verified", "stopped"] as const) {
+    const html = renderToStaticMarkup(
+      <Migrate097UpgradeBody
+        phase={phase}
+        progress={{}}
+        reportFolder={upgradeReportFolder(FOLDER)}
+        copied={false}
+        onCopy={noop}
+        onRetry={noop}
+        onKeepOld={noop}
+        archivedOnly={archivedOnly}
+      />,
+    );
+    assert.match(html, /Kept in the archive only: 2 tags, 1 settings\. The list is in the report in /, phase);
+    assert.match(html, /migration-0\.9\.7<\/code>/, phase);
+    assert.doesNotMatch(html, /t2|t3|u1/, `${phase}: no row ids on screen`);
+  }
+});
+
+test("views without archive-only rows show no archive line", () => {
+  for (const phase of ["verified", "stopped"] as const) {
+    const html = renderToStaticMarkup(
+      <Migrate097UpgradeBody
+        phase={phase}
+        progress={{}}
+        reportFolder={upgradeReportFolder(FOLDER)}
+        copied={false}
+        onCopy={noop}
+        onRetry={noop}
+        onKeepOld={noop}
+      />,
+    );
+    assert.doesNotMatch(html, /archive only/, phase);
+  }
+});
+
 test("runUpgrade hands the error to onError and stops, so the screen can name a WebView lock failure", async () => {
   const errors: unknown[] = [];
   const outcome = await runUpgrade(

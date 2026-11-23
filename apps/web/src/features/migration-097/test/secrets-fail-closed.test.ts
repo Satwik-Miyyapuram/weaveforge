@@ -5,6 +5,7 @@ import { runWebExport } from "../application/run-web-export";
 import type { FileCodec, Row, ServerSource } from "../domain/ports";
 import { MemorySink } from "../infrastructure/memory-sink";
 import { PostgrestSource } from "../infrastructure/postgrest-source";
+import { settingsSecretNames } from "../domain/secret-tables";
 
 const NOW = "2026-11-22T00:00:00.000Z";
 const KINDS = ["logEntries"];
@@ -170,12 +171,16 @@ test("keys: with secrets and no mover, the result and report carry provider name
   assert.deepEqual(marks, ["mark"]);
 });
 
-/** A fake PostgREST: each table's HEAD count comes from `totals`; `fail` names a table that answers 500. */
-function countingFetch(totals: Record<string, number>, seen: string[], fail?: string): typeof fetch {
+/**
+ * A fake PostgREST: each table's HEAD count comes from `totals`; `fail` names a table that answers 500.
+ * user_settings is read with a GET, answered with `settings` (the user's rows).
+ */
+function countingFetch(totals: Record<string, number>, seen: string[], fail?: string, settings: unknown = []): typeof fetch {
   return (async (url: string) => {
     seen.push(url);
     const table = new URL(url).pathname.split("/").pop() ?? "";
     if (table === fail) return new Response(null, { status: 500 });
+    if (table === "user_settings") return new Response(JSON.stringify(settings), { status: 200 });
     const total = totals[table];
     return new Response(null, {
       status: 200,
@@ -190,12 +195,59 @@ test("secrets: PostgrestSource names every provider whose secret table has rows"
     baseUrl: "https://api.example.test",
     userId: "u1",
     headers: {},
-    fetch: countingFetch({ project_integrations: 3, user_settings: 1, overleaf_connections: 2 }, seen),
+    fetch: countingFetch({ project_integrations: 3, overleaf_connections: 2 }, seen, undefined, [{ zotero_api_key: "zk" }]),
   });
   assert.deepEqual(await source.secretProviders(), ["project integrations", "zotero", "overleaf"]);
   assert.equal(seen.length, 3);
-  assert.ok(seen.some((u) => /\/user_settings\?/.test(u) && /zotero_api_key=not\.is\.null/.test(u) && /user_id=eq\.u1/.test(u)));
+  const settingsUrl = seen.find((u) => /\/user_settings\?/.test(u)) ?? "";
+  assert.match(settingsUrl, /select=credentials_enc,zotero_api_key,semantic_scholar_key,integrations/);
+  assert.match(settingsUrl, /user_id=eq\.u1/);
   assert.ok(seen.some((u) => /\/overleaf_connections\?/.test(u) && /token_ciphertext=not\.is\.null/.test(u) && /user_id=eq\.u1/.test(u)));
+});
+
+test("secrets: user_settings is named for a sealed envelope, a Semantic Scholar key or an integration secret, not only a Zotero key", async () => {
+  const source = (settings: unknown) =>
+    new PostgrestSource({
+      baseUrl: "https://api.example.test",
+      userId: "u1",
+      headers: {},
+      fetch: countingFetch({ project_integrations: 0, overleaf_connections: 0 }, [], undefined, settings),
+    });
+  // 0069 clears zotero_api_key once the envelope is written, so the envelope alone must count.
+  assert.deepEqual(await source([{ credentials_enc: "v1.abc", zotero_api_key: null }]).secretProviders(), ["sealed credentials"]);
+  assert.deepEqual(await source([{ semantic_scholar_key: "ss" }]).secretProviders(), ["semantic scholar"]);
+  assert.deepEqual(await source([{ integrations: { github: { pat: "p" } } }]).secretProviders(), ["github"]);
+  assert.deepEqual(await source([{ credentials_enc: "", zotero_api_key: "  ", integrations: {} }]).secretProviders(), []);
+  assert.deepEqual(await source([]).secretProviders(), []);
+});
+
+test("secrets: a user_settings read that is not a row list rejects, so the export refuses", async () => {
+  const source = new PostgrestSource({
+    baseUrl: "https://api.example.test",
+    userId: "u1",
+    headers: {},
+    fetch: countingFetch({ project_integrations: 0, overleaf_connections: 0 }, [], undefined, { message: "odd" }),
+  });
+  await assert.rejects(source.secretProviders());
+});
+
+test("settingsSecretNames names every secret source in a settings row, never a value", () => {
+  assert.deepEqual(
+    settingsSecretNames({
+      credentials_enc: "v1.sealed",
+      zotero_api_key: "zk-value",
+      semantic_scholar_key: "ss-value",
+      integrations: { github: { pat: "p" }, custom: { a: "x" }, deep: { nested: { token: "t" } }, blank: { pat: " " }, empty: {}, bad: "x" },
+    }),
+    // A bare scalar provider value ("bad") is a credential too: named for reconnect, never archived.
+    ["sealed credentials", "zotero", "semantic scholar", "github", "custom", "deep", "bad"],
+  );
+  assert.deepEqual(settingsSecretNames({}), []);
+  assert.deepEqual(settingsSecretNames({ credentials_enc: null, zotero_api_key: "", semantic_scholar_key: " ", integrations: null }), []);
+  // A non-object bag is stripped from disk too, so it must be named, never silently lost.
+  assert.deepEqual(settingsSecretNames({ integrations: "tok" }), ["integrations"]);
+  assert.deepEqual(settingsSecretNames({ integrations: ["tok"] }), ["integrations"]);
+  assert.deepEqual(settingsSecretNames({ integrations: [" "] }), []);
 });
 
 test("secrets: PostgrestSource encodes the user id in every secret-table URL", async () => {

@@ -28,6 +28,11 @@ function fakePostgrest(secretTotals: Record<string, number>, calls: { method: st
     const method = init?.method ?? "GET";
     calls.push({ method, url });
     const table = new URL(url).pathname.split("/").pop() ?? "";
+    // The secret check reads user_settings rows (select=credentials_enc,...): one Zotero key per counted row.
+    if (method === "GET" && table === "user_settings" && new URL(url).searchParams.get("select")?.includes("credentials_enc")) {
+      const rows = Array.from({ length: secretTotals[table] ?? 0 }, () => ({ zotero_api_key: "zk" }));
+      return new Response(JSON.stringify(rows), { status: 200 });
+    }
     if (method === "HEAD") {
       return new Response(null, { status: 200, headers: { "content-range": `0-0/${secretTotals[table] ?? 0}` } });
     }
