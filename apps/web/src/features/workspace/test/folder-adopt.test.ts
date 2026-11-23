@@ -23,7 +23,19 @@ before(loadTestCore);
  * set the folder and its git, start following edits, sync, announce.
  */
 
-const dir = { kind: "directory", name: "root", async *entries() {} };
+/** An empty folder: every named file or folder is missing, as the browser reports it (NotFoundError). */
+const missingEntry = (name: string) => Object.assign(new Error(`${name} not found`), { name: "NotFoundError" });
+const dir = {
+  kind: "directory",
+  name: "root",
+  async *entries() {},
+  async getFileHandle(name: string) {
+    throw missingEntry(name);
+  },
+  async getDirectoryHandle(name: string) {
+    throw missingEntry(name);
+  },
+};
 
 function stubBrowser(picker: (() => Promise<unknown>) | undefined): void {
   Object.defineProperty(globalThis, "showDirectoryPicker", { configurable: true, value: picker });
