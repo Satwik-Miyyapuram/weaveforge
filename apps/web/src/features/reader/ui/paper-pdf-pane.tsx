@@ -29,7 +29,7 @@ import { AnnotationSidebar } from "./annotation-sidebar";
 import { readyCore } from "@/lib/rust-core";
 import { relayUrl } from "@/lib/parts";
 import { PaperHtmlView } from "./paper-html-view";
-import { routePdfHit, safeHostname, servedPdfExists } from "./pdf-hit-route";
+import { fetchServedPdf, routePdfHit, safeHostname } from "./pdf-hit-route";
 import { Button } from "@/components/button";
 import { paperGuard } from "./paper-guard";
 import { planWebArticle } from "./web-article-preview";
@@ -104,6 +104,8 @@ export function PaperPdfPane({
   const openAccessIds = useRef<OpenAccessIds | null>(null);
   const [freeBusy, setFreeBusy] = useState(false);
   const [freeStatus, setFreeStatus] = useState<{ text: string; error: boolean } | null>(null);
+  /** The web-page fetch for this paper has run to its end (found a page or not). */
+  const [webFetchEnded, setWebFetchEnded] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const activityRef = useRef(onActivity);
   activityRef.current = onActivity;
@@ -122,6 +124,7 @@ export function PaperPdfPane({
     setTitle(null);
     setHtmlPage(null);
     setFreeStatus(null);
+    setWebFetchEnded(false);
     openAccessIds.current = null;
     // Drop the previous paper's annotations before loading the next one.
     // Without this they stay mounted over the new PDF at the old paper's
@@ -201,11 +204,11 @@ export function PaperPdfPane({
         // A GitHub-repo guess is only a path: probe it before opening it in pdf.js, so
         // a file the repo does not hold falls through to the else branch below.
         const webArticle = !!openAccessIds.current && readyCore().isWebArticle(openAccessIds.current);
-        const guessFound =
-          resolution.ok && resolution.resolverId === "github-repo" && !webArticle
-            ? await servedPdfExists(resolution.hit.url)
-            : undefined;
+        const probeGuess = resolution.ok && resolution.resolverId === "github-repo" && !webArticle;
+        // One GET: the bytes it returns are opened below, not downloaded a second time.
+        const servedBytes = probeGuess ? await fetchServedPdf(resolution.hit.url) : null;
         if (cancelled) return;
+        const guessFound = probeGuess ? servedBytes !== null : undefined;
         const route = resolution.ok
           ? routePdfHit({
               url: resolution.hit.url,
@@ -217,13 +220,17 @@ export function PaperPdfPane({
             })
           : null;
         if (resolution.ok && route === "open") {
-          setPdfUrl(resolution.hit.url);
-          if ("revokeUrl" in resolution && resolution.revokeUrl) {
-            revokeOnCancel = resolution.revokeUrl;
-            setPdfRevokeUrl(resolution.revokeUrl);
-          } else {
-            setPdfRevokeUrl(null);
-          }
+          // Bytes already fetched for a GitHub guess open from a blob URL; it is
+          // revoked on cancel, on the next paper, or on unmount (pdfRevokeUrl).
+          const ownUrl =
+            servedBytes !== null
+              ? URL.createObjectURL(servedBytes)
+              : "revokeUrl" in resolution && resolution.revokeUrl
+                ? resolution.revokeUrl
+                : null;
+          setPdfUrl(servedBytes !== null && ownUrl ? ownUrl : resolution.hit.url);
+          revokeOnCancel = ownUrl;
+          setPdfRevokeUrl(ownUrl);
         } else {
           // No PDF: a full-text page kept earlier is the paper's text.
           let kept: PaperHtmlPage | null = null;
@@ -401,6 +408,8 @@ export function PaperPdfPane({
       if (stillOpen()) setFreeStatus({ text: `The search for a free copy failed: ${formatError(err)}`, error: true });
     } finally {
       setFreeBusy(false);
+      // Ended with or without a page: the "Fetching the page…" card must not outlive it.
+      if (stillOpen()) setWebFetchEnded(true);
     }
   }
 
@@ -435,7 +444,8 @@ export function PaperPdfPane({
       ? planWebArticle({
           kept: htmlPage !== null,
           pageUrl: openAccessIds.current?.pageUrl,
-          fetchFailed: freeStatus?.error === true,
+          // A fetch that has ended without a page is a failed fetch: live page or none.
+          fetchFailed: freeStatus?.error === true || webFetchEnded,
         })
       : null;
   const freeCopy = canLoad ? (
@@ -516,13 +526,13 @@ export function PaperPdfPane({
           {loadButton}
         </div>
       )}
-      {!loading && articlePlan?.kind === "fetch" && (
+      {!loading && !error && articlePlan?.kind === "fetch" && (
         <div className="card empty-state">
           <h2>Fetching the page…</h2>
           <p>{freeStatus?.text ?? "The paper is a web page, so its text is fetched and kept here."}</p>
         </div>
       )}
-      {!loading && articlePlan?.kind === "live" && (
+      {!loading && !error && articlePlan?.kind === "live" && (
         <div className="card empty-state">
           <h2>The page did not load here</h2>
           <p>{freeStatus?.text}</p>
@@ -534,7 +544,7 @@ export function PaperPdfPane({
           {freeCopy}
         </div>
       )}
-      {!loading && articlePlan?.kind === "none" && (
+      {!loading && !error && articlePlan?.kind === "none" && (
         <div className="card empty-state">
           <h2>No page to show</h2>
           <p>This article has no page address on record.</p>

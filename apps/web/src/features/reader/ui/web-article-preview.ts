@@ -1,3 +1,5 @@
+import { safeHostname } from "./pdf-hit-route";
+
 /**
  * What the reader shows for a web-article paper that has no PDF. Pure, so it is
  * tested without a DOM.
@@ -26,16 +28,20 @@ export interface WebArticleInput {
 
 export function planWebArticle(input: WebArticleInput): WebArticlePlan {
   if (input.kept) return { kind: "kept" };
-  const url = input.pageUrl?.trim() ?? "";
+  const url = webPageUrl(input.pageUrl);
   if (!url) return { kind: "none" };
-  if (input.fetchFailed) return { kind: "live", url, host: hostOf(url) };
+  if (input.fetchFailed) return { kind: "live", url, host: safeHostname(url) };
   return { kind: "fetch" };
 }
 
-function hostOf(url: string): string {
+/** Only a plain web address may be linked from the reader: no javascript:, file: or data:. */
+function webPageUrl(raw: string | null | undefined): string | null {
+  const url = raw?.trim() ?? "";
+  if (!url) return null;
   try {
-    return new URL(url).hostname;
+    const protocol = new URL(url).protocol;
+    return protocol === "http:" || protocol === "https:" ? url : null;
   } catch {
-    return url;
+    return null;
   }
 }
