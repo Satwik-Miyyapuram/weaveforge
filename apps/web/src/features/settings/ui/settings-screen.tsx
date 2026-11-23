@@ -9,6 +9,7 @@ import { userSettingsFromCore, userSettingsToCore } from "@/features/settings/in
 import { Modal, ModalActions } from "@/components/modal";
 import { KeychainUnavailableError } from "@/backend/device-secrets-store";
 import { KeychainMissingDialog } from "./keychain-missing-dialog";
+import { SkippedKeysNotice } from "./skipped-keys-notice";
 import { ScreenHead } from "@/components/screen-head";
 import { ConnectionState } from "@/components/connection-state";
 import { ScreenLoader } from "@/components/weaveforge-loader";
@@ -506,10 +507,14 @@ export function SettingsScreen() {
                 // Saying so is the whole point: a reader who has just signed in
                 // would otherwise reasonably assume the key went to their
                 // account, and it did not. See `DeviceSecretsStore`.
-                <p className="muted">
-                  Keys are kept in this computer&rsquo;s keychain. Signing in does not move them to
-                  your account.
-                </p>
+                <>
+                  <p className="muted">
+                    Keys are kept in this computer&rsquo;s keychain. Signing in does not move them to
+                    your account.
+                  </p>
+                  <SkippedKeysNotice />
+                </>
+
               ) : (
                 // The browser keeps no keys (`RefusingSecretsStore`): say so
                 // before someone types one and the save is refused.

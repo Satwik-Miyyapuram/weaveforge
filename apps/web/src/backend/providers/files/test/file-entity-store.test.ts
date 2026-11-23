@@ -166,20 +166,23 @@ test("0.9.8: a move that lands and then reports a failure keeps the trashed copy
   assert.equal(await fs.readText(all[0]!), text);
 });
 
-test("0.9.8: an empty file whose move lands and then fails is reported, never left as a 0-byte trash file", async () => {
+test("0.9.8: an empty file whose move lands and then fails keeps its trashed copy", async () => {
   const { fs, store } = setup();
   await store.save(row());
   const [path] = await files(fs);
   assert.ok(path);
-  // An empty file at the trash name cannot be told from our own claim: it is given back and the error kept.
+  // The source is gone, so the empty file at the trash name is the moved file, not our claim: kept.
   await fs.writeFile(path, "");
   const rename = fs.rename.bind(fs);
   fs.rename = async (from, to) => {
     await rename(from, to);
     throw new Error("EIO after move");
   };
-  await assert.rejects(moveToTrash(fs, path, Date.now()), /EIO after move/);
-  assert.deepEqual(await files(fs), []);
+  await moveToTrash(fs, path, Date.now());
+  const all = await files(fs);
+  assert.equal(all.length, 1, all.join());
+  assert.ok(all[0]!.startsWith(".weaveforge/trash/"), all.join());
+  assert.equal(await fs.readText(all[0]!), "");
 });
 
 test("unreadable, empty, foreign and newer files are skipped, not fatal", async () => {

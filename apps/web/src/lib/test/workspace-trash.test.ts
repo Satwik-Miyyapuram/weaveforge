@@ -67,15 +67,48 @@ test("a move that lands and then reports a failure keeps the trashed copy", asyn
   assert.equal(all.length, 1, all.join());
   assert.match(all[0] ?? "", /^\.weaveforge\/trash\//);
 });
-test("a rename that throws with the source gone and the claim still empty leaves no 0-byte trash file", async () => {
+test("an empty file whose move lands and then reports a failure keeps its trashed copy", async () => {
+  const fs = new MemoryWorkspaceFs();
+  await fs.writeFile("notes/empty.md", "");
+  const rename = fs.rename.bind(fs);
+  fs.rename = async (from, to) => {
+    await rename(from, to);
+    throw new Error("lost reply");
+  };
+  await moveToTrash(fs, "notes/empty.md", Date.now());
+  const all = await files(fs);
+  assert.equal(all.length, 1, all.join());
+  assert.match(all[0] ?? "", /^\.weaveforge\/trash\//);
+  assert.equal(await fs.readText(all[0] ?? ""), "");
+});
+test("a rename that throws with the source gone keeps the trash name, since it may hold the moved file", async () => {
   const fs = new MemoryWorkspaceFs();
   await fs.writeFile("notes/a.md", "keep me");
   fs.rename = async (from) => {
     await fs.remove(from);
     throw new Error("source vanished");
   };
-  await assert.rejects(moveToTrash(fs, "notes/a.md", Date.now()), /source vanished/);
-  assert.deepEqual(await files(fs), []);
+  await moveToTrash(fs, "notes/a.md", Date.now());
+  const all = await files(fs);
+  assert.equal(all.length, 1, all.join());
+  assert.match(all[0] ?? "", /^\.weaveforge\/trash\//);
+});
+test("a folder claim whose marker cannot be removed logs it and still resolves", async () => {
+  const fs = new MemoryWorkspaceFs();
+  const claim = await claimTrashFolder(fs, "thesis", Date.now());
+  fs.remove = async () => {
+    throw new Error("locked");
+  };
+  const warned: unknown[][] = [];
+  const warn = console.warn;
+  console.warn = (...args: unknown[]) => void warned.push(args);
+  try {
+    await claim.release();
+  } finally {
+    console.warn = warn;
+  }
+  assert.equal(warned.length, 1);
+  assert.match(String(warned[0]?.[0]), /\.claim/);
 });
 test("two concurrent folder trashes of the same name claim different trash folders", async () => {
   const fs = new MemoryWorkspaceFs();
