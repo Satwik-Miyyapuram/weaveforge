@@ -8,10 +8,10 @@ import { shouldShowFinishRemoving, shouldShowRetry, shouldShowUpgrade } from "..
 
 const FOLDER = "C:\\Users\\me\\Documents\\WeaveForge";
 
-test("only an incomplete migration in an open folder shows the upgrade screen", () => {
+test("every folder with old data not yet on files shows the upgrade screen", () => {
   assert.equal(shouldShowUpgrade("incomplete", FOLDER), true);
   assert.equal(shouldShowUpgrade("unexported", FOLDER), true, "a folder removed by another device must be exported here first");
-  assert.equal(shouldShowUpgrade("none", FOLDER), false, "nothing to upgrade on a fresh folder");
+  assert.equal(shouldShowUpgrade("none", FOLDER), true, "an old local database never exported must be exported to files");
   assert.equal(shouldShowUpgrade("verified", FOLDER), false, "a verified folder needs no screen");
   assert.equal(shouldShowUpgrade("unavailable", FOLDER), false, "an unanswered read shows nothing");
   assert.equal(shouldShowUpgrade("incomplete", null), false, "no folder, no upgrade");

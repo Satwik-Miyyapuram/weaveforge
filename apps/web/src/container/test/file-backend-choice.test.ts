@@ -26,8 +26,8 @@ test("web and Android keep PostgREST with writes on for every non-verified state
   }
 });
 
-test("desktop: a genuine none keeps writes on", () => {
-  assert.equal(chooseFileBackend("none", choices, true), "postgrest-writes-on");
+test("desktop: none (an old local database never exported) is read-only until the export, never writes-on", () => {
+  assert.equal(chooseFileBackend("none", choices, true), "readonly-old-db");
 });
 
 test("desktop: incomplete, unavailable or unknown fail closed to read-only, never writes-on", () => {

@@ -1,13 +1,14 @@
 import type { Migrate097Resolved } from "./migrate-097";
 
 /**
- * Whether the window shows the upgrade screen. An incomplete migration (a started
- * move that did not verify) and a folder another device removed before this device
- * exported its own data do, in an open folder. `none` is a folder with nothing to
- * move, `unavailable` is a read that did not answer, and neither may block the workspace.
+ * Whether the window shows the upgrade screen: any open folder whose old data is not
+ * on files yet. `none` is an old local database never exported (a device with no old
+ * database reads as `removed`), `incomplete` a started move that did not verify, and
+ * `unexported` a folder another device removed before this device exported its own.
+ * `unavailable` is a read that did not answer and shows the Retry banner instead.
  */
 export function shouldShowUpgrade(state: Migrate097Resolved, folder: string | null): boolean {
-  return folder !== null && (state === "incomplete" || state === "unexported");
+  return folder !== null && (state === "none" || state === "incomplete" || state === "unexported");
 }
 
 /**
