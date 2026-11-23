@@ -40,6 +40,7 @@ test("a rename with every link rewritten shows no toast", () => {
 test("both rename doors show the toast", () => {
   for (const rel of ["../ui/vault-screen/page-editor.tsx", "../../editor-workspace/ui/workspace-screen.tsx"]) {
     const src = readFileSync(fileURLToPath(new URL(rel, import.meta.url)), "utf8");
-    assert.match(src, /toastLinkRewriteFailed\(await getContainer\(\)\.vault\.manageVaultPage\.update\([^)]*title/, rel);
+    // The rename result is bound to a variable on its own line, then passed to the toast.
+    assert.match(src, /manageVaultPage\.update\([^)]*title[^)]*\)[\s\S]*?toastLinkRewriteFailed\(/, rel);
   }
 });
