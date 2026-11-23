@@ -6,6 +6,7 @@
 )]
 
 use std::sync::Arc;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use axum::body::Bytes;
 use axum::extract::State;
@@ -19,12 +20,20 @@ use wf_core::overleaf_workshop::{
 
 use crate::auth::Caller;
 use crate::credential_crypto::{open, seal};
+use crate::gotrue::utc_stamp;
 use crate::overleaf_api::{Identity, OverleafApi};
 use crate::postgrest::eq;
 use crate::routes::AppState;
 use crate::sdk::{caller, error_response, json_response, no_store, query_param, user_db};
 
 const TABLE: &str = "overleaf_workshop_sessions";
+/// How long a stored Overleaf session is used after sign-in. The table has no last-used
+/// column, so this counts from `created_at`: a day of use, then the client signs in again.
+/// The cutoff compares the relay clock with the database's `now()`. Both run on the same
+/// host (infra/oci/docker-compose.yml), so any skew is tiny next to a day.
+const SESSION_LIFETIME: Duration = Duration::from_secs(24 * 60 * 60);
+/// 9999-12-31T23:59:59Z, the last stamp with a four-digit year: no row is newer.
+const LAST_STAMP_SECS: u64 = 253_402_300_799;
 const COOKIE_REQUIRED: &str = "An Overleaf session cookie is required.";
 const NOT_FOUND: &str = "Overleaf session not found. Sign in again.";
 const LOGIN_FAILED: &str = "Failed to get User ID.";
@@ -131,8 +140,7 @@ pub async fn projects_post(
     };
     let cookies = match load_cookies(&state, &caller, &session_id).await {
         Ok(Some(cookies)) => cookies,
-        // `expired` tells the client to forget its stored id.
-        Ok(None) => return json_response(401, &json!({"error": NOT_FOUND, "expired": true})),
+        Ok(None) => return session_gone(),
         Err(response) => return response,
     };
     let api = match api_client(&state) {
@@ -171,7 +179,7 @@ pub async fn compile_post(
     };
     let cookies = match load_cookies(&state, &caller, &request.session_id).await {
         Ok(Some(cookies)) => cookies,
-        Ok(None) => return error_response(401, NOT_FOUND),
+        Ok(None) => return session_gone(),
         Err(response) => return response,
     };
     match compile_for(&state, &cookies, &request).await {
@@ -199,7 +207,7 @@ pub async fn pdf_post(
     };
     let cookies = match load_cookies(&state, &caller, &request.session_id).await {
         Ok(Some(cookies)) => cookies,
-        Ok(None) => return error_response(401, NOT_FOUND),
+        Ok(None) => return session_gone(),
         Err(response) => return response,
     };
     let (api, identity, compiled) = match compile_for(&state, &cookies, &request).await {
@@ -217,6 +225,12 @@ pub async fn pdf_post(
             .into_response(),
         Err(response) => response,
     }
+}
+
+/// The 401 for a missing or expired session. `expired` tells the client to forget its stored id;
+/// a 401 from the app's own sign-in carries no such flag.
+fn session_gone() -> Response {
+    json_response(401, &json!({"error": NOT_FOUND, "expired": true}))
 }
 
 /// Parses a JSON body, or the 400 reply when it is not JSON.
@@ -245,7 +259,18 @@ fn api_client(state: &AppState) -> Result<OverleafApi, Response> {
     .map_err(|message| safe_failure(&message, None))
 }
 
-/// The decrypted cookie of the caller's session `session_id`; `None` when no row matches.
+/// The PostgREST filter that keeps sessions made in the last `SESSION_LIFETIME` before `now`.
+/// A clock before the epoch keeps nothing (`gt` a far-future stamp): fail closed.
+fn session_cutoff(now: SystemTime) -> String {
+    let floor = now
+        .checked_sub(SESSION_LIFETIME)
+        .and_then(|floor| floor.duration_since(UNIX_EPOCH).ok())
+        .map_or(LAST_STAMP_SECS, |floor| floor.as_secs());
+    format!("gt.{}Z", utc_stamp(floor))
+}
+
+/// The decrypted cookie of the caller's session `session_id`; `None` when no row matches or the
+/// session is older than `SESSION_LIFETIME`.
 async fn load_cookies(
     state: &AppState,
     caller: &Caller,
@@ -255,6 +280,7 @@ async fn load_cookies(
         ("select", "cookie_ciphertext".to_string()),
         ("id", eq(session_id)),
         ("user_id", eq(&caller.user_id)),
+        ("created_at", session_cutoff(SystemTime::now())),
     ];
     let rows = user_db(state, caller)
         .select(TABLE, &query)
@@ -370,4 +396,22 @@ fn copy_fields(source: &Value, keys: &[&str]) -> Value {
         }
     }
     Value::Object(out)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_cutoff_is_one_day_before_now() {
+        let now = UNIX_EPOCH + Duration::from_secs(1_700_086_400);
+        assert_eq!(session_cutoff(now), "gt.2023-11-14T22:13:20Z");
+    }
+
+    #[test]
+    fn a_clock_before_the_epoch_keeps_no_session() {
+        // Less than a day after the epoch: the floor is before it, so nothing is kept.
+        let cutoff = session_cutoff(UNIX_EPOCH + Duration::from_secs(60));
+        assert_eq!(cutoff, "gt.9999-12-31T23:59:59Z");
+    }
 }

@@ -337,6 +337,49 @@ async fn projects_maps_id_and_name() {
     );
 }
 
+/// The `created_at` filter on the stored-session lookup, decoded.
+fn created_at_filter(up: &Upstream) -> Option<String> {
+    let sent = calls(up, TABLE);
+    let query = sent.first()?.target.split_once('?')?.1.to_owned();
+    url::form_urlencoded::parse(query.as_bytes())
+        .find(|(key, _)| key == "created_at")
+        .map(|(_, value)| value.into_owned())
+}
+
+#[tokio::test]
+async fn a_session_older_than_a_day_is_not_loaded() {
+    // The row filter, not the reply, does the expiring: PostgREST returns no row for an old
+    // session, so the reply is the same 401 `expired` as a missing one.
+    let up = upstream(vec![(TABLE, vec![json_reply(200, "[]")])]).await;
+    let req = request("POST", &format!("{PREFIX}/projects"), &session_body(), true);
+    let (status, _, reply) = call(&up, settings(&up, Some(KEY)), req).await;
+    assert_eq!(status, StatusCode::UNAUTHORIZED);
+    assert_eq!(json(&reply), json!({"error": NOT_FOUND, "expired": true}));
+    let filter = created_at_filter(&up).expect("created_at filter");
+    // `gt.YYYY-MM-DDTHH:MM:SSZ`; the exact stamp is checked by the unit test on the cutoff.
+    assert!(
+        filter.starts_with("gt.") && filter.ends_with('Z'),
+        "{filter}"
+    );
+    assert_eq!(filter.len(), "gt.".len() + 19 + 1, "{filter}");
+}
+
+#[tokio::test]
+async fn compile_and_pdf_lookups_also_expire() {
+    for route in ["compile", "pdf"] {
+        let up = upstream(vec![(TABLE, vec![json_reply(200, "[]")])]).await;
+        let req = request("POST", &format!("{PREFIX}/{route}"), &work_body(), true);
+        let (status, _, reply) = call(&up, settings(&up, Some(KEY)), req).await;
+        assert_eq!(status, StatusCode::UNAUTHORIZED, "{route}");
+        assert_eq!(
+            json(&reply),
+            json!({"error": NOT_FOUND, "expired": true}),
+            "{route}"
+        );
+        assert!(created_at_filter(&up).is_some(), "{route}");
+    }
+}
+
 #[tokio::test]
 async fn projects_load_error_is_502() {
     let up = upstream(vec![(
@@ -362,12 +405,12 @@ async fn compile_bad_body_is_400() {
 }
 
 #[tokio::test]
-async fn compile_missing_row_is_401_without_expired() {
+async fn compile_missing_row_is_401_expired() {
     let up = upstream(vec![(TABLE, vec![json_reply(200, "[]")])]).await;
     let req = request("POST", &format!("{PREFIX}/compile"), &work_body(), true);
     let (status, _, reply) = call(&up, settings(&up, Some(KEY)), req).await;
     assert_eq!(status, StatusCode::UNAUTHORIZED);
-    assert_eq!(json(&reply), json!({"error": NOT_FOUND}));
+    assert_eq!(json(&reply), json!({"error": NOT_FOUND, "expired": true}));
 }
 
 #[tokio::test]

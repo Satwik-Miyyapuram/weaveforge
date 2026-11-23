@@ -262,7 +262,7 @@ fn made_since(stamp: &str, made_after: SystemTime) -> bool {
 }
 
 /// `secs` since the Unix epoch as `YYYY-MM-DDTHH:MM:SS` (UTC, proleptic Gregorian).
-fn utc_stamp(secs: u64) -> String {
+pub(crate) fn utc_stamp(secs: u64) -> String {
     let (days, of_day) = (secs / 86_400, secs % 86_400);
     // Howard Hinnant's civil-from-days, on unsigned values (the epoch is after year 0).
     let z = days + 719_468;
