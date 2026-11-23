@@ -282,8 +282,50 @@ test("listForProject skips papers without a sidecar and sidecars that do not par
   const { fs, repo } = setupWithFiles();
   await repo.create("p-1", draft({ id: "a1" }));
   await fs.writeFile(`${ROOT}/papers/Other.annotations.json`, "{ not json");
-  assert.deepEqual((await repo.listForProject()).map((a) => a.id), ["a1"]);
+  const logs = await appLogs(async () => {
+    assert.deepEqual((await repo.listForProject()).map((a) => a.id), ["a1"]);
+  });
+  assert.ok(logs.some((l) => l.message.includes(`${ROOT}/papers/Other.annotations.json`)), "the skipped sidecar is logged by path");
 });
+
+test("a change to an annotation in a sidecar beside a broken one names the parse error, not just NotFound", async () => {
+  const { fs, repo } = setup();
+  await fs.writeFile(FILE, "{ not json");
+  await assert.rejects(repo.update("a1", { comment: "x" }), (err: Error) => {
+    assert.ok(err instanceof NotFoundError);
+    assert.match(err.message, /Attention\.annotations\.json/);
+    assert.match(err.message, /could not be read/);
+    return true;
+  });
+});
+
+test("recordZoteroSync with the paper id goes straight to that paper's sidecar", async () => {
+  const { fs, repo } = setup();
+  await repo.create("p-1", draft({ id: "a1" }));
+  // A broken sidecar elsewhere would stop a walk of every sidecar; the paper id skips it.
+  await fs.writeFile(`${ROOT}/papers/Other.annotations.json`, "{ not json");
+  await repo.recordZoteroSync("a1", { zoteroKey: "ZK1", zoteroVersion: 3, syncState: "synced", paperId: "p-1" });
+  assert.equal((await repo.list("p-1"))[0]!.zoteroKey, "ZK1");
+  await assert.rejects(
+    repo.recordZoteroSync("gone", { zoteroKey: "K", zoteroVersion: 1, syncState: "synced", paperId: "p-1" }),
+    NotFoundError,
+  );
+  assert.equal(await fs.stat(`${ROOT}/papers/Other.annotations.json`).then((s) => s !== null), true);
+});
+
+/** Captures the app-log lines written while `work` runs. */
+async function appLogs(work: () => Promise<void>): Promise<{ message: string }[]> {
+  const logs: { message: string }[] = [];
+  const g = globalThis as { window?: unknown };
+  const prior = g.window;
+  g.window = { weaveforge: { fetchTitle: () => Promise.resolve({}), reportAppLog: (e: { message: string }) => void logs.push(e) } };
+  try {
+    await work();
+  } finally {
+    g.window = prior;
+  }
+  return logs;
+}
 
 test("listForProject with no paper files lists nothing", async () => {
   const { repo } = setup();

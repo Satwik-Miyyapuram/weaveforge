@@ -370,3 +370,12 @@ test("a rename through withRenameLinkRewrite rewrites [[Old]] in another note fi
   await pages.update(target.id, { title: "New" });
   assert.equal((await repo.getById(linker.id))?.body, "see [[New]]\n");
 });
+
+test("add refuses a parentId no note has, as update does, and writes nothing", async () => {
+  const { fs, repo } = setup();
+  await assert.rejects(repo.add({ title: "Child", body: "", parentId: "missing" }), /No vault page with id "missing"/);
+  assert.deepEqual(await files(fs), []);
+  const parent = await repo.add({ title: "Parent", body: "" });
+  const child = await repo.add({ title: "Child", body: "", parentId: parent.id });
+  assert.equal(child.parentId, parent.id);
+});

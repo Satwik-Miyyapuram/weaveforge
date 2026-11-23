@@ -11,6 +11,8 @@ import type {
   WorkspaceAnnotation,
 } from "@weaveforge/core";
 import { ConflictError, NotFoundError } from "@weaveforge/core";
+import { warnOnce } from "@/lib/error-report/parts";
+import { formatError } from "@/lib/format-error";
 import { typedCore } from "@/lib/rust-core";
 
 /** How often a write re-reads and re-applies when the file changed under it. */
@@ -89,8 +91,8 @@ export class FileReaderAnnotationRepository
   }
 
   async update(id: string, patch: ReaderAnnotationPatch): Promise<ReaderAnnotation> {
-    const path = await this.pathOf(id);
-    if (!path) throw new NotFoundError("Annotation not found");
+    const { path, unreadable } = await this.pathOf(id);
+    if (!path) throw notFound(unreadable);
     let updated = null as ReaderAnnotation | null;
     await this.change(path, (rows) =>
       rows.map((row) => {
@@ -115,7 +117,7 @@ export class FileReaderAnnotationRepository
   }
 
   async remove(id: string): Promise<void> {
-    const path = await this.pathOf(id);
+    const { path } = await this.pathOf(id);
     if (path) await this.change(path, (rows) => rows.filter((row) => row.id !== id));
   }
 
@@ -125,10 +127,13 @@ export class FileReaderAnnotationRepository
    * `updatedAt` is not bumped: this is bookkeeping, not an edit.
    */
   async recordZoteroSync(id: string, record: ReaderAnnotationSyncRecord): Promise<void> {
-    const path = await this.pathOf(id);
-    if (!path) throw new NotFoundError("Annotation not found");
-    await this.change(path, (rows) =>
-      rows.map((row) => {
+    // With the paper id, go straight to its sidecar instead of reading every one.
+    const { path, unreadable } =
+      record.paperId !== undefined ? { path: await this.path(record.paperId), unreadable: [] } : await this.pathOf(id);
+    if (!path) throw notFound(unreadable);
+    await this.change(path, (rows) => {
+      if (!rows.some((row) => row.id === id)) throw new NotFoundError("Annotation not found");
+      return rows.map((row) => {
         if (row.id !== id) return row;
         const unchanged = record.ifUpdatedAt === undefined || row.updatedAt === record.ifUpdatedAt;
         return {
@@ -137,8 +142,8 @@ export class FileReaderAnnotationRepository
           zoteroVersion: record.zoteroVersion,
           ...(unchanged ? { syncState: record.syncState } : {}),
         };
-      }),
-    );
+      });
+    });
   }
 
   /** Every paper's annotations, each with its paper id and page; a sidecar that does not parse is skipped. */
@@ -146,9 +151,11 @@ export class FileReaderAnnotationRepository
     const out: WorkspaceAnnotation[] = [];
     for (const { paperId, path } of await this.paperFiles()) {
       let rows: Row[];
+      const sidecar = typedCore().annotationsFilePath(path);
       try {
-        rows = (await this.read(typedCore().annotationsFilePath(path))).rows;
-      } catch {
+        rows = (await this.read(sidecar)).rows;
+      } catch (error) {
+        warnOnce("reader", `Skipped ${sidecar}: it could not be read.`, error);
         continue;
       }
       for (const row of rows as unknown as ReaderAnnotation[]) {
@@ -192,25 +199,37 @@ export class FileReaderAnnotationRepository
     return this.fs.writeTextIf(path, text, expected);
   }
 
-  /** The annotations file that holds `id`, if any; refuses when more than one does. */
-  private async pathOf(id: string): Promise<string | null> {
+  /**
+   * The annotations file that holds `id`, if any; refuses when more than one does.
+   * `unreadable` names each sidecar that could not be read, with its error, so a
+   * caller that finds nothing can say why.
+   */
+  private async pathOf(id: string): Promise<{ path: string | null; unreadable: string[] }> {
     const dir = typedCore().entityDir("paper", this.projectRoot);
-    if (!(await this.fs.stat(dir))) return null;
+    if (!(await this.fs.stat(dir))) return { path: null, unreadable: [] };
     const paths: string[] = [];
+    const unreadable: string[] = [];
     for await (const entry of this.fs.walk(dir)) {
       if (!entry.path.endsWith(SUFFIX)) continue;
       try {
         const { rows } = await this.read(entry.path);
         if (rows.some((row) => row.id === id)) paths.push(entry.path);
-      } catch {
+      } catch (error) {
         // A broken file holds nothing this repository can change.
+        unreadable.push(`${entry.path} (${formatError(error)})`);
       }
     }
     if (paths.length > 1) {
       throw new ConflictError(`Annotation ${id} is in more than one file (${paths.join(", ")}); not saved.`);
     }
-    return paths[0] ?? null;
+    return { path: paths[0] ?? null, unreadable };
   }
+}
+
+/** Not found; names the sidecars that could not be read, since the annotation may be in one. */
+function notFound(unreadable: readonly string[]): NotFoundError {
+  if (unreadable.length === 0) return new NotFoundError("Annotation not found");
+  return new NotFoundError(`Annotation not found; these files could not be read: ${unreadable.join(", ")}`);
 }
 
 /** The Zotero position's page, else the page the sort index starts with (`00004|…`), else 0. */
