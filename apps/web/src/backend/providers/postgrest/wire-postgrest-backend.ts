@@ -86,7 +86,6 @@ import {
   type ShareableType,
 } from "@weaveforge/core";
 import type { ISharedReader, SharedItem } from "../../../features/sharing/domain/shared-reader";
-import type { Integration, SyncProvider } from "../../../features/sync/domain/parts";
 import { guardOrgDb } from "@/container/org-db-guard";
 import { guardSharedReadDb } from "@/container/shared-read-guard";
 import { SupabaseSessionProvider } from "../supabase-auth/parts";
