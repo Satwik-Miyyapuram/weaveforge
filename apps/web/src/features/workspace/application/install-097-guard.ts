@@ -18,13 +18,14 @@ export type Install097Verdict =
 type Install097Bridge = Partial<Pick<DesktopBridge, "legacyDbPresent" | "migrationReportVerified">>;
 
 /**
- * The web reader's two answers. `hasLegacyRows`: the account still has rows in the old personal
- * server tables. `ownRunVerified`: a verified 0.9.7 export run exists for this account (the
- * `profiles.exported_097_at` mark). The reader is infrastructure/install-097-web-port.
+ * The per-device answers for a browser or Android WebView, read from this device's storage only
+ * (no account, no server). `oldDataHere`: 0.9.7 started moving data in this browser.
+ * `exportedHere`: that move finished here (this device's own verified report or the 0.9.7 flag).
+ * The reader is infrastructure/install-097-browser-port.
  */
 export interface Install097OldUserPort {
-  hasLegacyRows(): Promise<boolean>;
-  ownRunVerified(): Promise<boolean>;
+  oldDataHere(): Promise<boolean>;
+  exportedHere(): Promise<boolean>;
 }
 
 /**
@@ -43,16 +44,16 @@ export async function install097Check(
 ): Promise<Install097Verdict> {
   if (!bridge) return oldUser ? webCheck(oldUser) : { kind: "open" };
   // Fail open: a check that is unavailable, throws or answers oddly cannot confirm old data, so it never gates.
-  if (typeof bridge.legacyDbPresent !== "function") return oldUser ? webCheck(oldUser) : { kind: "open" };
+  if (typeof bridge.legacyDbPresent !== "function") return { kind: "open" };
   let legacy: unknown;
   try {
     legacy = await bridge.legacyDbPresent();
   } catch {
-    return oldUser ? webCheck(oldUser) : { kind: "open" };
+    return { kind: "open" };
   }
-  if (typeof legacy !== "boolean") return oldUser ? webCheck(oldUser) : { kind: "open" };
-  // No local DB: a signed-in account can still be an old user with server rows (desktop has no local DB).
-  if (!legacy) return oldUser ? webCheck(oldUser) : { kind: "open" };
+  if (typeof legacy !== "boolean") return { kind: "open" };
+  // No old database on this computer: nothing here to move (the check is per device).
+  if (!legacy) return { kind: "open" };
   if (folder === null) return { kind: "unverified" };
   if (typeof bridge.migrationReportVerified !== "function") return { kind: "open" };
   let verified: unknown;
@@ -66,21 +67,22 @@ export async function install097Check(
 }
 
 /**
- * Web: old user = legacy rows present AND no verified export run. A new account (no rows) sees
- * nothing. A port that throws or answers a non-boolean opens too (fail open): only confirmed old data gates.
+ * Browser: gate = old data in this browser AND no export finished here. A browser with no old
+ * data sees nothing. A port that throws or answers a non-boolean opens (fail open): only
+ * confirmed old data gates.
  */
 async function webCheck(port: Install097OldUserPort): Promise<Install097Verdict> {
-  let rows: unknown;
+  let here: unknown;
   try {
-    rows = await port.hasLegacyRows();
+    here = await port.oldDataHere();
   } catch {
     return { kind: "open" };
   }
-  if (typeof rows !== "boolean") return { kind: "open" };
-  if (!rows) return { kind: "open" };
+  if (typeof here !== "boolean") return { kind: "open" };
+  if (!here) return { kind: "open" };
   let exported: unknown;
   try {
-    exported = await port.ownRunVerified();
+    exported = await port.exportedHere();
   } catch {
     return { kind: "open" };
   }
@@ -94,8 +96,8 @@ export const INSTALL_097_NOTICE = {
   body: "Install or open WeaveForge 0.9.7 so its move finishes, then come back.",
 } as const;
 
-/** The web gate text for an account with legacy rows and no verified export. Your data is safe. */
+/** The browser gate text: 0.9.7 started moving data in this browser and the move did not finish here. */
 export const INSTALL_097_WEB_NOTICE = {
-  title: "Export from 0.9.7 first.",
-  body: "Open this account once in WeaveForge desktop 0.9.7, export, then come back. Your data is safe.",
+  title: "Install 0.9.7 first.",
+  body: "This browser started moving your data in WeaveForge 0.9.7 and the move did not finish. Install WeaveForge desktop 0.9.7, sign in and export there. Your data is safe.",
 } as const;

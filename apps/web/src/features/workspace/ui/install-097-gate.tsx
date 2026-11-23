@@ -10,7 +10,7 @@ import {
   type Install097OldUserPort,
   type Install097Verdict,
 } from "../application/install-097-guard";
-import { signedInWebPort } from "../infrastructure/install-097-signed-in-port";
+import { browserOldDataPort } from "../infrastructure/install-097-browser-port";
 
 type Gate =
   | { phase: "checking" }
@@ -18,7 +18,7 @@ type Gate =
   | { phase: "unverified"; notice?: string; action?: "web-export" }
   | { phase: "unknown"; code: string };
 
-/** Resolves the signed-in web reader; null when there is no account to check. */
+/** Resolves this browser's own reader (no account, no server); null when there is nothing to check. */
 export type WebPortResolver = () => Promise<Install097OldUserPort | null>;
 
 /** A check that has not answered within this time opens the app (fail open). */
@@ -62,18 +62,18 @@ async function keepVerifiedFolder(bridge: DesktopBridge, folder: string): Promis
 }
 
 /**
- * Blocks the app only when 0.9.7 has confirmed an old local database or old account that is not
- * yet moved or exported. While blocked, nothing under it mounts. Browsers and Android have no
+ * Blocks the app only when 0.9.7 has confirmed old data on this device that is not yet moved or
+ * exported. While blocked, nothing under it mounts. Browsers and Android have no
  * desktop bridge and open at once. The check only reads, so the gate never writes data. A reject,
  * a timeout, or a check that cannot answer opens (fail open). The blocked screen shows the 0.9.7
  * download and the folder picker; an unverified report uses the same picker, so a moved export
- * folder is not blocked forever. On the web the old-user reader decides instead, and the picker is
- * hidden: the fix there is an export in 0.9.7, not a folder.
+ * folder is not blocked forever. In a browser this device's own reader decides instead (old 0.9.7
+ * data here, no verified 0.9.7 report in this workspace), and the picker is hidden: the fix there is 0.9.7, not a folder.
  */
 export function Install097Gate({
   children,
   checkTimeoutMs = INSTALL_097_CHECK_TIMEOUT_MS,
-  webPort = signedInWebPort,
+  webPort = browserOldDataPort,
 }: {
   children: ReactNode;
   checkTimeoutMs?: number;
@@ -101,16 +101,16 @@ export function Install097Gate({
     // A check that does not answer in time cannot confirm old data, so it opens (fail open).
     timer = setTimeout(() => settle({ phase: "open" }), checkTimeoutMs);
     if (!bridge) {
-      // Web or Android: the signed-in reader decides. No account (null port) opens.
+      // Web or Android: this browser's own reader decides. A null port opens.
       void webPort()
         .then((port) => install097Check(null, null, port ?? undefined))
         .then((verdict) => settle(toGate(verdict)), () => settle({ phase: "open" }));
     } else {
       const folder = request.folder;
       const resolved = folder === null ? workspaceFolder(bridge) : Promise.resolve(folder);
-      // The signed-in reader is also asked on desktop: an account with server rows and no local DB is an old user.
-      void Promise.all([resolved, webPort()])
-        .then(([path, port]) => install097Check(bridge, path, port ?? undefined))
+      // Desktop: only this computer's old database decides (the check is per device).
+      void resolved
+        .then((path) => install097Check(bridge, path))
         .then((verdict): Gate | Promise<Gate> => (verdict.kind === "open" && folder !== null ? keepVerifiedFolder(bridge, folder) : toGate(verdict)))
         .then((next) => settle(next), () => settle({ phase: "open" }));
     }

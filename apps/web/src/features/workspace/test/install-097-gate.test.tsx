@@ -30,8 +30,8 @@ function stubBridge(bridge: Record<string, unknown>) {
   };
 }
 
-/** No signed-in account: the web reader answers null, so desktop checks rest on the bridge alone. */
-const noAccount = async () => null;
+/** No browser reader: the web port answers null, so browser checks open and desktop rests on the bridge. */
+const noBrowserReader = async () => null;
 
 const textOf = (node: ReactTestInstance): string =>
   node.children.map((c) => (typeof c === "string" ? c : textOf(c))).join("");
@@ -53,7 +53,7 @@ function buttonWith(tree: ReactTestRenderer, label: string): ReactTestInstance {
 async function mount(): Promise<ReactTestRenderer> {
   let tree!: ReactTestRenderer;
   await act(async () => {
-    tree = create(createElement(Install097Gate, { webPort: noAccount, children: createElement(Child) }));
+    tree = create(createElement(Install097Gate, { webPort: noBrowserReader, children: createElement(Child) }));
     await new Promise((r) => setTimeout(r, 5));
   });
   return tree;
@@ -70,7 +70,7 @@ test("checking: while the check is pending the view says 'Checking…' and no ch
   stubBridge({ legacyDbPresent: () => new Promise(() => {}) });
   let tree!: ReactTestRenderer;
   await act(async () => {
-    tree = create(createElement(Install097Gate, { checkTimeoutMs: 60_000, webPort: noAccount, children: createElement(Child) }));
+    tree = create(createElement(Install097Gate, { checkTimeoutMs: 60_000, webPort: noBrowserReader, children: createElement(Child) }));
   });
   assert.ok(textOf(tree.root).includes("Checking…"));
   assert.equal(childCount(tree), 0);
@@ -221,20 +221,25 @@ test("passes: old DB present and verified report -> children mount", async () =>
   tree.unmount();
 });
 
-test("desktop, no local DB, signed-in old user with server rows and no export: web export notice, no children", async () => {
+test("desktop is per device: no local DB opens and the browser reader is never asked", async () => {
   stubBridge({ legacyDbPresent: () => Promise.resolve(false) });
+  let asked = 0;
   let tree!: ReactTestRenderer;
   await act(async () => {
     tree = create(
       createElement(Install097Gate, {
-        webPort: async () => ({ hasLegacyRows: async () => true, ownRunVerified: async () => false }),
+        webPort: async () => {
+          asked += 1;
+          return { oldDataHere: async () => true, exportedHere: async () => false };
+        },
         children: createElement(Child),
       }),
     );
     await new Promise((r) => setTimeout(r, 5));
   });
-  assert.ok(textOf(tree.root).includes(INSTALL_097_WEB_NOTICE.title));
-  assert.equal(childCount(tree), 0);
+  assert.ok(!textOf(tree.root).includes(INSTALL_097_WEB_NOTICE.title));
+  assert.equal(childCount(tree), 1);
+  assert.equal(asked, 0);
   tree.unmount();
 });
 
@@ -288,7 +293,7 @@ test("check never answers -> the timeout opens the gate (no CHECK_TIMEOUT block)
   stubBridge({ legacyDbPresent: () => new Promise(() => {}) });
   let tree!: ReactTestRenderer;
   await act(async () => {
-    tree = create(createElement(Install097Gate, { checkTimeoutMs: 10, webPort: noAccount, children: createElement(Child) }));
+    tree = create(createElement(Install097Gate, { checkTimeoutMs: 10, webPort: noBrowserReader, children: createElement(Child) }));
   });
   // The timeout starts when the effect flushes at the end of act, so wait in a second act.
   await act(async () => {
@@ -389,7 +394,7 @@ test("timed-out check opens; a late old-database answer cannot close the open ga
   });
   let tree!: ReactTestRenderer;
   await act(async () => {
-    tree = create(createElement(Install097Gate, { checkTimeoutMs: 10, webPort: noAccount, children: createElement(Child) }));
+    tree = create(createElement(Install097Gate, { checkTimeoutMs: 10, webPort: noBrowserReader, children: createElement(Child) }));
   });
   await act(async () => {
     await new Promise((r) => setTimeout(r, 40));

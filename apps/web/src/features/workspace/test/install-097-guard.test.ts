@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { INSTALL_097_NOTICE, install097Check } from "../application/install-097-guard";
+import { INSTALL_097_NOTICE, INSTALL_097_WEB_NOTICE, install097Check } from "../application/install-097-guard";
 
 /** A bridge method that records each call and answers with `impl`. */
 function spyOf<A extends unknown[], R>(impl: (...args: A) => Promise<R>) {
@@ -95,6 +95,14 @@ test("the gate notice body is the exact 0.9.7 move instruction", () => {
   );
 });
 
+test("the browser notice promises no reopen: a desktop export does not open this browser (the report folder is git-ignored)", () => {
+  assert.equal(
+    INSTALL_097_WEB_NOTICE.body,
+    "This browser started moving your data in WeaveForge 0.9.7 and the move did not finish. Install WeaveForge desktop 0.9.7, sign in and export there. Your data is safe.",
+  );
+  assert.doesNotMatch(INSTALL_097_WEB_NOTICE.body, /come back/);
+});
+
 test("legacy true and report throws: unknown with its code, open (fail open)", async () => {
   const bridge = {
     legacyDbPresent: legacyTrue,
@@ -113,74 +121,72 @@ test("legacy true and report answers a non-boolean: unknown, open (fail open)", 
   assert.deepEqual(await install097Check(bridge, "/ws"), { kind: "open" });
 });
 
-/** A fake old-user port: the web reader answers these two questions. */
-function oldUserPort(legacyRows: () => Promise<boolean>, ownRun: () => Promise<boolean>) {
-  const calls = { ownRun: 0 };
+/** A fake per-device port: this browser's reader answers these two questions. */
+function oldUserPort(oldData: () => Promise<boolean>, exported: () => Promise<boolean>) {
+  const calls = { oldData: 0, exported: 0 };
   return {
     port: {
-      hasLegacyRows: legacyRows,
-      ownRunVerified: async () => {
-        calls.ownRun += 1;
-        return ownRun();
+      oldDataHere: async () => {
+        calls.oldData += 1;
+        return oldData();
+      },
+      exportedHere: async () => {
+        calls.exported += 1;
+        return exported();
       },
     },
     calls,
   };
 }
 
-test("web new account (no legacy rows): open, export never checked", async () => {
+test("browser with no old 0.9.7 data: open, export never checked", async () => {
   const { port, calls } = oldUserPort(async () => false, async () => false);
   assert.deepEqual(await install097Check(null, null, port), { kind: "open" });
-  assert.equal(calls.ownRun, 0);
+  assert.equal(calls.exported, 0);
 });
 
-test("web old user with legacy rows and no verified export: unverified with the web export action", async () => {
+test("browser with old data and no export finished here: unverified with the web export action", async () => {
   const { port } = oldUserPort(async () => true, async () => false);
   assert.deepEqual(await install097Check(null, null, port), { kind: "unverified", action: "web-export" });
 });
 
-test("web old user with legacy rows and a verified export: open", async () => {
+test("browser with old data and an export finished here: open", async () => {
   const { port } = oldUserPort(async () => true, async () => true);
   assert.deepEqual(await install097Check(null, null, port), { kind: "open" });
 });
 
-test("web old-user port throws: unknown, open (fail open) (guard shows)", async () => {
-  const { port } = oldUserPort(
-    async () => {
-      throw new Error("reader down");
+test("browser port throws on either question: open (fail open)", async () => {
+  const boom = async (): Promise<boolean> => {
+    throw new Error("reader down");
+  };
+  assert.deepEqual(await install097Check(null, null, oldUserPort(boom, async () => false).port), { kind: "open" });
+  assert.deepEqual(await install097Check(null, null, oldUserPort(async () => true, boom).port), { kind: "open" });
+});
+
+test("browser port answers a non-boolean: open (fail open)", async () => {
+  const odd = async () => "yes" as unknown as boolean;
+  assert.deepEqual(await install097Check(null, null, oldUserPort(odd, async () => false).port), { kind: "open" });
+  assert.deepEqual(await install097Check(null, null, oldUserPort(async () => true, odd).port), { kind: "open" });
+});
+
+test("desktop is per device: no local DB opens and never asks a browser port", async () => {
+  const { port, calls } = oldUserPort(async () => true, async () => false);
+  assert.deepEqual(await install097Check({ legacyDbPresent: async () => false }, "/ws", port), { kind: "open" });
+  assert.equal(calls.oldData, 0);
+});
+
+test("desktop legacy check throws or is missing: open and never asks a browser port", async () => {
+  const { port, calls } = oldUserPort(async () => true, async () => false);
+  const throwing = {
+    legacyDbPresent: async (): Promise<boolean> => {
+      throw new Error("down");
     },
-    async () => true,
-  );
-  assert.deepEqual(await install097Check(null, null, port), { kind: "open" });
+  };
+  assert.deepEqual(await install097Check(throwing, "/ws", port), { kind: "open" });
+  assert.deepEqual(await install097Check({}, "/ws", port), { kind: "open" });
+  assert.equal(calls.oldData, 0);
 });
 
-test("desktop, no local DB, signed-in old user with server rows and no export: unverified web-export, not open", async () => {
-  const { port } = oldUserPort(async () => true, async () => false);
-  const bridge = { legacyDbPresent: async () => false };
-  assert.deepEqual(await install097Check(bridge, "/ws", port), { kind: "unverified", action: "web-export" });
-});
-
-test("desktop, no local DB, signed-in old user with a verified export: open", async () => {
-  const { port } = oldUserPort(async () => true, async () => true);
-  assert.deepEqual(await install097Check({ legacyDbPresent: async () => false }, "/ws", port), { kind: "open" });
-});
-
-test("desktop, no local DB, signed-in new account (no rows): open, export never checked", async () => {
-  const { port, calls } = oldUserPort(async () => false, async () => false);
-  assert.deepEqual(await install097Check({ legacyDbPresent: async () => false }, "/ws", port), { kind: "open" });
-  assert.equal(calls.ownRun, 0);
-});
-
-test("desktop, no local DB, old-user port throws: unknown, open (fail open)", async () => {
-  const { port } = oldUserPort(
-    async () => {
-      throw new Error("reader down");
-    },
-    async () => true,
-  );
-  assert.deepEqual(await install097Check({ legacyDbPresent: async () => false }, "/ws", port), { kind: "open" });
-});
-
-test("desktop, no local DB, no signed-in account (no port): open", async () => {
+test("desktop, no local DB, no port: open", async () => {
   assert.deepEqual(await install097Check({ legacyDbPresent: async () => false }, "/ws"), { kind: "open" });
 });

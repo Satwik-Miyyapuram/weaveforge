@@ -1,7 +1,7 @@
 ---
 covers:
   - apps/web/src/features/workspace/application/install-097-guard.ts
-  - apps/web/src/features/workspace/infrastructure/install-097-signed-in-port.ts
+  - apps/web/src/features/workspace/infrastructure/install-097-browser-port.ts
   - apps/web/src/features/workspace/ui/install-097-gate.tsx
   - apps/web/src/features/workspace/application/auto-sync.ts
   - apps/web/src/features/workspace/ui/git-sync-dot.tsx
@@ -16,22 +16,22 @@ WeaveForge 0.9.8 may ask you to open 0.9.7 once before the app opens. This page 
 
 ## Who is asked
 
-Only people with data from an older version are asked. A new install or a new account is never held back.
+Only a device that holds data from an older version is asked. A new install, a new account or a browser with no old data is never held back. The check looks at this device only; it does not ask the server about your account.
 
 - **Desktop:** if an old local database is found, the app shows "Open 0.9.7 once more." and stays closed until 0.9.7 has moved your data across.
-- **Web:** if your account has old server data and no export from 0.9.7, the app shows "Export from 0.9.7 first." An account without old data sees nothing.
+- **Web:** if 0.9.7 started moving your data in this browser and the move did not finish here, the app shows "Install 0.9.7 first." Any other browser sees nothing.
 
 ## What the check looks at
 
 - **Desktop:** the app opens when there is no old local database. Otherwise it opens only when the 0.9.7 export report in your workspace folder is verified and this device's secrets move is marked done.
-- **Web:** the app opens when the account has no old rows, or when a 0.9.7 export has been recorded for the account.
+- **Web:** the app opens when this browser holds no data from 0.9.7, or when the 0.9.7 export finished in this browser. An export finished on another device does not open this browser: GitHub sync leaves the 0.9.7 report folder out, so the report stays on the device that made it. If this browser's storage cannot be read, the app opens.
 
 If the check cannot be completed, the screen says "WeaveForge could not check the local database.", shows an error code, and says that nothing was moved. Your data is safe.
 
 ## How to get past it
 
 - **Desktop:** install or open WeaveForge 0.9.7 so its move finishes, then come back. If the export folder has moved, choose it on the screen. A folder is only kept once it is verified.
-- **Web:** open this account once in WeaveForge desktop 0.9.7, export, then come back.
+- **Web:** install WeaveForge desktop 0.9.7, sign in and export there. Your data is then in that computer's workspace folder. This browser keeps showing the screen afterwards. Do not clear this site's data to get past it: that also deletes the workspace stored in this browser.
 
 The screen links to the 0.9.7 download. On the web there is no folder picker, because the fix is an export, not a folder.
 
