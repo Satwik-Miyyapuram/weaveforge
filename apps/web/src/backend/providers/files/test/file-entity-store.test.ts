@@ -124,7 +124,7 @@ test("a save from a stale row keeps the outside edit and puts the row in a confl
   assert.equal(warned.length, 0, "the conflict copy is not reported as a bad file");
 });
 
-test("after a conflict, a save without a fresh read still refuses; a fresh read lets it through", async () => {
+test("after a conflict, a save without a fresh read still refuses; a fresh read lets it through (one copy)", async () => {
   const { fs, store } = setup();
   await store.save(row());
   const [path] = await files(fs);
@@ -132,12 +132,83 @@ test("after a conflict, a save without a fresh read still refuses; a fresh read 
   await fs.writeFile(path, (await fs.readText(path)).replace('status: "planned"', 'status: "running"'));
   await assert.rejects(store.save(row({ name: "Mine" })), (e: Error) => e.name === "ConflictError");
   await assert.rejects(store.save(row({ name: "Mine again" })), (e: Error) => e.name === "ConflictError");
-  assert.equal((await files(fs)).length, 3, "each refused save keeps its own copy");
+  assert.equal((await files(fs)).length, 2, "the refused saves share one copy");
   const fresh = await store.get(row().id);
   assert.ok(fresh);
   await store.save({ ...fresh, name: "Mine" });
   assert.equal((await store.get(row().id))?.name, "Mine");
   assert.equal((await store.get(row().id))?.status, "running");
+});
+
+/** Saves the row, then changes its status on disk as another app would; returns the file's path and new text. */
+async function editedOutside(fs: MemoryWorkspaceFs, store: FileEntityStore<Row>): Promise<{ path: string; theirs: string }> {
+  await store.save(row());
+  const [path] = await files(fs);
+  assert.ok(path);
+  const theirs = (await fs.readText(path)).replace('status: "planned"', 'status: "running"');
+  await fs.writeFile(path, theirs);
+  return { path, theirs };
+}
+
+const isConflict = (e: Error) => e.name === "ConflictError";
+
+test("a stale save with its base conflicts even after an unrelated read refreshed the store", async () => {
+  const { fs, store } = setup();
+  await store.save(row());
+  const base = await store.get(row().id);
+  assert.ok(base);
+  const [path] = await files(fs);
+  const theirs = (await fs.readText(path!)).replace('status: "planned"', 'status: "running"');
+  await fs.writeFile(path!, theirs);
+  await store.all(); // another view lists the rows
+  await assert.rejects(store.save({ ...base, name: "Mine" }, base), isConflict);
+  assert.equal(await fs.readText(path!), theirs, "the outside edit is kept");
+  const all = await files(fs);
+  assert.equal(all.length, 2, all.join());
+  assert.match(await fs.readText(all.find((p) => p !== path)!), /Mine/);
+});
+
+test("a save whose base matches the file goes through and keeps the outside edit's other fields", async () => {
+  const { fs, store } = setup();
+  await editedOutside(fs, store);
+  const base = await store.get(row().id);
+  assert.ok(base);
+  await store.save({ ...base, name: "Mine" }, base);
+  const saved = await store.get(row().id);
+  assert.equal(saved?.name, "Mine");
+  assert.equal(saved?.status, "running");
+  assert.equal((await files(fs)).length, 1);
+});
+
+test("three retries of the same stale save leave exactly one conflict copy", async () => {
+  const { fs, store } = setup();
+  const { path, theirs } = await editedOutside(fs, store);
+  for (let n = 0; n < 3; n += 1) await assert.rejects(store.save(row({ name: "Mine" })), isConflict);
+  const all = await files(fs);
+  assert.equal(all.length, 2, all.join());
+  assert.equal(await fs.readText(path), theirs);
+});
+
+test("a retry with new content updates the one conflict copy", async () => {
+  const { fs, store } = setup();
+  const { path } = await editedOutside(fs, store);
+  await assert.rejects(store.save(row({ name: "Mine" })), isConflict);
+  await assert.rejects(store.save(row({ name: "Mine again" })), isConflict);
+  const all = await files(fs);
+  assert.equal(all.length, 2, all.join());
+  assert.match(await fs.readText(all.find((p) => p !== path)!), /Mine again/);
+});
+
+test("a conflict copy edited since it was written is kept; a retry writes a new copy", async () => {
+  const { fs, store } = setup();
+  const { path } = await editedOutside(fs, store);
+  await assert.rejects(store.save(row({ name: "Mine" })), isConflict);
+  const copy = (await files(fs)).find((p) => p !== path)!;
+  const edited = `${await fs.readText(copy)}\nmy notes\n`;
+  await fs.writeFile(copy, edited);
+  await assert.rejects(store.save(row({ name: "Mine again" })), isConflict);
+  assert.equal(await fs.readText(copy), edited, "the edited copy is untouched");
+  assert.equal((await files(fs)).length, 3);
 });
 
 test("two saves in a row from one store need no read in between", async () => {
