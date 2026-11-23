@@ -15,6 +15,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 pub mod hub;
 pub mod lease;
 pub mod protocol;
+pub mod quota;
 pub mod routes;
 pub mod store;
 pub mod update_log;
@@ -101,6 +102,13 @@ impl Clock for SystemClock {
 pub trait Authenticator: Send + Sync {
     /// The user the token signs in, if any.
     fn user_for<'a>(&'a self, token: &'a str) -> BoxFut<'a, Option<String>>;
+
+    /// When a token `user_for` accepted stops being valid (Unix ms); `None`: it does not
+    /// expire. An open socket is closed with `token-expired` once this passes, and the
+    /// client reconnects with a fresh token.
+    fn expires_at_ms(&self, _token: &str) -> Option<i64> {
+        None
+    }
 }
 
 /// Tunables for co-editing.

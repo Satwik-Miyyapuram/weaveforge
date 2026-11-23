@@ -14,7 +14,7 @@ use axum::http::{HeaderMap, StatusCode, header};
 use axum::response::{IntoResponse, Response};
 use axum::routing::{delete, get, post};
 use base64::Engine as _;
-use base64::engine::general_purpose::STANDARD;
+use base64::engine::general_purpose::{STANDARD, URL_SAFE_NO_PAD};
 use serde::Deserialize;
 use serde_json::{Value, json};
 use wf_core::sync::instant::parse_instant;
@@ -51,6 +51,22 @@ impl Authenticator for SessionAuth {
                 .map(|caller| caller.user_id)
         })
     }
+
+    fn expires_at_ms(&self, token: &str) -> Option<i64> {
+        Some(jwt_expiry_ms(token))
+    }
+}
+
+/// The `exp` claim of a session JWT, in Unix ms. Only called on a token Supabase accepted,
+/// so the claim is trusted; a token without a readable `exp` counts as expired (fail closed).
+fn jwt_expiry_ms(token: &str) -> i64 {
+    token
+        .split('.')
+        .nth(1)
+        .and_then(|payload| URL_SAFE_NO_PAD.decode(payload).ok())
+        .and_then(|json| serde_json::from_slice::<Value>(&json).ok())
+        .and_then(|claims| claims.get("exp").and_then(Value::as_i64))
+        .map_or(0, |exp| exp.saturating_mul(1_000))
 }
 
 /// All co-editing routes, sharing `state`.
@@ -423,4 +439,29 @@ async fn revoke_grant(
     // Only the rooms the grant covered need a recheck.
     state.hub.broadcast_affected(&target, &Event::Recheck);
     Ok(Json(json!({ "ok": true })).into_response())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn jwt(payload: &str) -> String {
+        format!("h.{}.s", URL_SAFE_NO_PAD.encode(payload))
+    }
+
+    #[test]
+    fn expiry_comes_from_the_exp_claim() {
+        assert_eq!(
+            jwt_expiry_ms(&jwt(r#"{"exp":1700000000}"#)),
+            1_700_000_000_000
+        );
+    }
+
+    #[test]
+    fn a_token_without_a_readable_exp_counts_as_expired() {
+        assert_eq!(jwt_expiry_ms(&jwt(r#"{"sub":"u"}"#)), 0);
+        assert_eq!(jwt_expiry_ms(&jwt(r#"{"exp":"soon"}"#)), 0);
+        assert_eq!(jwt_expiry_ms("h.!!!.s"), 0);
+        assert_eq!(jwt_expiry_ms("not-a-jwt"), 0);
+    }
 }

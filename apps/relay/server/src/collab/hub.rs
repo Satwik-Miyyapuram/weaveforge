@@ -1,7 +1,7 @@
 //! Open shared documents ("rooms"): each holds its Yjs doc, lease and update log in memory.
 //! The hub map lock is only held for a quick lookup, insert or remove, never across an await.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::io;
 use std::path::Path;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -13,6 +13,7 @@ use yrs::{Doc, ReadTxn, StateVector, Transact, Update};
 use crate::collab::CollabState;
 use crate::collab::lease::LeaseBook;
 use crate::collab::protocol::{event_json, rejoin_json};
+use crate::collab::quota::Quota;
 use crate::collab::store::{DocRow, DocStatus};
 use crate::collab::update_log::{UpdateLog, list_logs, log_path};
 
@@ -111,6 +112,12 @@ pub struct Hub {
     next_client: AtomicU64,
     /// Held for a whole `open_room`, so two opens of one item cannot both cut and replay its log.
     open_gate: Mutex<()>,
+    /// Items whose log a restore could not empty: the next open cuts it before replay, so the
+    /// old edits never land on the restored doc. Lost on restart, which needs both a failed
+    /// truncate and a failed delete first.
+    stale_logs: Mutex<HashSet<String>>,
+    /// Per-user socket and document caps.
+    quota: Arc<Quota>,
 }
 
 impl Hub {
@@ -159,6 +166,29 @@ impl Hub {
                 room.send(event.clone());
             }
         }
+    }
+
+    /// The per-user socket and document caps.
+    #[must_use]
+    pub fn quota(&self) -> &Arc<Quota> {
+        &self.quota
+    }
+
+    /// Marks `item_id`'s log as holding edits from before a restore: the next open cuts it.
+    pub fn mark_stale_log(&self, item_id: &str) {
+        let _ = self.stale().insert(item_id.to_owned());
+    }
+
+    /// Whether `item_id`'s log was marked stale; clears the mark.
+    #[must_use]
+    pub fn take_stale_log(&self, item_id: &str) -> bool {
+        self.stale().remove(item_id)
+    }
+
+    fn stale(&self) -> MutexGuard<'_, HashSet<String>> {
+        self.stale_logs
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
     }
 
     /// The room map, even when a panic poisoned its lock.
@@ -239,7 +269,16 @@ pub async fn open_room(state: &CollabState, row: DocRow) -> Result<Arc<Room>, St
     if !row.state.is_empty() {
         apply_bytes(&doc, &row.state)?;
     }
-    let log = UpdateLog::open(&state.config.log_dir, &item_id).map_err(|err| err.to_string())?;
+    let mut log =
+        UpdateLog::open(&state.config.log_dir, &item_id).map_err(|err| err.to_string())?;
+    // A restore that could not empty this log left the old edits in it: cut them, or refuse to
+    // open, but never replay them onto the restored doc.
+    if state.hub.take_stale_log(&item_id)
+        && let Err(err) = log.truncate()
+    {
+        state.hub.mark_stale_log(&item_id);
+        return Err(err.to_string());
+    }
     // Replayed one record at a time, so a long log is not read into memory in full.
     let mut replayed = false;
     log.for_each(|update| {
@@ -452,7 +491,8 @@ pub async fn sweep_closing(state: &CollabState) {
 }
 
 /// Replaces a doc's state, bumps its epoch and drops the open room so clients rejoin.
-/// Returns the new epoch.
+/// Returns the new epoch. Once the state is replaced the restore has happened, so a log that
+/// could not be emptied is logged, not returned: `retire` marks it stale instead.
 pub async fn restore(
     state: &CollabState,
     item_id: &str,
@@ -460,19 +500,32 @@ pub async fn restore(
     bytes: &[u8],
 ) -> Result<i64, String> {
     let new_epoch = state.store.replace_state(item_id, kind, bytes).await?;
-    if let Some(room) = state.hub.get(item_id) {
-        retire(state, &room, new_epoch).await?;
+    if let Some(room) = state.hub.get(item_id)
+        && let Err(err) = retire(state, &room, new_epoch).await
+    {
+        eprintln!("restore {item_id}: old log not emptied, marked stale: {err}");
     }
     Ok(new_epoch)
 }
 
 /// Ends `room` for a newer `epoch`: empties its log, drops it from the hub and tells its clients
 /// to rejoin. One critical section: an update applied after it sees `retired` and is refused, so
-/// nothing reaches the log the next room replays.
+/// nothing reaches the log the next room replays. When the log cannot be emptied it is marked
+/// stale (before the room leaves the hub), so the next open cuts it rather than replay it, and
+/// deleted.
 async fn retire(state: &CollabState, room: &Room, epoch: i64) -> Result<(), String> {
     let cleared = {
         let mut inner = room.inner.lock().await;
-        let cleared = inner.log.truncate().map_err(|err| err.to_string());
+        let cleared = inner
+            .log
+            .truncate()
+            .map_err(|err| err.to_string())
+            .or_else(|err| {
+                // Marked even when the delete works: on Windows the file stays until this
+                // handle drops, so the next open may still see it. Cutting an empty log is free.
+                state.hub.mark_stale_log(&room.item_id);
+                remove_log(&state.config.log_dir, &room.item_id).map_err(|_| err)
+            });
         inner.dirty = false;
         inner.retired = true;
         state.hub.remove_if_same(room);
