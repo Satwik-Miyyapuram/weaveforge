@@ -21,6 +21,8 @@ pub struct SettingsConfig {
     pub overleaf_retry_ms: u64,
     /// The Overleaf git base (no trailing '/'); fixed, so tests can point it at a local repo.
     pub overleaf_git_base: String,
+    /// `RELAY_APP_ORIGIN`, the web app origin (no trailing '/') that invite links return to.
+    pub app_origin: String,
 }
 
 /// The repository error reports go to when `GITHUB_ISSUES_REPO` is unset.
@@ -35,6 +37,8 @@ const OVERLEAF_BASE: &str = "https://www.overleaf.com/";
 const OVERLEAF_RETRY_MS: u64 = 1000;
 /// The Overleaf git base; not read from the environment.
 const OVERLEAF_GIT_BASE: &str = "https://git.overleaf.com";
+/// The web app origin when `RELAY_APP_ORIGIN` is unset.
+const APP_ORIGIN: &str = "https://app.weaveforge.org";
 
 impl Default for SettingsConfig {
     fn default() -> Self {
@@ -48,6 +52,7 @@ impl Default for SettingsConfig {
             overleaf_base: OVERLEAF_BASE.to_owned(),
             overleaf_retry_ms: OVERLEAF_RETRY_MS,
             overleaf_git_base: OVERLEAF_GIT_BASE.to_owned(),
+            app_origin: APP_ORIGIN.to_owned(),
         }
     }
 }
@@ -66,6 +71,10 @@ impl SettingsConfig {
             .map(|v| v.trim().to_owned())
             .filter(|v| !v.is_empty())
             .unwrap_or_else(|| DEFAULT_ISSUES_REPO.to_owned());
+        let app_origin = get("RELAY_APP_ORIGIN")
+            .map(|v| v.trim().trim_end_matches('/').to_owned())
+            .filter(|v| !v.is_empty())
+            .unwrap_or_else(|| APP_ORIGIN.to_owned());
         SettingsConfig {
             mcp_enabled: !matches!(mcp.as_deref(), Some("false" | "0")),
             credential_key,
@@ -76,6 +85,27 @@ impl SettingsConfig {
             overleaf_base: OVERLEAF_BASE.to_owned(),
             overleaf_retry_ms: OVERLEAF_RETRY_MS,
             overleaf_git_base: OVERLEAF_GIT_BASE.to_owned(),
+            app_origin,
         }
+    }
+
+    /// Checks the settings at startup: `app_origin` must be a bare http(s) origin (no path,
+    /// query, fragment or credentials), since invite links are built on it.
+    ///
+    /// # Errors
+    /// Names the variable when `RELAY_APP_ORIGIN` is not such an origin.
+    pub fn check(&self) -> Result<(), String> {
+        let bad = || {
+            format!(
+                "RELAY_APP_ORIGIN must be an http(s) origin, got {:?}",
+                self.app_origin
+            )
+        };
+        let url = ::url::Url::parse(&self.app_origin).map_err(|_| bad())?;
+        // Serializing the origin back must give the value unchanged: that rules out a path,
+        // query, fragment, credentials, a default port spelled out or uppercase letters.
+        let bare = matches!(url.scheme(), "http" | "https")
+            && url.origin().ascii_serialization() == self.app_origin;
+        if bare { Ok(()) } else { Err(bad()) }
     }
 }

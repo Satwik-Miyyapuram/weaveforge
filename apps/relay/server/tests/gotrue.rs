@@ -23,17 +23,21 @@ use wf_relay_server::url_meta::MetaUpstreams;
 const SESSION: &str = "a.b.c";
 const AUTH_USER: &str = "/auth/v1/user";
 const PROFILES: &str = "/rest/v1/profiles";
+const INVITE: &str = "/auth/v1/invite";
+const ADMIN_USERS: &str = "/auth/v1/admin/users";
 /// The page that ends a user lookup.
 const EMPTY_PAGE: &str = r#"{"users":[]}"#;
 /// A `created_at` after any test run, so the date check passes.
 const NEW: &str = "2999-01-01T00:00:00Z";
+/// An invite reply naming a user made by that call.
+const MADE_NOW: &str = r#"{"id":"new1","created_at":"2999-01-01T00:00:00Z"}"#;
 
-/// A user list page of confirmed users `(id, email, created_at)`.
+/// A user list page of invited users `(id, email, created_at)`.
 fn page_of(users: &[(&str, &str, &str)]) -> String {
     let users: Vec<Value> = users
         .iter()
         .map(|(id, email, created)| {
-            json!({"id": id, "email": email, "created_at": created, "email_confirmed_at": NEW})
+            json!({"id": id, "email": email, "created_at": created, "invited_at": NEW})
         })
         .collect();
     json!({ "users": users }).to_string()
@@ -179,38 +183,175 @@ fn member_json_leaves_out_absent_fields() {
 }
 
 #[tokio::test]
-async fn admin_create_sends_confirmed_email_and_name_only_when_given() {
-    let up = serve(vec![(
-        "/auth/v1/admin/users",
-        vec![json_reply(200, r#"{"id":"new1"}"#)],
-    )])
-    .await;
+async fn admin_create_invites_by_email_with_the_name_only_when_given() {
+    let up = serve(vec![(INVITE, vec![json_reply(200, MADE_NOW)])]).await;
     let state = state(up.port);
-    let named = admin_create_user(&state, "a@x.org", "pw12345678", Some("Ann")).await;
+    let named = admin_create_user(&state, "a@x.org", Some("Ann")).await;
     assert_eq!(named, Ok("new1".to_string()));
-    let unnamed = admin_create_user(&state, "b@x.org", "pw12345678", None).await;
+    let unnamed = admin_create_user(&state, "b@x.org", None).await;
     assert_eq!(unnamed, Ok("new1".to_string()));
 
     let seen = up.seen();
+    assert_eq!(seen.len(), 2, "{seen:?}");
+    for call in &seen {
+        assert_eq!(call.method, "POST");
+        assert_eq!(
+            call.target,
+            "/auth/v1/invite?redirect_to=https%3A%2F%2Fapp.weaveforge.org%2Freset-password"
+        );
+        assert_eq!(call.header("apikey"), Some("service"));
+    }
+    // Exact bodies: no password, no `email_confirm`, the name under `data`.
     let first: Value = serde_json::from_slice(&seen[0].body).unwrap();
-    assert_eq!(first["email_confirm"], json!(true));
-    assert_eq!(first["user_metadata"], json!({"full_name": "Ann"}));
-    assert_eq!(seen[0].header("apikey"), Some("service"));
+    assert_eq!(
+        first,
+        json!({"email": "a@x.org", "data": {"full_name": "Ann"}})
+    );
     let second: Value = serde_json::from_slice(&seen[1].body).unwrap();
-    assert!(second.get("user_metadata").is_none());
+    assert_eq!(second, json!({"email": "b@x.org"}));
+}
+
+/// The invite link returns to the configured app origin.
+#[tokio::test]
+async fn admin_create_returns_the_invite_to_the_configured_origin() {
+    let up = serve(vec![(INVITE, vec![json_reply(200, MADE_NOW)])]).await;
+    let mut state = state(up.port);
+    Arc::get_mut(&mut state).unwrap().settings.app_origin = "http://localhost:3000".to_string();
+    assert_eq!(
+        admin_create_user(&state, "a@x.org", None).await,
+        Ok("new1".to_string())
+    );
+    assert_eq!(
+        up.seen()[0].target,
+        "/auth/v1/invite?redirect_to=http%3A%2F%2Flocalhost%3A3000%2Freset-password"
+    );
 }
 
 #[tokio::test]
 async fn admin_create_reads_the_id_from_a_user_object() {
     let up = serve(vec![(
-        "/auth/v1/admin/users",
-        vec![json_reply(200, r#"{"user":{"id":"new2"}}"#)],
+        INVITE,
+        vec![json_reply(
+            200,
+            &format!(r#"{{"user":{{"id":"new2","created_at":"{NEW}"}}}}"#),
+        )],
     )])
     .await;
-    let created = admin_create_user(&state(up.port), "a@x.org", "pw12345678", None).await;
+    let created = admin_create_user(&state(up.port), "a@x.org", None).await;
     assert_eq!(created, Ok("new2".to_string()));
 }
 
+/// GoTrue re-sends an invite to an existing unconfirmed account and answers 200 with it: an
+/// older user (or an unreadable stamp) is a taken email, refused with no further call (no
+/// lookup, no delete).
+#[tokio::test]
+async fn admin_create_refuses_an_invite_answered_with_an_older_user() {
+    for (reply, refusal) in [
+        (
+            r#"{"id":"old1","created_at":"2001-01-01T00:00:00Z"}"#,
+            "Email already registered.",
+        ),
+        (
+            r#"{"user":{"id":"old1","created_at":"2001-01-01T00:00:00.5+00:00"}}"#,
+            "Email already registered.",
+        ),
+        (
+            r#"{"id":"old1","created_at":"yesterday"}"#,
+            "Email already registered.",
+        ),
+    ] {
+        let up = serve(vec![(INVITE, vec![json_reply(200, reply)])]).await;
+        let created = admin_create_user(&state(up.port), "a@x.org", None).await;
+        assert_eq!(created, Err(refusal.to_string()), "{reply}");
+        assert_eq!(up.seen().len(), 1, "{reply}");
+    }
+}
+
+/// A user made two minutes before the call is outside the 30 s skew: another admin's pending
+/// invite, so it is refused as taken and never given a profile or deleted.
+#[tokio::test]
+async fn admin_create_refuses_a_user_made_minutes_before_the_call() {
+    let reply = json!({"id": "old1", "created_at": stamp_secs_ago(120)}).to_string();
+    let up = serve(vec![(INVITE, vec![json_reply(200, &reply)])]).await;
+    let created = admin_create_user(&state(up.port), "a@x.org", None).await;
+    assert_eq!(created, Err("Email already registered.".to_string()));
+    assert_eq!(up.seen().len(), 1);
+}
+
+/// An undated reply with an id may still be a new user, so it is cleaned up like an unnamed
+/// one (exact email, invited, inside the skew, no profile) and the create fails.
+#[tokio::test]
+async fn admin_create_with_an_undated_reply_deletes_the_half_made_user() {
+    for reply in [r#"{"id":"new1"}"#, r#"{"id":"new1","created_at":null}"#] {
+        let list = page_of(&[("new1", "a@x.org", NEW)]);
+        let up = serve(vec![
+            (INVITE, vec![json_reply(200, reply)]),
+            (
+                ADMIN_USERS,
+                vec![json_reply(200, &list), json_reply(200, EMPTY_PAGE)],
+            ),
+            ("/auth/v1/admin/users/new1", vec![json_reply(200, "{}")]),
+            (PROFILES, vec![json_reply(200, "[]")]),
+        ])
+        .await;
+        let created = admin_create_user(&state(up.port), "a@x.org", None).await;
+        assert_eq!(
+            created,
+            Err("Failed to create user.".to_string()),
+            "{reply}"
+        );
+        let seen = up.seen();
+        let last = seen.last().expect("calls");
+        assert_eq!(last.method, "DELETE", "{reply}: {seen:?}");
+        assert_eq!(last.target, "/auth/v1/admin/users/new1", "{reply}");
+    }
+}
+
+/// The cleanup leaves alone a matching user made minutes before the call.
+#[tokio::test]
+async fn admin_create_cleanup_never_deletes_a_user_made_minutes_before_the_call() {
+    let old = stamp_secs_ago(120);
+    let list = page_of(&[("old1", "a@x.org", &old)]);
+    let up = serve(vec![
+        (INVITE, vec![json_reply(200, r#"{"id":""}"#)]),
+        (
+            ADMIN_USERS,
+            vec![json_reply(200, &list), json_reply(200, EMPTY_PAGE)],
+        ),
+        (PROFILES, vec![json_reply(200, "[]")]),
+    ])
+    .await;
+    let created = admin_create_user(&state(up.port), "a@x.org", None).await;
+    assert_eq!(created, Err("Failed to create user.".to_string()));
+    let seen = up.seen();
+    assert!(seen.iter().all(|s| s.method != "DELETE"), "{seen:?}");
+}
+
+/// The GoTrue-style UTC stamp `secs` seconds before now.
+fn stamp_secs_ago(secs: u64) -> String {
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .expect("clock")
+        .as_secs();
+    let at = now - secs;
+    let (days, rest) = (at / 86_400, at % 86_400);
+    // Civil date from days since 1970-01-01 (H. Hinnant's algorithm).
+    let z = days + 719_468;
+    let era = z / 146_097;
+    let doe = z - era * 146_097;
+    let yoe = (doe - doe / 1460 + doe / 36_524 - doe / 146_096) / 365;
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+    let mp = (5 * doy + 2) / 153;
+    let day = doy - (153 * mp + 2) / 5 + 1;
+    let month = if mp < 10 { mp + 3 } else { mp - 9 };
+    let year = yoe + era * 400 + u64::from(month <= 2);
+    format!(
+        "{year:04}-{month:02}-{day:02}T{:02}:{:02}:{:02}Z",
+        rest / 3600,
+        rest % 3600 / 60,
+        rest % 60
+    )
+}
 /// A create that answers 200 with no id made a user we cannot name: find it by email and
 /// delete it, so no auth user is left without a profile. Still a failure for the caller.
 #[tokio::test]
@@ -220,19 +361,16 @@ async fn admin_create_without_an_id_deletes_the_half_made_user() {
         ("made1", "A@X.org", "2999-01-01T00:00:00.123456Z"),
     ]);
     let up = serve(vec![
+        (INVITE, vec![json_reply(200, r#"{"id":""}"#)]),
         (
-            "/auth/v1/admin/users",
-            vec![
-                json_reply(200, r#"{"id":""}"#),
-                json_reply(200, &list),
-                json_reply(200, EMPTY_PAGE),
-            ],
+            ADMIN_USERS,
+            vec![json_reply(200, &list), json_reply(200, EMPTY_PAGE)],
         ),
         ("/auth/v1/admin/users/made1", vec![json_reply(200, "{}")]),
         (PROFILES, vec![json_reply(200, "[]")]),
     ])
     .await;
-    let created = admin_create_user(&state(up.port), "a@x.org", "pw12345678", None).await;
+    let created = admin_create_user(&state(up.port), "a@x.org", None).await;
     assert_eq!(created, Err("Failed to create user.".to_string()));
     let seen = up.seen();
     assert_eq!(seen.len(), 5, "{seen:?}");
@@ -268,10 +406,10 @@ async fn admin_create_without_an_id_finds_the_user_on_a_later_page() {
         .collect();
     let full_page = format!(r#"{{"users":[{}]}}"#, others.join(","));
     let up = serve(vec![
+        (INVITE, vec![json_reply(200, "{}")]),
         (
-            "/auth/v1/admin/users",
+            ADMIN_USERS,
             vec![
-                json_reply(200, "{}"),
                 json_reply(200, &full_page),
                 json_reply(
                     200,
@@ -284,7 +422,7 @@ async fn admin_create_without_an_id_finds_the_user_on_a_later_page() {
         (PROFILES, vec![json_reply(200, "[]")]),
     ])
     .await;
-    let created = admin_create_user(&state(up.port), "a@x.org", "pw12345678", None).await;
+    let created = admin_create_user(&state(up.port), "a@x.org", None).await;
     assert_eq!(created, Err("Failed to create user.".to_string()));
     let seen = up.seen();
     assert!(seen[1].target.contains("page=1"), "{}", seen[1].target);
@@ -303,10 +441,10 @@ async fn admin_create_without_an_id_never_deletes_a_user_with_a_profile() {
         json_reply(500, r#"{"message":"down"}"#),
     ] {
         let up = serve(vec![
+            (INVITE, vec![json_reply(200, "{}")]),
             (
-                "/auth/v1/admin/users",
+                ADMIN_USERS,
                 vec![
-                    json_reply(200, "{}"),
                     json_reply(200, &page_of(&[("made1", "a@x.org", NEW)])),
                     json_reply(200, EMPTY_PAGE),
                 ],
@@ -315,7 +453,7 @@ async fn admin_create_without_an_id_never_deletes_a_user_with_a_profile() {
             (PROFILES, vec![profile]),
         ])
         .await;
-        let created = admin_create_user(&state(up.port), "a@x.org", "pw12345678", None).await;
+        let created = admin_create_user(&state(up.port), "a@x.org", None).await;
         assert_eq!(created, Err("Failed to create user.".to_string()));
         assert!(
             up.seen().iter().all(|seen| seen.method != "DELETE"),
@@ -372,27 +510,31 @@ async fn admin_create_without_an_id_fails_closed_when_the_user_is_not_found() {
         then_empty(&one("x1", "2999-01-01 00:00:00Z")),
         then_empty(&one("x1", "2999")),
         then_empty(&format!(
-            r#"{{"users":[{{"id":"x1","email":"a@x.org","email_confirmed_at":"{NEW}"}}]}}"#
+            r#"{{"users":[{{"id":"x1","email":"a@x.org","invited_at":"{NEW}"}}]}}"#
         )),
-        // One new match whose email is not confirmed: another signup, not this create.
+        // One new match that was never invited: another signup, not this invite. A confirmed
+        // email alone (what the old create asked for) is not enough.
         then_empty(&format!(
             r#"{{"users":[{{"id":"x1","email":"a@x.org","created_at":"{NEW}"}}]}}"#
         )),
         then_empty(&format!(
             r#"{{"users":[{{"id":"x1","email":"a@x.org","created_at":"{NEW}",
-            "email_confirmed_at":null}}]}}"#
+            "invited_at":null}}]}}"#
+        )),
+        then_empty(&format!(
+            r#"{{"users":[{{"id":"x1","email":"a@x.org","created_at":"{NEW}",
+            "email_confirmed_at":"{NEW}"}}]}}"#
         )),
         vec![json_reply(200, "not json")],
     ] {
-        let mut replies = vec![json_reply(200, "{}")];
-        replies.extend(lookup);
         // No profile rows: only the lookup can stop the delete.
         let up = serve(vec![
-            ("/auth/v1/admin/users", replies),
+            (INVITE, vec![json_reply(200, "{}")]),
+            (ADMIN_USERS, lookup),
             (PROFILES, vec![json_reply(200, "[]")]),
         ])
         .await;
-        let created = admin_create_user(&state(up.port), "a@x.org", "pw12345678", None).await;
+        let created = admin_create_user(&state(up.port), "a@x.org", None).await;
         assert_eq!(created, Err("Failed to create user.".to_string()));
         assert!(
             up.seen().iter().all(|seen| seen.method != "DELETE"),
@@ -407,15 +549,15 @@ async fn admin_create_without_an_id_fails_closed_when_the_user_is_not_found() {
 #[tokio::test]
 async fn admin_create_with_a_body_that_is_not_an_object_makes_no_lookup() {
     for body in ["<html>ok</html>", "not json", "[]", r#""made1""#, "null"] {
-        let up = serve(vec![(
-            "/auth/v1/admin/users",
-            vec![
-                json_reply(200, body),
-                json_reply(200, &page_of(&[("x1", "a@x.org", NEW)])),
-            ],
-        )])
+        let up = serve(vec![
+            (INVITE, vec![json_reply(200, body)]),
+            (
+                ADMIN_USERS,
+                vec![json_reply(200, &page_of(&[("x1", "a@x.org", NEW)]))],
+            ),
+        ])
         .await;
-        let created = admin_create_user(&state(up.port), "a@x.org", "pw12345678", None).await;
+        let created = admin_create_user(&state(up.port), "a@x.org", None).await;
         assert_eq!(created, Err("Failed to create user.".to_string()));
         assert_eq!(up.seen().len(), 1, "{body}: {:?}", up.seen());
     }
@@ -424,16 +566,17 @@ async fn admin_create_with_a_body_that_is_not_an_object_makes_no_lookup() {
 #[tokio::test]
 async fn admin_create_taken_email_is_fixed_wording() {
     let body = r#"{"msg":"A user with this email secret-key has already been registered"}"#;
-    let up = serve(vec![("/auth/v1/admin/users", vec![json_reply(422, body)])]).await;
-    let created = admin_create_user(&state(up.port), "a@x.org", "pw12345678", None).await;
+    let up = serve(vec![(INVITE, vec![json_reply(422, body)])]).await;
+    let created = admin_create_user(&state(up.port), "a@x.org", None).await;
     assert_eq!(created, Err("Email already registered.".to_string()));
+    assert_eq!(up.seen().len(), 1, "{:?}", up.seen());
 }
 
 #[tokio::test]
 async fn admin_create_other_refusal_is_fixed_wording_not_the_auth_text() {
     let body = r#"{"msg":"db.internal secret-key down"}"#;
-    let up = serve(vec![("/auth/v1/admin/users", vec![json_reply(500, body)])]).await;
-    let created = admin_create_user(&state(up.port), "a@x.org", "pw12345678", None).await;
+    let up = serve(vec![(INVITE, vec![json_reply(500, body)])]).await;
+    let created = admin_create_user(&state(up.port), "a@x.org", None).await;
     assert_eq!(created, Err("Failed to create user.".to_string()));
 }
 
