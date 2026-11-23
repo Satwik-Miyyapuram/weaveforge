@@ -135,6 +135,8 @@ export function usePagePointer({
 }: PagePointerDeps): PagePointer {
   /** The stroke being drawn, filtered the way a note's pen is. */
   const ink = useRef(new PdfInkSampler());
+  /** Bumped when a stroke begins, so an older stroke's save cannot clear its wet ink. */
+  const strokeSeq = useRef(0);
   /** Pointer that owns the stroke in progress, so a second contact cannot join it. */
   const inkPointerId = useRef<number | null>(null);
   /**
@@ -214,8 +216,8 @@ export function usePagePointer({
     };
   }
 
-  function screenToPdf(row: Element, clientX: number, clientY: number) {
-    const rect = pageBoxOf(row).getBoundingClientRect();
+  /** `rect` is the page box, when the caller has already measured it for this event. */
+  function screenToPdf(row: Element, clientX: number, clientY: number, rect = pageBoxOf(row).getBoundingClientRect()) {
     const pageNumber = Number((row as HTMLElement).dataset.page);
     // Rotation is part of the mapping, not a reason to refuse to draw: the
     // create tools used to switch off entirely at 90/180/270, which is exactly
@@ -353,6 +355,18 @@ export function usePagePointer({
     }
   }
 
+  /**
+   * Save a finished stroke, and only then drop its wet ink: clearing first left
+   * a frame or more with neither on the page. A stroke begun in the meantime
+   * owns the preview, so this one's save does not clear it.
+   */
+  function persistThenClear(input: Parameters<typeof persistInkStroke>[0]) {
+    const seq = strokeSeq.current;
+    void persistInkStroke(input).finally(() => {
+      if (strokeSeq.current === seq) clearDraft();
+    });
+  }
+
   /** Write a finished move to the stored paths of every mark it carried. */
   async function commitInkMove(move: InkMove) {
     if (Math.hypot(move.dx, move.dy) < INK_MOVE_THRESHOLD) return;
@@ -486,6 +500,7 @@ export function usePagePointer({
       // a pen-less tablet would splice its own path into the same line.
       if (inkPointerId.current != null) return;
       inkPointerId.current = event.pointerId;
+      strokeSeq.current += 1;
       ink.current.begin(pt.x, pt.y, event.timeStamp);
       // A stroke begins on the paper: the press that started it landed here.
       edge.current.begin({ x: event.clientX, y: event.clientY });
@@ -519,7 +534,10 @@ export function usePagePointer({
     if (!canCreate) return;
     const host = event.currentTarget;
     const pageNumber = Number(host.dataset.page);
-    const pt = screenToPdf(host, event.clientX, event.clientY);
+    // Measured once for the event and its merged samples: a layout read per
+    // sample forces a layout per sample.
+    const rect = pageBoxOf(host).getBoundingClientRect();
+    const pt = screenToPdf(host, event.clientX, event.clientY, rect);
 
     const move = inkMove.current;
     if (move && move.pointerId === event.pointerId) {
@@ -573,7 +591,8 @@ export function usePagePointer({
 
       if (step.kind === "enter") {
         // Back on the paper: a new stroke, beginning where the pen crossed in.
-        const entry = screenToPdf(host, step.at.x, step.at.y);
+        const entry = screenToPdf(host, step.at.x, step.at.y, rect);
+        strokeSeq.current += 1;
         ink.current.begin(entry.x, entry.y, event.timeStamp);
         if (!ink.current.push(pt.x, pt.y, event.timeStamp)) return;
         scheduleDraft({
@@ -588,27 +607,28 @@ export function usePagePointer({
 
       if (step.kind === "exit") {
         // The pen has left: finish the stroke at the edge it crossed and wait.
-        const cut = screenToPdf(host, step.at.x, step.at.y);
+        const cut = screenToPdf(host, step.at.x, step.at.y, rect);
         ink.current.pushExact(cut.x, cut.y);
         const height =
           pageGeometries.current.get(pageNumber)?.pageHeight ?? pageSize?.height;
         if (height) {
-          void persistInkStroke({
+          persistThenClear({
             pageNumber,
             pageHeight: height,
             path: [...ink.current.path],
             width: nibBase,
           });
+        } else {
+          clearDraft();
         }
         ink.current.clear();
-        clearDraft();
         return;
       }
 
       // Every sample the frame merged, through the notes' filter.
       let grew = false;
       for (const sample of coalescedSamples(event.nativeEvent ?? (event as unknown as PointerEvent))) {
-        const at = screenToPdf(host, sample.clientX, sample.clientY);
+        const at = screenToPdf(host, sample.clientX, sample.clientY, rect);
         if (ink.current.push(at.x, at.y, sample.timeStamp)) grew = true;
       }
       if (!grew) return;
@@ -663,28 +683,36 @@ export function usePagePointer({
       return;
     }
 
-    // The persisted annotation takes over from here; drop the live preview so
-    // the two cannot both be painted for a frame.
-    clearDraft();
     if (readyCore().isInkTool(createTool) && inkPointerId.current === event.pointerId) {
-      const path = [...ink.current.path];
-      ink.current.clear();
-      inkPointerId.current = null;
       // A pen that lifted off the paper has already been cut and written at the
       // edge it crossed; there is nothing left in hand to save.
       const cutAtEdge = edge.current.end();
+      if (!cutAtEdge && ink.current.path.length >= 2) {
+        // The lift is the stroke's last sample: through the filter, then exact,
+        // so the ink ends where the pen left the paper, not a filter lag short of it.
+        const up = screenToPdf(event.currentTarget, event.clientX, event.clientY);
+        ink.current.push(up.x, up.y, event.timeStamp);
+        ink.current.pushExact(up.x, up.y);
+      }
+      const path = [...ink.current.path];
+      ink.current.clear();
+      inkPointerId.current = null;
       if (!cutAtEdge && path.length >= 4) {
         const pageHeight =
           pageGeometries.current.get(pageNumber)?.pageHeight ?? pageSize.height;
-        void persistInkStroke({
+        // The saved annotation takes over from the wet ink once it is written.
+        persistThenClear({
           pageNumber,
           pageHeight,
           path,
           width: nibBase,
         });
+      } else {
+        clearDraft();
       }
       return;
     }
+    clearDraft();
     ink.current.clear();
     inkPointerId.current = null;
     if (createTool === "text" && dragRect.current) {
