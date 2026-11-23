@@ -1,5 +1,5 @@
 /**
- * The no-account choice lives in features/auth, not in the local database
+ * The no-account choice lives in the files provider, not in the local database
  * provider. Same names, same storage key, so a stored choice still reads.
  * Static: the Rust core (wf-wasm pkg) is not generated in every worktree, so
  * the key and the read are checked in source, as the other auth tests do.
@@ -10,7 +10,7 @@ import { readFileSync, existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
 const read = (path: string) => readFileSync(fileURLToPath(new URL(path, import.meta.url)), "utf8");
-const DOMAIN = "../infrastructure/no-account-mode.ts";
+const DOMAIN = "../../../backend/providers/files/no-account-mode.ts";
 const OLD = "../../../backend/providers/local/local-identity.ts";
 
 test("the choice module exists and exports the same two names", () => {

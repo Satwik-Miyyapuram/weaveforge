@@ -124,7 +124,7 @@ import { WorkspaceSearch } from "@/features/search/application/workspace-search"
 import { clearActiveProvider } from "@/features/ai-assistant/application/parts";
 import { openBrowserFileWiring } from "@/container/browser-file-backend";
 import { wireDesktopFileBackend } from "@/container/desktop-file-backend";
-import { isLocalMode } from "@/features/auth/infrastructure/no-account-mode";
+import { isLocalMode } from "@/backend/providers/files/no-account-mode";
 import { workspaceSettings } from "@/features/settings/application/workspace-settings";
 import { watchProjectChannel } from "@/container/project-watch";
 

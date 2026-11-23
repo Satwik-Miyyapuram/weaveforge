@@ -2,9 +2,9 @@
 
 /**
  * The no-account choice: this window works on the computer, not on an account.
- * Only the flag lives here; the no-account identity and its files wiring stay in
- * backend/providers/files. Same names and storage key as before the move, so a
- * stored choice still reads.
+ * The only reader of the flag: everything else imports isLocalMode from here
+ * (local-mode-gate-removed.test.ts). Same names and storage key as before the
+ * move, so a stored choice still reads.
  */
 
 import { readStored, removeStored, writeStored } from "@/lib/safe-storage";

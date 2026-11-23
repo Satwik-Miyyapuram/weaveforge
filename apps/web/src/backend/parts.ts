@@ -13,7 +13,7 @@ import {
   ManageSettingsUseCase as ManageSettingsUseCaseClass,
 } from "@weaveforge/core";
 import type { BackendConfigField } from "@weaveforge/wasm";
-import { isLocalMode } from "@/features/auth/infrastructure/no-account-mode";
+import { isLocalMode } from "@/backend/providers/files/no-account-mode";
 import { NoAccountAuthService } from "./providers/files/no-account-auth";
 import { NoAccountWorkspaceFs } from "./providers/files/no-account-fs";
 import { wireFileBackend } from "./providers/files/wire-file-backend";

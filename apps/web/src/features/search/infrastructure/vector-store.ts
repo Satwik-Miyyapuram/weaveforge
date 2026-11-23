@@ -1,4 +1,4 @@
-import { isLocalMode } from "@/features/auth/infrastructure/no-account-mode";
+import { isLocalMode } from "@/backend/providers/files/no-account-mode";
 
 import { activeWorkspaceFs } from "@/features/workspace/application/workspace-folder";
 import { idbClearVectors, idbGetVectors, idbSetVectors, type StoredVectors } from "./parts-3";

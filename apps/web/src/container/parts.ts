@@ -40,7 +40,7 @@ import {
 import type { OpenAlexWork, ResourceType } from "@weaveforge/wasm";
 import { type BackendConfig, readBackendConfig } from "../backend/parts";
 import { wireNoAccountBackend } from "./no-account-file-backend";
-import { isLocalMode } from "@/features/auth/infrastructure/no-account-mode";
+import { isLocalMode } from "@/backend/providers/files/no-account-mode";
 import type { PersonalBackend } from "./with-file-repositories";
 import type { InkChunkStore } from "../features/ink/application/parts-1";
 import type {

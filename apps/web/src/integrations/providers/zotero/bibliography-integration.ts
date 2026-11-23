@@ -7,7 +7,7 @@ import type {
   ITagManager,
   Paper,
 } from "@weaveforge/core";
-import { isLocalMode } from "@/features/auth/infrastructure/no-account-mode";
+import { isLocalMode } from "@/backend/providers/files/no-account-mode";
 import { getDataClient, relayUrl } from "@/lib/parts";
 import type { IZoteroLibrarySync, IZoteroExporter, IZoteroAnnotationPull } from "@/features/papers/domain/zotero";
 import { toBibliographyAnnotationPull } from "@/features/papers/domain/zotero";

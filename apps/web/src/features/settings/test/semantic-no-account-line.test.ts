@@ -10,7 +10,7 @@ import { test } from "node:test";
 const panel = readFileSync(new URL("../ui/search-settings-panel.tsx", import.meta.url), "utf8");
 
 test("the settings line shows the no-account text when isLocalMode() is true", () => {
-  assert.match(panel, /import \{ isLocalMode \} from "@\/features\/auth\/infrastructure\/no-account-mode";/);
+  assert.match(panel, /import \{ isLocalMode \} from "@\/backend\/providers\/files\/no-account-mode";/);
   assert.match(
     panel,
     /const text = isLocalMode\(\) \? "Semantic search needs an account\. Keyword search still works\." : readyCore\(\)\.semanticStatusText\(status\);/,

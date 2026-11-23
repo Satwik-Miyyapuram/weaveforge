@@ -25,7 +25,7 @@ import { StepProgress, type Step } from "@/components/step-progress";
 import { LibraryPdfIndexing, IndexSize } from "./library-pdf-indexing";
 import { ModelDownloadLine } from "./model-download-line";
 import { readyCore, typedCore } from "@/lib/rust-core";
-import { isLocalMode } from "@/features/auth/infrastructure/no-account-mode";
+import { isLocalMode } from "@/backend/providers/files/no-account-mode";
 
 /** Fields a user can reweight, with names that mean something outside the code. */
 const FIELD_LABELS: Record<SearchField, string> = {

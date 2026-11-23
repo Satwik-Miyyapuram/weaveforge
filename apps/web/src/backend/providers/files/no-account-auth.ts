@@ -1,5 +1,5 @@
 import { LOCAL_USER_ID, type AuthChangeCallback, type AuthUser, type IAuthService } from "@weaveforge/core";
-import { setLocalMode } from "@/features/auth/infrastructure/no-account-mode";
+import { setLocalMode } from "@/backend/providers/files/no-account-mode";
 
 export const NO_ACCOUNT_USER: AuthUser = {
   id: LOCAL_USER_ID,

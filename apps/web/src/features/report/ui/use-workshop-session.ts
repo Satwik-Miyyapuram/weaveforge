@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { isLocalMode } from "@/features/auth/infrastructure/no-account-mode";
+import { isLocalMode } from "@/backend/providers/files/no-account-mode";
 import { authHeaders } from "@/lib/auth-headers";
 import { formatError } from "@/lib/format-error";
 import {
