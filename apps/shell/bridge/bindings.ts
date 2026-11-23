@@ -90,6 +90,17 @@ export const commands = {
 	 *  No folder chosen, or the report cannot be read.
 	 */
 	migrate093Status: () => typedError<MigrateReply_Serialize, ShellError_Serialize>(__TAURI_INVOKE("migrate_093_status")),
+	/**  Reads the migration state for `folder`. Never writes. */
+	migrate097Status: (folder: string) => typedError<MigrationStatus_Serialize, ShellError_Serialize>(__TAURI_INVOKE("migrate_097_status", { folder })),
+	/**  Row counts for every personal table, plus the CRDT tail past each snapshot. */
+	migrate097Counts: () => typedError<RowCounts, ShellError_Serialize>(__TAURI_INVOKE("migrate_097_counts")),
+	/**  Deletes the local cluster after a verified migration. See `remove_old_data` for the gates. */
+	migrate097RemoveOld: (folder: string) => typedError<null, ShellError_Serialize>(__TAURI_INVOKE("migrate_097_remove_old", { folder })),
+	/**
+	 *  Records that `folder` holds this device's verified export, so removal can check the folder. The
+	 *  web export calls it after its verify passes; the gate lives in `record_verified_export`.
+	 */
+	markExported097: (folder: string) => typedError<null, ShellError_Serialize>(__TAURI_INVOKE("mark_exported_097", { folder })),
 	/**
 	 *  Writes a text file atomically if it still has digest `expected_hash` (`None` = always).
 	 * 
@@ -1245,6 +1256,79 @@ export type MigrateState =
 /**  Every row is in files, every grant is in, and the report says so. The database may go. */
 "verified";
 
+/**  Status of the 0.9.7 migration as the UI sees it. */
+export type MigrationStatus = MigrationStatus_Serialize | MigrationStatus_Deserialize;
+
+/**  Status of the 0.9.7 migration as the UI sees it. */
+export type MigrationStatus_Deserialize = {
+	/**
+	 *  This device's state: `verified`, `incomplete`, `removing`, `removed`, `unexported` (the report
+	 *  exists but has no run from this device, so the export is offered), `unavailable`, or `none`
+	 *  when no report or export exists.
+	 */
+	state: string,
+	/**  When old data was removed (report.json `removedAt`). */
+	removedAt?: string | null,
+	/**  When the TS verify last passed (report.json `verifiedAt`); removal needs it at most 10 min old. */
+	verifiedAt?: string | null,
+	/**  Folder named by `<pg_root>/exported-to.json`. */
+	exportedTo?: string | null,
+	/**  Absolute path of the PGDMP backup that "remove old data" checks, when that file exists. */
+	backupPath?: string | null,
+	/**  Kind names (from the newest run's `missing[]`) with unexported items. */
+	missing?: string[] | null,
+	/**  The device this status was read on; only this device's own run and removal entry count. */
+	deviceId: string,
+	/**  The device whose removal is in progress (report.json `removingDeviceId`), when any. */
+	removingDeviceId?: string | null,
+	/**  Whether `exported-to.json` names this folder, compared after canonicalizing both paths. */
+	exportedHere: boolean,
+	/**  Whether this device's latest run in report.json is verified. */
+	ownRunVerified: boolean,
+	/**  Why the migration reports cannot be read (an unreadable conflict copy, a failed listing). */
+	reason?: string | null,
+	/**
+	 *  The step the user takes to clear `reason`, when one is known (for example
+	 *  "delete the conflict copy <name>").
+	 */
+	step?: string | null,
+};
+
+/**  Status of the 0.9.7 migration as the UI sees it. */
+export type MigrationStatus_Serialize = {
+	/**
+	 *  This device's state: `verified`, `incomplete`, `removing`, `removed`, `unexported` (the report
+	 *  exists but has no run from this device, so the export is offered), `unavailable`, or `none`
+	 *  when no report or export exists.
+	 */
+	state: string,
+	/**  When old data was removed (report.json `removedAt`). */
+	removedAt?: string,
+	/**  When the TS verify last passed (report.json `verifiedAt`); removal needs it at most 10 min old. */
+	verifiedAt?: string,
+	/**  Folder named by `<pg_root>/exported-to.json`. */
+	exportedTo?: string,
+	/**  Absolute path of the PGDMP backup that "remove old data" checks, when that file exists. */
+	backupPath?: string,
+	/**  Kind names (from the newest run's `missing[]`) with unexported items. */
+	missing?: string[],
+	/**  The device this status was read on; only this device's own run and removal entry count. */
+	deviceId: string,
+	/**  The device whose removal is in progress (report.json `removingDeviceId`), when any. */
+	removingDeviceId?: string,
+	/**  Whether `exported-to.json` names this folder, compared after canonicalizing both paths. */
+	exportedHere: boolean,
+	/**  Whether this device's latest run in report.json is verified. */
+	ownRunVerified: boolean,
+	/**  Why the migration reports cannot be read (an unreadable conflict copy, a failed listing). */
+	reason?: string,
+	/**
+	 *  The step the user takes to clear `reason`, when one is known (for example
+	 *  "delete the conflict copy <name>").
+	 */
+	step?: string,
+};
+
 /**  One download's progress, as the page reads it. Sizes are bytes. */
 export type ModelDownload = ModelDownload_Serialize | ModelDownload_Deserialize;
 
@@ -1374,6 +1458,14 @@ export type RootKind =
 "empty" | 
 /**  Already a workspace we wrote. */
 "existing";
+
+/**  The reply of `migrate_097_counts`. Field names are camelCase on the wire. */
+export type RowCounts = {
+	/**  Table name to row count, for each personal table present. */
+	counts: { [key in string]: number },
+	/**  CRDT kind to `crdt_updates` rows past `snapshot_upto`. */
+	crdtTail: { [key in string]: number },
+};
 
 /**  The error every command returns. The bridge shim throws `new Error(message)`, with `code` set when there is one. */
 export type ShellError = ShellError_Serialize | ShellError_Deserialize;
