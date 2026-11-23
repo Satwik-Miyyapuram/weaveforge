@@ -23,6 +23,7 @@ const RESULT: ExportResult = {
   run: {} as ExportResult["run"],
   reconnectProviders: ["zotero"],
   undecryptable: 0,
+  archivedOnly: [],
 };
 
 function deps(run: WebUpgradeRun) {
@@ -54,6 +55,12 @@ test("web upgrade runner: one start calls the upgrade once, forwards progress, r
   assert.equal(reply.state, "verified");
   assert.deepEqual(reply.reconnectProviders, ["zotero"], "provider names only");
   assert.deepEqual(seen, ["logEntries:1/1"]);
+});
+
+test("web upgrade runner: the reply carries archivedOnly to the screen", async () => {
+  const rows = [{ kind: "tags", id: "t2", reason: "conflict" as const }];
+  const runner = makeWebUpgradeRunner(deps(async () => ({ ...RESULT, archivedOnly: rows })));
+  assert.deepEqual((await runner("")).archivedOnly, rows);
 });
 
 test("web upgrade runner: the local outbox count is passed through, never a stub 0", async () => {

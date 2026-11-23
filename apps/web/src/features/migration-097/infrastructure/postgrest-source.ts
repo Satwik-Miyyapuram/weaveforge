@@ -1,5 +1,5 @@
 import type { BlobRef, Row, ServerSource } from "../domain/ports";
-import { SECRET_TABLES } from "../domain/secret-tables";
+import { SECRET_TABLES, settingsSecretNames } from "../domain/secret-tables";
 import { PAGE_SIZE, listAllPages } from "./paging";
 
 /** camelCase kind -> snake_case PostgREST table. */
@@ -209,18 +209,26 @@ export class PostgrestSource implements ServerSource {
   }
 
   /**
-   * Providers with an owner-scoped secret row, one per SECRET_TABLES entry that has rows. A failed or
-   * total-less count throws, so the export refuses rather than reading an unknown as "no secrets".
+   * Providers with an owner-scoped secret row, one per SECRET_TABLES entry that has rows; user_settings rows are read
+   * and named by settingsSecretNames. A failed or total-less count, or a read that is not a row list, throws, so the
+   * export refuses rather than reading an unknown as "no secrets".
    */
   async secretProviders(): Promise<string[]> {
     const uid = encodeURIComponent(this.opts.userId);
     const providers: string[] = [];
     for (const { table, select, owner, secret, provider } of SECRET_TABLES) {
+      if (secret === null) {
+        const res = await this.request(`${this.opts.baseUrl}/${table}?select=${select}&${owner}=eq.${uid}`, { method: "GET" }, table);
+        const rows: unknown = await res.json();
+        if (!Array.isArray(rows)) throw new Error(`read ${table} failed: not a row list`);
+        for (const row of rows as Record<string, unknown>[]) providers.push(...settingsSecretNames(row ?? {}));
+        continue;
+      }
       const url = `${this.opts.baseUrl}/${table}?select=${select}&${owner}=eq.${uid}&${secret}=not.is.null`;
       const res = await this.request(url, { method: "HEAD", extra: { Prefer: "count=exact" } }, table);
       if (totalOf(res, table) > 0) providers.push(provider);
     }
-    return providers;
+    return [...new Set(providers)];
   }
 
   async pendingOutbox(): Promise<number> {

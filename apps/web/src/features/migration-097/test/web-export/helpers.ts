@@ -70,9 +70,14 @@ export const KINDS = ["logEntries", "experiments"];
 export const SUPPORTED = ["logEntries", "experiments"];
 
 // PostgREST counts for the secret tables: `totals` maps the table name to its row count.
+// user_settings is read as rows (GET), not counted: `totals.user_settings` rows, each with a Zotero key.
 export function secretProvidersFor(totals: Record<string, number>): () => Promise<string[]> {
   const fetch = (async (url: string) => {
     const table = new URL(url).pathname.split("/").pop() ?? "";
+    if (table === "user_settings") {
+      const rows = Array.from({ length: totals[table] ?? 0 }, () => ({ zotero_api_key: "zk" }));
+      return new Response(JSON.stringify(rows), { status: 200 });
+    }
     return new Response(null, { status: 200, headers: { "content-range": `0-0/${totals[table] ?? 0}` } });
   }) as unknown as typeof globalThis.fetch;
   return () =>
