@@ -1,5 +1,6 @@
-//! The SDK's account routes: who the token belongs to, projects and experiments.
-//! Ported from apps/web/src/app/api/sdk/{whoami,projects,experiments}/route.ts.
+//! The SDK's account routes: who the token belongs to, and experiments.
+//! Ported from apps/web/src/app/api/sdk/{whoami,experiments}/route.ts.
+//! `/api/sdk/projects` is retired (410, see `crate::gone`): projects live in workspace files.
 #![allow(
     clippy::result_large_err,
     reason = "handlers return an early axum Response as the error"
@@ -54,31 +55,6 @@ pub async fn whoami(State(state): State<Arc<AppState>>, headers: HeaderMap) -> R
             "fullName": field(&profile, "full_name"),
         }),
     )
-}
-
-/// `GET /api/sdk/projects?name=`: the id of the project with that name.
-pub async fn projects(
-    State(state): State<Arc<AppState>>,
-    headers: HeaderMap,
-    uri: Uri,
-) -> Response {
-    let caller = match caller(&state, &headers).await {
-        Ok(caller) => caller,
-        Err(response) => return response,
-    };
-    let Some(name) = query_param(&uri, "name") else {
-        return error_response(400, "Missing project name.");
-    };
-    let db = user_db(&state, &caller);
-    let query = [
-        ("select", "id,name".to_string()),
-        ("name", eq(&name)),
-        ("limit", "1".to_string()),
-    ];
-    match db.select("projects", &query).await {
-        Ok(rows) => json_response(200, &json!({"projectId": field(&first_row(rows), "id")})),
-        Err(err) => db_failure(&err, "sdk-projects"),
-    }
 }
 
 /// `GET /api/sdk/experiments?id=`: the experiment with that id, or null.

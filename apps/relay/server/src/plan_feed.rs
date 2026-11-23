@@ -1,16 +1,16 @@
 //! The plan feed route: `deadlines.ics` for a calendar, `widget.json` for widgets.
 //! Port of `apps/web/src/app/api/plan/feed/[token]/[file]/route.ts`.
 //!
-//! Two token kinds reach the same renderer:
-//! - Legacy tokens (anything not `wff_`) read the live milestones tables.
-//! - `wff_` tokens read the feed row that `POST /api/plan/feed/publish` wrote, so
-//!   the calendar keeps working while the desktop app is off.
+//! Only `wff_` tokens are served: they read the feed row that
+//! `POST /api/plan/feed/publish` wrote, so the calendar keeps working while the
+//! desktop app is off. Legacy tokens (anything not `wff_`) read the milestones
+//! tables 1.0.0 drops, so they answer 410 before any lookup (see `crate::gone`).
 //!
 //! Laws:
 //! 1. The raw `wff_` token is never sent upstream or logged; only its SHA-256 is.
 //! 2. Rotation is publishing with a new token; the old link finds no row and 404s.
 //! 3. Publish is session-only and refuses another owner's feed with 403.
-//! 4. An unknown or revoked link answers 404, never 401.
+//! 4. An unknown or revoked `wff_` link answers 404, never 401; any other link 410.
 #![allow(
     clippy::result_large_err,
     reason = "handlers return an early axum Response as the error"
@@ -30,17 +30,16 @@ use serde_json::{Value, json};
 use wf_core::bytea::{decode_bytea, encode_bytea};
 use wf_core::plan::feed::{FeedMilestone, milestones_to_ics, plan_widget_data};
 
-use crate::auth::{Caller, require_plan_feed, require_session, token_hash_hex};
+use crate::auth::{require_session, token_hash_hex};
+use crate::gone::MOVED;
 use crate::postgrest::{UserDb, eq};
 use crate::routes::AppState;
-use crate::sdk::{db_failure, error_response, json_response, user_db};
+use crate::sdk::{db_failure, error_response, json_response};
 
 const ICS_FILE: &str = "deadlines.ics";
 const WIDGET_FILE: &str = "widget.json";
 const ICS_TYPE: &str = "text/calendar; charset=utf-8";
 const JSON_TYPE: &str = "application/json; charset=utf-8";
-const MILESTONE_COLUMNS: &str =
-    "id,title,description,status,target_date,dependencies,compute,created_at,project_id";
 const MAX_ALARM_DAYS: i64 = 30;
 /// Prefix of a published feed token.
 const FEED_PREFIX: &str = "wff_";
@@ -76,12 +75,10 @@ pub async fn plan_feed(
         WIDGET_FILE => false,
         _ => return error_response(404, "Not found."),
     };
-    let items = if is_feed_token(&token) {
-        published_items(&state, &token).await
-    } else {
-        legacy_items(&state, &token).await
-    };
-    match items {
+    if !is_feed_token(&token) {
+        return error_response(410, MOVED);
+    }
+    match published_items(&state, &token).await {
         Ok(items) => render(&items, is_ics, &params),
         Err(response) => response,
     }
@@ -198,18 +195,6 @@ async fn published_items(state: &AppState, token: &str) -> Result<Vec<FeedMilest
         .map_err(|_| error_response(500, "Stored feed is unreadable."))
 }
 
-/// The milestones of a legacy token's owner, read live from the milestones tables.
-async fn legacy_items(state: &AppState, token: &str) -> Result<Vec<FeedMilestone>, Response> {
-    // A revoked or unknown link is gone, not unauthorised: calendar apps stop
-    // polling a 404 and keep retrying a 401.
-    let caller = match require_plan_feed(&state.client, &state.config, token).await {
-        Ok(caller) => caller,
-        Err(err) if err.status == 401 => return Err(error_response(404, "Not found.")),
-        Err(err) => return Err(error_response(err.status, &err.message)),
-    };
-    load_items(state, &caller).await
-}
-
 /// Renders the feed as a calendar (`is_ics`) or a widget document.
 fn render(items: &[FeedMilestone], is_ics: bool, params: &HashMap<String, String>) -> Response {
     let include_done = params.get("done").is_some_and(|value| value == "1");
@@ -253,57 +238,6 @@ fn render(items: &[FeedMilestone], is_ics: bool, params: &HashMap<String, String
         .headers_mut()
         .insert(name, HeaderValue::from_static(value));
     response
-}
-
-/// The caller's live milestones, each with its project's name; milestones in a
-/// deleted project are dropped.
-async fn load_items(state: &AppState, caller: &Caller) -> Result<Vec<FeedMilestone>, Response> {
-    let db = user_db(state, caller);
-    let milestones_query = [
-        ("select", MILESTONE_COLUMNS.to_owned()),
-        ("user_id", eq(&caller.user_id)),
-        ("deleted_at", "is.null".to_owned()),
-    ];
-    let projects_query = [
-        ("select", "id,name".to_owned()),
-        ("user_id", eq(&caller.user_id)),
-        ("deleted_at", "is.null".to_owned()),
-    ];
-    let (milestones, projects) = tokio::join!(
-        db.select("milestones", &milestones_query),
-        db.select("projects", &projects_query),
-    );
-    let milestones = match milestones {
-        Ok(rows) => rows,
-        Err(err) => return Err(db_failure(&err, "plan-feed")),
-    };
-    let projects = match projects {
-        Ok(rows) => rows,
-        Err(err) => return Err(db_failure(&err, "plan-feed")),
-    };
-
-    let names: HashMap<&str, Option<&str>> = projects
-        .iter()
-        .filter_map(|row| Some((text(row, "id")?, text(row, "name"))))
-        .collect();
-    Ok(milestones
-        .iter()
-        .filter_map(|row| {
-            // A milestone in a deleted project went with it.
-            let project_name = match text(row, "project_id") {
-                None => None,
-                Some(project_id) => *names.get(project_id)?,
-            };
-            Some(FeedMilestone {
-                id: text(row, "id").unwrap_or_default().to_owned(),
-                title: text(row, "title").unwrap_or_default().to_owned(),
-                description: text(row, "description").map(str::to_owned),
-                status: text(row, "status").unwrap_or_default().to_owned(),
-                target_date: text(row, "target_date").map(str::to_owned),
-                project_name: project_name.map(str::to_owned),
-            })
-        })
-        .collect())
 }
 
 /// A string field of a row, or `None` when missing or not a string.

@@ -13,7 +13,7 @@ use tower::ServiceExt;
 use wf_relay::relay::route::RelayConfig;
 use wf_relay_server::config::Config;
 use wf_relay_server::limiter::{PAGE_FETCH_LIMIT, PASTE_FETCH_LIMIT, RateLimiter};
-use wf_relay_server::routes::{AppState, app};
+use wf_relay_server::routes::{AppState, retired_app};
 use wf_relay_server::settings::SettingsConfig;
 use wf_relay_server::storage::StorageConfig;
 use wf_relay_server::url_meta::MetaUpstreams;
@@ -74,7 +74,7 @@ fn request(method: &str, uri: &str, body: &str) -> Request<Body> {
 
 /// Sends `req` through the router; returns status, headers and the JSON body.
 async fn call(up: &Upstream, req: Request<Body>) -> (StatusCode, HeaderMap, Value) {
-    let response = app(state(up))
+    let response = retired_app(state(up))
         .oneshot(req)
         .await
         .expect("router is infallible");
