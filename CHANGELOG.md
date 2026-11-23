@@ -19,12 +19,13 @@ tracks at once.
 - **Fixed:** Ink cannot be drawn until the workspace has a folder, so strokes are never kept only in memory.
 - **Fixed:** Renaming a note rewrites the `[[links]]` that point to it, leaving links inside code alone; any note it could not update is named in a message.
 - **Added:** Settings shows which repository the workspace backs up to, with a link to it.
-- **Fixed:** The privacy notice now says where your data really goes: on your device and in your workspace folder, on GitHub when GitHub sync is on, and on the server only without GitHub sync or when you share. It no longer claims encryption WeaveForge does not do, and says that the text of a PDF you opened can reach the AI when papers are an allowed source.
+- **Fixed:** The privacy notice now says where your data really goes: your files on your device and in your workspace folder are the source of truth, GitHub holds a copy when GitHub sync is on, and the server holds only what you share and your lab's organisation data. It no longer claims encryption WeaveForge does not do, and says that the text of a PDF you opened can reach the AI when papers are an allowed source.
 
 ### Web
 - **Changed:** The "Export from 0.9.7 first." gate applies only to an account with old server data and no 0.9.7 export. New accounts are never gated. See [Upgrading to 0.9.8](docs/using/upgrading-to-098.md).
 - **Changed:** Offline sync is removed; notes are files in the workspace folder. Keys stay sealed: server-held credentials stay encrypted.
 - **Changed:** On the desktop and without an account, the app's database client now refuses personal tables before a request is sent, as the web app already did. Organisation, sharing and live-share rows still reach the server.
+- **Fixed:** Error messages no longer repeat text from Overleaf, the sign-in server or storage. They are fixed short messages, with the HTTP status where it helps. Too many confirmation-code requests now ask you to wait a minute, and a sign-in server problem while a code is checked no longer looks like a wrong code. Server logs record only the error kind or status.
 - **Changed:** Sync to folder no longer writes `.weaveforge/tables/`, and Apply no longer restores table rows. Table files that 0.9.7 wrote stay in the folder unread. See [The workspace folder](docs/using/workspace-folder.md).
 
 ### Python SDK
