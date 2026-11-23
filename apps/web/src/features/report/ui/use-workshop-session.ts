@@ -40,8 +40,9 @@ async function workshopHeaders(extra?: HeadersInit): Promise<HeadersInit> {
 export const browserClient: WorkshopClientDeps = { fetch: (url, init) => fetch(url, init), authHeaders: workshopHeaders };
 
 /**
- * Sign-in needs /api/overleaf/workshop routes. The hosted app has them, and the
- * Tauri shell serves them itself (apps/shell/src/overleaf_workshop.rs), so only a
+ * Sign-in needs /api/overleaf/workshop routes. The relay server serves them for
+ * signed-in copies (apps/relay/server/src/overleaf_workshop.rs), and the Tauri
+ * shell serves them itself (apps/shell/src/overleaf_workshop.rs), so only a
  * browser copy with no account goes without.
  */
 export function canShowWorkshop({ localMode, shell = false }: { localMode: boolean; shell?: boolean }): boolean {

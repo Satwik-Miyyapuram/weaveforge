@@ -1,26 +1,25 @@
 import { useCallback, useEffect, useState } from "react";
 import { formatError } from "@/lib/format-error";
-import { type LinkedReport, local, api } from "./linked-overleaf-api";
+import type { LinkedReport } from "./linked-overleaf-api";
 
-/** Where linked reports (git-token links) are kept: the local database and shell, or the app's API. */
+/** Where linked reports (git-token links) are kept, and whether new ones can be made. */
 export interface LinkedReportsGateway {
+  /** False hides every Link action: there is nowhere to keep a new link. */
+  readonly canLink: boolean;
   list(projectId: string): Promise<LinkedReport[]>;
   unlink(id: string): Promise<void>;
 }
 
+/**
+ * 0.9.8 keeps no Git links anywhere: the relay's /api/overleaf/reports and
+ * /connections answer 410, and a copy with no account has no local database.
+ * So there are no rows to list and no Link action. Overleaf sign-in (the
+ * workshop routes) is unaffected.
+ */
 export const linkedReportsGateway: LinkedReportsGateway = {
-  async list(projectId) {
-    const gateway = local();
-    const rows = gateway
-      ? await gateway.listReports(projectId)
-      : ((await api(`/api/overleaf/reports?projectId=${encodeURIComponent(projectId)}`)).reports ?? []);
-    return (rows as LinkedReport[]).filter((report) => report.project_id === projectId);
-  },
-  async unlink(id) {
-    const gateway = local();
-    if (gateway) await gateway.deleteReport(id);
-    else await api(`/api/overleaf/reports?id=${encodeURIComponent(id)}`, { method: "DELETE" });
-  },
+  canLink: false,
+  list: async () => [],
+  unlink: async () => { throw new Error("Git links to Overleaf are no longer kept."); },
 };
 
 /** The linked reports of one WeaveForge project. */

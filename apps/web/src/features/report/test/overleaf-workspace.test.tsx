@@ -8,7 +8,7 @@ import type { LinkedReport } from "../ui/linked-overleaf-api";
 import { OverleafWorkspace } from "../ui/overleaf-workspace";
 import type { ProjectPicksStore } from "../ui/overleaf-project-picks";
 import { tabBlockers } from "../ui/overleaf-project-detail";
-import type { LinkedReportsGateway } from "../ui/use-linked-reports";
+import { linkedReportsGateway, type LinkedReportsGateway } from "../ui/use-linked-reports";
 import { canShowWorkshop, type WorkshopSessionStore } from "../ui/use-workshop-session";
 import { WorkshopPdfViewer } from "../ui/workshop-pdf-viewer";
 import { navFoldSnapshot } from "@/lib/hooks/use-nav-fold";
@@ -67,6 +67,7 @@ function report(id: string, overleafProjectId: string, title: string): LinkedRep
 
 function fakeGateway(reports: LinkedReport[] = []) {
   const gateway: LinkedReportsGateway = {
+    canLink: true,
     list: async () => [...reports],
     unlink: async () => {},
   };
@@ -507,6 +508,19 @@ test("unlinking a project that is not in the account returns to the list", async
   await act(async () => button(tree, "Confirm").props.onClick());
   assert.equal(rows(tree).length, 2);
   assert.ok(!text(tree).includes("Old draft"));
+  await act(async () => tree.unmount());
+});
+
+test("0.9.8: the app's own gateway keeps no Git links: no request, and no Link action", async () => {
+  // The relay's /api/overleaf/reports and /connections answer 410 from 0.9.8.
+  globalThis.fetch = (async (url: string) => { throw new Error(`no request expected: ${url}`); }) as typeof fetch;
+  assert.equal(linkedReportsGateway.canLink, false);
+  assert.deepEqual(await linkedReportsGateway.list("wf1"), []);
+  const tree = await mount(harness(projectsOk, SESSION), { gateway: linkedReportsGateway });
+  await openRow(tree, "Abstract");
+  const shown = text(tree);
+  assert.doesNotMatch(shown, /Link a project|Git token/);
+  assert.equal(buttons(tree, "Link to this project").length, 0);
   await act(async () => tree.unmount());
 });
 

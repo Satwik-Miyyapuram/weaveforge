@@ -20,7 +20,7 @@ setContainerForTests({ auth: { isLocalMode: () => true } } as never);
 
 test("no-account copy offers no Git-link action and shows no link copy", async () => {
   const store: WorkshopSessionStore = { get: () => null, set: () => {} };
-  const gateway: LinkedReportsGateway = { list: async () => [], unlink: async () => {} };
+  const gateway: LinkedReportsGateway = { canLink: false, list: async () => [], unlink: async () => {} };
   const client = {
     fetch: async () => new Response("{}"),
     authHeaders: async (extra: unknown) => ({ ...(extra as Record<string, string>) }),
