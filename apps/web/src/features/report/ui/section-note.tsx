@@ -1,7 +1,7 @@
 "use client";
 
 import { InlineError } from "@/components/form-error";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { materializeBlobImages, REPORT_STATUSES, type ReportSection, type ReportStatus } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { BackButton } from "@/components/back-button";
@@ -12,6 +12,7 @@ import { ShareButton, CommentsToggle, PinnedPaperBadge } from "@/features/sharin
 import type { EditorHandle } from "@/components/editor-handle";
 import { formatError } from "@/lib/format-error";
 import { useCiteLinkCatalog } from "@/lib/hooks/use-cite-links";
+import { useEditorBase } from "@/lib/hooks/use-editor-base";
 import { DocumentToolbar, citeAsSection } from "@/components/document-toolbar";
 import { useCitationFormatPreference } from "@/lib/hooks/parts";
 import type { SectionProgress } from "@weaveforge/wasm";
@@ -87,56 +88,37 @@ export function SectionNote({
     }
   }
 
-  // The notes the next save is based on: what the editor opened with or last saved. A reload with outside
-  // text does not move it while the editor still holds the old text, so that edit is kept, not overwritten.
-  const notesBase = useRef({ id: section.id, notes: section.notes ?? "" });
-  // Set after a conflict: the next reload re-seeds the base and remounts the editor on the text on disk.
-  const reseed = useRef(false);
-  const [editorKey, setEditorKey] = useState(0);
-  useEffect(() => {
-    if (notesBase.current.id === section.id && !reseed.current) return;
-    notesBase.current = { id: section.id, notes: section.notes ?? "" };
-    if (reseed.current) {
-      reseed.current = false;
-      setEditorKey((k) => k + 1);
-    }
-  }, [section.id, section.notes]);
-  // Saves run one after another, so each is based on the one before.
-  const saving = useRef<Promise<void>>(Promise.resolve());
+  // The notes the next save is based on: what the editor opened with or last saved, never text a reload
+  // brought in meanwhile. After a conflict the page reloads and the editor remounts on the text on disk.
+  const { key: editorKey, run: runSave } = useEditorBase(section.id, section.notes ?? "", onChanged);
 
   /** Every body write. The host saves as it goes, the way it does in the Editor. */
   const saveNotes = useCallback(
-    (nextBody: string) => {
-      const run = saving.current.then(async () => {
-        setSaveError(null);
-        try {
+    async (nextBody: string) => {
+      setSaveError(null);
+      let uploadError: unknown;
+      try {
+        await runSave(async (base) => {
           const report = getContainer().report;
-          const { body, uploadError } = await materializeBlobImages(
+          const done = await materializeBlobImages(
             nextBody,
             section.id,
             (id, blob, ext) => report.uploadImage(id, blob, ext),
             "reportimg:",
             (text: string) => readyCore().normalizeMarkdownImageSyntax(text),
           );
-          const base = notesBase.current.id === section.id ? notesBase.current.notes : (section.notes ?? "");
-          const saved = await report.manageReportSection.setNotes(section.id, body, base);
-          notesBase.current = { id: section.id, notes: saved.notes ?? "" };
+          uploadError = done.uploadError;
+          const saved = await report.manageReportSection.setNotes(section.id, done.body, base);
           onReplace(saved);
-          // The text is saved; a failed upload is still said out loud.
-          if (uploadError) throw uploadError;
-        } catch (err) {
-          setSaveError(formatError(err));
-          // The text on disk changed and mine is in a conflict copy: reload, then edit what is on disk.
-          if (err instanceof Error && err.name === "ConflictError") {
-            reseed.current = true;
-            onChanged();
-          }
-        }
-      });
-      saving.current = run;
-      return run;
+          return saved.notes ?? "";
+        });
+        // The text is saved; a failed upload is still said out loud.
+        if (uploadError) setSaveError(formatError(uploadError));
+      } catch (err) {
+        setSaveError(formatError(err));
+      }
     },
-    [onReplace, onChanged, section.id, section.notes],
+    [onReplace, runSave, section.id],
   );
 
   /**

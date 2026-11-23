@@ -14,7 +14,7 @@
 import type { IWorkspaceFs } from "@weaveforge/core";
 import { ConflictError } from "@weaveforge/core";
 import { readyCore } from "@/lib/rust-core";
-import { conflictCopyPath } from "@/features/migration-097/domain/conflict-path";
+import { ConflictCopies } from "@/lib/guarded-save";
 import { moveToTrash } from "@/lib/workspace-trash";
 
 /** The kinds the codec knows, by their `weaveforge-type`. */
@@ -58,18 +58,11 @@ interface Scan<T> {
   held: HeldFile[];
 }
 
-/** A conflict copy's text: the `weaveforge-id:` line becomes `conflictOf:`, so no two files share an id. */
-function conflictCopyText(text: string): string {
-  const close = text.startsWith("---") ? text.indexOf("\n---", 3) : -1;
-  if (close === -1) return text;
-  return text.slice(0, close).replace(/^weaveforge-id:/m, "conflictOf:") + text.slice(close);
-}
-
 export class FileEntityStore<T extends { id: string }> {
   /** Per id, the file text this store last read or wrote: a save expects the file to still hold it. */
   private readonly loaded = new Map<string, string>();
-  /** Per id, the conflict copy this store last wrote, its text and base: a retry reuses it instead of piling up copies. */
-  private readonly copies = new Map<string, { base: string; path: string; text: string }>();
+  /** Per id, the conflict copy this store last wrote: a retry reuses it instead of piling up copies. */
+  private readonly copies: ConflictCopies;
   /** Per id, the end of the saves still running: the next save of that id waits for it. */
   private readonly queue = new Map<string, Promise<unknown>>();
 
@@ -77,7 +70,9 @@ export class FileEntityStore<T extends { id: string }> {
     private readonly fs: IWorkspaceFs,
     private readonly root: ProjectRoot,
     private readonly kind: EntityKind,
-  ) {}
+  ) {
+    this.copies = new ConflictCopies(fs);
+  }
 
   /** Every file of this kind under the project's entity folder, sorted by path. */
   async readAll(): Promise<FoundEntity<T>[]> {
@@ -203,18 +198,18 @@ export class FileEntityStore<T extends { id: string }> {
       const changed = seen === undefined ? this.rowChanged(loadedText, found) : this.seenChanged(seen, found);
       if (changed) {
         const mine = core.entityFileFromRow(this.kind, loadedText ?? found.text, plain);
-        const copy = await this.keepConflictCopy(row.id, basis, found.path, mine);
+        const copy = await this.copies.keep(row.id, basis, found.path, mine);
         throw new ConflictError(`${found.path} changed on disk; your version was kept in ${copy}. Reload before saving.`);
       }
       const text = core.entityFileFromRow(this.kind, found.text, plain);
       if (!this.fs.writeTextIf) throw new Error(`${found.path}: this workspace cannot save without overwriting outside edits.`);
       if (!(await this.fs.writeTextIf(found.path, text, found.text))) {
         // Another writer got in between the read and the write: their edit stays, this row goes to a copy.
-        const copy = await this.keepConflictCopy(row.id, basis, found.path, text);
+        const copy = await this.copies.keep(row.id, basis, found.path, text);
         throw new ConflictError(`${found.path} changed on disk; your version was kept in ${copy}. Reload before saving.`);
       }
       this.loaded.set(row.id, text);
-      this.copies.delete(row.id);
+      this.copies.forget(row.id);
       return;
     }
     const text = core.entityFileFromRow(this.kind, null, plain);
@@ -226,31 +221,6 @@ export class FileEntityStore<T extends { id: string }> {
     const path = await this.freePath(base);
     await writeIfUnchanged(this.fs, path, text, null);
     this.loaded.set(row.id, text);
-  }
-
-  /**
-   * Keeps `text` (as a copy without the id) in row `id`'s conflict copy: the one this store wrote last, when it
-   * still holds what was written (unchanged text is not written again) and came from the same `base`, else the
-   * first free "(conflict N)" name beside `path`. A copy edited or removed since, or from another base, is left alone.
-   */
-  private async keepConflictCopy(id: string, base: string, path: string, text: string): Promise<string> {
-    const copy = conflictCopyText(text);
-    const last = this.copies.get(id);
-    if (last && last.base === base) {
-      const held = await this.fs.readText(last.path).catch(() => null);
-      if (held === last.text && (copy === held || (await this.fs.writeTextIf!(last.path, copy, held)))) {
-        this.copies.set(id, { base, path: last.path, text: copy });
-        return last.path;
-      }
-    }
-    for (let n = 1; n <= TRASH_NAME_ATTEMPTS; n += 1) {
-      const target = conflictCopyPath(path, n);
-      if (await this.fs.writeTextIf!(target, copy, null)) {
-        this.copies.set(id, { base, path: target, text: copy });
-        return target;
-      }
-    }
-    throw new ConflictError(`${path} changed on disk and no conflict copy name was free; not saved.`);
   }
 
   /** Moves the row's file to the trash; a missing id is not an error. */

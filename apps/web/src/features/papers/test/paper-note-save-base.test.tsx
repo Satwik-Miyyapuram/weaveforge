@@ -117,6 +117,35 @@ test("a conflict reloads, then the base and the editor follow the summary on dis
   }
 });
 
+test("a live reload, then a conflict whose reload brings no new text: the editor remounts and the next save goes through", async () => {
+  const { r, bases, save, onChanged, reloads } = await setup(1);
+  try {
+    await act(async () => { r.update(note({ ...PAPER, summary: "outside edit" }, onChanged)); await tick(); });
+    const before = r.root.findByType(DocumentBody);
+    await act(async () => { await save()("first #ml, mine").catch(() => undefined); });
+    assert.equal(reloads(), 1, "the conflict asks for a reload");
+    assert.notEqual(r.root.findByType(DocumentBody), before, "the editor remounts on the summary on disk anyway");
+    await act(async () => { await save()("outside edit, mine"); });
+    assert.deepEqual(bases, ["first #ml", "outside edit"], "the next save is based on the summary on disk");
+  } finally {
+    await close(r);
+  }
+});
+
+test("a conflict calls onConflict, not onChanged, when the page gives one", async () => {
+  const { r, save } = await setup(1);
+  let changed = 0;
+  let conflicts = 0;
+  try {
+    const el = createElement(PaperNote, { paper: PAPER, onBack: () => undefined, onReplace: () => undefined, onChanged: () => { changed += 1; }, onConflict: () => { conflicts += 1; } });
+    await act(async () => { r.update(createElement(AppRouterContext.Provider, { value: router as never }, createElement(AuthContext.Provider, { value: auth }, createElement(ProfileProvider, null, createElement(ProjectContext.Provider, { value: project }, el))))); await tick(); });
+    await act(async () => { await save()("first, mine").catch(() => undefined); });
+    assert.deepEqual({ changed, conflicts }, { changed: 0, conflicts: 1 });
+  } finally {
+    await close(r);
+  }
+});
+
 test("removing a tag chip saves with the same base chain as the editor", async () => {
   const { r, bases, save } = await setup();
   try {

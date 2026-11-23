@@ -8,6 +8,7 @@ import type {
 } from "@weaveforge/core";
 import { ConflictError, isSafeWorkspacePath } from "@weaveforge/core";
 import { typedCore } from "@/lib/rust-core";
+import { ConflictCopies } from "@/lib/guarded-save";
 import { moveToTrash } from "@/lib/workspace-trash";
 
 /** A paper file's `relations` (outgoing, `to` a `[[link]]` or id) and custom `fields`. */
@@ -63,6 +64,8 @@ const PAPER_SUFFIX = ".paper.md";
  */
 export class FilePaperRepository implements IPaperRepository {
   private readonly writeIds: boolean;
+  /** Per paper, the conflict copy a refused save last wrote. */
+  private readonly copies: ConflictCopies;
 
   constructor(
     private readonly fs: IWorkspaceFs,
@@ -70,6 +73,7 @@ export class FilePaperRepository implements IPaperRepository {
     options: FilePaperRepositoryOptions = {},
   ) {
     this.writeIds = options.writeIds ?? true;
+    this.copies = new ConflictCopies(fs);
   }
 
   async getById(id: string): Promise<Paper | null> {
@@ -134,20 +138,31 @@ export class FilePaperRepository implements IPaperRepository {
 
   /**
    * With `seen`, the save is refused (ConflictError) when the file is gone or its summary is no
-   * longer `seen.summary`: an outside edit to the summary since the editor opened is kept.
+   * longer `seen.summary`: an outside edit to the summary since the editor opened is kept, and
+   * this save goes to a conflict copy beside the file (one per base: a retry updates it).
    */
   async save(entity: Paper, seen?: Paper): Promise<void> {
-    await this.write(
-      entity.id,
-      (current) => {
-        if (seen && !current) throw new ConflictError(`Paper ${entity.id} is not on disk; not saved.`);
-        if (seen && (current?.summary || undefined) !== (seen.summary || undefined)) {
-          throw new ConflictError(`Paper ${entity.id}'s summary changed on disk; not saved. Reload before saving.`);
-        }
-        return toRow(entity);
-      },
-      true,
-    );
+    let refused = null as PaperFileRead | null;
+    try {
+      await this.write(
+        entity.id,
+        (current, read) => {
+          if (seen && !current) throw new ConflictError(`Paper ${entity.id} is not on disk; not saved.`);
+          if (seen && (current?.summary || undefined) !== (seen.summary || undefined)) {
+            refused = read;
+            throw new ConflictError(`Paper ${entity.id}'s summary changed on disk; not saved. Reload before saving.`);
+          }
+          return toRow(entity);
+        },
+        true,
+      );
+    } catch (error) {
+      if (!refused || !seen) throw error;
+      const mine = typedCore().writePaperRow(refused.text, toRow(entity));
+      const copy = await this.copies.keep(entity.id, seen.summary ?? "", refused.path, mine);
+      throw new ConflictError(`${refused.path}'s summary changed on disk; your version was kept in ${copy}. Reload before saving.`);
+    }
+    this.copies.forget(entity.id);
   }
 
   async setTags(id: string, tags: string[], updatedAt: string): Promise<void> {
@@ -240,13 +255,13 @@ export class FilePaperRepository implements IPaperRepository {
    */
   private async write(
     id: string,
-    rowFor: (current: Paper | null) => Record<string, unknown> | null,
+    rowFor: (current: Paper | null, read: PaperFileRead | null) => Record<string, unknown> | null,
     create: boolean,
   ): Promise<void> {
     for (let attempt = 0; attempt < WRITE_ATTEMPTS; attempt += 1) {
       const read = await this.findById(id);
       if (!read && !create) return;
-      const row = rowFor(read?.paper ?? null);
+      const row = rowFor(read?.paper ?? null, read);
       if (!row) return;
       if (!read && !this.writeIds) delete row.id;
       const text = typedCore().writePaperRow(read?.text ?? null, stripUndefined(row));

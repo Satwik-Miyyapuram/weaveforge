@@ -106,3 +106,37 @@ test("saving the result sends the text the draft opened with, not a reloaded one
     await tick();
   }
 });
+
+test("after a conflict the next save is based on a fresh read, and the draft is kept", async () => {
+  let current = EXP;
+  const bases: string[] = [];
+  let conflicts = 1;
+  setContainerForTests(stub({
+    experiments: {
+      getExperiment: async () => current,
+      manageExperiment: {
+        setResultNote: async (_id: string, note: string, base: string) => {
+          bases.push(base);
+          if (conflicts-- > 0) throw Object.assign(new Error("changed on disk; yours is in a copy"), { name: "ConflictError" });
+          return { ...current, resultNote: note };
+        },
+      },
+    },
+  }) as never);
+  let r!: ReactTestRenderer;
+  mock.timers.enable({ apis: ["setInterval"] });
+  try {
+    await act(async () => { r = create(screen()); await tick(); });
+    await act(async () => { byText(r, "Edit").props.onClick(); await tick(); });
+    current = { ...EXP, resultNote: "outside edit" };
+    await act(async () => { resultBox(r).props.onChange({ target: { value: "mine" } }); await tick(); });
+    await act(async () => { byText(r, "Save result").props.onClick(); await tick(); });
+    assert.equal(resultBox(r).props.value, "mine", "the draft stays open after the conflict");
+    await act(async () => { byText(r, "Save result").props.onClick(); await tick(); });
+    assert.deepEqual(bases, ["opened text", "outside edit"]);
+  } finally {
+    mock.timers.reset();
+    act(() => r?.unmount());
+    await tick();
+  }
+});

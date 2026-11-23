@@ -135,6 +135,15 @@ export function ExperimentDetailScreen({ id: idProp }: { id?: string }) {
       setResultError(null);
     } catch (err) {
       setResultError(formatError(err));
+      // Changed on disk (mine is in a conflict copy): keep the draft open, and base the next save on the
+      // result as it is now, so it does not hit the same conflict again.
+      if (err instanceof Error && err.name === "ConflictError") {
+        const fresh = await getContainer().experiments.getExperiment(exp.id).catch(() => null);
+        if (fresh) {
+          resultBase.current = fresh.resultNote ?? "";
+          setExp(fresh);
+        }
+      }
     }
   }
 

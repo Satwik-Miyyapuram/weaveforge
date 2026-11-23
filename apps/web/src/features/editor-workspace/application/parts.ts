@@ -391,74 +391,7 @@ export interface WorkspaceData {
   withOverleaf?: () => Promise<WorkspaceData>;
 }
 
-/**
- * A note's body saves from the workspace, one at a time per note.
- *
- * Each save names the body the store held when it was sent (its base), so the
- * store can tell an edit made elsewhere from this one. Two saves of one note in
- * flight at once both named the body from before either, so the second looked
- * like an overwrite of someone else's edit. Here a save starts once the note's
- * earlier ones have settled, and its base is the body the last one stored (a
- * merged body included). `bases` is the workspace's map of full note bodies.
- */
-export class NoteSaves {
-  private readonly tails = new Map<string, Promise<unknown>>();
-
-  constructor(private readonly bases: Map<string, string>) {}
-
-  /**
-   * Queue `write`, which sends a body against `base` and resolves the body the
-   * store then holds. `loaded` is the base when none is known yet: the body the
-   * workspace loaded the note with.
-   */
-  run(id: string, loaded: string | undefined, write: (base: string | undefined) => Promise<string>): Promise<string> {
-    const before = this.tails.get(id) ?? Promise.resolve();
-    const next = before
-      .catch(() => undefined)
-      .then(async () => {
-        const stored = await write(this.bases.get(id) ?? loaded);
-        this.bases.set(id, stored);
-        return stored;
-      });
-    this.tails.set(id, next);
-    void next
-      .catch(() => undefined)
-      .then(() => {
-        if (this.tails.get(id) === next) this.tails.delete(id);
-      });
-    return next;
-  }
-}
-
-/**
- * Save bases for editors that keep their own text across a reload (report sections, log entries).
- *
- * The editor takes its body once, when it mounts, so a save is based on that body (then on what the last
- * save stored), never on text a reload brought in meanwhile: that would overwrite the outside edit. Each
- * mount is a slot, `<tab key>#<n>`. A slot is seeded with the body it was first rendered with. After a
- * refused save the slot keeps its base, so its later saves are refused too, until `reseed` starts a new
- * slot, which the screen uses as the editor's React key to remount it on the reloaded text.
- */
-export class EditorBases {
-  private readonly bases = new Map<string, string>();
-  private readonly epochs = new Map<string, number>();
-  readonly saves = new NoteSaves(this.bases);
-
-  /** The tab's current slot, seeded with `opened` if it has no base yet. */
-  slot(key: string, opened: string): string {
-    const slot = `${key}#${this.epochs.get(key) ?? 0}`;
-    if (!this.bases.has(slot)) this.bases.set(slot, opened);
-    return slot;
-  }
-
-  /**
-   * Starts a new slot for the tab. The old slot keeps its base: a save the old editor still has queued
-   * must be refused, not fall back to the reloaded text.
-   */
-  reseed(key: string): void {
-    this.epochs.set(key, (this.epochs.get(key) ?? 0) + 1);
-  }
-}
+export { EditorBases, NoteSaves } from "@/lib/editor-bases";
 
 /** The promise's value if it has already settled, else `undefined`, without waiting. */
 export async function ifSettled<T>(load: Promise<T>): Promise<T | undefined> {

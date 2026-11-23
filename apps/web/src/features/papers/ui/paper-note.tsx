@@ -29,6 +29,7 @@ import { DocumentBody } from "@/components/document-body";
 import { DocumentModeSwitch } from "@/components/document-mode-switch";
 import { InkFocusButton, InkFocusExit, useInkFocus } from "@/components/ink-focus";
 import { useCiteLinkCatalog } from "@/lib/hooks/use-cite-links";
+import { useEditorBase } from "@/lib/hooks/use-editor-base";
 import { useScreenActive } from "@/lib/hooks/use-screen-active";
 import { DocumentToolbar, citeAsSection } from "@/components/document-toolbar";
 
@@ -88,6 +89,7 @@ export function PaperNote({
   onReplace,
   onChanged,
   onDeleted = onChanged,
+  onConflict = onChanged,
 }: {
   paper: Paper;
   readOnly?: boolean;
@@ -96,6 +98,8 @@ export function PaperNote({
   onBack: () => void;
   onReplace: (p: Paper) => void;
   onChanged: () => void;
+  /** After a summary save was refused (changed on disk): reload the paper, keep the page open. Defaults to `onChanged`. */
+  onConflict?: () => void;
   /** After the delete commits, when the Undo toast closes. Defaults to `onChanged`. */
   onDeleted?: () => void;
 }) {
@@ -173,44 +177,21 @@ export function PaperNote({
     finally { setBusy(false); }
   }
 
-  // The summary the next save is based on: what the editor opened with or last saved. A reload with
-  // outside text does not move it while the editor still holds the old text, so that edit is kept.
-  const summaryBase = useRef({ id: paper.id, summary: paper.summary ?? "" });
-  // Set after a conflict: the next reload re-seeds the base and remounts the editor on the text on disk.
-  const reseed = useRef(false);
-  const [editorKey, setEditorKey] = useState(0);
-  useEffect(() => {
-    if (summaryBase.current.id === paper.id && !reseed.current) return;
-    summaryBase.current = { id: paper.id, summary: paper.summary ?? "" };
-    if (reseed.current) {
-      reseed.current = false;
-      setEditorKey((k) => k + 1);
-    }
-  }, [paper.id, paper.summary]);
-  // Summary saves (the editor's and a tag chip's) run one after another, each based on the one before.
-  const saving = useRef<Promise<unknown>>(Promise.resolve());
+  // The summary the next save is based on: what the editor opened with or last saved, never text a reload
+  // brought in meanwhile. Summary saves (the editor's and a tag chip's) run one after another.
+  const { key: editorKey, run: runSave } = useEditorBase(paper.id, paper.summary ?? "", onConflict);
 
   /** Every summary write. A ConflictError asks for a reload; the editor then starts from the text on disk. */
   const saveSummary = useCallback(
-    (body: string): Promise<Paper> => {
-      const run = saving.current.then(async () => {
-        const base = summaryBase.current.id === paper.id ? summaryBase.current.summary : (paper.summary ?? "");
-        try {
-          const saved = await getContainer().papers.updatePaper.setSummary(paper.id, body, base);
-          summaryBase.current = { id: paper.id, summary: saved.summary ?? "" };
-          return saved;
-        } catch (err) {
-          if (err instanceof Error && err.name === "ConflictError") {
-            reseed.current = true;
-            onChanged();
-          }
-          throw err;
-        }
+    async (body: string): Promise<Paper> => {
+      let saved!: Paper;
+      await runSave(async (base) => {
+        saved = await getContainer().papers.updatePaper.setSummary(paper.id, body, base);
+        return saved.summary ?? "";
       });
-      saving.current = run.catch(() => undefined);
-      return run;
+      return saved;
     },
-    [onChanged, paper.id, paper.summary],
+    [runSave, paper.id],
   );
 
   /** Tags are derived solely from the note body's #hashtags. */

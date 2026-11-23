@@ -86,6 +86,24 @@ test("a conflict reloads, then the base and the editor follow the text on disk",
   }
 });
 
+test("a live reload, then a conflict whose reload brings no new text: the editor remounts and the next save goes through", async () => {
+  const { r, bases, save, onChanged, editorKey, reloads } = await setup(1);
+  try {
+    // The page already reloaded the outside edit; the editor still holds "first".
+    await act(async () => { r.update(note({ ...SECTION, notes: "outside edit" }, onChanged)); await tick(); });
+    const before = editorKey();
+    await act(async () => { await save()("first, mine"); });
+    assert.equal(reloads(), 1, "the conflict asks for a reload");
+    // That reload finds the text the page already shows, so the section prop does not change.
+    assert.notEqual(editorKey(), before, "the editor remounts on the text on disk anyway");
+    await act(async () => { await save()("outside edit, mine"); });
+    assert.deepEqual(bases, ["first", "outside edit"], "the next save is based on the text on disk");
+  } finally {
+    act(() => r.unmount());
+    await tick();
+  }
+});
+
 test("a reload with outside text does not move the base the editor's next save sends", async () => {
   const { r, bases, save } = await setup();
   try {

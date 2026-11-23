@@ -50,6 +50,38 @@ test("after a conflict the open editor keeps being refused until it is re-seeded
   assert.equal(state.text, "outside edit, mine");
 });
 
+test("a slot two reseeds old drops its base once its saves settle, and stays refused", async () => {
+  const { state, write } = disk("first");
+  const bases = new EditorBases();
+  const old = bases.slot("report_section:s1", "first");
+  for (let n = 0; n < 50; n += 1) {
+    bases.reseed("report_section:s1");
+    bases.slot("report_section:s1", `text ${n}`);
+  }
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.ok(bases.size <= 2, `only the open slot and the one before it keep a base (held ${bases.size})`);
+  // A save the dropped slot sends late is refused, not based on the text it is handed.
+  await assert.rejects(bases.saves.run(old, "first", write("late")), { name: "ConflictError" });
+  assert.equal(state.text, "first");
+});
+
+test("a slot's base is kept while a save it queued is still running", async () => {
+  const bases = new EditorBases();
+  const old = bases.slot("log_entry:e1", "first");
+  let release!: () => void;
+  const running = bases.saves.run(old, "first", (base) => new Promise<string>((resolve) => { release = () => resolve(`${base}, mine`); }));
+  bases.reseed("log_entry:e1");
+  bases.slot("log_entry:e1", "second");
+  bases.reseed("log_entry:e1");
+  bases.slot("log_entry:e1", "third");
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.equal(bases.size, 3, "the slot with a save in flight keeps its base");
+  release();
+  assert.equal(await running, "first, mine");
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.equal(bases.size, 2);
+});
+
 test("saves of one editor chain: each is based on what the last one stored", async () => {
   const { state, write } = disk("a");
   const bases = new EditorBases();
