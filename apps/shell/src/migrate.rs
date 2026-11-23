@@ -312,35 +312,10 @@ fn run_is_complete(run: &serde_json::Value) -> bool {
         })
 }
 
-/// This device's secrets-moved marker, `{count, deviceId}`, written by the 0.9.7 keychain move
-/// (`secrets_moved.rs` on the 0.9.7 release line). Same folder and name as that writer.
-pub fn secrets_moved_marker(folder: &Path, device_id: &str) -> PathBuf {
-    folder
-        .join(".weaveforge")
-        .join("migration-0.9.7")
-        .join(format!("secrets-moved-{device_id}.json"))
-}
-
-/// The install gate for the workspace at `folder`: this device's own 0.9.7 report is verified AND
-/// this device's secrets-moved marker is present and names this device. A 0.9.7 keychain move that
-/// never finished therefore blocks install. Read-only; never writes.
-pub fn install_gate_passes(folder: &Path, device_id: Option<&str>) -> Result<bool, ShellError> {
-    let Some(device) = device_id else {
-        return Ok(false);
-    };
-    if !report_state_verified(folder, Some(device))? {
-        return Ok(false);
-    }
-    let marked = fs::read_to_string(secrets_moved_marker(folder, device))
-        .ok()
-        .and_then(|text| serde_json::from_str::<serde_json::Value>(&text).ok())
-        .is_some_and(|marker| marker["deviceId"].as_str() == Some(device));
-    Ok(marked)
-}
-
 /// Bridge: whether the install gate passes for the workspace at `folder` (`migrationReportVerified`):
-/// this device's own 0.9.7 report is verified and its secrets move is marked done. Reads this
-/// device's id from app data, never creates it. An unreadable report or id file is a typed error.
+/// this device's own 0.9.7 report is verified AND its secrets-moved marker names this device. Reads
+/// this device's id from app data, never creates it. An unreadable report is a typed error; an
+/// unreadable id file passes (`true`), as the install gate fails open.
 #[tauri::command]
 #[specta::specta]
 #[allow(
@@ -355,13 +330,34 @@ pub fn migration_report_verified(
     let data = app.path().app_data_dir().map_err(|_| {
         ShellError::coded("app_data_unavailable", "cannot locate the app data folder")
     })?;
-    let device = device_id::read_existing(&data).map_err(|e| {
-        ShellError::coded(
-            "device_id_unreadable",
-            &format!("cannot read this device's id: {e}"),
-        )
-    })?;
-    install_gate_passes(Path::new(&folder), device.as_deref())
+    report_verified_or_open(Path::new(&folder), device_id::read_existing(&data))
+}
+
+/// This device's run in the report at `folder` is verified and its secrets-moved marker names this
+/// device; an unreadable id passes.
+fn report_verified_or_open(
+    folder: &Path,
+    device: std::io::Result<Option<String>>,
+) -> Result<bool, ShellError> {
+    match device {
+        Ok(Some(id)) => Ok(report_state_verified(folder, Some(&id))? && marker_names(folder, &id)),
+        Ok(None) => report_state_verified(folder, None),
+        Err(e) => {
+            eprintln!(
+                "[migrate] device id unreadable ({:?}); the report check passes",
+                e.kind()
+            );
+            Ok(true)
+        }
+    }
+}
+
+/// This device's secrets-moved marker in `folder` exists and its `deviceId` is `device_id`.
+fn marker_names(folder: &Path, device_id: &str) -> bool {
+    fs::read_to_string(secrets_marker_path(folder, device_id))
+        .ok()
+        .and_then(|text| serde_json::from_str::<serde_json::Value>(&text).ok())
+        .is_some_and(|marker| marker["deviceId"].as_str() == Some(device_id))
 }
 
 /// The non-empty `vault-root` from Electron's preferences, as a path.
@@ -442,6 +438,13 @@ fn exported_here(prefs_dir: &Path, device_id: &str) -> Option<bool> {
     reason = "tauri commands take owned arguments"
 )]
 pub fn install_gate_required(app: tauri::AppHandle) -> Result<bool, ShellError> {
+    let (dir, electron) = gate_dirs(&app);
+    Ok(!install_gate_passes_at(dir.as_deref(), electron.as_deref()))
+}
+
+/// The app data dir and Electron's data dir the install gate reads.
+#[must_use]
+pub fn gate_dirs(app: &tauri::AppHandle) -> (Option<PathBuf>, Option<PathBuf>) {
     use tauri::Manager as _;
     let paths = app.path();
     let dir = paths.app_data_dir().ok();
@@ -453,18 +456,20 @@ pub fn install_gate_required(app: tauri::AppHandle) -> Result<bool, ShellError> 
             let source = crate::launch::app_source(resources);
             crate::launch::electron_data_dir(&source, &app.package_info().name, &config)
         });
-    Ok(!install_gate_passes(
-        dir.as_deref(),
-        electron.as_deref(),
-        |data| {
-            device_id::read_existing(data).map_err(|e| {
-                ShellError::coded(
-                    "device_id_unreadable",
-                    &format!("cannot read this device's id: {e}"),
-                )
-            })
-        },
-    ))
+    (dir, electron)
+}
+
+/// [`install_gate_passes`] with this device's id read from `app_data`.
+#[must_use]
+pub fn install_gate_passes_at(app_data: Option<&Path>, electron: Option<&Path>) -> bool {
+    install_gate_passes(app_data, electron, |data| {
+        device_id::read_existing(data).map_err(|e| {
+            ShellError::coded(
+                "device_id_unreadable",
+                &format!("cannot read this device's id: {e}"),
+            )
+        })
+    })
 }
 
 #[cfg(test)]
@@ -762,36 +767,52 @@ mod tests {
 
     /// Writes this device's secrets-moved marker at its own path, naming `device` as its deviceId.
     fn write_marker(folder: &Path, device: &str) {
-        let path = secrets_moved_marker(folder, DEVICE);
+        let path = secrets_marker_path(folder, DEVICE);
         fs::create_dir_all(path.parent().unwrap()).unwrap();
-        fs::write(path, serde_json::json!({ "count": 2, "deviceId": device }).to_string()).unwrap();
+        fs::write(
+            path,
+            serde_json::json!({ "count": 2, "deviceId": device }).to_string(),
+        )
+        .unwrap();
     }
 
     #[test]
     fn install_gate_refuses_when_the_secrets_marker_is_absent() {
         let folder = report("gate-no-marker", COMPLETE);
-        assert_eq!(install_gate_passes(&folder, Some(DEVICE)), Ok(false));
+        assert_eq!(
+            report_verified_or_open(&folder, Ok(Some(DEVICE.to_string()))),
+            Ok(false)
+        );
     }
 
     #[test]
     fn install_gate_passes_when_this_devices_secrets_marker_is_present() {
         let folder = report("gate-marker", COMPLETE);
         write_marker(&folder, DEVICE);
-        assert_eq!(install_gate_passes(&folder, Some(DEVICE)), Ok(true));
+        assert_eq!(
+            report_verified_or_open(&folder, Ok(Some(DEVICE.to_string()))),
+            Ok(true)
+        );
     }
 
     #[test]
     fn install_gate_refuses_a_marker_that_names_another_device() {
         let folder = report("gate-other-marker", COMPLETE);
         write_marker(&folder, "device-b");
-        assert_eq!(install_gate_passes(&folder, Some(DEVICE)), Ok(false));
+        assert_eq!(
+            report_verified_or_open(&folder, Ok(Some(DEVICE.to_string()))),
+            Ok(false)
+        );
     }
 
     #[test]
     fn install_gate_refuses_an_unverified_report_even_with_the_marker() {
         let folder = report("gate-unverified-marker", r#"{"state":"incomplete"}"#);
         write_marker(&folder, DEVICE);
-        assert_eq!(install_gate_passes(&folder, Some(DEVICE)), Ok(false));
+        assert_eq!(
+            report_verified_or_open(&folder, Ok(Some(DEVICE.to_string()))),
+            Ok(false)
+        );
     }
 
     #[test]
@@ -889,6 +910,19 @@ mod tests {
 
     fn device_id_unreadable() -> ShellError {
         ShellError::coded("device_id_unreadable", "cannot read this device's id")
+    }
+
+    #[test]
+    fn an_unreadable_device_id_passes_the_report_check() {
+        let (folder, _) = temp("report-id-unreadable");
+        let unreadable = Err(std::io::Error::other("corrupt device-id"));
+        assert_eq!(report_verified_or_open(&folder, unreadable), Ok(true));
+    }
+
+    #[test]
+    fn no_device_id_is_not_verified() {
+        let (folder, _) = temp("report-no-id");
+        assert_eq!(report_verified_or_open(&folder, Ok(None)), Ok(false));
     }
 
     #[test]
