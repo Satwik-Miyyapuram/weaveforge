@@ -13,6 +13,7 @@ import type {
 import { ConflictError, NotFoundError } from "@weaveforge/core";
 import { warnOnce } from "@/lib/error-report/parts";
 import { formatError } from "@/lib/format-error";
+import { retryGuarded } from "@/lib/guarded-save";
 import { typedCore } from "@/lib/rust-core";
 
 /** How often a write re-reads and re-applies when the file changed under it. */
@@ -175,15 +176,22 @@ export class FileReaderAnnotationRepository
 
   /**
    * Applies `edit` to the rows on disk and writes them only if the file is still
-   * the text it read; otherwise reads the newer file and applies `edit` again.
+   * the text it read; otherwise reads the newer file and applies `edit` again. A file
+   * trashed or moved mid-change is never recreated (ConflictError).
    */
   private async change(path: string, edit: (rows: Row[]) => Row[]): Promise<void> {
-    for (let attempt = 0; attempt < WRITE_ATTEMPTS; attempt += 1) {
-      const { text, rows } = await this.read(path);
-      const next = typedCore().renderAnnotationsFile(edit(rows));
-      if (await this.writeIf(path, next, text)) return;
-    }
-    throw new ConflictError(`${path} kept changing on disk; not saved.`);
+    await retryGuarded(
+      path,
+      WRITE_ATTEMPTS,
+      async () => {
+        const read = await this.read(path);
+        return read.text === null ? null : read;
+      },
+      async (current) => {
+        const next = typedCore().renderAnnotationsFile(edit(current?.rows ?? []));
+        return (await this.writeIf(path, next, current?.text ?? null)) ? { value: undefined } : null;
+      },
+    );
   }
 
   private async read(path: string): Promise<{ text: string | null; rows: Row[] }> {

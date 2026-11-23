@@ -16,6 +16,7 @@ import {
   type Document,
   isTypingTarget,
   loadWorkspace,
+  EditorBases,
   NoteSaves,
   EXPLORER_WIDTH_DEFAULT,
   readExplorerWidth,
@@ -57,6 +58,9 @@ import { FormError } from "@/components/form-error";
 import { DESKTOP_BREAKPOINT_PX, isMacPlatform } from "@/lib/parts";
 import { ScreenLoader } from "@/components/weaveforge-loader";
 import { IconButton } from "@/components/button";
+
+/** Kinds whose save names the body its editor mounted with (`EditorBases`). */
+const BASED_KINDS = new Set(["report_section", "log_entry", "paper"]);
 
 /**
  * The desktop editor: the workspace as a stack of explorer sections and a set
@@ -174,13 +178,13 @@ export function WorkspaceScreen() {
   const noteSavesRef = useRef<NoteSaves | null>(null);
   noteSavesRef.current ??= new NoteSaves(hydrated);
   const noteSaves = noteSavesRef.current;
-  // The same for report sections and log entries, with their own bases: a save names the text the last one
-  // stored, so an edit made outside since is kept (the save is refused) and two quick saves never refuse
-  // each other. A refused save forgets its base, so the next one starts from the reloaded text.
-  const entityBasesRef = useRef(new Map<string, string>());
-  const entitySavesRef = useRef<NoteSaves | null>(null);
-  entitySavesRef.current ??= new NoteSaves(entityBasesRef.current);
-  const entitySaves = entitySavesRef.current;
+  // The same for report sections, log entries and papers, based on the text each editor opened with (then
+  // what its last save stored), so an edit made outside since is kept (the save is refused) and two quick
+  // saves never refuse each other. A refused save reloads and remounts the editor on the text on disk.
+  const editorBasesRef = useRef<EditorBases | null>(null);
+  editorBasesRef.current ??= new EditorBases();
+  const editorBases = editorBasesRef.current;
+  const [reseeds, setReseeds] = useState(0);
   // Each reload's number: late Overleaf rows apply only to the newest load.
   const loadRef = useRef(0);
   const reload = useCallback(async () => {
@@ -287,7 +291,13 @@ export function WorkspaceScreen() {
   documentsRef.current = documents;
 
   const save = useCallback(
-    async (tab: TabRef, body: string, meta?: { sessionDigests?: readonly string[]; baseBody?: string }): Promise<string | void> => {
+    async (
+      tab: TabRef,
+      body: string,
+      meta?: { sessionDigests?: readonly string[]; baseBody?: string },
+      /** The `EditorBases` slot of the editor that saves (sections, log entries, papers). */
+      slot?: string,
+    ): Promise<string | void> => {
       // A body may only go back to the store once the full one has come in.
       // The editor is not mounted before that, but an editor that saved the
       // 320-character preview would overwrite the note with it — a loss the
@@ -325,11 +335,21 @@ export function WorkspaceScreen() {
             }
             return saved.body;
           });
-        const saveEntity = (id: string, write: (base: string | undefined) => Promise<string>) =>
-          entitySaves
-            .run(id, doc?.body, (base) =>
+        // The base stays after a refusal, so this editor's later saves are refused too; the reload
+        // then starts a new slot, which remounts the editor on the text on disk.
+        const key = readyCore().tabKey(tab);
+        const saveEntity = (_id: string, write: (base: string | undefined) => Promise<string>) =>
+          editorBases.saves
+            .run(slot ?? editorBases.slot(key, doc?.body ?? ""), doc?.body, (base) =>
               write(base).catch((err: unknown) => {
-                entityBasesRef.current.delete(id);
+                if (err instanceof Error && err.name === "ConflictError") {
+                  void reload()
+                    .catch((reloadErr: unknown) => setError(formatError(reloadErr)))
+                    .finally(() => {
+                      editorBases.reseed(key);
+                      setReseeds((n) => n + 1);
+                    });
+                }
                 throw err;
               }),
             )
@@ -338,7 +358,8 @@ export function WorkspaceScreen() {
           vault_page: saveNote,
           // An ink note is a vault page whose body starts with the ink header (§4.1).
           ink_page: saveNote,
-          paper: (id, next) => container.papers.updatePaper.setSummary(id, next),
+          paper: (id, next) =>
+            saveEntity(id, async (base) => (await container.papers.updatePaper.setSummary(id, next, base)).summary ?? ""),
           report_section: (id, next) =>
             saveEntity(id, async (base) => (await container.report.manageReportSection.setNotes(id, next, base)).notes ?? ""),
           // A log entry is markdown, so the editor's text *is* the entry's body.
@@ -369,7 +390,7 @@ export function WorkspaceScreen() {
         setPending(pendingRef.current);
       }
     },
-    [hydrated, noteSaves, entitySaves, reload],
+    [hydrated, noteSaves, editorBases, reload],
   );
 
   // The browser only honours the guard if the handler is registered before the
@@ -563,8 +584,12 @@ export function WorkspaceScreen() {
       if (isCanvasDocument(doc)) {
         return <CanvasDocument key={key} doc={doc} documents={documents ?? []} onSave={(body, base) => save(tab, body, { baseBody: base })} onOpen={openDoc} />;
       }
+      // A section, log entry or paper saves against the body its editor mounted with; the slot is also the
+      // editor's key, so a refused save remounts it on the reloaded text.
+      const slot = BASED_KINDS.has(tab.kind) ? editorBases.slot(key, doc.body) : undefined;
       return (
         <DocumentHost
+          key={slot}
           tab={tab}
           mode={readyCore().tabMode(tab)}
           title={doc.title}
@@ -572,7 +597,7 @@ export function WorkspaceScreen() {
           links={links}
           completions={completions}
           tags={tags}
-          onSave={(body, meta) => save(tab, body, meta)}
+          onSave={(body, meta) => save(tab, body, meta, slot)}
           onMetrics={(next) => setMetrics((current) => ({ ...current, [key]: next }))}
           onOpenLink={openLink}
           onCreateNote={createMode === "create" ? createFromLink : undefined}
@@ -582,7 +607,7 @@ export function WorkspaceScreen() {
         />
       );
     },
-    [byKey, documents, openDoc, links, completions, tags, openLink, save, createMode, createFromLink, handleFor, hydrate, unavailable, retryBody, previewOf, metrics, overleafPending],
+    [byKey, documents, openDoc, links, completions, tags, openLink, save, createMode, createFromLink, handleFor, hydrate, unavailable, retryBody, previewOf, metrics, overleafPending, editorBases, reseeds],
   );
 
   // Insert ▾ → Picture in Text: a picture on disk at the caret of the focused

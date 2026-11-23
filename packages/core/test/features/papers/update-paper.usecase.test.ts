@@ -4,6 +4,7 @@ import { InMemoryPaperRepository } from "../../support/in-memory.js";
 import { AddPaperUseCase } from "../../../src/features/papers/application/parts-1.js";
 import { UpdatePaperUseCase } from "../../../src/features/papers/application/update-paper.use-case.js";
 import type { ITagManager } from "../../../src/features/tags/domain/parts.js";
+import type { Paper } from "../../../src/features/papers/domain/parts.js";
 import { fixedClock, seqIds } from "../../support/clock.js";
 import { NotFoundError } from "../../../src/index.js";
 import { rust } from "../../../src/shared/rust.js";
@@ -263,4 +264,22 @@ test("the queue empties after the last update", async () => {
   await new Promise((r) => setImmediate(r));
   const queues = (update as unknown as { queues: Map<string, unknown> }).queues;
   assert.equal(queues.size, 0);
+});
+
+test("setSummary with a base passes the summary it was based on to save; without one, no seen", async () => {
+  const { repo, add, update } = setup();
+  const p = await add.addManual({ title: "VAE" });
+  const seen: (Paper | undefined)[] = [];
+  const originalSave = repo.save.bind(repo);
+  repo.save = async (entity: Paper, was?: Paper) => {
+    seen.push(was);
+    return originalSave(entity);
+  };
+  await update.setSummary(p.id, "mine", "  opened with\n\n");
+  await update.setSummary(p.id, "again");
+  await update.setSummary(p.id, "cleared", "");
+  assert.equal(seen[0]?.summary, "  opened with\n\n", "the base is passed untrimmed");
+  assert.equal(seen[0]?.id, p.id);
+  assert.equal(seen[1], undefined);
+  assert.equal(seen[2]?.summary, undefined, "an empty base means no summary");
 });

@@ -29,6 +29,7 @@ import { DocumentBody } from "@/components/document-body";
 import { DocumentModeSwitch } from "@/components/document-mode-switch";
 import { InkFocusButton, InkFocusExit, useInkFocus } from "@/components/ink-focus";
 import { useCiteLinkCatalog } from "@/lib/hooks/use-cite-links";
+import { useEditorBase } from "@/lib/hooks/use-editor-base";
 import { useScreenActive } from "@/lib/hooks/use-screen-active";
 import { DocumentToolbar, citeAsSection } from "@/components/document-toolbar";
 
@@ -88,6 +89,7 @@ export function PaperNote({
   onReplace,
   onChanged,
   onDeleted = onChanged,
+  onConflict = onChanged,
 }: {
   paper: Paper;
   readOnly?: boolean;
@@ -96,6 +98,8 @@ export function PaperNote({
   onBack: () => void;
   onReplace: (p: Paper) => void;
   onChanged: () => void;
+  /** After a summary save was refused (changed on disk): reload the paper, keep the page open. Defaults to `onChanged`. */
+  onConflict?: () => void;
   /** After the delete commits, when the Undo toast closes. Defaults to `onChanged`. */
   onDeleted?: () => void;
 }) {
@@ -173,6 +177,23 @@ export function PaperNote({
     finally { setBusy(false); }
   }
 
+  // The summary the next save is based on: what the editor opened with or last saved, never text a reload
+  // brought in meanwhile. Summary saves (the editor's and a tag chip's) run one after another.
+  const { key: editorKey, run: runSave } = useEditorBase(paper.id, paper.summary ?? "", onConflict);
+
+  /** Every summary write. A ConflictError asks for a reload; the editor then starts from the text on disk. */
+  const saveSummary = useCallback(
+    async (body: string): Promise<Paper> => {
+      let saved!: Paper;
+      await runSave(async (base) => {
+        saved = await getContainer().papers.updatePaper.setSummary(paper.id, body, base);
+        return saved.summary ?? "";
+      });
+      return saved;
+    },
+    [runSave, paper.id],
+  );
+
   /** Tags are derived solely from the note body's #hashtags. */
   const reconcileTags = useCallback(
     async (body: string, saved?: Paper) => {
@@ -198,7 +219,7 @@ export function PaperNote({
         const { body, uploadError } = await materializePaperBlobImages(nextBody, paper.id, (id, blob, ext) =>
           papers.uploadImage(id, blob, ext),
         );
-        const saved = await papers.updatePaper.setSummary(paper.id, body);
+        const saved = await saveSummary(body);
         if (modeRef.current === "read" || closedRef.current) await reconcileTags(body, saved);
         else pendingTagsRef.current = body;
         // The text is saved; a failed upload is still said out loud.
@@ -207,7 +228,7 @@ export function PaperNote({
         setSaveError(formatError(err));
       }
     },
-    [paper.id, reconcileTags],
+    [paper.id, reconcileTags, saveSummary],
   );
 
   // Closing the page mid-edit (Back, another paper) settles the tags too, or a
@@ -521,6 +542,7 @@ export function PaperNote({
                   focus={inkFocus.focus}
                 >
                 <DocumentBody
+                  key={editorKey}
                   tab={{ kind: "paper", id: paper.id }}
                   mode={mode}
                   body={paper.summary ?? ""}
@@ -534,7 +556,7 @@ export function PaperNote({
               </div>
             )}
             {saveError && <InlineError>{saveError}</InlineError>}
-            {mode === "edit" && !readOnly && <TagEditor paper={paper} onReplace={onReplace} editor={editorHandle} />}
+            {mode === "edit" && !readOnly && <TagEditor paper={paper} onReplace={onReplace} editor={editorHandle} saveSummary={saveSummary} />}
           </RecordSection>
 
           <RecordSection label="Annotations" tag={annotationCount > 0 ? String(annotationCount) : "None yet"}>

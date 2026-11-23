@@ -518,3 +518,52 @@ test("files() lists each paper's id with its file, in one scan", async () => {
   assert.deepEqual(files, expected);
   assert.equal(reads, 2);
 });
+test("save with seen refuses when the summary on disk changed since; the outside edit is kept", async () => {
+  const { fs, repo } = setup();
+  await repo.save(paper({ summary: "  opened\n\nwith a blank line\n\n" }));
+  const opened = (await repo.getById("p-1"))!;
+  const path = await onlyFile(fs);
+  await repo.save(paper({ summary: "outside edit", status: "read" }));
+  const outside = await fs.readText(path);
+  await assert.rejects(repo.save(paper({ summary: "mine" }), opened), ConflictError);
+  assert.equal(await fs.readText(path), outside, "the outside edit is kept");
+});
+
+test("a refused save keeps the user's summary in one conflict copy beside the paper, not listed as a paper", async () => {
+  const { fs, repo } = setup();
+  await repo.save(paper({ summary: "opened" }));
+  const opened = (await repo.getById("p-1"))!;
+  const path = await onlyFile(fs);
+  await repo.save(paper({ summary: "outside edit" }));
+  await assert.rejects(repo.save(paper({ summary: "mine" }), opened), ConflictError);
+  await assert.rejects(repo.save(paper({ summary: "mine, more" }), opened), ConflictError);
+  const copies: string[] = [];
+  for await (const entry of fs.walk(`${ROOT}/papers`)) if (entry.path !== path) copies.push(entry.path);
+  assert.equal(copies.length, 1, `one copy per base, got ${copies.join(", ")}`);
+  const copy = await fs.readText(copies[0]!);
+  assert.match(copy, /mine, more/, "the copy holds the user's latest summary");
+  assert.doesNotMatch(copy, /^weaveforge-id:/m, "the copy does not claim the paper's id");
+  assert.equal((await repo.list()).length, 1, "the copy is not read as a second paper");
+  assert.equal((await repo.getById("p-1"))?.summary, "outside edit");
+});
+
+test("save with seen goes through when the summary on disk is what it was based on, indent and blank lines too", async () => {
+  const { repo } = setup();
+  await repo.save(paper({ summary: "  opened\n\nwith a blank line\n\n" }));
+  const opened = (await repo.getById("p-1"))!;
+  await repo.save(paper({ summary: "mine" }), opened);
+  const first = (await repo.getById("p-1"))!;
+  assert.equal(first.summary, "mine");
+  await repo.save(paper({ summary: "mine, again" }), first);
+  assert.equal((await repo.getById("p-1"))?.summary, "mine, again");
+  // No summary on disk and a base of none: not a conflict.
+  await repo.save(paper({ summary: undefined }), (await repo.getById("p-1"))!);
+  await repo.save(paper({ summary: "new" }), paper({ summary: undefined }));
+  assert.equal((await repo.getById("p-1"))?.summary, "new");
+});
+
+test("save with seen never brings back a paper whose file is gone", async () => {
+  const { fs, repo } = setup();
+  await assert.rejects(repo.save(paper({ summary: "mine" }), paper()), ConflictError);
+  for await (const entry of fs.walk(`${ROOT}/papers`)) assert.fail(`wrote ${entry.path}`);
+});

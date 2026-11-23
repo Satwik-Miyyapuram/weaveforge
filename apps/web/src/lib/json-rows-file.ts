@@ -1,5 +1,5 @@
 import type { IWorkspaceFs } from "@weaveforge/core";
-import { ConflictError } from "@weaveforge/core";
+import { retryGuarded } from "@/lib/guarded-save";
 
 /** One object in a JSON rows file. */
 export type JsonRow = Record<string, unknown>;
@@ -41,20 +41,29 @@ export async function readJsonRows(
  * Applies `edit` to the rows on disk and writes them only if the file is still the
  * text it read (`writeTextIf`); otherwise reads the newer file and applies `edit`
  * again, so a row added outside the app between the read and the write is kept.
- * A missing file that would stay empty is not created. Returns the rows written.
+ * A missing file that would stay empty is not created; one trashed or moved mid-change
+ * is never recreated (ConflictError). Returns the rows written.
  */
 export async function changeJsonRows(
   fs: IWorkspaceFs,
   path: string,
   edit: (rows: JsonRow[]) => JsonRow[],
 ): Promise<JsonRow[]> {
-  if (!fs.writeTextIf) throw new Error(`${path}: this workspace has no conditional write; not saved.`);
-  for (let attempt = 0; attempt < WRITE_ATTEMPTS; attempt += 1) {
-    const { text, rows } = await readJsonRows(fs, path);
-    const next = edit(rows);
-    if (text === null && next.length === 0) return next;
-    if (text === null && path.includes("/")) await fs.mkdirp(path.slice(0, path.lastIndexOf("/")));
-    if (await fs.writeTextIf(path, renderJsonRows(next), text)) return next;
-  }
-  throw new ConflictError(`${path} kept changing on disk; not saved.`);
+  const writeTextIf = fs.writeTextIf?.bind(fs);
+  if (!writeTextIf) throw new Error(`${path}: this workspace has no conditional write; not saved.`);
+  return retryGuarded(
+    path,
+    WRITE_ATTEMPTS,
+    async () => {
+      const read = await readJsonRows(fs, path);
+      return read.text === null ? null : read;
+    },
+    async (current) => {
+      const text = current?.text ?? null;
+      const next = edit(current?.rows ?? []);
+      if (text === null && next.length === 0) return { value: next };
+      if (text === null && path.includes("/")) await fs.mkdirp(path.slice(0, path.lastIndexOf("/")));
+      return (await writeTextIf(path, renderJsonRows(next), text)) ? { value: next } : null;
+    },
+  );
 }

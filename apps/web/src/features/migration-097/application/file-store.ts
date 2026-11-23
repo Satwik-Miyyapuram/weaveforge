@@ -107,6 +107,8 @@ export async function createFileStore(sink: FileSink, prior: Outputs): Promise<F
         } else {
           // An unreadable file is never overwritten: skip to the next candidate.
           if (state.bytes === null) continue;
+          // Known window: an edit landing between this read and the write below is lost. FileSink has no
+          // compare-and-set for bytes (writeIf is text only), and only files this device wrote, unchanged, get here.
           const current = await sha256Hex(state.bytes);
           if (current !== out.hash) {
             // A file this device wrote and left unchanged takes the new version; anything else is kept.

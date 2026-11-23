@@ -395,6 +395,15 @@ export function PapersScreen() {
           onReplace={replace}
           onChanged={() => { closePaper(); void load(); }}
           onDeleted={() => void load()}
+          onConflict={() => {
+            // A refused summary save: re-read the paper and keep the page open on the text on disk.
+            const id = openPaper.id;
+            void load();
+            void getContainer()
+              .papers.getPaper(id)
+              .then((p) => { if (p) replace(p); })
+              .catch((err: unknown) => setError(formatError(err)));
+          }}
         />
       </section>
     );

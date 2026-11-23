@@ -111,7 +111,7 @@ export class FileExperimentRepository implements IExperimentRepository, IExperim
 
   setResultNote(id: string, note: string, base?: string): Promise<Experiment> {
     const trimmed = note.trim();
-    const seen = base === undefined ? undefined : { resultNote: base.trim() || undefined };
+    const seen = base === undefined ? undefined : { resultNote: base || undefined };
     return this.update(id, (current) => applyPatch(current, { resultNote: trimmed || undefined }), seen);
   }
 

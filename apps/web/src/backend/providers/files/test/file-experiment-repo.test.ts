@@ -194,3 +194,14 @@ test("setResultNote twice, each based on what the last one wrote, both go throug
   await repo.setResultNote(e.id, "c", one.resultNote ?? "");
   assert.equal((await repo.getById(e.id))?.resultNote, "c");
 });
+
+test("setResultNote based on an indented note with extra blank lines, as read, goes through", async () => {
+  const { fs, repo } = setup();
+  const e = run({ resultNote: "first" });
+  await repo.save(e);
+  await editOutside(fs, "first", "  indented\n\n");
+  const read = (await repo.getById(e.id))!.resultNote ?? "";
+  assert.notEqual(read, read.trim(), "the note on disk keeps its outer whitespace");
+  await repo.setResultNote(e.id, "mine", read);
+  assert.equal((await repo.getById(e.id))?.resultNote, "mine");
+});
