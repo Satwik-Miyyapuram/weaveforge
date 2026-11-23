@@ -150,9 +150,7 @@ pub fn handshake_sid(body: &str) -> Result<String, String> {
         return Err("Overleaf did not open a live connection.".to_owned());
     }
     if !transports.split(',').any(|t| t == "xhr-polling") {
-        return Err(format!(
-            "Overleaf offers no polling transport ({transports})."
-        ));
+        return Err("Overleaf offers no polling transport.".to_owned());
     }
     Ok((*sid).to_owned())
 }
@@ -206,14 +204,17 @@ impl Room {
             .header("origin", &origin)
             .send()
             .await
-            .map_err(|e| e.to_string())?;
+            .map_err(|e| crate::overleaf_workshop::unreached(&e))?;
         let set_cookie = reply
             .headers()
             .get("set-cookie")
             .and_then(|v| v.to_str().ok())
             .map(str::to_owned);
         let status = reply.status().as_u16();
-        let body = reply.text().await.map_err(|e| e.to_string())?;
+        let body = reply
+            .text()
+            .await
+            .map_err(|e| crate::overleaf_workshop::unreached(&e))?;
         if status != 200 {
             return Err(format!("Overleaf refused the live connection ({status})."));
         }
@@ -326,11 +327,11 @@ impl Room {
             .body(frame.to_owned())
             .send()
             .await
-            .map_err(|e| e.to_string())?;
+            .map_err(|e| crate::overleaf_workshop::unreached(&e))?;
         if reply.status().is_success() {
             Ok(())
         } else {
-            Err(format!("{}: live send failed", reply.status().as_u16()))
+            Err(send_refused(reply.status().as_u16()))
         }
     }
 
@@ -455,10 +456,20 @@ impl Room {
     }
 }
 
-fn error_text(err: &Value) -> String {
-    err.get("message")
-        .and_then(Value::as_str)
-        .map_or_else(|| err.to_string(), str::to_owned)
+/// What the page sees when Overleaf refuses a document or an edit.
+const REFUSED: &str = "Overleaf refused the change.";
+
+/// Fixed words for an Overleaf error reply: its text can carry URLs or tokens, so it is
+/// neither shown nor logged.
+fn error_text(_err: &Value) -> String {
+    eprintln!("[overleaf] live reply refused");
+    REFUSED.to_owned()
+}
+
+/// A live POST Overleaf answered with a non-success status: the status only.
+fn send_refused(status: u16) -> String {
+    eprintln!("[overleaf] live HTTP {status}");
+    format!("Overleaf refused the request (HTTP {status}).")
 }
 
 /// The events the vendored Overleaf IDE may send through `emit`: the ones its
@@ -739,6 +750,30 @@ mod tests {
         );
         assert!(handshake_sid("abc:60:60:websocket").is_err());
         assert!(handshake_sid("<html>").is_err());
+    }
+
+    #[test]
+    fn a_handshake_without_polling_never_echoes_the_reply() {
+        assert_eq!(
+            handshake_sid("abc:60:60:websocket,<b>k=s3cret</b>"),
+            Err("Overleaf offers no polling transport.".to_owned())
+        );
+    }
+
+    #[test]
+    fn a_refused_edit_never_echoes_what_overleaf_sent() {
+        let leak = json!({ "message": "see https://x.test/p?token=s3cret" });
+        assert_eq!(error_text(&leak), REFUSED);
+        assert_eq!(error_text(&json!({ "code": "s3cret" })), REFUSED);
+        assert_eq!(error_text(&json!("s3cret")), REFUSED);
+    }
+
+    #[test]
+    fn a_refused_send_gives_only_the_status() {
+        assert_eq!(
+            send_refused(403),
+            "Overleaf refused the request (HTTP 403)."
+        );
     }
 
     #[test]

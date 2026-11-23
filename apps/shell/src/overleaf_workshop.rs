@@ -15,12 +15,15 @@ use wf_core::overleaf_workshop::{
     safe_overleaf_error,
 };
 
+use crate::overleaf_signin::OVERLEAF_UNREACHABLE;
 use crate::relay::shared::{Answer, read_capped};
 
 /// Every Workshop route starts with this.
 pub const PREFIX: &str = "/api/overleaf/workshop/";
 /// Overleaf's public host. The cookie is sent only here.
 const BASE: &str = "https://www.overleaf.com/";
+/// The message for a 200 reply that does not parse as JSON.
+const NOT_JSON: &str = "Overleaf sent a reply that is not JSON.";
 /// The answer for an unknown session id.
 const NOT_FOUND: &str = "Overleaf session not found. Sign in again.";
 /// The largest page or JSON reply read.
@@ -200,9 +203,11 @@ pub enum PdfSource {
 /// output.pdf's address from a compile reply, or the message the page shows.
 pub fn pdf_source(compile: &Value) -> Result<PdfSource, String> {
     let text = |key: &str| compile.get(key).and_then(Value::as_str);
-    let status = text("status").unwrap_or_default();
-    if status != "success" {
-        return Err(format!("Compile failed (status {status})."));
+    if text("status") != Some("success") {
+        return Err(format!(
+            "Compile failed (status {}).",
+            compile_status(compile)
+        ));
     }
     let url = compile
         .get("outputFiles")
@@ -227,6 +232,51 @@ pub fn pdf_source(compile: &Value) -> Result<PdfSource, String> {
     })
 }
 
+/// The compile status for the message: a short word like `failure` or `timedout`,
+/// "undefined" when missing, else "unknown" (Overleaf's other text is not echoed).
+fn compile_status(compile: &Value) -> &str {
+    match compile.get("status") {
+        Some(Value::String(status))
+            if !status.is_empty()
+                && status.len() <= 40
+                && status
+                    .chars()
+                    .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_') =>
+        {
+            status
+        }
+        Some(_) => "unknown",
+        None => "undefined",
+    }
+}
+
+/// The kind of a failed request, for the log: its text names the URL, so it is never logged.
+pub(crate) fn transport_kind(err: &reqwest::Error) -> &'static str {
+    if err.is_timeout() {
+        "timeout"
+    } else if err.is_connect() {
+        "connect"
+    } else if err.is_builder() {
+        "builder"
+    } else if err.is_redirect() {
+        "redirect"
+    } else if err.is_body() {
+        "body"
+    } else if err.is_decode() {
+        "decode"
+    } else if err.is_request() {
+        "request"
+    } else {
+        "other"
+    }
+}
+
+/// Logs a failed request by kind and returns the fixed message the page shows.
+pub(crate) fn unreached(err: &reqwest::Error) -> String {
+    eprintln!("[overleaf] request failed: {}", transport_kind(err));
+    OVERLEAF_UNREACHABLE.to_owned()
+}
+
 /// The session cookies and the CSRF token a signed-in request carries.
 struct Identity {
     cookies: String,
@@ -249,7 +299,7 @@ async fn send(request: reqwest::RequestBuilder) -> Result<reqwest::Response, Str
             tokio::time::sleep(Duration::from_millis(*ms)).await;
             continue;
         }
-        return result.map_err(|e| e.to_string());
+        return result.map_err(|e| unreached(&e));
     }
 }
 
@@ -261,14 +311,21 @@ async fn text(response: reqwest::Response) -> Result<String, String> {
     }
 }
 
-/// The JSON body of a 200 or 204 reply; any other status is `"<status>: <body>"`.
+/// The JSON body of a 200 or 204 reply; see [`json_reply`].
 async fn ok_json(response: reqwest::Response) -> Result<Value, String> {
     let status = response.status().as_u16();
     let body = text(response).await?;
+    json_reply(status, &body)
+}
+
+/// `body` as JSON when `status` is 200 or 204. Any other status gives only the status, since
+/// the body is Overleaf's own page and may carry account details.
+fn json_reply(status: u16, body: &str) -> Result<Value, String> {
     if status != 200 && status != 204 {
-        return Err(format!("{status}: {body}"));
+        eprintln!("[overleaf] HTTP {status}");
+        return Err(format!("Overleaf refused the request (HTTP {status})."));
     }
-    serde_json::from_str(&body).map_err(|e| e.to_string())
+    serde_json::from_str(body).map_err(|_| NOT_JSON.to_owned())
 }
 
 /// Signs in with a session cookie: reads the CSRF token from the project page, then picks up the socket cookie.
@@ -492,7 +549,7 @@ async fn compile_route(
             })
     } else {
         compile(client, &cookies, project, root).await.map(|(_, reply)| {
-            let body = json!({ "status": reply.get("status"), "outputFiles": reply.get("outputFiles") });
+            let body = json!({ "status": compile_status(&reply), "outputFiles": reply.get("outputFiles") });
             json_answer(200, &body, true)
         })
     };
@@ -658,7 +715,7 @@ async fn http_route(client: &reqwest::Client, sessions: &WorkshopSessions, body:
     }
     match with_body(request, method, payload).send().await {
         Ok(response) => ide_reply(response).await,
-        Err(e) => error(502, &safe_overleaf_error(&e.to_string(), Some(&cookies))),
+        Err(e) => error(502, &unreached(&e)),
     }
 }
 
@@ -816,6 +873,62 @@ mod tests {
             pdf_source(&none),
             Err("The compile produced no PDF.".to_owned())
         );
+    }
+
+    #[test]
+    fn compile_status_echoes_only_a_short_word() {
+        let failed = |status: Value| pdf_source(&json!({ "status": status }));
+        assert_eq!(
+            failed(json!("timedout")),
+            Err("Compile failed (status timedout).".to_owned())
+        );
+        assert_eq!(
+            failed(json!("too-many_files")),
+            Err("Compile failed (status too-many_files).".to_owned())
+        );
+        let unknown = Err("Compile failed (status unknown).".to_owned());
+        assert_eq!(failed(json!("x".repeat(41))), unknown);
+        assert_eq!(failed(json!("<a href=\"https://x.test/?k=s\">")), unknown);
+        assert_eq!(failed(json!("two words")), unknown);
+        assert_eq!(failed(json!("")), unknown);
+        assert_eq!(failed(json!(7)), unknown);
+        assert_eq!(failed(json!({ "secret": "s" })), unknown);
+        assert_eq!(
+            failed(json!("x".repeat(40))),
+            Err(format!("Compile failed (status {}).", "x".repeat(40)))
+        );
+        assert_eq!(
+            pdf_source(&json!({})),
+            Err("Compile failed (status undefined).".to_owned())
+        );
+    }
+
+    #[test]
+    fn a_refusal_gives_the_status_and_never_the_body() {
+        let page = "<html>account a@b.test token=s3cret https://www.overleaf.com/x?k=1</html>";
+        for status in [401_u16, 403, 404, 429, 500, 503] {
+            assert_eq!(
+                json_reply(status, page),
+                Err(format!("Overleaf refused the request (HTTP {status})."))
+            );
+        }
+        assert_eq!(json_reply(200, page), Err(NOT_JSON.to_owned()));
+        assert_eq!(json_reply(200, r#"{"a":1}"#), Ok(json!({ "a": 1 })));
+        assert_eq!(json_reply(204, "null"), Ok(Value::Null));
+    }
+
+    #[tokio::test]
+    async fn an_unreached_request_gives_fixed_words_and_logs_only_the_kind() {
+        let closed = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = closed.local_addr().unwrap().port();
+        drop(closed);
+        let err = reqwest::Client::new()
+            .get(format!("http://127.0.0.1:{port}/project?token=s3cret"))
+            .send()
+            .await
+            .unwrap_err();
+        assert_eq!(transport_kind(&err), "connect");
+        assert_eq!(unreached(&err), "Could not reach Overleaf.");
     }
 
     #[test]
