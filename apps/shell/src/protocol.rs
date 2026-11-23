@@ -496,7 +496,7 @@ mod tests {
             "text/css; charset=utf-8"
         );
         assert_eq!(
-            content_type_for(Path::new("/bundle/pglite.wasm")),
+            content_type_for(Path::new("/bundle/wf_wasm_bg.wasm")),
             "application/wasm"
         );
         assert_eq!(

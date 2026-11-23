@@ -189,7 +189,10 @@ fn content_types_cover_the_exports_files_and_unknown_means_bytes() {
         content_type_for("/bundle/app.CSS"),
         "text/css; charset=utf-8"
     );
-    assert_eq!(content_type_for("/bundle/pglite.wasm"), "application/wasm");
+    assert_eq!(
+        content_type_for("/bundle/wf_wasm_bg.wasm"),
+        "application/wasm"
+    );
     assert_eq!(
         content_type_for("/bundle/whatever.zzz"),
         "application/octet-stream"
