@@ -8,7 +8,11 @@ const OWNER_COLUMNS = ["userId", "projectId"] as const;
 /** Server stamps that the log, milestone, experiment and metric files do not keep. */
 const STAMP_COLUMNS = ["updatedAt", "deletedAt"] as const;
 
+/** user_settings columns that hold credentials (0006, 0022, 0069): never written to a file, so never compared. */
+export const SETTINGS_SECRET_COLUMNS = ["zoteroApiKey", "semanticScholarKey", "credentialsEnc", "integrations"] as const;
+
 export const SERVER_ONLY_FIELDS: Readonly<Record<string, readonly string[]>> = {
+  settings: [...OWNER_COLUMNS, ...SETTINGS_SECRET_COLUMNS],
   logEntries: [...OWNER_COLUMNS, ...STAMP_COLUMNS],
   milestones: [...OWNER_COLUMNS, ...STAMP_COLUMNS],
   experiments: [...OWNER_COLUMNS, ...STAMP_COLUMNS],
