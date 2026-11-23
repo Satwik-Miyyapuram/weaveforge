@@ -1,10 +1,14 @@
 import type {
+  IReaderAnnotationProjectSource,
   IReaderAnnotationSink,
   IReaderAnnotationSource,
+  IReaderAnnotationSyncRecorder,
   IWorkspaceFs,
   NewReaderAnnotation,
   ReaderAnnotation,
   ReaderAnnotationPatch,
+  ReaderAnnotationSyncRecord,
+  WorkspaceAnnotation,
 } from "@weaveforge/core";
 import { ConflictError, NotFoundError } from "@weaveforge/core";
 import { typedCore } from "@/lib/rust-core";
@@ -28,11 +32,15 @@ type Row = Record<string, unknown>;
  * a write is kept. Parsing and rendering are the Rust `parseAnnotationsFile` /
  * `renderAnnotationsFile` (rows sorted by id, keys the app does not know kept).
  */
-export class FileReaderAnnotationRepository implements IReaderAnnotationSource, IReaderAnnotationSink {
+export class FileReaderAnnotationRepository
+  implements IReaderAnnotationSource, IReaderAnnotationSink, IReaderAnnotationSyncRecorder, IReaderAnnotationProjectSource
+{
+  /** `paperFiles` lists every paper file with its id; only `listForProject` needs it. */
   constructor(
     private readonly fs: IWorkspaceFs,
     private readonly projectRoot: string,
     private readonly paperFileOf: (paperId: string) => Promise<string | null>,
+    private readonly paperFiles: () => Promise<{ paperId: string; path: string }[]> = async () => [],
   ) {}
 
   async list(paperId: string): Promise<ReaderAnnotation[]> {
@@ -111,6 +119,45 @@ export class FileReaderAnnotationRepository implements IReaderAnnotationSource, 
     if (path) await this.change(path, (rows) => rows.filter((row) => row.id !== id));
   }
 
+  /**
+   * Keeps the Zotero key and version a write-back learned. `syncState` is set only
+   * when the row is still the one sent (`ifUpdatedAt`), so a later edit stays owed.
+   * `updatedAt` is not bumped: this is bookkeeping, not an edit.
+   */
+  async recordZoteroSync(id: string, record: ReaderAnnotationSyncRecord): Promise<void> {
+    const path = await this.pathOf(id);
+    if (!path) throw new NotFoundError("Annotation not found");
+    await this.change(path, (rows) =>
+      rows.map((row) => {
+        if (row.id !== id) return row;
+        const unchanged = record.ifUpdatedAt === undefined || row.updatedAt === record.ifUpdatedAt;
+        return {
+          ...row,
+          zoteroKey: record.zoteroKey,
+          zoteroVersion: record.zoteroVersion,
+          ...(unchanged ? { syncState: record.syncState } : {}),
+        };
+      }),
+    );
+  }
+
+  /** Every paper's annotations, each with its paper id and page; a sidecar that does not parse is skipped. */
+  async listForProject(): Promise<WorkspaceAnnotation[]> {
+    const out: WorkspaceAnnotation[] = [];
+    for (const { paperId, path } of await this.paperFiles()) {
+      let rows: Row[];
+      try {
+        rows = (await this.read(typedCore().annotationsFilePath(path))).rows;
+      } catch {
+        continue;
+      }
+      for (const row of rows as unknown as ReaderAnnotation[]) {
+        out.push({ ...row, paperId, pageIndex: pageOf(row) });
+      }
+    }
+    return out;
+  }
+
   /** The sidecar of the paper's file, or null when no file holds that paper. */
   private async path(paperId: string): Promise<string | null> {
     const paperPath = await this.paperFileOf(paperId);
@@ -164,6 +211,14 @@ export class FileReaderAnnotationRepository implements IReaderAnnotationSource, 
     }
     return paths[0] ?? null;
   }
+}
+
+/** The Zotero position's page, else the page the sort index starts with (`00004|…`), else 0. */
+function pageOf(annotation: ReaderAnnotation): number {
+  const position = annotation.anchor?.zoteroPosition?.pageIndex;
+  if (typeof position === "number" && Number.isFinite(position)) return position;
+  const fromSort = Number.parseInt(String(annotation.sortIndex ?? ""), 10);
+  return Number.isFinite(fromSort) ? fromSort : 0;
 }
 
 /** An annotation as a file row: absent optional fields are left out. */

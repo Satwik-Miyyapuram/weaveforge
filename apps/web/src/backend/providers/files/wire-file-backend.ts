@@ -101,7 +101,12 @@ export function wireFileBackend(parts: FileBackendParts): FileRepositories {
     readingListItemRepository: new FileReadingListItemRepository(fs, root),
     rawVaultPageRepository: new FileNoteRepository(fs, top),
     milestoneRepository: new FileMilestoneRepository(fs, top),
-    readerAnnotationRepository: new FileReaderAnnotationRepository(fs, "", (id) => papers.pathOf(id)),
+    readerAnnotationRepository: new FileReaderAnnotationRepository(
+      fs,
+      "",
+      (id) => papers.pathOf(id),
+      () => papers.files(),
+    ),
     settingsRepository: new FileSettingsRepository(settings, secrets),
     dashboardLayoutRepository: new FileDashboardLayoutRepository(settings),
     graphSettingsRepository: new FileGraphSettingsRepository(settings),
