@@ -226,6 +226,7 @@ export async function applyMerge(
     : "";
 
   await container.vault.manageVaultPage.update(primary.id, {
+    baseBody: primary.body,
     title: merged.title,
     body: `${merged.body}${aliasNote}`,
   });
@@ -250,6 +251,7 @@ export async function regenerateWikiIndex(): Promise<{ pages: number }> {
 
   const pages = core.wikiPageRefs(all);
   await container.vault.manageVaultPage.update(root.id, {
+    baseBody: root.body,
     title: root.title,
     body: typedCore().replaceWikiIndex(root.body, typedCore().buildWikiIndex(pages)),
   });

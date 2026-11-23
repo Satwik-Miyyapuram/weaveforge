@@ -7,8 +7,9 @@ export interface OneNoteImportDeps {
   /** Parses the `.one` bytes; throws on a file that is not a OneNote section. */
   parse(bytes: Uint8Array, fileName: string): OneNoteSection;
   pageTitles(): Promise<readonly string[]>;
-  add(input: { title: string; parentId?: string; kind: "canvas" }): Promise<{ id: string }>;
-  update(id: string, body: string): Promise<void>;
+  add(input: { title: string; parentId?: string; kind: "canvas" }): Promise<{ id: string; body: string }>;
+  /** `baseBody` is the body `add` returned, so an edit made meanwhile is kept as a copy. */
+  update(id: string, body: string, baseBody: string): Promise<void>;
   /** Deletes a page this import created, when the import has to be undone. */
   remove(id: string): Promise<void>;
   uploadAsset(pageId: string, blob: Blob, ext: string): Promise<string>;
@@ -47,14 +48,14 @@ export async function importOneNoteSection(file: File, deps: OneNoteImportDeps):
       while (stack.length && stack[stack.length - 1]!.level >= page.level) stack.pop();
       const parentId = stack.length ? stack[stack.length - 1]!.id : undefined;
 
-      const { id } = await deps.add({ title: titles[index]!, parentId, kind: "canvas" });
+      const { id, body: added } = await deps.add({ title: titles[index]!, parentId, kind: "canvas" });
       created.push(id);
       stack.push({ level: page.level, id });
 
       const files = await uploadPictures(id, page, deps, warnings);
       images += Object.keys(files).length;
       const text = readyCore().oneNoteFreeformText(page.layout, files, page.ink);
-      await deps.update(id, readyCore().normalizeCanvasText(text));
+      await deps.update(id, readyCore().normalizeCanvasText(text), added);
     }
   } catch (error) {
     await rollback(created, deps);
@@ -124,8 +125,8 @@ export function oneNoteImportDeps(): OneNoteImportDeps {
     parse: (bytes, fileName) => readyCore().importOneNoteSection(bytes, fileName),
     pageTitles: () => container.vault.pageTitles(),
     add: (input) => container.vault.manageVaultPage.add(input),
-    update: async (id, body) => {
-      await container.vault.manageVaultPage.update(id, { body });
+    update: async (id, body, baseBody) => {
+      await container.vault.manageVaultPage.update(id, { body, baseBody });
     },
     remove: (id) => container.vault.manageVaultPage.remove(id),
     uploadAsset: (pageId, blob, ext) => container.vault.uploadAsset(pageId, blob, ext),

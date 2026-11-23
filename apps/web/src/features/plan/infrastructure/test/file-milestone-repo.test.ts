@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import type { Milestone } from "@weaveforge/core";
 import { MemoryWorkspaceFs } from "@core-test/memory-workspace-fs";
 import { loadTestCore } from "@/lib/test/load-test-core";
+import { readyCore } from "@/lib/rust-core";
 import { FileMilestoneRepository, hasBadDate, type FeedItem } from "../file-milestone-repo";
 
 before(loadTestCore);
@@ -231,4 +232,28 @@ test("remove: moves the milestone to the trash like delete", async () => {
   await repo.remove("ms-1");
   assert.equal(await repo.getById("ms-1"), null);
   assert.ok((await files(fs)).some((path) => path.includes(".weaveforge/trash/")));
+});
+
+test("a file that appears at the trash name during a delete is kept beside the trashed milestone", async () => {
+  const { repo, fs } = setup();
+  await repo.save(milestone());
+  const [source] = await files(fs);
+  assert.ok(source);
+  const mine = await fs.readText(source);
+  // Another delete lands on the first free trash name after this one looked.
+  const target = readyCore().trashPathFor(source, Date.now(), 1);
+  const mkdirp = fs.mkdirp.bind(fs);
+  let raced = false;
+  fs.mkdirp = async (dir) => {
+    await mkdirp(dir);
+    if (!raced) {
+      raced = true;
+      await fs.writeTextIf!(target, "the other delete", null);
+    }
+  };
+  await repo.delete("ms-1");
+  const all = await files(fs);
+  assert.equal(all.length, 2, all.join());
+  const texts = await Promise.all(all.map((p) => fs.readText(p)));
+  assert.deepEqual(texts.sort(), [mine, "the other delete"].sort());
 });

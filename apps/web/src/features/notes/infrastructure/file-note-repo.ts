@@ -150,6 +150,9 @@ export class FileNoteRepository implements IVaultPageRepository, IVaultPageManag
     const title = input.title.trim();
     if (!title) throw new VaultPageValidationError("Page title is required.");
     const all = await this.readAll();
+    if (input.parentId && !all.some((f) => f.page.id === input.parentId)) {
+      throw new NotFoundError(`No vault page with id "${input.parentId}".`);
+    }
     if (input.id !== undefined) {
       if (!UUID.test(input.id)) {
         throw new VaultPageValidationError(`The file's weaveforge-id "${input.id}" is not a valid id.`);
