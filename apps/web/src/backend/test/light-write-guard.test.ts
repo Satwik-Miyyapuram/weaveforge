@@ -9,7 +9,7 @@ import assert from "node:assert/strict";
 
 import { guardPersonalSettings, guardWrites, personalWritesBlocked, PERSONAL_SETTINGS_WRITES } from "../light-write-guard";
 import { loadTestCore } from "@/lib/test/load-test-core";
-import { PostgrestSettingsRepository } from "@/features/settings/infrastructure/parts";
+import { PostgrestSettingsRepository, RouteSecretsStore } from "@/features/settings/infrastructure/parts";
 
 before(loadTestCore);
 
@@ -293,3 +293,44 @@ test("the real PostgrestSettingsRepository has its personal writes refused in re
   await assert.rejects(() => repo.saveDisclaimer("2026-01-01", 1), /read-only until export verified/);
   await assert.rejects(() => repo.saveAppearance({} as never), /read-only until export verified/);
 }));
+
+// Secrets are personal: the credentials store refuses the same writes as the settings repo.
+const SECRETS_DB = { auth: { getSession: async () => ({ data: { session: null } }) } };
+
+function withFetchCounter(run: (calls: () => number) => Promise<void>) {
+  return async () => {
+    const realFetch = globalThis.fetch;
+    let calls = 0;
+    globalThis.fetch = (async () => {
+      calls++;
+      return new Response("{}", { status: 200 });
+    }) as typeof fetch;
+    try {
+      await run(() => calls);
+    } finally {
+      globalThis.fetch = realFetch;
+    }
+  };
+}
+
+for (const state of READ_ONLY_STATES) {
+  test(`RouteSecretsStore.save is refused in ${state} and sends no request`, withShell({
+    ...FOLDER,
+    migrate097Status: async () => ({ state }),
+  }, withFetchCounter(async (calls) => {
+    const store = new RouteSecretsStore(SECRETS_DB as never);
+    await assert.rejects(() => store.save({} as never), /read-only until export verified/);
+    assert.equal(calls(), 0);
+  })));
+}
+
+for (const state of FILES_STATES) {
+  test(`RouteSecretsStore.save goes through in ${state}`, withShell({
+    ...FOLDER,
+    migrate097Status: async () => ({ state, ...OWN_VERIFIED }),
+  }, withFetchCounter(async (calls) => {
+    const store = new RouteSecretsStore(SECRETS_DB as never);
+    await store.save({} as never);
+    assert.equal(calls(), 1);
+  })));
+}
