@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/button";
 import { Modal, ModalActions } from "@/components/modal";
 import { InstallIdLocksUnavailableError } from "@/container/browser-install-id";
+import { UpgradeFinishedInOtherTabError, UpgradeInOtherTabError } from "@/features/migration-097/application/run-web-upgrade";
 import { desktop } from "./desktop-bridge";
 import type { Migrate097Progress, Migrate097StateName } from "./desktop-bridge";
 
@@ -58,6 +59,15 @@ export async function runUpgrade(
     onError?.(err);
     return "stopped";
   }
+}
+
+/** The message for a failure the screen can name (no Web Locks, or the upgrade running in another tab); null otherwise. */
+export function upgradeFailureMessage(err: unknown): string | null {
+  return err instanceof InstallIdLocksUnavailableError ||
+    err instanceof UpgradeInOtherTabError ||
+    err instanceof UpgradeFinishedInOtherTabError
+    ? err.message
+    : null;
 }
 
 /**
@@ -208,8 +218,20 @@ export function Migrate097Upgrade({
   const [reply, setReply] = useState<ExportReply>({ state: "incomplete" });
   const [failure, setFailure] = useState<string | null>(null);
   const started = useRef(false);
+  // A second Start or Retry while a run is in flight would find this tab's own lock held.
+  const running = useRef(false);
 
   async function run() {
+    if (running.current) return;
+    running.current = true;
+    try {
+      await runOnce();
+    } finally {
+      running.current = false;
+    }
+  }
+
+  async function runOnce() {
     setPhase("running");
     setProgress({});
     setMissing([]);
@@ -220,7 +242,7 @@ export function Migrate097Upgrade({
       runExport,
       (p) => setProgress((prev) => ({ ...prev, [p.kind]: { done: p.done, total: p.total } })),
       setReply,
-      (err) => setFailure(err instanceof InstallIdLocksUnavailableError ? err.message : null),
+      (err) => setFailure(upgradeFailureMessage(err)),
     );
     if (outcome === "verified") {
       setPhase("verified");
