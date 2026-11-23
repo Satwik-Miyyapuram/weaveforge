@@ -37,6 +37,7 @@ const SHARE_ALL: { type: ShareableType; title: string; desc: string }[] = [
 type SharedWithMeView = {
   items: SharedItemDetail[];
   nameOf: Map<string, string>;
+  unavailable: ShareableType[];
 };
 
 /**
@@ -47,7 +48,11 @@ type SharedWithMeView = {
 export function SharedWithMeScreen() {
   const loadScreen = useCallback(async (): Promise<SharedWithMeView> => {
     const data = await getContainer().sharing.loadSharedWithMeScreen();
-    return { items: data.items, nameOf: readyCore().memberNameMap(data.members) };
+    return {
+      items: data.items,
+      nameOf: readyCore().memberNameMap(data.members),
+      unavailable: data.unavailable,
+    };
   }, []);
 
   const { data, loading, error } = useScreenData("shared-with-me", loadScreen);
@@ -138,6 +143,11 @@ export function SharedWithMeScreen() {
         />
       )}
       {error && <FormError>{error}</FormError>}
+      {!error && data && data.unavailable.length > 0 && (
+        <FormError>
+          {`Could not load shared ${data.unavailable.map((k) => pluralLabel(k).toLowerCase()).join(", ")}. The rest is below.`}
+        </FormError>
+      )}
       {!error && visibleItems.length === 0 && (
         <EmptyState
           variant="first-run"

@@ -11,6 +11,7 @@ import type {
   ManageSharingUseCase,
   Member,
   Paper,
+  ShareableType,
   VaultPage,
 } from "@weaveforge/core";
 
@@ -112,6 +113,8 @@ export async function loadSharedItemDetails(
 export interface LoadSharedWithMeScreenData {
   items: SharedItemDetail[];
   members: Member[];
+  /** Types whose shared items could not be read this time; the rest are still in `items`. */
+  unavailable: ShareableType[];
 }
 
 export class LoadSharedWithMeScreenUseCase {
@@ -133,12 +136,25 @@ export class LoadSharedWithMeScreenUseCase {
       this.deps.members.listDirectory(),
     ]);
 
-    const groups = await Promise.all(
-      readyCore().shareableTypes().map((type) => {
+    // One read per type, settled apart, so one failing type does not hide the others.
+    const types = readyCore().shareableTypes();
+    const settled = await Promise.allSettled(
+      types.map((type) => {
         const { ids, owners } = readyCore().shareTargets(shares, type);
         return this.deps.sharedReader.read(type, ids, owners);
       }),
     );
+    const groups: SharedItem[][] = [];
+    const unavailable: ShareableType[] = [];
+    types.forEach((type, i) => {
+      const result = settled[i];
+      if (result?.status === "fulfilled") groups.push(result.value);
+      // A retired table (1.0.0 drops the personal tables) holds nothing to show.
+      else if (result && !isMissingTable(result.reason)) unavailable.push(type);
+    });
+    if (unavailable.length === types.length) {
+      throw (settled[0] as PromiseRejectedResult).reason;
+    }
     const enriched = await loadSharedItemDetails(groups.flat(), {
       papers: this.deps.papers,
       experiments: this.deps.experiments,
@@ -152,6 +168,12 @@ export class LoadSharedWithMeScreenUseCase {
       ),
     }));
 
-    return { items, members };
+    return { items, members, unavailable };
   }
+}
+
+/** PostgREST's "table not in the schema cache" (404) or Postgres's undefined_table. */
+function isMissingTable(error: unknown): boolean {
+  const code = (error as { code?: unknown } | null)?.code;
+  return code === "PGRST205" || code === "42P01";
 }
