@@ -2,7 +2,7 @@
 covers:
   - apps/web/src/features/startup
   - apps/web/src/app/page.tsx
-checked: 2026-11-14
+checked: 2026-11-23
 ---
 # Getting started
 
@@ -30,10 +30,9 @@ The first screen is the sign-in screen. You can sign in in a few ways, and
   you come back signed in.
 - Type your email, then press **Email me a sign-in code** or **Email me a sign-in link instead**.
 
-The desktop app also offers **Use without an account, local only**. Your work
-then stays on your own computer. You need no sign-in and no internet connection.
-If you see the small tag **Offline · on this computer** in the header, you are in
-this mode. You can sign in later, and your local work stays where it is.
+If you see the small tag **Offline · on this computer** at the top of the window,
+this copy works without an account: your work is files in your workspace folder
+on this computer. Choose **Sign in** to use an account; your work stays where it is.
 
 The first time you use an account on the server, you read a short privacy notice
 once, then continue. [Your account](account.md) has the details.

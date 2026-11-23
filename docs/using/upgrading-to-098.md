@@ -7,7 +7,9 @@ covers:
   - apps/web/src/features/workspace/ui/git-sync-dot.tsx
   - apps/shell/src/migrate.rs
   - apps/relay/server/src/credential_crypto.rs
-checked: 2026-11-22
+  - apps/relay/server/src/overleaf_workshop.rs
+  - apps/shell/src/secrets_moved.rs
+checked: 2026-11-23
 ---
 
 # Upgrading to 0.9.8
@@ -35,8 +37,6 @@ If the check cannot be completed, the screen says "WeaveForge could not check th
 
 The screen links to the 0.9.7 download. On the web there is no folder picker, because the fix is an export, not a folder.
 
-<!-- Keys line depends on the 0.9.7 keys merge (wf-097-keys commit 4593c6f70, desktopMoveSecrets). Check it when 0.9.8 picks up that release. -->
-
 ## Without an account
 
 No account is needed. Your notes are files in your workspace folder, and no database is used.
@@ -45,4 +45,4 @@ No account is needed. Your notes are files in your workspace folder, and no data
 ## What changed
 
 - **Sync:** the offline sync feature is removed in 0.9.8. Your notes are files in your workspace folder. Sync with GitHub is a folder sync, and Settings shows which repository the workspace backs up to.
-- **Keys:** keys stay sealed. Integration credentials that the server holds are stored encrypted, not as plain text. On the desktop, the old encrypted `secrets.json` from 0.9.7 is not copied into the new workspace. Keys are moved to the system keychain instead, and any key that could not be moved is named so you can re-enter it in Settings.
+- **Keys:** the server no longer keeps API keys or Overleaf Git links, and keys saved there by earlier versions are no longer read. What it still holds for you, your Overleaf sign-in, is stored encrypted. On the desktop, 0.9.7 moved your keys from the old local database into the system keychain; any key it could not move was named so you can re-enter it in Settings.
