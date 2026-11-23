@@ -37,8 +37,6 @@ pub fn can_create_role(creator: &str, target: &str) -> bool {
 pub struct NewMember {
     /// Lowercased, trimmed email.
     pub email: String,
-    /// Password exactly as entered.
-    pub password: String,
     /// Trimmed full name, if any.
     pub full_name: Option<String>,
     /// Invite role the member is created with.
@@ -47,10 +45,10 @@ pub struct NewMember {
     pub supervisor_id: Option<String>,
 }
 
-/// Validate and normalize the fields for creating a lab member.
+/// Validate and normalize the fields for creating a lab member. The member is invited by
+/// email and sets their own password, so none is taken here.
 pub fn validate_new_member(
     email: &str,
-    password: &str,
     full_name: Option<&str>,
     role: &str,
     supervisor_id: Option<&str>,
@@ -59,15 +57,11 @@ pub fn validate_new_member(
     if email.is_empty() {
         return Err("Email is required.".to_owned());
     }
-    if password.encode_utf16().count() < 8 {
-        return Err("Password must be at least 8 characters.".to_owned());
-    }
     if !ORG_INVITE_ROLES.contains(&role) {
         return Err(format!("Unknown role: {role}"));
     }
     Ok(NewMember {
         email,
-        password: password.to_owned(),
         full_name: non_empty(full_name),
         role: role.to_owned(),
         supervisor_id: non_empty(supervisor_id),
@@ -623,16 +617,9 @@ mod tests {
 
     #[test]
     fn validate_trims_and_lowercases_email() {
-        let member = validate_new_member(
-            "  Foo@Lab.EDU ",
-            "password1",
-            Some(" Ann "),
-            "phd",
-            Some(" p1 "),
-        )
-        .unwrap();
+        let member =
+            validate_new_member("  Foo@Lab.EDU ", Some(" Ann "), "phd", Some(" p1 ")).unwrap();
         assert_eq!(member.email, "foo@lab.edu");
-        assert_eq!(member.password, "password1");
         assert_eq!(member.full_name.as_deref(), Some("Ann"));
         assert_eq!(member.role, "phd");
         assert_eq!(member.supervisor_id.as_deref(), Some("p1"));
@@ -640,33 +627,28 @@ mod tests {
 
     #[test]
     fn validate_rejects_blank_email() {
-        let err = validate_new_member("  ", "password1", None, "phd", None).unwrap_err();
+        let err = validate_new_member("  ", None, "phd", None).unwrap_err();
         assert_eq!(err, "Email is required.");
     }
 
     #[test]
-    fn validate_rejects_short_password_by_utf16_units() {
-        let err = validate_new_member("a@b.c", "1234567", None, "phd", None).unwrap_err();
-        assert_eq!(err, "Password must be at least 8 characters.");
-        let accented = "ééééééé";
-        assert_eq!(accented.chars().count(), 7);
-        let err = validate_new_member("a@b.c", accented, None, "phd", None).unwrap_err();
-        assert_eq!(err, "Password must be at least 8 characters.");
+    fn a_new_member_is_invited_and_carries_no_password() {
+        let member = validate_new_member("a@b.c", None, "phd", None).unwrap();
+        let json = serde_json::to_value(&member).unwrap();
+        assert!(json.get("password").is_none(), "{json}");
     }
 
     #[test]
     fn validate_rejects_unknown_role() {
-        let err = validate_new_member("a@b.c", "password1", None, "admin", None).unwrap_err();
+        let err = validate_new_member("a@b.c", None, "admin", None).unwrap_err();
         assert_eq!(err, "Unknown role: admin");
     }
 
     #[test]
     fn validate_turns_blank_optionals_into_none() {
-        let member =
-            validate_new_member("a@b.c", "password1", Some("   "), "masters", Some("")).unwrap();
+        let member = validate_new_member("a@b.c", Some("   "), "masters", Some("")).unwrap();
         assert_eq!(member.full_name, None);
         assert_eq!(member.supervisor_id, None);
-        assert_eq!(member.password, "password1");
     }
 
     #[test]

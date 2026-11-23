@@ -112,7 +112,6 @@ test("creating an account clears the cached team (xapi-06)", async (t) => {
     })) as typeof fetch;
   await new HttpAccountProvisioner({ getAccessToken: async () => "token" }).createMember({
     email: "n@example.com",
-    password: "secret-pass",
     role: "masters",
   });
 
@@ -137,7 +136,6 @@ test("a refused account creation keeps the cached team", async (t) => {
   await assert.rejects(
     new HttpAccountProvisioner({ getAccessToken: async () => "token" }).createMember({
       email: "n@example.com",
-      password: "secret-pass",
       role: "masters",
     }),
   );
