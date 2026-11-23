@@ -1,12 +1,12 @@
 /**
  * Tables the browser may reach on the org server (PostgREST). This is the set that
- * db/migrations/0165_drop_personal_tables.sql keeps live (its "Kept live" header), plus the
- * share and integration reads it keeps for 1.0.x (user_settings, overleaf_*, milestones, projects).
- * Personal tables 0165 archives are not listed. Shared with the desktop read-only db guard,
- * so keep this the single source.
+ * db/migrations/0165_drop_personal_tables.sql keeps live (its "Kept live" header), less the
+ * personal tables 0.9.8 no longer reads (projects, experiments, milestones, user_settings,
+ * overleaf_*): files are the source of truth. Personal tables 0165 archives are not listed.
+ * The shared-with-me read of an owner's rows goes through its own guard (shared-read-guard.ts).
+ * Keep this the single source.
  */
 export const ORG_SERVER_READ_TABLES = [
-  "experiments",
   "experiment_metric_points",
   "experiment_metric_chunks",
   "experiment_metric_names",
@@ -28,19 +28,12 @@ export const ORG_SERVER_READ_TABLES = [
   "project_keys",
   "sync_tables",
   "sync_tombstones",
-  "user_settings",
-  "overleaf_connections",
-  "overleaf_linked_reports",
-  "overleaf_workshop_sessions",
-  "milestones",
-  "projects",
   "comments",
 ] as const;
 
 /**
  * Org-server tables a read-only desktop may write (the share and org rows). Every other read-list
- * table, including personal ones it keeps live (projects, user_settings, milestones, experiments),
- * refuses insert, update, upsert and delete through readOnlyDb.
+ * table refuses insert, update, upsert and delete through readOnlyDb.
  */
 export const ORG_SERVER_WRITE_TABLES = [
   "organizations",
@@ -52,6 +45,8 @@ export const ORG_SERVER_WRITE_TABLES = [
   // crdt_updates: insert only, and only live-share types (read-only-repositories.ts guardCrdtUpdates).
   "crdt_updates",
   "profiles",
+  // A member's published lab snapshot: shared with the lab on purpose, like a share.
+  "lab_snapshots",
 ] as const;
 
 export const ORG_SERVER_RPCS = [
@@ -60,6 +55,8 @@ export const ORG_SERVER_RPCS = [
   "redeem_share_link",
   "record_blob_access",
   "set_comment_resolved",
+  // Live-share crdt compaction; limitCrdtUpdateStore and readOnlyDb refuse it for every other type.
+  "compact_crdt_log",
 ] as const;
 
 /**

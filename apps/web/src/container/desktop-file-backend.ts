@@ -10,6 +10,8 @@ import { systemClock } from "@/lib/parts";
 import { overlayFileRepositories } from "./with-file-repositories";
 import { readOnlyDb } from "./read-only-repositories";
 import { guardOrgDb } from "./org-db-guard";
+import { FileBlobStore } from "@/backend/providers/files/file-blob-store";
+import { FileModeBlobStore } from "./file-mode-blob-store";
 
 /**
  * The desktop's personal-data backend for 0.9.7: the PostgREST backend with its
@@ -29,19 +31,18 @@ export function wireDesktopFileBackend(
   return (config, projectContext, pid) => {
     // The client is guarded before the repositories are built on it, so no repository holds the raw one.
     const postgrest = wirePostgrestBackend(config, projectContext, pid, undefined, { filesMode: true }, readOnlyDb);
-    const files = wireFileBackend({
-      fs: new DesktopWorkspaceFs(bridge),
-      settings,
-      secrets,
-    });
+    const fs = new DesktopWorkspaceFs(bridge);
+    const files = wireFileBackend({ fs, settings, secrets });
     // Settings writes must reach the folder: the use case is rebuilt over the file repository.
     // The container's database client (db) stays live for org and sharing tables only. 0.9.8:
     // guardOrgDb refuses every table and rpc outside the org allowlist, read or write, before any
-    // request; readOnlyDb (above) still refuses writes outside the org write tables. Repositories
-    // built inside wirePostgrestBackend keep their own client and are not covered by this guard.
+    // request; readOnlyDb (above) still refuses writes outside the org write tables. In files mode
+    // wirePostgrestBackend builds its own repositories over the same guarded client.
     return {
       ...overlayFileRepositories(postgrest, files),
       manageSettings: new ManageSettingsUseCase({ repository: files.settingsRepository, clock: systemClock }),
+      // Personal blobs go to the folder; only the share path's uploadShared reaches the server store.
+      rawBlobStore: new FileModeBlobStore(new FileBlobStore(fs), postgrest.rawBlobStore),
       db: guardOrgDb(postgrest.db),
     };
   };

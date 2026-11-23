@@ -6,6 +6,7 @@ import { loadTestCore } from "@/lib/test/load-test-core";
 import type { BackendConfig } from "@/backend/parts";
 import { wirePostgrestBackend } from "@/backend/providers/postgrest/wire-postgrest-backend";
 import { BROWSER_STORAGE_MESSAGE, openBrowserFileWiring, wireBrowserFiles } from "../browser-file-backend";
+import { READ_ONLY_MESSAGE } from "../read-only-repositories";
 
 before(async () => {
   await loadTestCore();
@@ -89,6 +90,21 @@ test("the container db refuses personal tables and rpcs, including through schem
     assert.throws(() => backend.db.schema("public").from("notes"), /not allowed on the org server/);
     assert.throws(() => backend.db.rpc("delete_everything"), /not allowed on the org server/);
   } finally {
+    backend.dispose();
+  }
+});
+
+test("a non-org write on an org read table is refused before any request, as on desktop", async () => {
+  const wire = await wireBrowserFiles(new MemoryWorkspaceFs());
+  const backend = wire(config, { projectId: null }, () => null);
+  const spy = spyNetwork();
+  try {
+    for (const t of ["release_notices", "sync_tables", "api_tokens", "project_keys"]) {
+      assert.throws(() => backend.db.from(t).delete(), { message: READ_ONLY_MESSAGE }, t);
+    }
+    assert.deepEqual(spy.urls, []);
+  } finally {
+    spy.restore();
     backend.dispose();
   }
 });

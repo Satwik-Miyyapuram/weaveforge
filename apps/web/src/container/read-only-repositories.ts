@@ -22,23 +22,23 @@ const DB_WRITE_METHODS: ReadonlySet<string> = new Set(["insert", "update", "upse
 const STORAGE_WRITE_METHODS: ReadonlySet<string> = new Set(["upload", "update", "remove", "move", "copy", "uploadToSignedUrl"]);
 
 /**
- * RPCs that write personal rows although RPC_WRITES maps them to null: that map only
- * names tables the workspace mirror listens to, so a null there is not proof of a read.
- */
-const PERSONAL_WRITE_RPCS: ReadonlySet<string> = new Set(["compact_crdt_log"]);
-
-/** An rpc may run when it is an org-server function or a known read (RPC_WRITES maps reads to null). */
-function rpcAllowed(name: string): boolean {
-  if (PERSONAL_WRITE_RPCS.has(name)) return false;
-  return ORG_RPCS.has(name) || RPC_WRITES[name] === null;
-}
-
-/**
- * The crdt_updates resource types a read-only desktop may append: the live-share
+ * The crdt_updates resource types a read-only desktop may append or compact: the live-share
  * documents the org server still holds (the files-mode set, FILES_MODE_CRDT_TYPES).
  * Every other type is personal document data and stays in the folder.
  */
 const LIVE_SHARE_CRDT_TYPES: ReadonlySet<string> = new Set(FILES_MODE_CRDT_TYPES);
+
+/**
+ * An rpc may run when it is an org-server function or a known read (RPC_WRITES maps reads to
+ * null). compact_crdt_log deletes crdt rows, so it runs only for a live-share type.
+ */
+function rpcAllowed(name: string, args: unknown): boolean {
+  if (name === "compact_crdt_log") {
+    const type = (args as { p_resource_type?: unknown } | undefined)?.p_resource_type;
+    return typeof type === "string" && LIVE_SHARE_CRDT_TYPES.has(type);
+  }
+  return ORG_RPCS.has(name) || RPC_WRITES[name] === null;
+}
 
 /** A crdt_updates write passes only as an insert whose every row is a live-share type. */
 function guardCrdtUpdates<B extends object>(builder: B): B {
@@ -129,7 +129,7 @@ export function readOnlyDb<T extends object>(db: T, orgBuckets: readonly string[
       }
       if (prop === "rpc") {
         return (name: string, ...args: unknown[]) => {
-          if (!rpcAllowed(name)) throw new ReadOnlyError();
+          if (!rpcAllowed(name, args[0])) throw new ReadOnlyError();
           return value.call(target, name, ...args);
         };
       }

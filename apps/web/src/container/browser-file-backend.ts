@@ -10,6 +10,7 @@ import { wirePostgrestBackend } from "@/backend/providers/postgrest/wire-postgre
 import { BrowserWorkspaceFs } from "@/features/workspace/infrastructure/parts";
 import type { WiredBackend } from "./parts";
 import { guardOrgDb } from "./org-db-guard";
+import { readOnlyDb } from "./read-only-repositories";
 import { overlayFileRepositories } from "./with-file-repositories";
 
 /** A backend whose personal data lives in files: `filesMode` is always true here. */
@@ -29,7 +30,8 @@ export type BrowserFileWiring = (
 export async function wireBrowserFiles(fs: IWorkspaceFs): Promise<BrowserFileWiring> {
   const settings = await openFileSettingsSection(fs, "");
   return (config, projectContext, pid) => {
-    const postgrest = wirePostgrestBackend(config, projectContext, pid, undefined, { filesMode: true });
+    // readOnlyDb refuses writes outside the org write tables, as on desktop and no-account.
+    const postgrest = wirePostgrestBackend(config, projectContext, pid, undefined, { filesMode: true }, readOnlyDb);
     const files = wireFileBackend({ fs, settings, secrets: new RefusingSecretsStore() });
     // The container reaches the server only through `db`, so the guard sits there: personal
     // tables and rpcs throw before any request. Org and share tables stay reachable.

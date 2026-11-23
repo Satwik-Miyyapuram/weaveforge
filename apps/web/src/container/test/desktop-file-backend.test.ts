@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import type { IBlobFetcher } from "@weaveforge/core";
 import { before, test } from "node:test";
 
 import type { BackendConfig } from "../../backend/parts";
@@ -7,7 +8,6 @@ import type { VaultFileBridge } from "../../features/workspace/infrastructure/pa
 import { loadTestCore } from "@/lib/test/load-test-core";
 import { wireBackend } from "../parts";
 import { wireDesktopFileBackend } from "../desktop-file-backend";
-import { ReadOnlyError } from "../read-only-repositories";
 
 // The wiring reads the storage config from the Rust core, so the core loads before any test runs.
 before(loadTestCore);
@@ -53,7 +53,10 @@ function memoryVault() {
       files.set(path, data);
     },
     listVaultFiles: async () => [],
-    statVaultFile: async () => null,
+    statVaultFile: async (path) => {
+      const data = files.get(path);
+      return data ? { path, kind: "file" as const, size: data.length, modifiedAt: "2026-01-01T00:00:00Z" } : null;
+    },
     removeVaultFile: async (path) => {
       files.delete(path);
     },
@@ -140,15 +143,12 @@ test("with the overlay on, screening goes to the file repo and PostgREST sees no
   assert.deepEqual(dbCalls, [], "no PostgREST call for screening");
 });
 
-test("a personal image written through the desktop blob store is refused before any request", async () => {
-  const { bridge } = memoryVault();
+test("a personal image written through the desktop blob store lands in the folder and is read back from it", async () => {
+  const { bridge, files } = memoryVault();
   const backend = wireBackend(config, { projectId: null }, () => null, wireDesktopFileBackend(bridge, settings, keychainSecrets()));
-  await assert.rejects(
-    () => backend.rawBlobStore.upload("paper-images", "p1/figure.png", new Blob(["x"]), "image/png"),
-    new ReadOnlyError(),
-  );
-  await assert.rejects(
-    () => backend.rawBlobStore.remove("paper-images", "p1/figure.png"),
-    new ReadOnlyError(),
-  );
+  await backend.rawBlobStore.upload("paper-images", "p1/figure.png", new Blob(["x"]), "image/png");
+  const written = [...files.keys()].find((k) => k.endsWith("paper-images/p1/figure.png"));
+  assert.ok(written, JSON.stringify([...files.keys()]));
+  const fetched = await (backend.rawBlobStore as unknown as IBlobFetcher).fetchBytes("paper-images", "p1/figure.png");
+  assert.equal(new TextDecoder().decode(fetched), "x");
 });
