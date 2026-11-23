@@ -54,7 +54,7 @@ packages/core/                    apps/web/src/
 ├── backend/                      │   config.ts           ← BLOB_PROVIDER, R2, tiering
 │   IAuthService                  │   wire-storage.ts
 │   ICurrentUserProvider          │   providers/supabase|s3|tiered/
-│   IAdminUserProvisioner         └── integrations/       ← Zotero, GitLab, …
+│   IAccountProvisioner           └── integrations/       ← Zotero, GitLab, …
 ```
 
 **Flow**
@@ -71,7 +71,7 @@ packages/core/                    apps/web/src/
 | All entities | `IPaperRepository`, `IProjectRepository`, … (16+ in core) | `Postgrest*Repository` |
 | Auth (browser) | `IAuthService` | `SupabaseAuthService` |
 | Session (repos) | `ICurrentUserProvider` | `SupabaseSessionProvider` |
-| Admin create-user | `IAdminUserProvisioner` | `SupabaseAdminUserProvisioner` |
+| Create member | `IAccountProvisioner` | `HttpAccountProvisioner` → relay `POST /api/admin/create-user` |
 | Images | `IBlobStore` → `PaperImageStore` | `wireStorage()` → `SupabaseBlobStore` (see [`storage/`](storage/README.md)) |
 
 ### What stays Postgres-specific (for now)
@@ -226,7 +226,7 @@ handler's header.
 
 4. **Blob store** — implement `IBlobStore` under `apps/web/src/storage/providers/` (S3/R2, tiered). Wired via `wireStorage()`, not `wire-backend.ts` directly.
 
-5. **Admin provisioner** — implement `IAdminUserProvisioner` (create user + `profiles` row).
+5. **Member accounts** — the relay's `POST /api/admin/create-user` creates the account and its `profiles` row; the browser reaches it through `IAccountProvisioner`. A new backend serves that route.
 
 6. **Wire** — add `case "postgres":` in `wire-backend.ts`; blob adapter in `wire-storage.ts`.
 
@@ -258,7 +258,7 @@ Auth: self-hosted [Keycloak](https://www.keycloak.org/), [Authentik](https://goa
 
 **Recommended path on Cloudflare:** Hyperdrive + existing Postgres migrations + new `Postgres*Repository` adapters — avoids rewriting RLS in D1.
 
-**Workers constraint:** browser cannot hold service-role keys; keep privileged ops in Worker routes behind `IAdminUserProvisioner`.
+**Workers constraint:** browser cannot hold service-role keys; keep privileged ops in Worker routes, as the relay keeps `/api/admin/create-user`.
 
 ---
 
@@ -268,7 +268,7 @@ Auth: self-hosted [Keycloak](https://www.keycloak.org/), [Authentik](https://goa
 |------|--------|
 | 1 | Add id to `BackendProviderId` in `backend/config.ts` |
 | 2 | Create `backend/providers/<name>/wire-<name>-backend.ts` |
-| 3 | Implement `IAuthService`, `ICurrentUserProvider`, `IAdminUserProvisioner` |
+| 3 | Implement `IAuthService`, `ICurrentUserProvider`; serve `/api/admin/create-user` for `IAccountProvisioner` |
 | 4 | Implement repository interfaces in `wire-postgrest-backend.ts` |
 | 5 | Implement blob adapters in `storage/providers/` + `wire-storage.ts` |
 | 6 | Add `case` in `wire-backend.ts` |
