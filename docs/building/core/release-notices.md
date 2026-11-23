@@ -1,6 +1,6 @@
 # Release notices
 
-A release notice is a short in-app message about a new version. It shows once per account in a banner until the user dismisses it.
+A release notice is a short in-app message about a new version. It shows once per device in a banner until the user dismisses it.
 
 Notices are rows in `release_notices`, one per version. The text is the version's section from [`CHANGELOG.md`](../../../CHANGELOG.md). No GitHub secret or CI step is involved; a person publishes each notice after the release is out.
 
@@ -8,17 +8,28 @@ Notices are rows in `release_notices`, one per version. The text is the version'
 
 | Part | Where |
 | --- | --- |
-| Table `release_notices` and column `user_settings.last_release_notice_seen` | `db/migrations/0156_release_notices.sql` |
-| `unseen` (latest notice, or `null` when the account has seen it) | `crates/wf-core/src/repos/release_notices.rs` |
-| `saveNoticeSeen` (stores the dismissed version on the account) | `crates/wf-core/src/repos/user_settings.rs` |
-| Banner | `apps/web/src/features/release-notices/ui/release-notice-banner.tsx` |
+| Table `release_notices` | `db/migrations/0156_release_notices.sql` |
+| `latest` (newest notice, or `null`; reads no account row) | `crates/wf-core/src/repos/release_notices.rs` |
+| Banner and dismissal (`localStorage` key `wf.releaseNotice.seen`) | `apps/web/src/features/release-notices/ui/release-notice-banner.tsx` |
 | Publish script | `scripts/publish-release-notice.mjs` |
 
 Rules:
 
-- A notice shows when its `version` differs from `user_settings.last_release_notice_seen`. The latest row is the only one considered.
-- Dismissal is stored on the account, not the browser, so it holds across devices.
+- A notice shows when its `version` differs from the version stored in `localStorage` (`wf.releaseNotice.seen`). The latest row is the only one considered.
+- Dismissal is stored on this device only. It is not sent to the server, so `user_settings` is never read or written for notices. A notice may show once more on a new device or after storage is cleared.
+- A notice dismissed on the account before this change (the old `user_settings.last_release_notice_seen`) shows once more per device. Nothing migrates the old value.
 - `body` is plain text in the banner. It is not rendered as HTML.
+
+## TODO (1.0.0 cleanup)
+
+Dead code since the device-local change, to remove with the 1.0.0 drop:
+
+- The `unseen` arm and `fn unseen` in `crates/wf-core/src/repos/release_notices.rs`,
+  with the `last_release_notice_seen` read in it. The web code no longer calls it.
+- The `saveNoticeSeen` arm in `crates/wf-core/src/repos/user_settings.rs`, with the
+  `last_release_notice_seen` field of its row.
+- Column `user_settings.last_release_notice_seen` in `db/migrations/0156_release_notices.sql`,
+  dropped by a 1.0.0 migration (ask first; it is a production write).
 
 ## Publishing steps
 

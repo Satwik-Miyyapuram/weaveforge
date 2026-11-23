@@ -308,10 +308,10 @@ export function wirePostgrestBackend(
   const releaseNoticesRepository =
     parts?.releaseNotices ??
     refuseInFilesMode(
-      rustRepository<IReleaseNoticesRepository>(serverDb, "release_notices", ["unseen"], async () => ({
+      rustRepository<IReleaseNoticesRepository>(serverDb, "release_notices", ["latest"], async () => ({
         userId: (await session.getCurrentUserId()) ?? undefined,
       })),
-      ["unseen"],
+      ["latest"],
       options?.filesMode === true,
     );
   const manageSettings = new ManageSettingsUseCaseClass({ repository: settingsRepository, clock: systemClock });
