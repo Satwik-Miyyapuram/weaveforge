@@ -111,6 +111,7 @@ export async function loadWebInputs(sources: WebInputSources = defaultWebInputSo
     now: new Date().toISOString(),
     ...(await runIdentity(fs)),
     onVerified: () => writeFlag(WEB_EXPORTED_KEY, "1"),
+    alreadyDone: () => readFlag(WEB_EXPORTED_KEY) !== null,
   };
 }
 

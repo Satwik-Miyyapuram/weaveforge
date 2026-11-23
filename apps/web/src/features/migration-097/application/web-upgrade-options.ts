@@ -24,6 +24,8 @@ export interface WebUpgradeInputs {
   writers?: (sink: FileSink) => readonly KindWriter[];
   /** Called after a verified run, before the screen reloads. Sets the per-browser completion marker. */
   onVerified?: () => void;
+  /** True once a run in this browser verified; the upgrade re-reads it under its lock. */
+  alreadyDone?: () => boolean;
   run?: WebUpgradeRun;
 }
 
@@ -57,6 +59,7 @@ export function webUpgradeFor(isDesktop: boolean, inputs: WebUpgradeInputs | nul
     now: inputs.now,
     runDeviceId: inputs.runDeviceId,
     writers: inputs.writers,
+    alreadyDone: inputs.alreadyDone,
     pendingOutbox: inputs.pendingOutbox,
     run: async (opts, onProgress) => {
       const result = await inner(opts, onProgress);
