@@ -16,7 +16,8 @@ import {
   type NewExperimentInput,
 } from "@weaveforge/core";
 import { readyCore } from "@/lib/rust-core";
-import { FileEntityStore, moveToTrash, type ProjectRoot } from "./file-entity-store";
+import { moveToTrash } from "@/lib/workspace-trash";
+import { FileEntityStore, type ProjectRoot } from "./file-entity-store";
 
 /** `patch` semantics: a key present with `undefined` clears the field. */
 function applyPatch(current: Experiment, fields: ExperimentPatch): Experiment {
@@ -120,8 +121,9 @@ export class FileExperimentRepository implements IExperimentRepository, IExperim
     const folder = found.path.replace(/\.md$/, "");
     const inside: string[] = [];
     if (await this.fs.stat(folder)) for await (const e of this.fs.walk(folder)) if (e.kind === "file") inside.push(e.path);
-    await moveToTrash(this.fs, found.path);
-    for (const path of inside) await moveToTrash(this.fs, path);
+    const now = Date.now();
+    await moveToTrash(this.fs, found.path, now);
+    for (const path of inside) await moveToTrash(this.fs, path, now);
   }
 
   private async update(id: string, change: (current: Experiment) => Experiment): Promise<Experiment> {

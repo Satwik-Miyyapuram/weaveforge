@@ -23,7 +23,13 @@ export async function moveToTrash(fs: IWorkspaceFs, path: string, now: number): 
     const target = core.trashPathFor(path, now, n);
     await fs.mkdirp(target.slice(0, target.lastIndexOf("/")));
     if (!(await fs.writeTextIf(target, "", null))) continue;
-    await fs.rename(path, target);
+    try {
+      await fs.rename(path, target);
+    } catch (error) {
+      // Give back the claimed name, so a failed move leaves no empty file in the trash.
+      await fs.remove(target).catch(() => {});
+      throw error;
+    }
     return;
   }
   throw new ConflictError(`${path}: no free name in the trash; not deleted.`);
