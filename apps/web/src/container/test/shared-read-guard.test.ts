@@ -96,8 +96,43 @@ describe("guardSharedReadDb", () => {
     assert.deepEqual(calls, []);
   });
 
-  it("passes other members through", () => {
+  it("passes symbol-keyed members through unchanged", () => {
+    const tag = Symbol("tag");
+    const fn = () => "own";
+    const g = guardSharedReadDb({ ...spyDb().db, [tag]: fn }) as unknown as Record<symbol, unknown>;
+    assert.equal(g[tag], fn);
+  });
+
+  it("leaves the plain object methods (toString, constructor) callable", () => {
+    const { db } = spyDb();
+    const g = guardSharedReadDb(db);
+    assert.equal(String(g), "[object Object]");
+    assert.equal(g.constructor, Object);
+  });
+
+  it("passes auth through", () => {
     const { db } = spyDb();
     assert.equal(guardSharedReadDb(db).auth, db.auth);
+  });
+
+  it("refuses storage, functions, realtime and any other method before it reaches the client", () => {
+    const reached: string[] = [];
+    const db = {
+      ...spyDb().db,
+      storage: { from: () => reached.push("storage") },
+      rest: { from: () => reached.push("rest") },
+      functions: { invoke: () => reached.push("functions") },
+      realtime: { channel: () => reached.push("realtime") },
+      channel: () => reached.push("channel"),
+      removeAllChannels: () => reached.push("removeAllChannels"),
+    };
+    const g = guardSharedReadDb(db) as unknown as Record<string, unknown>;
+    for (const key of ["storage", "functions", "realtime", "rest"]) {
+      assert.throws(() => g[key], /not allowed for the shared read/, key);
+    }
+    for (const key of ["channel", "removeAllChannels"]) {
+      assert.throws(() => (g[key] as () => unknown)(), /not allowed for the shared read/, key);
+    }
+    assert.deepEqual(reached, []);
   });
 });

@@ -9,7 +9,7 @@ function spyDb() {
       calls.push(`from:${table}`);
       return { select: () => ({ table }) };
     },
-    rpc(name: string) {
+    rpc(name: string, _body?: unknown) {
       calls.push(`rpc:${name}`);
       return { name };
     },
@@ -76,10 +76,23 @@ describe("org db guard", () => {
     assert.deepEqual(calls, []);
   });
 
-  it("lets the live-share crdt compaction rpc through (the type is checked by limitCrdtUpdateStore)", () => {
+  it("lets the crdt compaction rpc through for a live-share type, with its body", () => {
     const { db, calls } = spyDb();
-    assert.deepEqual(guardOrgDb(db).rpc("compact_crdt_log"), { name: "compact_crdt_log" });
+    const body = { p_resource_type: "experiment", p_resource_id: "e-1" };
+    const seen: unknown[] = [];
+    const guarded = guardOrgDb({ ...db, rpc: (name: string, b?: unknown) => (seen.push(b), db.rpc(name)) });
+    assert.deepEqual(guarded.rpc("compact_crdt_log", body), { name: "compact_crdt_log" });
     assert.deepEqual(calls, ["rpc:compact_crdt_log"]);
+    assert.deepEqual(seen, [body]);
+  });
+
+  it("refuses the crdt compaction rpc for a personal or missing type before any request", () => {
+    const { db, calls } = spyDb();
+    const guarded = guardOrgDb(db);
+    for (const body of [undefined, {}, { p_resource_type: "vault_page" }, { p_resource_type: "paper" }, { p_resource_type: 1 }]) {
+      assert.throws(() => guarded.rpc("compact_crdt_log", body), /not allowed on the org server: compact_crdt_log/, JSON.stringify(body));
+    }
+    assert.deepEqual(calls, []);
   });
 
   it("refuses any storage call, read or write, on a bucket that is not an org-server bucket, before any request", () => {
@@ -110,6 +123,13 @@ describe("org db guard", () => {
     for (const m of ["listBuckets", "getBucket", "createBucket", "updateBucket", "emptyBucket", "deleteBucket"]) {
       assert.throws(() => guarded[m]!("paper-images"), /not allowed on the org server/, m);
     }
+    assert.deepEqual(reached, []);
+  });
+
+  it("refuses the raw rest client, which would skip the allowlist", () => {
+    const reached: string[] = [];
+    const guarded = guardOrgDb({ ...spyDb().db, rest: { from: (t: string) => reached.push(t) } }) as unknown as Record<string, unknown>;
+    assert.throws(() => guarded.rest, /rest not allowed on the org server/);
     assert.deepEqual(reached, []);
   });
 

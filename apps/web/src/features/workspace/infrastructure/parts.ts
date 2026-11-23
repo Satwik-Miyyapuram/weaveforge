@@ -37,6 +37,16 @@ type DirHandle = FileSystemDirectoryHandle & {
   entries(): AsyncIterableIterator<[string, FileSystemHandle]>;
 };
 
+/** How many times list() reads a folder whose files vanish while it is listed. */
+const LIST_ATTEMPTS = 3;
+
+/** A listed file was gone when read; carries the browser's NotFoundError. */
+class VanishedDuringList extends Error {
+  constructor(override readonly cause: unknown) {
+    super("file vanished while the folder was listed");
+  }
+}
+
 export class BrowserWorkspaceFs implements IWorkspaceFs {
   constructor(private readonly root: DirHandle) {}
 
@@ -162,14 +172,38 @@ export class BrowserWorkspaceFs implements IWorkspaceFs {
     await this.dirFor(path, true);
   }
 
+  /**
+   * A listed file that is gone when read (a delete, or a rename's copy-then-delete) restarts the
+   * listing instead of being dropped, and one that keeps vanishing fails the list rather than
+   * shorten it. Like any folder read, a change that lands where the iterator never looks is not
+   * seen; callers read again on the next scan.
+   */
   async list(dir: string): Promise<readonly WorkspaceStat[]> {
+    for (let attempt = 1; ; attempt++) {
+      try {
+        return await this.listOnce(dir);
+      } catch (error) {
+        if (!(error instanceof VanishedDuringList) || attempt === LIST_ATTEMPTS) {
+          throw error instanceof VanishedDuringList ? error.cause : error;
+        }
+      }
+    }
+  }
+
+  private async listOnce(dir: string): Promise<readonly WorkspaceStat[]> {
     const handle = await this.dirFor(dir, false);
     if (!handle) return [];
     const prefix = dir ? `${safeWorkspacePath(dir)}/` : "";
     const out: WorkspaceStat[] = [];
     for await (const [name, entry] of handle.entries()) {
       if (entry.kind === "file") {
-        const file = await (entry as FileSystemFileHandle).getFile();
+        let file: File;
+        try {
+          file = await (entry as FileSystemFileHandle).getFile();
+        } catch (error) {
+          if ((error as { name?: unknown } | null)?.name === "NotFoundError") throw new VanishedDuringList(error);
+          throw error;
+        }
         out.push({
           path: `${prefix}${name}`,
           size: file.size,

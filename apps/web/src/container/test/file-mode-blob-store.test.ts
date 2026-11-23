@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import type { IBlobFetcher, IBlobStore } from "@weaveforge/core";
+import { BlobNotFoundError, type IBlobFetcher, type IBlobStore } from "@weaveforge/core";
 import { FileModeBlobStore } from "../file-mode-blob-store";
 import { FetchingBlobStore } from "../../storage/fetching-blob-store";
 
@@ -90,4 +90,19 @@ test("fetchBlobs skips a missing or unreadable device file instead of failing th
   const store = new FileModeBlobStore(personal, recorder());
   const got = await store.fetchBlobs("images", ["p-1/a.png", "p-1/missing.png", "p-1/b.png"]);
   assert.deepEqual([...got.keys()], ["p-1/a.png", "p-1/b.png"]);
+});
+test("fetchBlobs reports an unreadable device file but stays quiet for a missing one", async (t) => {
+  const warned: unknown[][] = [];
+  t.mock.method(console, "warn", (...args: unknown[]) => void warned.push(args));
+  const personal = fetcher();
+  personal.fetchBlob = async (bucket, path) => {
+    if (path === "p-1/missing.png") throw new BlobNotFoundError(bucket, path);
+    if (path === "p-1/bad.png") throw new Error("asset checksum mismatch: assets/images/p-1/bad.png");
+    return new Blob([new Uint8Array([7])]);
+  };
+  const got = await new FileModeBlobStore(personal, recorder()).fetchBlobs("images", ["p-1/missing.png", "p-1/bad.png", "p-1/a.png"]);
+  assert.deepEqual([...got.keys()], ["p-1/a.png"]);
+  assert.equal(warned.length, 1);
+  assert.match(String(warned[0]![0]), /images\/p-1\/bad\.png/);
+  assert.match(String((warned[0]![1] as Error).message), /checksum mismatch/);
 });

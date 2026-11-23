@@ -285,3 +285,59 @@ test("law: the last write to each path is what a read returns", async () => {
     }),
   );
 });
+
+test("list leaves out a file that is removed while the folder is listed", async () => {
+  const { root, fs } = workspace();
+  await fs.writeFile("notes/a.md", "x");
+  await fs.writeFile("notes/b.md", "y");
+  const notes = root.children.get("notes") as FakeDir;
+  (notes.children.get("b.md") as FakeFile).getFile = async () => {
+    notes.children.delete("b.md");
+    throw notFound();
+  };
+  assert.deepEqual((await fs.list("notes")).map((e) => e.path), ["notes/a.md"]);
+});
+
+test("list run during a rename whose new name the listing did not see reports the new name", async () => {
+  const { root, fs } = workspace();
+  await fs.writeFile("notes/a.md", "x");
+  await fs.writeFile("notes/b.md", "y");
+  const notes = root.children.get("notes") as FakeDir;
+  // A listing sees the folder as it was when entries() began.
+  notes.entries = async function* () {
+    yield* [...notes.children.entries()];
+  };
+  const moved = notes.children.get("b.md") as FakeFile;
+  const read = moved.getFile.bind(moved);
+  moved.getFile = async () => {
+    // The rename lands after entries() began: the old name is gone, the new one was not seen.
+    notes.children.delete("b.md");
+    notes.children.set("c.md", moved);
+    moved.getFile = read;
+    throw notFound();
+  };
+  assert.deepEqual((await fs.list("notes")).map((e) => e.path), ["notes/a.md", "notes/c.md"]);
+});
+
+test("list fails rather than leave out a file that keeps vanishing", async () => {
+  const { root, fs } = workspace();
+  await fs.writeFile("notes/a.md", "x");
+  const notes = root.children.get("notes") as FakeDir;
+  let reads = 0;
+  (notes.children.get("a.md") as FakeFile).getFile = async () => {
+    reads += 1;
+    throw notFound();
+  };
+  await assert.rejects(() => fs.list("notes"), { name: "NotFoundError" });
+  assert.equal(reads, 3, "retries the listing before it gives up");
+});
+
+test("list still reports a file the browser refuses to read", async () => {
+  const { root, fs } = workspace();
+  await fs.writeFile("notes/a.md", "x");
+  const notes = root.children.get("notes") as FakeDir;
+  (notes.children.get("a.md") as FakeFile).getFile = async () => {
+    throw new DOMException("Not allowed.", "NotAllowedError");
+  };
+  await assert.rejects(() => fs.list("notes"), { name: "NotAllowedError" });
+});

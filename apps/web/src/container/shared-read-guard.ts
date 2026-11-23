@@ -14,6 +14,8 @@ export const SHARED_READ_TABLES = [
 
 const TABLES = new Set<string>(SHARED_READ_TABLES);
 const WRITES = new Set(["insert", "update", "upsert", "delete"]);
+/** Client members that hold their own request clients (Supabase storage, edge functions, realtime, raw PostgREST). */
+const REQUEST_CLIENTS = new Set(["storage", "functions", "realtime", "rest"]);
 
 interface DbLike {
   from(table: string): unknown;
@@ -22,7 +24,9 @@ interface DbLike {
 /**
  * Wraps the client the shared reader runs on in files mode (0.9.8): a select on a shared table
  * passes, and a write, an rpc, schema() or any other table throws before a request is made.
- * Only from, rpc and schema are checked; other members (auth and the like) pass through.
+ * storage, functions, realtime and rest throw on access, and every other method throws when called;
+ * plain values (auth and the like), symbol-keyed members and the Object.prototype methods
+ * (toString, constructor) pass through.
  * Row access is still the server's: RLS returns only the rows the grants allow.
  */
 export function guardSharedReadDb<Db extends DbLike>(db: Db): Db {
@@ -34,12 +38,16 @@ export function guardSharedReadDb<Db extends DbLike>(db: Db): Db {
           return selectOnly(target.from(table) as object);
         };
       }
-      if (key === "rpc" || key === "schema") {
+      if (typeof key === "string" && REQUEST_CLIENTS.has(key)) {
+        throw new Error(`${key} not allowed for the shared read`);
+      }
+      const value: unknown = Reflect.get(target, key, receiver);
+      if (typeof value === "function" && typeof key === "string" && !(key in Object.prototype)) {
         return () => {
-          throw new Error(`${String(key)} not allowed for the shared read`);
+          throw new Error(`${key} not allowed for the shared read`);
         };
       }
-      return Reflect.get(target, key, receiver);
+      return value;
     },
   });
 }
