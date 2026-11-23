@@ -151,6 +151,38 @@ test("a file changed between read and write is not overwritten", async () => {
   assert.match(await fs.readText(path ?? ""), /Theirs/);
 });
 
+test("a save from a stale page keeps the outside edit and puts the page in a conflict copy", async () => {
+  const { fs, repo } = setup();
+  await repo.save(page());
+  const loaded = (await repo.getById("n-1"))!;
+  const [path] = await files(fs);
+  const theirs = (await fs.readText(path ?? "")).replace("We measure things.", "They edited this.");
+  await fs.writeFile(path ?? "", theirs);
+  await assert.rejects(repo.save({ ...loaded, body: "mine\n" }), { name: "ConflictError" });
+  assert.equal(await fs.readText(path ?? ""), theirs, "the outside edit is kept");
+  const all = await repo.list();
+  assert.equal(all.length, 2);
+  const copy = all.find((p) => p.id !== "n-1")!;
+  assert.match(copy.title, /^Methods \(conflict copy /);
+  assert.equal(copy.body, "mine\n");
+  // After a fresh read the save goes through.
+  const fresh = (await repo.getById("n-1"))!;
+  await repo.save({ ...fresh, body: "mine\n" });
+  assert.equal((await repo.getById("n-1"))?.body, "mine\n");
+});
+
+test("a page edited outside only in keys the repo does not own saves without a conflict", async () => {
+  const { fs, repo } = setup();
+  await repo.save(page());
+  const loaded = (await repo.getById("n-1"))!;
+  const [path] = await files(fs);
+  await fs.writeFile(path ?? "", (await fs.readText(path ?? "")).replace("title:", "tags: [x]\ntitle:"));
+  await repo.save({ ...loaded, body: "mine\n" });
+  assert.equal((await repo.list()).length, 1);
+  assert.match(await fs.readText(path ?? ""), /tags:/);
+  assert.equal((await repo.getById("n-1"))?.body, "mine\n");
+});
+
 test("a filesystem without a checked write refuses the save rather than overwrite unchecked", async () => {
   const { fs, repo } = setup();
   await repo.save(page());

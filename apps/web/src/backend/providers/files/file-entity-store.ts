@@ -6,13 +6,15 @@
  * Laws (proved in test/file-entity-store.test.ts):
  * - A saved row reads back unchanged, at the codec's path.
  * - A save keeps the file's path and every key the kind does not own.
- * - A save never overwrites a file changed on disk since it was read.
+ * - A save never overwrites a file changed on disk since it was read; the row then goes to a conflict copy.
  * - A delete moves the file to `.weaveforge/trash/<day>/`; nothing is unlinked.
  * - One bad file (unreadable, newer format) is skipped and reported, never fatal.
  * - A bad file is kept as it is: a save never takes its path or (when its header shows it) its id.
  */
 import type { IWorkspaceFs } from "@weaveforge/core";
+import { ConflictError } from "@weaveforge/core";
 import { readyCore } from "@/lib/rust-core";
+import { conflictCopyPath } from "./conflict-path";
 import { moveToTrash as moveToTrashAt } from "@/lib/workspace-trash";
 
 /** The kinds the codec knows, by their `weaveforge-type`. */
@@ -64,7 +66,17 @@ interface Scan<T> {
   held: HeldFile[];
 }
 
+/** A conflict copy's text: the `weaveforge-id:` line becomes `conflictOf:`, so no two files share an id. */
+function conflictCopyText(text: string): string {
+  const close = text.startsWith("---") ? text.indexOf("\n---", 3) : -1;
+  if (close === -1) return text;
+  return text.slice(0, close).replace(/^weaveforge-id:/m, "conflictOf:") + text.slice(close);
+}
+
 export class FileEntityStore<T extends { id: string }> {
+  /** Per id, the file text this store last read or wrote: a save expects the file to still hold it. */
+  private readonly loaded = new Map<string, string>();
+
   constructor(
     private readonly fs: IWorkspaceFs,
     private readonly root: ProjectRoot,
@@ -73,7 +85,9 @@ export class FileEntityStore<T extends { id: string }> {
 
   /** Every file of this kind under the project's entity folder, sorted by path. */
   async readAll(): Promise<FoundEntity<T>[]> {
-    return (await this.scan()).found;
+    const { found } = await this.scan();
+    for (const f of found) this.loaded.set(f.row.id, f.text);
+    return found;
   }
 
   /** Reads the folder. The held list is returned, never kept on the instance, so a concurrent scan cannot clear it. */
@@ -122,9 +136,29 @@ export class FileEntityStore<T extends { id: string }> {
     return (await this.find(id))?.row ?? null;
   }
 
-  /** Writes the row to its file (a new one at the codec's path). */
+  /**
+   * True when the row in the file now differs from the row in `loadedText` (what this store last read or
+   * wrote). Keys the kind does not own (a hand-added property, screening items) are not the row, so their
+   * edits merge and never count.
+   */
+  private rowChanged(loadedText: string | undefined, found: FoundEntity<T>): boolean {
+    if (loadedText === undefined || loadedText === found.text) return false;
+    try {
+      const before = readyCore().entityRowFromFile(this.kind, loadedText);
+      return JSON.stringify(before) !== JSON.stringify(found.row);
+    } catch {
+      return true;
+    }
+  }
+
+  /**
+   * Writes the row to its file (a new one at the codec's path). The row in the file must still be the one this
+   * store last read or wrote; if another writer changed it since, that edit is kept, this row goes to a
+   * conflict copy, and the save fails with ConflictError until the row is read again.
+   */
   async save(row: T): Promise<void> {
     const core = readyCore();
+    const loadedText = this.loaded.get(row.id);
     const { found: rows, held } = await this.scan();
     const found = rows.find((f) => f.row.id === row.id) ?? null;
     const blocked = held.find((h) => h.id === row.id);
@@ -132,11 +166,17 @@ export class FileEntityStore<T extends { id: string }> {
       throw new Error(`${blocked.path} could not be read; not saved over or duplicated. Fix or move that file first.`);
     }
     const plain = JSON.parse(JSON.stringify(row)) as Record<string, unknown>;
-    const text = core.entityFileFromRow(this.kind, found?.text ?? null, plain);
     if (found) {
+      if (loadedText !== undefined && this.rowChanged(loadedText, found)) {
+        const copy = await this.keepConflictCopy(found.path, core.entityFileFromRow(this.kind, loadedText, plain));
+        throw new ConflictError(`${found.path} changed on disk; your version was kept in ${copy}. Reload before saving.`);
+      }
+      const text = core.entityFileFromRow(this.kind, found.text, plain);
       await writeIfUnchanged(this.fs, found.path, text, found.text);
+      this.loaded.set(row.id, text);
       return;
     }
+    const text = core.entityFileFromRow(this.kind, null, plain);
     const base = core.entityPath(this.kind, plain, this.root());
     // A file at the codec's path that could not be read may hold this row's id: never write a numbered twin.
     if (held.some((h) => h.id === null && h.path === base)) {
@@ -144,11 +184,23 @@ export class FileEntityStore<T extends { id: string }> {
     }
     const path = await this.freePath(base);
     await writeIfUnchanged(this.fs, path, text, null);
+    this.loaded.set(row.id, text);
+  }
+
+  /** Writes `text` (as a copy without the id) to the first free "(conflict N)" name beside `path`. */
+  private async keepConflictCopy(path: string, text: string): Promise<string> {
+    const copy = conflictCopyText(text);
+    for (let n = 1; n <= NAME_ATTEMPTS; n += 1) {
+      const target = conflictCopyPath(path, n);
+      if (await this.fs.writeTextIf!(target, copy, null)) return target;
+    }
+    throw new ConflictError(`${path} changed on disk and no conflict copy name was free; not saved.`);
   }
 
   /** Moves the row's file to the trash; a missing id is not an error. */
   async delete(id: string): Promise<void> {
     const found = await this.find(id);
     if (found) await moveToTrash(this.fs, found.path);
+    this.loaded.delete(id);
   }
 }
