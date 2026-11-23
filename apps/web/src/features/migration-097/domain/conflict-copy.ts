@@ -37,6 +37,20 @@ export function toConflictCopyText(text: string, id: string): string {
   return head.replace(FRONTMATTER_ID, "conflictOf:") + text.slice(block.end);
 }
 
+const FRONTMATTER_APP_ID = /^weaveforge-id:/m;
+
+/**
+ * The copy form of an app file (a note or paper): its frontmatter `weaveforge-id:` line becomes `conflictOf:`, so
+ * the app never lists two files with one id. Other text, and bytes, are returned unchanged.
+ */
+export function toAppConflictCopy<T extends string | Uint8Array>(data: T): T {
+  if (typeof data !== "string") return data;
+  const block = frontmatter(data);
+  if (!block) return data;
+  const head = data.slice(block.start, block.end);
+  return (head.replace(FRONTMATTER_APP_ID, "conflictOf:") + data.slice(block.end)) as T;
+}
+
 /** The row form of a conflict copy's text: `conflictOf` is read back as `id`, so the codec can decode it. */
 export function fromConflictCopyText(text: string): string {
   const obj = parseObject(text);

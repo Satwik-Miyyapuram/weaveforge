@@ -52,7 +52,7 @@ test("web upgrade: the PostgREST source names the reconnect providers, and the r
     codec,
     sink,
     now: NOW,
-    runDeviceId: "web-me-0001",
+    runDeviceId: "web-me-01",
   });
 
   assert.deepEqual(result.reconnectProviders, ["zotero"], "only the provider name reaches the result");

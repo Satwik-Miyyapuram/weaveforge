@@ -2,6 +2,7 @@ import type { FileSink } from "../domain/ports";
 import { sha256Hex } from "../domain/hash";
 import { conflictCopyPath } from "../domain/conflict-path";
 import { addsKeysOnly } from "../domain/add-keys-only";
+import { toAppConflictCopy } from "../domain/conflict-copy";
 import { isTempPath } from "@/lib/temp-path";
 import { ConflictError } from "@weaveforge/core";
 
@@ -112,10 +113,17 @@ export async function createFileStore(sink: FileSink, prior: Outputs): Promise<F
 export function guardedSink(sink: FileSink, store: FileStore): FileSink {
   /** The text a non-ours file held before this run's first add-keys merge: later merges keep its body and keys. */
   const baselines = new Map<string, string>();
+  /** Stores `data`; a conflict copy of an app file holds `conflictOf:` in place of its `weaveforge-id:`. */
+  const storeWithCopy = async (path: string, data: string | Uint8Array): Promise<string> => {
+    const hash = await sha256Hex(data);
+    if (typeof data !== "string") return store.store(path, data, hash);
+    const copy = toAppConflictCopy(data);
+    return store.store(path, data, hash, copy === data ? undefined : { data: copy, hash: await sha256Hex(copy) });
+  };
   return {
     async write(path, data) {
       if (isTempPath(path)) return sink.write(path, data);
-      await store.store(path, data, await sha256Hex(data));
+      await storeWithCopy(path, data);
     },
     list: () => sink.list(),
     readText: (path) => sink.readText(path),
@@ -147,7 +155,7 @@ export function guardedSink(sink: FileSink, store: FileStore): FileSink {
       const base = known ?? expected;
       if (!ours && (base === null || !addsKeysOnly(base, text))) {
         // A refused merge is a conflict, not a plain miss: the DB text goes to a copy, the user's file is kept.
-        await store.store(path, text, await sha256Hex(text));
+        await storeWithCopy(path, text);
         throw new ConflictError(`conflict: ${path} changed on disk, not add-keys-only; kept the file's version`);
       }
       const ok = await sink.writeIf(path, text, expected);

@@ -1,4 +1,5 @@
 import { desktop } from "../../../lib/desktop/desktop-bridge";
+import type { KindWriter } from "../domain/kind-writer";
 import type { FileCodec, FileSink } from "../domain/ports";
 import { authedFetch } from "../infrastructure/authed-fetch";
 import type { WebUpgradeRunnerOptions, WebUpgradeRun } from "./web-upgrade-runner";
@@ -19,6 +20,8 @@ export interface WebUpgradeInputs {
   pendingOutbox: () => Promise<number>;
   now: string;
   runDeviceId: string;
+  /** Writers over the FILES repos; without them notes, papers and comments cannot verify. */
+  writers?: (sink: FileSink) => readonly KindWriter[];
   /** Called after a verified run, before the screen reloads. Sets the per-browser completion marker. */
   onVerified?: () => void;
   run?: WebUpgradeRun;
@@ -53,6 +56,7 @@ export function webUpgradeFor(isDesktop: boolean, inputs: WebUpgradeInputs | nul
     sink: inputs.sink,
     now: inputs.now,
     runDeviceId: inputs.runDeviceId,
+    writers: inputs.writers,
     pendingOutbox: inputs.pendingOutbox,
     run: async (opts, onProgress) => {
       const result = await inner(opts, onProgress);
