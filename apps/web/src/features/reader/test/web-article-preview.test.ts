@@ -36,6 +36,21 @@ test("an article without a page address has nothing to preview", () => {
   assert.deepEqual(planWebArticle({ kept: false, pageUrl: "", fetchFailed: true }), { kind: "none" });
 });
 
+test("only http and https page addresses are linked; anything else has nothing to show", () => {
+  for (const pageUrl of ["javascript:alert(1)", "file:///C:/secret.html", "data:text/html,hi", "not a url"]) {
+    assert.deepEqual(planWebArticle({ kept: false, pageUrl, fetchFailed: true }), { kind: "none" }, pageUrl);
+    assert.deepEqual(planWebArticle({ kept: false, pageUrl, fetchFailed: false }), { kind: "none" }, pageUrl);
+  }
+});
+
+test("the live fallback host comes from the shared safeHostname", () => {
+  assert.deepEqual(planWebArticle({ kept: false, pageUrl: "https://Labs.Baseten.co/a", fetchFailed: true }), {
+    kind: "live",
+    url: "https://Labs.Baseten.co/a",
+    host: "labs.baseten.co",
+  });
+});
+
 test("the plan never asks for a PDF download", () => {
   for (const fetchFailed of [false, true]) {
     for (const kept of [false, true]) {

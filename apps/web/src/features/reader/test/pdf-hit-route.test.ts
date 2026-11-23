@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { routePdfHit, safeHostname, servedPdfExists } from "../ui/pdf-hit-route";
+import { fetchServedPdf, routePdfHit, safeHostname } from "../ui/pdf-hit-route";
 
 // The exact article from the crash report (labs.baseten.co). Its PDF ladder finds
 // no PDF (resolve_paper_pdf_url -> null), so the GitHub-repo step answers with its
@@ -72,20 +72,22 @@ test("a GitHub-repo guess whose file exists opens as before", () => {
   );
 });
 
-test("servedPdfExists is true only for a 2xx HEAD answer, and false when the request fails", async () => {
+test("fetchServedPdf is a single GET: its bytes on 200, null for anything else or a failed request", async () => {
   const seen: string[] = [];
   const answer = (status: number) => async (url: string, init?: RequestInit) => {
     seen.push(`${init?.method ?? "GET"} ${url}`);
-    return new Response(null, { status });
+    return new Response(status === 200 ? "%PDF-1.4" : null, { status });
   };
-  assert.equal(await servedPdfExists(GITHUB_HIT, answer(200)), true);
-  assert.equal(await servedPdfExists(GITHUB_HIT, answer(404)), false);
-  assert.equal(await servedPdfExists(GITHUB_HIT, answer(204)), false);
+  const blob = await fetchServedPdf(GITHUB_HIT, answer(200));
+  assert.ok(blob instanceof Blob);
+  assert.equal(await blob.text(), "%PDF-1.4");
+  assert.equal(await fetchServedPdf(GITHUB_HIT, answer(404)), null);
+  assert.equal(await fetchServedPdf(GITHUB_HIT, answer(204)), null);
   assert.equal(
-    await servedPdfExists(GITHUB_HIT, async () => {
+    await fetchServedPdf(GITHUB_HIT, async () => {
       throw new TypeError("network");
     }),
-    false,
+    null,
   );
-  assert.ok(seen.every((line) => line.startsWith("HEAD ")));
+  assert.ok(seen.every((line) => line.startsWith("GET ")));
 });

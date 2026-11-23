@@ -18,7 +18,7 @@ export interface PdfHitInput {
   stored: boolean;
   /** The paper is a web article (no PDF of its own), see `isWebArticle`. */
   webArticle: boolean;
-  /** For a GitHub-repo guess: whether the file is really there (`servedPdfExists`). */
+  /** For a GitHub-repo guess: whether the file is really there (`fetchServedPdf`). */
   guessFound?: boolean;
 }
 
@@ -34,19 +34,21 @@ export function routePdfHit(input: PdfHitInput): PdfHitRoute {
 }
 
 /**
- * Whether the served file is really there: a HEAD answer of 200. Anything else (a
- * 404 for no such file, a 204 that only says a remote is set) and a failed request
- * count as missing, so the reader falls back rather than opening a 404 in pdf.js.
+ * Fetch the served file once and keep its bytes: a GET answer of 200 gives the
+ * PDF as a Blob, so pdf.js opens those bytes instead of downloading them again.
+ * Anything else (a 404 for no such file, a 204 that only says a remote is set) and
+ * a failed request give null, so the reader falls back rather than opening a 404.
  */
-export async function servedPdfExists(
+export async function fetchServedPdf(
   url: string,
   fetchFn: (url: string, init?: RequestInit) => Promise<Response> = fetch,
-): Promise<boolean> {
+): Promise<Blob | null> {
   try {
-    const res = await fetchFn(url, { method: "HEAD" });
-    return res.status === 200;
+    const res = await fetchFn(url, { method: "GET" });
+    if (res.status !== 200) return null;
+    return await res.blob();
   } catch {
-    return false;
+    return null;
   }
 }
 
