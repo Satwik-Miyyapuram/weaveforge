@@ -151,7 +151,14 @@ export class LoadSharedWithMeScreenUseCase {
       const result = settled[i];
       if (result?.status === "fulfilled") groups.push(result.value);
       // A retired table (1.0.0 drops the personal tables) holds nothing to show.
-      else if (result && !(HELD_DROP_TYPES.has(type) && isMissingTable(result.reason))) {
+      // The tables are only held in 0.9.8, so the log still notes a stale schema cache.
+      else if (result && HELD_DROP_TYPES.has(type) && isMissingTable(result.reason)) {
+        logToApp({
+          level: "warn",
+          source: "shared-with-me",
+          message: `missing table for shared ${type} (${errorCode(result.reason)}), read as empty`,
+        });
+      } else if (result) {
         unavailable.push(type);
         if (isMissingTable(result.reason)) {
           logToApp({
@@ -196,6 +203,10 @@ const HELD_DROP_TYPES: ReadonlySet<ShareableType> = new Set([
 
 /** PostgREST's "table not in the schema cache" (404) or Postgres's undefined_table. */
 function isMissingTable(error: unknown): boolean {
-  const code = (error as { code?: unknown } | null)?.code;
+  const code = errorCode(error);
   return code === "PGRST205" || code === "42P01";
+}
+
+function errorCode(error: unknown): unknown {
+  return (error as { code?: unknown } | null)?.code;
 }

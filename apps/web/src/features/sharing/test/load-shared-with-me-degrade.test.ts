@@ -119,6 +119,26 @@ test("a missing table outside the held-drop set (e.g. stale schema cache) is una
   }
 });
 
+test("a held-drop table that is missing reads as empty but still leaves a warn in the app log", async () => {
+  const logs: { level: string; source: string; message: string }[] = [];
+  const g = globalThis as { window?: unknown };
+  const before = g.window;
+  g.window = { weaveforge: { fetchTitle: () => {}, reportAppLog: (line: never) => logs.push(line) } };
+  try {
+    const data = await useCase(
+      reader({ paper: { code: "PGRST205", message: "Could not find the table 'public.papers' in the schema cache" } }),
+    ).execute();
+    assert.deepEqual(ids(data.items), ["vault_page:n1"]);
+    assert.deepEqual(data.unavailable, []);
+    assert.equal(logs.length, 1);
+    assert.equal(logs[0]?.level, "warn");
+    assert.match(logs[0]?.message ?? "", /paper/);
+    assert.match(logs[0]?.message ?? "", /PGRST205/);
+  } finally {
+    g.window = before;
+  }
+});
+
 test("every source failing still rejects, so the screen shows its error as before", async () => {
   const down = new Error("network down");
   const all = Object.fromEntries(
