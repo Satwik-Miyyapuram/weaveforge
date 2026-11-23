@@ -1,7 +1,8 @@
 /**
  * A conflict copy holds the DB version of a row, but under `conflictOf` instead of `id`, so files mode never
  * sees two files with the same id. These two functions convert a row file's text to that form and back.
- * JSON text renames the top-level key; markdown text renames the `id:` line of its leading frontmatter block.
+ * JSON text renames the top-level key; markdown text renames the `weaveforge-id:` line (or else the `id:` line) of its
+ * leading frontmatter block.
  */
 
 const FRONTMATTER_ID = /^id:/m;
@@ -34,10 +35,14 @@ export function toConflictCopyText(text: string, id: string): string {
   const block = frontmatter(text);
   if (!block) return text;
   const head = text.slice(block.start, block.end);
-  return head.replace(FRONTMATTER_ID, "conflictOf:") + text.slice(block.end);
+  // A codec file names its row with `weaveforge-id:`; a plain one with `id:`.
+  const key = FRONTMATTER_APP_ID.test(head) ? FRONTMATTER_APP_ID : FRONTMATTER_ID;
+  return head.replace(key, "conflictOf:") + text.slice(block.end);
 }
 
 const FRONTMATTER_APP_ID = /^weaveforge-id:/m;
+/** A codec file's frontmatter always holds its kind; its id key is then `weaveforge-id`. */
+const FRONTMATTER_APP_TYPE = /^weaveforge-type:/m;
 
 /**
  * The copy form of an app file (a note or paper): its frontmatter `weaveforge-id:` line becomes `conflictOf:`, so
@@ -62,5 +67,6 @@ export function fromConflictCopyText(text: string): string {
   const block = frontmatter(text);
   if (!block) return text;
   const head = text.slice(block.start, block.end);
-  return head.replace(FRONTMATTER_CONFLICT_OF, "id:") + text.slice(block.end);
+  const key = FRONTMATTER_APP_TYPE.test(head) ? "weaveforge-id:" : "id:";
+  return head.replace(FRONTMATTER_CONFLICT_OF, key) + text.slice(block.end);
 }

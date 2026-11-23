@@ -353,6 +353,7 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
         deviceId,
         state: "incomplete",
         target,
+        backup: dumpName,
       },
     ],
   });

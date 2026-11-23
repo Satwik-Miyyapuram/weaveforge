@@ -307,6 +307,27 @@ test("interrupted run: report.json says incomplete before the first row is writt
   assert.equal(JSON.parse(firstRow.report).state, "incomplete");
 });
 
+test("interrupted desktop run: the early report's run carries the backup dump name", async () => {
+  const { source } = fakeServer({ rows: FIXTURE });
+  const sink = new MemorySink();
+  const early: { report?: RunReport[] } = {};
+  const realRead = sink.readText.bind(sink);
+  source.listRows = ((orig) => async (...args: Parameters<typeof orig>) => {
+    if (early.report === undefined) early.report = (JSON.parse(await realRead(await onlyReportPath(sink))) as { runs: RunReport[] }).runs;
+    return orig(...args);
+  })(source.listRows.bind(source));
+  await runWebExport({ runDeviceId: "dev-test",
+    kinds: KINDS,
+    codec: fakeCodec(SUPPORTED),
+    source,
+    sink,
+    now: NOW,
+    desktop: { folder: "C:/ws", bridge: fakeDesktop([], { dump: "pre-migration-097-early.dump" }) },
+  });
+  assert.ok(early.report, "early report was written before the first server read");
+  assert.equal(early.report[0]?.backup, "pre-migration-097-early.dump");
+});
+
 test("interrupted run: a throw while writing rows leaves report.json incomplete and sets no marker", async () => {
   const { source, calls } = fakeServer({ rows: FIXTURE });
   const sink = new MemorySink();
