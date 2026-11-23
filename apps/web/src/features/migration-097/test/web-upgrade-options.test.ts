@@ -81,6 +81,23 @@ test("webPendingOutbox refuses to answer inside the desktop shell", async () => 
   }
 });
 
+test("the writers reach the run: notes, papers and comments are not left to the codec", async () => {
+  const writers = () => [];
+  let got: unknown;
+  const opts = webUpgradeFor(
+    false,
+    inputs({
+      writers,
+      run: async (o) => {
+        got = o.writers;
+        return verified;
+      },
+    }),
+  )!;
+  await makeWebUpgradeRunner(opts)("", undefined);
+  assert.equal(got, writers);
+});
+
 test("web without a session gets no runner", () => {
   assert.equal(webUpgradeFor(false, null), null);
 });

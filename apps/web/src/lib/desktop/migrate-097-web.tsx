@@ -9,6 +9,7 @@ import { webPendingOutbox, webUpgradeFor, type WebUpgradeInputs } from "@/featur
 import type { WebUpgradeRunnerOptions } from "@/features/migration-097/application/web-upgrade-runner";
 import { MIGRATION_KINDS } from "@/features/migration-097/domain/report";
 import { wasmFileCodec } from "@/features/migration-097/infrastructure/wasm-codec";
+import { createGroupAWriter } from "@/features/migration-097/infrastructure/kind-writer-group-a";
 import { workspaceFileSink } from "@/features/migration-097/infrastructure/workspace-file-sink";
 import { BrowserWorkspaceFs } from "@/features/workspace/infrastructure/parts";
 import { loadCore } from "@/lib/rust-core";
@@ -96,12 +97,16 @@ export async function loadWebInputs(sources: WebInputSources = defaultWebInputSo
   const session = await sources.session();
   if (!session) return null;
   const fs = await sources.openFs();
+  const codec = sources.makeCodec(core);
   return {
     ...session,
     fetch: globalThis.fetch.bind(globalThis),
     sink: workspaceFileSink(fs),
-    codec: sources.makeCodec(core),
+    codec,
     kinds: MIGRATION_KINDS,
+    // Notes, papers and comments go through the FILES repos; the wasm codec has no codec for them. The codec
+    // finds the log entry, report section or reading list file a comment sits next to.
+    writers: (sink) => [createGroupAWriter(sink, codec)],
     pendingOutbox: webPendingOutbox,
     now: new Date().toISOString(),
     ...(await runIdentity(fs)),

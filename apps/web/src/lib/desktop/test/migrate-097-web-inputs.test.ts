@@ -69,6 +69,14 @@ test("the web run id is the install id browserReportOk reads from the same OPFS 
   assert.equal(fs.files.has(INSTALL_ID_PATH), true, "the id lives in the OPFS install-id file");
 });
 
+test("the web inputs carry a writer for notes, papers and comments", async () => {
+  const { loadWebInputs } = await import("../migrate-097-web");
+  const inputs = await loadWebInputs(sources(memoryFs()));
+  const writers = inputs?.writers?.(inputs.sink) ?? [];
+  const kinds = writers.flatMap((w) => w.kinds);
+  for (const kind of ["notes", "papers", "comments"]) assert.ok(kinds.includes(kind), `${kind} has a writer`);
+});
+
 test("no Web Locks: the load still resolves, and the run fails with the WebView message", async () => {
   const fs = memoryFs();
   const { loadWebInputs } = await import("../migrate-097-web");

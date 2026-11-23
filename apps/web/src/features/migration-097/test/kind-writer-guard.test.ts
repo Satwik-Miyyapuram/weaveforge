@@ -72,7 +72,11 @@ test("kind writer guard: a differing file at a log entry's path is kept and the 
   });
 
   assert.equal(await sink.readText(path), userEdit, "the user's file is never overwritten");
-  assert.equal(await sink.readText(conflictCopyPath(path, 1)), text, "the DB version sits in the conflict copy");
+  assert.equal(
+    await sink.readText(conflictCopyPath(path, 1)),
+    text.replace(/^weaveforge-id:/m, "conflictOf:"),
+    "the DB version sits in the conflict copy, under conflictOf so no second file holds the id",
+  );
   assert.deepEqual(result.run.conflicts, [conflictCopyPath(path, 1)]);
 });
 

@@ -1,3 +1,4 @@
+import type { KindWriter } from "../domain/kind-writer";
 import type { FileCodec, FileSink } from "../domain/ports";
 import { PostgrestSource, type PostgrestSourceOptions } from "../infrastructure/postgrest-source";
 import { runWebExport, type ExportProgress, type ExportResult } from "./run-web-export";
@@ -13,6 +14,8 @@ export type WebUpgradeOptions = {
   now: string;
   /** The stable per-browser id (OPFS settings). */
   runDeviceId: string;
+  /** Writers over the FILES repos (notes, papers, comments), built on the run's guarded sink. */
+  writers?: (sink: FileSink) => readonly KindWriter[];
 };
 
 /**
@@ -30,6 +33,7 @@ export function runWebUpgrade(
     sink: opts.sink,
     now: opts.now,
     runDeviceId: opts.runDeviceId,
+    writers: opts.writers,
     onProgress,
   });
 }
