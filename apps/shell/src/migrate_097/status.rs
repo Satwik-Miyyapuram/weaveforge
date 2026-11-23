@@ -53,6 +53,7 @@ pub struct MigrationStatus {
 /// state comes from its own file, else the legacy report.json. An unreadable report is `removed` when
 /// the removed marker exists, `none` when this device has no report and nothing was exported, and
 /// `unavailable` otherwise.
+#[allow(clippy::too_many_lines, reason = "one ordered status decision; removed in 0.9.8")]
 pub fn migration_status(folder: &Path, pg_root: &Path, device_id: &str) -> MigrationStatus {
     let exported = exported_to(pg_root);
     let exported_here = exported.as_deref().is_some_and(|name| same_folder(name, folder));
@@ -151,6 +152,20 @@ pub fn migration_status(folder: &Path, pg_root: &Path, device_id: &str) -> Migra
     }
 }
 
+fn exported_to(pg_root: &Path) -> Option<String> {
+    let text = fs::read_to_string(pg_root.join("exported-to.json")).ok()?;
+    let value: serde_json::Value = serde_json::from_str(&text).ok()?;
+    value["folder"].as_str().map(str::to_owned)
+}
+
+/// Whether `exported` and `folder` are the same folder; a path that cannot be resolved is not.
+fn same_folder(exported: &str, folder: &Path) -> bool {
+    match (dunce::canonicalize(exported), dunce::canonicalize(folder)) {
+        (Ok(a), Ok(b)) => a == b,
+        _ => false,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -209,19 +224,5 @@ mod tests {
             Some("report.json is unreadable; restore it from your backup or run the export again")
         );
         assert_eq!(status.step, None);
-    }
-}
-
-fn exported_to(pg_root: &Path) -> Option<String> {
-    let text = fs::read_to_string(pg_root.join("exported-to.json")).ok()?;
-    let value: serde_json::Value = serde_json::from_str(&text).ok()?;
-    value["folder"].as_str().map(str::to_owned)
-}
-
-/// Whether `exported` and `folder` are the same folder; a path that cannot be resolved is not.
-fn same_folder(exported: &str, folder: &Path) -> bool {
-    match (dunce::canonicalize(exported), dunce::canonicalize(folder)) {
-        (Ok(a), Ok(b)) => a == b,
-        _ => false,
     }
 }

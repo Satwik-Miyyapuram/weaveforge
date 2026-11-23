@@ -38,6 +38,8 @@ pub const READ_LOCAL_SECRETS_SQL: &str = "select secrets from local_secrets";
 /// The page asks this when a read of the old rows fails: a missing folder means no old secrets.
 #[tauri::command]
 #[specta::specta]
+#[must_use]
+#[allow(clippy::needless_pass_by_value, reason = "tauri commands take State by value")]
 pub fn legacy_db_present(db: tauri::State<'_, LocalDb>) -> bool {
     db.legacy_db_present()
 }
@@ -172,9 +174,12 @@ fn clear_verified_copies(secrets: &Secrets) {
     }
 }
 
+/// The `(key, text)` fields to store and the names of the skipped write-only fields.
+type RowFields = (Vec<(String, String)>, Vec<String>);
+
 /// The `(key, text)` fields of the one old row and the names of the write-only fields that were
 /// skipped. Both are empty when there are no rows.
-fn row_fields(rows: &[Value]) -> Result<(Vec<(String, String)>, Vec<String>), SecretError> {
+fn row_fields(rows: &[Value]) -> Result<RowFields, SecretError> {
     match rows.first() {
         None => Ok((Vec::new(), Vec::new())),
         Some(row) => device_fields(row),
@@ -280,7 +285,7 @@ fn index_source(secrets: &Secrets) -> Result<IndexSource, SecretError> {
 /// name is moved only as a routed string (`overleafToken`, `gitSyncToken`); any other write-only
 /// field is skipped and its name returned, never its value. Every field is checked here, before
 /// the first keychain write.
-fn device_fields(row: &Value) -> Result<(Vec<(String, String)>, Vec<String>), SecretError> {
+fn device_fields(row: &Value) -> Result<RowFields, SecretError> {
     let parsed: Value;
     let value: &Value = match row.get("secrets") {
         Some(Value::String(text)) => {

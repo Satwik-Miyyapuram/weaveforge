@@ -13,6 +13,7 @@ use std::path::{Component, Path, PathBuf};
 
 use crate::local_http::control::parse_iso_ms;
 
+#[cfg(test)]
 const REPORT_REL: &str = ".weaveforge/migration-0.9.7/report.json";
 pub(super) const MIGRATION_DIR: &str = ".weaveforge/migration-0.9.7";
 /// Backup name for reports written before the `backup` field existed.
@@ -131,8 +132,12 @@ pub fn remove_old_data(
     )
 }
 
+/// The injected final report write: the report path and the change to apply to it.
+type ReportWrite<'a> = dyn FnMut(&Path, &dyn Fn(&mut serde_json::Value)) -> Result<(), String> + 'a;
+
 /// `remove_old_data` with the final report write injected. The write runs after the cluster is
 /// deleted; if it fails, the next launch resumes from the `removing` entry and finishes it.
+#[allow(clippy::too_many_lines, reason = "one ordered removal sequence; removed in 0.9.8")]
 pub(crate) fn remove_with(
     folder: &Path,
     pg_root: &Path,
@@ -140,7 +145,7 @@ pub(crate) fn remove_with(
     device_id: &str,
     local_secrets_rows: &mut dyn FnMut() -> Result<u64, String>,
     stop_pg: &mut dyn FnMut() -> Result<(), String>,
-    final_write: &mut dyn FnMut(&Path, &dyn Fn(&mut serde_json::Value)) -> Result<(), String>,
+    final_write: &mut ReportWrite<'_>,
 ) -> Result<(), String> {
     let report_path = own_report_path(folder, device_id);
     let reports = read_reports(folder, device_id).map_err(|problem| problem.refusal())?;
@@ -311,6 +316,7 @@ fn update_report(report_path: &Path, change: impl Fn(&mut serde_json::Value)) ->
 
 /// The running postgres named by a `postmaster.pid` left in the cluster, described for the refusal.
 /// A stale file (its PID is gone) does not block; a file that cannot be parsed does.
+#[must_use]
 pub fn live_postmaster(pid_file: &Path) -> Option<String> {
     match fs::read_to_string(pid_file) {
         Ok(text) => match text.lines().next().and_then(|line| line.trim().parse::<u32>().ok()) {
@@ -966,7 +972,6 @@ mod union_tests {
     const REMOVING: &str = r#"{"version":1,"state":"removing","removingDeviceId":"dev-a","removals":{"dev-a":{"state":"removing"}},"runs":[]}"#;
     const VERIFIED_A: &str = r#"{"version":1,"state":"verified","runs":[{"deviceId":"dev-a","state":"verified","finishedAt":"2026-11-22T10:00:00.000Z","kinds":{"notes":{"db":1,"files":1}},"missing":[],"conflicts":[]}]}"#;
     const VERIFIED_B: &str = r#"{"version":1,"state":"verified","runs":[{"deviceId":"dev-b","state":"verified","finishedAt":"2026-11-22T10:00:00.000Z","kinds":{"notes":{"db":1,"files":1}},"missing":[],"conflicts":[]}]}"#;
-    const RESTORE: &str = "; restore it from your backup or run the export again";
 
     /// A migration folder holding the given report files, and a cluster root with no removed marker.
     fn fixture(name: &str, files: &[(&str, &str)]) -> (PathBuf, PathBuf, PathBuf) {
@@ -1049,8 +1054,8 @@ mod union_tests {
         let result = record_verified_export(&pg_root, &folder, ME);
         let _ = fs::remove_dir_all(&base);
         assert_eq!(
-            result.as_deref(),
-            Err("refused: migration report report-dev-a (1).json is unreadable; delete the conflict copy report-dev-a (1).json")
+            result.err().as_deref(),
+            Some("refused: migration report report-dev-a (1).json is unreadable; delete the conflict copy report-dev-a (1).json")
         );
     }
 
@@ -1065,8 +1070,8 @@ mod union_tests {
         let result = remove_old_data(&folder, &pg_root, NOW, ME, &mut secrets, &mut stop);
         let _ = fs::remove_dir_all(&base);
         assert_eq!(
-            result.as_deref(),
-            Err("refused: migration report report-dev-a (1).json is unreadable; delete the conflict copy report-dev-a (1).json")
+            result.err().as_deref(),
+            Some("refused: migration report report-dev-a (1).json is unreadable; delete the conflict copy report-dev-a (1).json")
         );
     }
 

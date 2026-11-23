@@ -140,7 +140,7 @@ update public.vault_pages set snapshot_upto = (select min(id) from public.crdt_u
         let counts = count_rows(&mut conn).await.map_err(|e| e.message)?;
         assert_eq!(
             counts.counts["tags"],
-            (tags - u64::from(soft)) as u32,
+            u32::try_from(tags - u64::from(soft)).expect("tag count fits u32"),
             "soft-deleted tag is not counted"
         );
         assert_eq!(counts.counts["vault_pages"], 3, "three notes");
