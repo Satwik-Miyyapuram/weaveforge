@@ -113,15 +113,33 @@ export class FileExperimentRepository implements IExperimentRepository, IExperim
     return this.update(id, (current) => applyPatch(current, { resultNote: trimmed || undefined }));
   }
 
-  /** Trashes the file and the folder beside it (`metrics/`), file by file, so nothing is unlinked. */
+  /**
+   * Trashes the file and the folder beside it (`metrics/`), file by file, so nothing is unlinked.
+   * Something deleted meanwhile (another window or app) is skipped; any other failure is thrown.
+   * The `.md` goes last, so after a failure the experiment is still listed and a retry finishes.
+   */
   async remove(id: string): Promise<void> {
     const found = await this.store.find(id);
     if (!found) return;
     const folder = found.path.replace(/\.md$/, "");
     const inside: string[] = [];
-    if (await this.fs.stat(folder)) for await (const e of this.fs.walk(folder)) if (e.kind === "file") inside.push(e.path);
-    await moveToTrash(this.fs, found.path);
-    for (const path of inside) await moveToTrash(this.fs, path);
+    try {
+      if (await this.fs.stat(folder)) for await (const e of this.fs.walk(folder)) if (e.kind === "file") inside.push(e.path);
+    } catch (error) {
+      if (!(await this.isGone(folder))) throw error;
+    }
+    for (const path of [...inside, found.path]) {
+      try {
+        await moveToTrash(this.fs, path);
+      } catch (error) {
+        if (!(await this.isGone(path))) throw error;
+      }
+    }
+  }
+
+  /** True only when `path` is confirmed missing; a failing stat counts as "still there". */
+  private async isGone(path: string): Promise<boolean> {
+    return (await this.fs.stat(path).catch(() => "unknown")) === null;
   }
 
   private async update(id: string, change: (current: Experiment) => Experiment): Promise<Experiment> {

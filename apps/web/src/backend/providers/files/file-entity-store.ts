@@ -13,6 +13,7 @@
  */
 import type { IWorkspaceFs } from "@weaveforge/core";
 import { readyCore } from "@/lib/rust-core";
+import { moveToTrash as moveToTrashAt } from "@/lib/workspace-trash";
 
 /** The kinds the codec knows, by their `weaveforge-type`. */
 export type EntityKind = "log_entry" | "experiment" | "report_section" | "reading_list";
@@ -20,8 +21,8 @@ export type EntityKind = "log_entry" | "experiment" | "report_section" | "readin
 /** The project folder the entity folders sit in ("" for the workspace root), asked per call. */
 export type ProjectRoot = () => string;
 
-/** How many numbered trash names a delete tries, as for papers and milestones. */
-const TRASH_NAME_ATTEMPTS = 1000;
+/** How many numbered names a save tries when its path is taken. */
+const NAME_ATTEMPTS = 1000;
 
 /** One file as read: where it is, its text, and the row it holds. */
 export interface FoundEntity<T> {
@@ -30,18 +31,12 @@ export interface FoundEntity<T> {
   row: T;
 }
 
-/** Moves `path` to the first free trash name for today (`-2`, `-3`, … on a clash). */
-export async function moveToTrash(fs: IWorkspaceFs, path: string): Promise<void> {
-  const core = readyCore();
-  const now = Date.now();
-  for (let n = 1; n <= TRASH_NAME_ATTEMPTS; n += 1) {
-    const target = core.trashPathFor(path, now, n);
-    if (await fs.stat(target)) continue;
-    await fs.mkdirp(target.slice(0, target.lastIndexOf("/")));
-    await fs.rename(path, target);
-    return;
-  }
-  throw new Error(`${path}: no free name in the trash; not deleted.`);
+/**
+ * Moves `path` to the first free trash name for today (`-2`, `-3`, … on a clash).
+ * The name is claimed first (lib/workspace-trash), so a file that appears there meanwhile is kept.
+ */
+export function moveToTrash(fs: IWorkspaceFs, path: string): Promise<void> {
+  return moveToTrashAt(fs, path, Date.now());
 }
 
 /** Writes `text` only if the file still holds `expected` (null: does not exist yet). */
@@ -111,7 +106,7 @@ export class FileEntityStore<T extends { id: string }> {
     for (let n = 1; ; n += 1) {
       const candidate = n === 1 ? path : `${path.slice(0, at)}-${n}${path.slice(at)}`;
       if (!(await this.fs.stat(candidate))) return candidate;
-      if (n >= TRASH_NAME_ATTEMPTS) throw new Error(`${path}: no free name; not saved.`);
+      if (n >= NAME_ATTEMPTS) throw new Error(`${path}: no free name; not saved.`);
     }
   }
 

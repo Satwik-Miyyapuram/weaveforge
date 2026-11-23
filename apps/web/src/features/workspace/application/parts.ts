@@ -203,12 +203,14 @@ export async function removeProjectFolder(
 }
 
 /**
- * A folder that is not empty (ENOTEMPTY) or already gone (ENOENT / NotFound) is
+ * A folder that is not empty (ENOTEMPTY, or InvalidModificationError in the
+ * browser's file system) or already gone (ENOENT / NotFound / NotFoundError) is
  * expected here and stays silent; any other failure to remove a folder is logged.
  */
 function isKeptFolderError(error: unknown): boolean {
-  const code = (error as { code?: unknown } | null)?.code;
+  const { code, name } = (error ?? {}) as { code?: unknown; name?: unknown };
   if (code === "ENOTEMPTY" || code === "ENOENT" || code === "NotFound") return true;
+  if (name === "InvalidModificationError" || name === "NotFoundError") return true;
   const message = error instanceof Error ? error.message : String(error);
   return /\b(ENOTEMPTY|ENOENT|NotFound)\b/.test(message);
 }

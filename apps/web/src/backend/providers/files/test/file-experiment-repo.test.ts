@@ -146,3 +146,84 @@ test("delete moves the experiment's metrics folder to the trash with it", async 
   assert.ok(left.some((p) => p.startsWith(".weaveforge/trash/") && p.endsWith(chunk)), left.join("\n"));
   assert.ok(left.includes(kept), "another experiment's metrics stay");
 });
+
+/** An fs where another window or app deletes files while remove() is running. */
+class RacyFs extends MemoryWorkspaceFs {
+  vanishOnWalk: string | null = null;
+  vanishOnRename: string | null = null;
+  lockedOnRename: string | null = null;
+  brokenWalk: string | null = null;
+  override async *walk(path: string): ReturnType<MemoryWorkspaceFs["walk"]> {
+    if (path === this.brokenWalk) throw new Error("EIO: walk failed");
+    if (path === this.vanishOnWalk) {
+      await this.remove(path, { recursive: true });
+      throw new Error("ENOENT: folder gone");
+    }
+    yield* super.walk(path);
+  }
+  override async rename(from: string, to: string): Promise<void> {
+    if (from === this.lockedOnRename) throw new Error("EACCES: locked");
+    if (from === this.vanishOnRename) {
+      await this.remove(from);
+      throw new DOMException("gone", "NotFoundError");
+    }
+    return super.rename(from, to);
+  }
+}
+
+async function racySetup() {
+  const fs = new RacyFs();
+  const repo = new FileExperimentRepository(fs, () => "thesis");
+  const e = run({ name: "Run A" });
+  await repo.save(e);
+  let file = "";
+  for await (const entry of fs.walk("thesis")) if (entry.kind === "file") file = entry.path;
+  const folder = file.replace(/\.md$/, "");
+  await fs.writeFile(`${folder}/metrics/main/b1.csv`, "run,step,metric,value\n");
+  await fs.writeFile(`${folder}/metrics/main/b2.csv`, "run,step,metric,value\n");
+  const files = async () => {
+    const out: string[] = [];
+    for await (const entry of fs.walk("")) if (entry.kind === "file") out.push(entry.path);
+    return out;
+  };
+  return { fs, repo, e, file, folder, files };
+}
+
+test("0.9.8: a metrics folder deleted during remove()'s walk still trashes the experiment", async () => {
+  const { fs, repo, e, file, folder, files } = await racySetup();
+  fs.vanishOnWalk = folder;
+  await repo.remove(e.id);
+  const left = await files();
+  assert.ok(!left.includes(file), "the .md left its folder");
+  assert.ok(left.some((p) => p.startsWith(".weaveforge/trash/") && p.endsWith(file)), left.join("\n"));
+});
+
+test("0.9.8: a walk that fails while the folder is still there is thrown, and nothing moves", async () => {
+  const { fs, repo, e, file, folder } = await racySetup();
+  fs.brokenWalk = folder;
+  await assert.rejects(repo.remove(e.id), /EIO/);
+  assert.ok(await fs.stat(file), "the .md stays");
+  assert.ok(await fs.stat(`${folder}/metrics/main/b1.csv`), "the metrics stay");
+});
+
+test("0.9.8: a metrics file deleted before its trash move is skipped; the rest is trashed", async () => {
+  const { fs, repo, e, file, folder, files } = await racySetup();
+  fs.vanishOnRename = `${folder}/metrics/main/b1.csv`;
+  await repo.remove(e.id);
+  const left = await files();
+  assert.ok(left.every((p) => p.startsWith(".weaveforge/trash/")), left.join("\n"));
+  assert.ok(left.some((p) => p.endsWith(file)), "the .md is in the trash");
+  assert.ok(left.some((p) => p.endsWith(`${folder}/metrics/main/b2.csv`)), "the other chunk is in the trash");
+});
+
+test("0.9.8: a trash move that fails on a file still there is not swallowed", async () => {
+  const { fs, repo, e, folder } = await racySetup();
+  fs.lockedOnRename = `${folder}/metrics/main/b1.csv`;
+  await assert.rejects(repo.remove(e.id), /EACCES/);
+  // The .md stays until its folder is trashed, so a retry still finds the experiment.
+  assert.ok(await repo.getById(e.id), "the experiment is still there to retry");
+  fs.lockedOnRename = null;
+  await repo.remove(e.id);
+  assert.equal(await repo.getById(e.id), null);
+  assert.equal(await fs.stat(`${folder}/metrics/main/b1.csv`), null);
+});
