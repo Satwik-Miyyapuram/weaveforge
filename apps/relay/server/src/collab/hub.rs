@@ -70,6 +70,11 @@ pub struct RoomInner {
     pub clients: usize,
     /// Set when a restore replaced this room: it takes no more updates (its log is the new room's).
     pub retired: bool,
+    /// Bytes of the doc's state held outside the log (the last save), so this plus the log's
+    /// length past `log_mark` bounds the doc's size without encoding it.
+    pub base_len: u64,
+    /// Log bytes the last saved snapshot already holds; the size cap does not count them twice.
+    pub log_mark: u64,
 }
 
 /// One open shared document, shared by every client that joined it.
@@ -256,6 +261,9 @@ pub async fn open_room(state: &CollabState, row: DocRow) -> Result<Arc<Room>, St
         log,
         clients: 0,
         retired: false,
+        base_len: u64::try_from(row.state.len()).unwrap_or(u64::MAX),
+        // A log left from before a restart may repeat the row's state; counting it all is safe.
+        log_mark: 0,
     };
     let room = Arc::new(Room {
         item_id,
@@ -271,12 +279,14 @@ pub async fn open_room(state: &CollabState, row: DocRow) -> Result<Arc<Room>, St
 pub async fn persist_room(state: &CollabState, room: &Room) -> Result<(), String> {
     // One save at a time per room: otherwise an older snapshot could be written after a newer one.
     let _saving = room.saving.lock().await;
-    let (bytes, epoch, version) = {
+    let (bytes, epoch, version, mark) = {
         let inner = room.inner.lock().await;
         if !inner.dirty {
             return Ok(());
         }
-        (encode_full(&inner.doc), inner.epoch, inner.version)
+        // Everything logged so far is in this snapshot.
+        let mark = inner.log.byte_len().map_err(|err| err.to_string())?;
+        (encode_full(&inner.doc), inner.epoch, inner.version, mark)
     };
     // The room lock is released during the store write, so clients keep sending updates.
     if let Err(err) = state.store.save_state(&room.item_id, epoch, &bytes).await {
@@ -290,11 +300,34 @@ pub async fn persist_room(state: &CollabState, room: &Room) -> Result<(), String
         return Err(err);
     }
     let mut inner = room.inner.lock().await;
+    // A restore during the save retired this room: its log file is now the new room's, so
+    // neither truncate nor rewrite it.
+    if inner.retired {
+        return Ok(());
+    }
+    let saved_len = u64::try_from(bytes.len()).unwrap_or(u64::MAX);
+    inner.base_len = saved_len;
+    inner.log_mark = mark;
     // Updates that arrived during the save are not in `bytes`: keep their log and the dirty flag.
     if inner.version != version {
+        // A room that never goes quiet would grow its log forever. Once the log is twice the
+        // saved state, rewrite it as one record of the whole doc (replaying it is idempotent).
+        // Twice, not once: right after a rewrite the log is about the doc's size already.
+        let log_len = inner.log.byte_len().map_err(|err| err.to_string())?;
+        if log_len > saved_len.saturating_mul(2) {
+            let full = encode_full(&inner.doc);
+            inner
+                .log
+                .replace_with(&full)
+                .map_err(|err| err.to_string())?;
+            // The log now holds the whole doc by itself.
+            inner.base_len = 0;
+            inner.log_mark = 0;
+        }
         return Ok(());
     }
     inner.log.truncate().map_err(|err| err.to_string())?;
+    inner.log_mark = 0;
     inner.dirty = false;
     Ok(())
 }

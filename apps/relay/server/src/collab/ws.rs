@@ -33,6 +33,24 @@ const SYNC_STEP1_BURST: i64 = 3;
 const RESYNC_BURST: i64 = 1;
 /// How often a held-back resync or SyncStep1 reply is retried.
 const RETRY_EVERY: Duration = Duration::from_millis(250);
+/// How often the server pings a client, so a silent dead peer is noticed.
+const PING_EVERY: Duration = Duration::from_secs(30);
+/// A client heard from for this long (no frame, not even a pong) is dropped.
+const IDLE_LIMIT: Duration = Duration::from_secs(90);
+/// Largest document a room grows to; an update past it is refused.
+const MAX_DOC_BYTES: u64 = 64 * 1024 * 1024;
+
+/// Whether a client silent for `silent` should be dropped.
+fn idle_too_long(silent: Duration) -> bool {
+    silent >= IDLE_LIMIT
+}
+
+/// Whether an `update` of this many bytes would grow a doc of `base` saved bytes plus `log`
+/// logged bytes past the cap.
+fn doc_too_large(base: u64, log: u64, update: usize) -> bool {
+    let update = u64::try_from(update).unwrap_or(u64::MAX);
+    base.saturating_add(log).saturating_add(update) > MAX_DOC_BYTES
+}
 
 /// What the socket loop woke up for.
 enum Next {
@@ -44,6 +62,8 @@ enum Next {
     GrantCheck,
     /// The retry timer fired: a held-back resync or SyncStep1 reply may be due now.
     Retry,
+    /// The ping timer fired: drop a client gone silent, else ping it.
+    Ping,
 }
 
 /// One connected client's view of the document.
@@ -320,15 +340,22 @@ async fn pump(
     let mut retry_timer = tokio::time::interval(RETRY_EVERY);
     retry_timer.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
     let _ = retry_timer.tick().await;
+    // Real time, not the state clock: a dead peer that never closes its TCP side would
+    // otherwise hold its room slot (and the room) open forever.
+    let mut ping_timer = tokio::time::interval(PING_EVERY);
+    let _ = ping_timer.tick().await;
+    let mut last_heard = tokio::time::Instant::now();
     loop {
         let next = tokio::select! {
             frame = socket.recv() => Next::Frame(frame),
             event = rx.recv() => Next::Event(event),
             _ = grant_timer.tick() => Next::GrantCheck,
             _ = retry_timer.tick(), if client.retry_needed() => Next::Retry,
+            _ = ping_timer.tick() => Next::Ping,
         };
         let keep_going = match next {
             Next::Frame(Some(Ok(message))) => {
+                last_heard = tokio::time::Instant::now();
                 on_message(state, room, client, socket, message).await
             }
             Next::Frame(_) => false,
@@ -349,6 +376,10 @@ async fn pump(
             Next::Event(Err(broadcast::error::RecvError::Closed)) => false,
             Next::GrantCheck => recheck(state, room, client, socket).await,
             Next::Retry => flush_deferred(state, room, client, socket).await,
+            Next::Ping => {
+                !idle_too_long(last_heard.elapsed())
+                    && send(socket, Message::Ping(Vec::<u8>::new().into())).await
+            }
         };
         if !keep_going {
             break;
@@ -516,6 +547,15 @@ fn apply_locked(inner: &mut RoomInner, update: &[u8]) -> Result<(), &'static str
     }
     if inner.status == DocStatus::Closing {
         return Err("closing");
+    }
+    // An unreadable log length refuses the update, so the cap still holds.
+    let log_len = inner.log.byte_len().map_err(|err| {
+        eprintln!("collab log length: {err}");
+        "log-unreadable"
+    })?;
+    let unsaved = log_len.saturating_sub(inner.log_mark);
+    if doc_too_large(inner.base_len, unsaved, update.len()) {
+        return Err("too-large");
     }
     let decoded = Update::decode_v1(update).map_err(|_| "bad-update")?;
     // Applied before logging, so a record that cannot apply never reaches the log
@@ -737,6 +777,25 @@ mod budget_tests {
 
     fn client_at(now: i64) -> Client {
         Client::new(1, "tester".into(), Permission::Edit, 1, 1, now)
+    }
+
+    #[test]
+    fn a_client_is_dropped_only_after_the_idle_limit() {
+        assert!(!idle_too_long(Duration::ZERO));
+        assert!(!idle_too_long(IDLE_LIMIT - Duration::from_millis(1)));
+        assert!(idle_too_long(IDLE_LIMIT));
+        // Pings go out well before the limit, so a live client always answers in time.
+        assert!(PING_EVERY * 2 < IDLE_LIMIT);
+    }
+
+    #[test]
+    fn doc_cap_counts_saved_state_log_and_update() {
+        assert!(!doc_too_large(0, 0, 10));
+        assert!(!doc_too_large(MAX_DOC_BYTES - 10, 0, 10));
+        assert!(doc_too_large(MAX_DOC_BYTES - 10, 0, 11));
+        assert!(doc_too_large(MAX_DOC_BYTES / 2, MAX_DOC_BYTES / 2, 1));
+        // Huge inputs saturate instead of wrapping round to "small".
+        assert!(doc_too_large(u64::MAX, u64::MAX, usize::MAX));
     }
 
     #[test]

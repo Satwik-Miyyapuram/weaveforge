@@ -1396,6 +1396,177 @@ async fn room_lock_is_free_while_a_save_is_in_flight() {
     assert!(acquired, "room lock was held across the store save");
 }
 
+/// Updates that keep arriving during every save must not grow the log without bound: once the
+/// log outgrows the saved state, it is rewritten as one record holding the whole document.
+#[tokio::test]
+async fn a_busy_room_compacts_its_log_after_a_save() {
+    let dir = TempDir::new("compact");
+    let mem = Arc::new(MemoryStore::new());
+    seed(&mem, ITEM, Vec::new()).await;
+    let entered = Arc::new(tokio::sync::Notify::new());
+    let release = Arc::new(tokio::sync::Notify::new());
+    let store = Arc::new(GatedSave {
+        inner: mem.clone(),
+        entered: entered.clone(),
+        release: release.clone(),
+    });
+    let state = build_state(
+        dir.path(),
+        store,
+        Duration::from_secs(3600),
+        GRANT_CHECK_IDLE,
+        Arc::new(AtomicI64::new(START_MS)),
+    );
+    let row = mem.load(ITEM).await.expect("load").expect("row");
+    let room = hub::open_room(&state, row).await.expect("open room");
+    room.inner.lock().await.dirty = true;
+    let saver = {
+        let state = state.clone();
+        let room = room.clone();
+        tokio::spawn(async move { hub::persist_room(&state, &room).await })
+    };
+    tokio::time::timeout(RECV, entered.notified())
+        .await
+        .expect("save started");
+    {
+        // Updates land while the (empty) snapshot is being written.
+        let mut inner = room.inner.lock().await;
+        for _ in 0..20 {
+            let update = text_update("hello");
+            let decoded = Update::decode_v1(&update).expect("decode");
+            inner
+                .doc
+                .transact_mut()
+                .apply_update(decoded)
+                .expect("apply");
+            inner.log.append(&update).expect("append");
+            inner.version = inner.version.wrapping_add(1);
+        }
+    }
+    release.notify_one();
+    saver.await.expect("saver joins").expect("persist succeeds");
+    let inner = room.inner.lock().await;
+    let records = inner.log.read_all().expect("read log");
+    assert_eq!(records.len(), 1, "log was not compacted");
+    let full = inner
+        .doc
+        .transact()
+        .encode_state_as_update_v1(&StateVector::default());
+    assert_eq!(text_of(&records[0]), text_of(&full));
+    assert!(inner.dirty, "the unsaved updates must still be saved later");
+    // The log alone now holds the doc, so the size cap counts only the log.
+    assert_eq!(inner.base_len, 0);
+    assert_eq!(inner.log_mark, 0);
+}
+
+/// Applies `update` to the room's doc and log, as an accepted client update does.
+async fn apply_and_log(room: &hub::Room, update: &[u8]) {
+    let mut inner = room.inner.lock().await;
+    let decoded = Update::decode_v1(update).expect("decode");
+    inner
+        .doc
+        .transact_mut()
+        .apply_update(decoded)
+        .expect("apply");
+    inner.log.append(update).expect("append");
+    inner.version = inner.version.wrapping_add(1);
+    inner.dirty = true;
+}
+
+/// A save during edits records how much of the log its snapshot already holds, so the size cap
+/// counts saved state plus only the log bytes written after the snapshot.
+#[tokio::test]
+async fn a_busy_save_marks_the_log_bytes_it_already_holds() {
+    let dir = TempDir::new("log-mark");
+    let mem = Arc::new(MemoryStore::new());
+    seed(&mem, ITEM, text_update(&"x".repeat(4096))).await;
+    let entered = Arc::new(tokio::sync::Notify::new());
+    let release = Arc::new(tokio::sync::Notify::new());
+    let store = Arc::new(GatedSave {
+        inner: mem.clone(),
+        entered: entered.clone(),
+        release: release.clone(),
+    });
+    let state = build_state(
+        dir.path(),
+        store,
+        Duration::from_secs(3600),
+        GRANT_CHECK_IDLE,
+        Arc::new(AtomicI64::new(START_MS)),
+    );
+    let row = mem.load(ITEM).await.expect("load").expect("row");
+    let room = hub::open_room(&state, row).await.expect("open room");
+    apply_and_log(&room, &text_update("a")).await;
+    let mark = room.inner.lock().await.log.byte_len().expect("log length");
+    let saver = {
+        let state = state.clone();
+        let room = room.clone();
+        tokio::spawn(async move { hub::persist_room(&state, &room).await })
+    };
+    tokio::time::timeout(RECV, entered.notified())
+        .await
+        .expect("save started");
+    apply_and_log(&room, &text_update("b")).await;
+    release.notify_one();
+    saver.await.expect("saver joins").expect("persist succeeds");
+    let inner = room.inner.lock().await;
+    let records = inner.log.read_all().expect("read log");
+    assert_eq!(
+        records.len(),
+        2,
+        "a log under twice the saved state is left as is"
+    );
+    assert_eq!(inner.log_mark, mark);
+    assert!(
+        inner.base_len > 4096,
+        "base_len is the saved state's length"
+    );
+}
+
+/// A restore that retires the room during a save hands its log file to the new room: the
+/// finishing save must not empty it.
+#[tokio::test]
+async fn a_save_that_finishes_after_retirement_keeps_the_log() {
+    let dir = TempDir::new("retired-save");
+    let mem = Arc::new(MemoryStore::new());
+    seed(&mem, ITEM, Vec::new()).await;
+    let entered = Arc::new(tokio::sync::Notify::new());
+    let release = Arc::new(tokio::sync::Notify::new());
+    let store = Arc::new(GatedSave {
+        inner: mem.clone(),
+        entered: entered.clone(),
+        release: release.clone(),
+    });
+    let state = build_state(
+        dir.path(),
+        store,
+        Duration::from_secs(3600),
+        GRANT_CHECK_IDLE,
+        Arc::new(AtomicI64::new(START_MS)),
+    );
+    let row = mem.load(ITEM).await.expect("load").expect("row");
+    let room = hub::open_room(&state, row).await.expect("open room");
+    room.inner.lock().await.dirty = true;
+    let saver = {
+        let state = state.clone();
+        let room = room.clone();
+        tokio::spawn(async move { hub::persist_room(&state, &room).await })
+    };
+    tokio::time::timeout(RECV, entered.notified())
+        .await
+        .expect("save started");
+    {
+        // Stands in for the restore: the room retires and the next room logs an update.
+        let mut inner = room.inner.lock().await;
+        inner.retired = true;
+        inner.log.append(&text_update("next")).expect("append");
+    }
+    release.notify_one();
+    saver.await.expect("saver joins").expect("persist succeeds");
+    let records = room.inner.lock().await.log.read_all().expect("read log");
+    assert_eq!(records.len(), 1, "the new room's log was emptied");
+}
+
 /// Delegates to a `MemoryStore`; while `gate` is set, `access` announces itself on `entered`
 /// and waits for `release`.
 struct GatedAccess {
