@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/button";
 import { Modal, ModalActions } from "@/components/modal";
 import { InstallIdLocksUnavailableError } from "@/container/browser-install-id";
+import type { ArchivedOnly } from "@/features/migration-097/domain/report";
 import { desktop } from "./desktop-bridge";
 import type { Migrate097Progress, Migrate097StateName } from "./desktop-bridge";
 
@@ -32,6 +33,8 @@ export type ExportReply = {
   undecryptable?: number;
   /** The refusal was unsent sync outbox ops: sync pending changes first. */
   pendingSync?: boolean;
+  /** Rows whose files-first write failed; they are kept in the archive only. Non-blocking. */
+  archivedOnly?: ArchivedOnly[];
 };
 
 /** The exporter: runs the move and reports its state. Injected; WEB-EXPORT supplies it. */
@@ -83,6 +86,8 @@ export type UpgradeBodyProps = {
   undecryptable?: number;
   /** Web: the run stopped because unsent sync changes remain. */
   pendingSync?: boolean;
+  /** Rows kept in the archive only (their files-first write failed); listed in both end views. */
+  archivedOnly?: ArchivedOnly[];
   copied: boolean;
   onCopy: () => void;
   onRetry: () => void;
@@ -103,6 +108,7 @@ export function Migrate097UpgradeBody({
   reconnectProviders = [],
   undecryptable = 0,
   pendingSync = false,
+  archivedOnly = [],
   copied,
   onCopy,
   onRetry,
@@ -111,6 +117,16 @@ export function Migrate097UpgradeBody({
   onContinue,
 }: UpgradeBodyProps) {
   const kinds = Object.entries(progress);
+  // A count per kind, bounded however many rows failed; report.json in the report folder lists each row.
+  const archiveCounts = new Map<string, number>();
+  for (const r of archivedOnly) archiveCounts.set(r.kind, (archiveCounts.get(r.kind) ?? 0) + 1);
+  const archiveLine =
+    archivedOnly.length > 0 ? (
+      <p>
+        {`Kept in the archive only: ${[...archiveCounts].map(([kind, n]) => `${n} ${kind}`).join(", ")}. The list is in the report in `}
+        <code style={{ userSelect: "text", WebkitUserSelect: "text" }}>{reportFolder}</code>.
+      </p>
+    ) : null;
   if (phase === "idle") {
     return (
       <div>
@@ -128,6 +144,7 @@ export function Migrate097UpgradeBody({
       <div>
         <p>The upgrade finished. Your data is now in files.</p>
         {reconnectProviders.length > 0 ? <p>{`Reconnect ${reconnectProviders.join(", ")} to restore its sync.`}</p> : null}
+        {archiveLine}
         <ModalActions>
           <Button variant="primary" onClick={onContinue}>
             Continue
@@ -159,6 +176,7 @@ export function Migrate097UpgradeBody({
       {missing.length > 0 ? <p>{`Not moved yet: ${missing.join(", ")}.`}</p> : null}
       {pendingSync ? <p>Sync pending changes first, then try again.</p> : null}
       {reconnectProviders.length > 0 ? <p>{`Reconnect ${reconnectProviders.join(", ")} to finish the upgrade.`}</p> : null}
+      {archiveLine}
       {undecryptable > 0 ? (
         <p>{`${undecryptable} items cannot be read here. Open the desktop app to export these ${undecryptable} items.`}</p>
       ) : null}
@@ -262,6 +280,7 @@ export function Migrate097Upgrade({
       reconnectProviders={reply.reconnectProviders}
       undecryptable={reply.undecryptable}
       pendingSync={reply.pendingSync}
+      archivedOnly={reply.archivedOnly}
       copied={copied}
       onCopy={copyPath}
       onRetry={() => void run()}

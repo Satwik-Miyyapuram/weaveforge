@@ -8,6 +8,7 @@ import {
   type MigrationTarget,
   type MissingRow,
   type RunReport,
+  type ArchivedOnly,
 } from "../domain/report";
 import type { FileCodec, FileSink, Row, ServerSource } from "../domain/ports";
 import type { KindWriter } from "../domain/kind-writer";
@@ -60,7 +61,14 @@ export type ExportOptions = {
 export const OUTBOX_NOT_EMPTY_REASON = "outbox not empty: flush before export";
 
 /** `reconnectProviders` names the services whose secret stayed on the server (never the secret itself). `undecryptable` is always 0 on the web: content_enc was dropped by 0099. */
-export type ExportResult = { state: MigrationState; run: RunReport; reconnectProviders: string[]; undecryptable: number };
+export type ExportResult = {
+  state: MigrationState;
+  run: RunReport;
+  reconnectProviders: string[];
+  undecryptable: number;
+  /** Rows kept in the archive only (their files-first write failed); shown to the user, never blocking. */
+  archivedOnly: ArchivedOnly[];
+};
 
 /** The desktop shell's part of the 0.9.7 contract: a pre-migration dump, then a mark. */
 export type DesktopMigration = {
@@ -148,7 +156,7 @@ async function refused(
     backup: extra.backup ?? null,
   };
   await writeReport(sink, { version: 1, state: "incomplete", backup: extra.backup ?? null, deviceId: extra.deviceId, target, runs: [run] });
-  return { state: "incomplete", run, reconnectProviders: [], undecryptable: 0 };
+  return { state: "incomplete", run, reconnectProviders: [], undecryptable: 0, archivedOnly: [] };
 }
 
 /**
@@ -319,7 +327,7 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
       backup: dumpName,
     };
     await writeReport(sink, { version: 1, state: "incomplete", backup: dumpName, deviceId, target, runs: [run] });
-    return { state: "incomplete", run, reconnectProviders: [], undecryptable: 0 };
+    return { state: "incomplete", run, reconnectProviders: [], undecryptable: 0, archivedOnly: [] };
   }
   if (pending > 0) {
     return refused(sink, now, OUTBOX_NOT_EMPTY_REASON, target, { backup: dumpName, deviceId });
@@ -548,6 +556,7 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
   const hasConflicts = store.conflicts.length > 0 || Object.values(conflicts).some((paths) => paths.length > 0);
   let state: MigrationState = missing.length === 0 && verdict.state === "verified" && !hasConflicts ? "verified" : "incomplete";
   const finishedAt = new Date().toISOString();
+  const archivedOnly = writers.flatMap((w) => w.archivedOnly?.() ?? []);
   const persist = async (): Promise<RunReport> => {
     const run: RunReport = {
       startedAt: now,
@@ -563,6 +572,7 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
       conflicts: store.conflicts,
       orphans: orphans.length > 0 ? orphans : undefined,
       outputs,
+      archivedOnly: archivedOnly.length > 0 ? archivedOnly : undefined,
     };
     const report: MigrationReport = {
       version: 1,
@@ -615,6 +625,6 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
     if (marked) state = "verified";
   }
   const run = await persist();
-  return { state, run, reconnectProviders, undecryptable };
+  return { state, run, reconnectProviders, undecryptable, archivedOnly };
 }
 

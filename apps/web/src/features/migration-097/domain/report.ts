@@ -73,7 +73,12 @@ export type RunReport = {
   orphans?: string[];
   /** Every path this run wrote, reused or kept, with the sha256 of its content. The next run of this device reads it. */
   outputs?: Record<string, string>;
+  /** Rows whose files-first write failed: they are kept in the archive only. Non-blocking; reasons are fixed codes. */
+  archivedOnly?: ArchivedOnly[];
 };
+
+/** A row kept in the archive only, because its files-first write failed. `reason` is a fixed code, never error text. */
+export type ArchivedOnly = { kind: string; id: string; reason: "conflict" | "write failed" };
 
 export type MigrationReport = {
   version: 1;
