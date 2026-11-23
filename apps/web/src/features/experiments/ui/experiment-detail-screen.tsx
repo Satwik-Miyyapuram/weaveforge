@@ -123,7 +123,7 @@ export function ExperimentDetailScreen({ id: idProp }: { id?: string }) {
   async function saveResult() {
     if (!exp || resultDraft === null) return;
     try {
-      setExp(await getContainer().experiments.manageExperiment.setResultNote(exp.id, resultDraft));
+      setExp(await getContainer().experiments.manageExperiment.setResultNote(exp.id, resultDraft, exp.resultNote ?? ""));
       setResultDraft(null);
       setResultError(null);
     } catch (err) {

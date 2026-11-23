@@ -118,3 +118,44 @@ test("reads a hand-written Obsidian log file", async () => {
   assert.equal(got?.body, "Wrote by hand.");
   assert.equal(got?.entryDate, "2026-03-04");
 });
+
+/** Rewrites the file holding `from` as another app would; returns its path. */
+async function editOutside(fs: MemoryWorkspaceFs, from: string, to: string): Promise<string> {
+  for await (const e of fs.walk("")) {
+    if (e.kind !== "file") continue;
+    const text = await fs.readText(e.path);
+    if (text.includes(from)) {
+      await fs.writeFile(e.path, text.replace(from, to));
+      return e.path;
+    }
+  }
+  throw new Error(`no file holds ${from}`);
+}
+
+/** The texts of every file except `path`. */
+async function othersThan(fs: MemoryWorkspaceFs, path: string): Promise<string[]> {
+  const out: string[] = [];
+  for await (const e of fs.walk("")) if (e.kind === "file" && e.path !== path) out.push(await fs.readText(e.path));
+  return out;
+}
+test("update from a stale base keeps the outside edit and puts mine in a conflict copy", async () => {
+  const { fs, repo } = setup();
+  const e = entry({ body: "first words" });
+  await repo.save(e);
+  const path = await editOutside(fs, "first words", "their words");
+  await assert.rejects(
+    repo.update(e.id, { body: "my words", kind: "daily" }, "first words"),
+    (err: Error) => err.name === "ConflictError",
+  );
+  assert.equal((await repo.getById(e.id))?.body, "their words");
+  assert.ok((await othersThan(fs, path)).some((t) => t.includes("my words")), "mine is kept in a copy");
+});
+
+test("update twice, each based on what the last one wrote, both go through", async () => {
+  const { repo } = setup();
+  const e = entry({ body: "a" });
+  await repo.save(e);
+  const one = await repo.update(e.id, { body: "b", kind: "daily" }, "a");
+  await repo.update(e.id, { body: "c", kind: "daily" }, one.body);
+  assert.equal((await repo.getById(e.id))?.body, "c");
+});

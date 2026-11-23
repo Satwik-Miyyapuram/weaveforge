@@ -92,6 +92,133 @@ test("a save never overwrites a file changed on disk since it was read", async (
   await assert.rejects(store.save(row({ status: "done" })), /changed on disk/);
 });
 
+test("a save from a stale row keeps the outside edit and puts the row in a conflict copy", async () => {
+  const { fs, store } = setup();
+  await store.save(row());
+  const loaded = await store.get(row().id);
+  assert.ok(loaded);
+  const [path] = await files(fs);
+  assert.ok(path);
+  // Another app edits the file after this store handed the row out.
+  const theirs = (await fs.readText(path)).replace('status: "planned"', 'status: "running"');
+  assert.notEqual(theirs, await fs.readText(path));
+  await fs.writeFile(path, theirs);
+  const warn = console.warn;
+  const warned: unknown[] = [];
+  console.warn = (...args: unknown[]) => void warned.push(args);
+  try {
+    await assert.rejects(store.save({ ...loaded, name: "Mine" }), (e: Error) => e.name === "ConflictError");
+    assert.equal(await fs.readText(path), theirs, "the outside edit is kept");
+    const all = await files(fs);
+    assert.equal(all.length, 2, all.join());
+    const copy = all.find((p) => p !== path)!;
+    assert.match(copy, /\.experiment \(conflict\)\.md$/);
+    const copyText = await fs.readText(copy);
+    assert.match(copyText, /Mine/);
+    assert.doesNotMatch(copyText, /^weaveforge-id:/m, "the copy never repeats the id");
+    // The store still lists the one row, from the outside edit.
+    assert.deepEqual((await store.all()).map((r) => r.status), ["running"]);
+  } finally {
+    console.warn = warn;
+  }
+  assert.equal(warned.length, 0, "the conflict copy is not reported as a bad file");
+});
+
+test("after a conflict, a save without a fresh read still refuses; a fresh read lets it through (one copy)", async () => {
+  const { fs, store } = setup();
+  await store.save(row());
+  const [path] = await files(fs);
+  assert.ok(path);
+  await fs.writeFile(path, (await fs.readText(path)).replace('status: "planned"', 'status: "running"'));
+  await assert.rejects(store.save(row({ name: "Mine" })), (e: Error) => e.name === "ConflictError");
+  await assert.rejects(store.save(row({ name: "Mine again" })), (e: Error) => e.name === "ConflictError");
+  assert.equal((await files(fs)).length, 2, "the refused saves share one copy");
+  const fresh = await store.get(row().id);
+  assert.ok(fresh);
+  await store.save({ ...fresh, name: "Mine" });
+  assert.equal((await store.get(row().id))?.name, "Mine");
+  assert.equal((await store.get(row().id))?.status, "running");
+});
+
+/** Saves the row, then changes its status on disk as another app would; returns the file's path and new text. */
+async function editedOutside(fs: MemoryWorkspaceFs, store: FileEntityStore<Row>): Promise<{ path: string; theirs: string }> {
+  await store.save(row());
+  const [path] = await files(fs);
+  assert.ok(path);
+  const theirs = (await fs.readText(path)).replace('status: "planned"', 'status: "running"');
+  await fs.writeFile(path, theirs);
+  return { path, theirs };
+}
+
+const isConflict = (e: Error) => e.name === "ConflictError";
+
+test("a stale save with its base conflicts even after an unrelated read refreshed the store", async () => {
+  const { fs, store } = setup();
+  await store.save(row());
+  const base = await store.get(row().id);
+  assert.ok(base);
+  const [path] = await files(fs);
+  const theirs = (await fs.readText(path!)).replace('status: "planned"', 'status: "running"');
+  await fs.writeFile(path!, theirs);
+  await store.all(); // another view lists the rows
+  await assert.rejects(store.save({ ...base, name: "Mine" }, base), isConflict);
+  assert.equal(await fs.readText(path!), theirs, "the outside edit is kept");
+  const all = await files(fs);
+  assert.equal(all.length, 2, all.join());
+  assert.match(await fs.readText(all.find((p) => p !== path)!), /Mine/);
+});
+
+test("a save whose base matches the file goes through and keeps the outside edit's other fields", async () => {
+  const { fs, store } = setup();
+  await editedOutside(fs, store);
+  const base = await store.get(row().id);
+  assert.ok(base);
+  await store.save({ ...base, name: "Mine" }, base);
+  const saved = await store.get(row().id);
+  assert.equal(saved?.name, "Mine");
+  assert.equal(saved?.status, "running");
+  assert.equal((await files(fs)).length, 1);
+});
+
+test("three retries of the same stale save leave exactly one conflict copy", async () => {
+  const { fs, store } = setup();
+  const { path, theirs } = await editedOutside(fs, store);
+  for (let n = 0; n < 3; n += 1) await assert.rejects(store.save(row({ name: "Mine" })), isConflict);
+  const all = await files(fs);
+  assert.equal(all.length, 2, all.join());
+  assert.equal(await fs.readText(path), theirs);
+});
+
+test("a retry with new content updates the one conflict copy", async () => {
+  const { fs, store } = setup();
+  const { path } = await editedOutside(fs, store);
+  await assert.rejects(store.save(row({ name: "Mine" })), isConflict);
+  await assert.rejects(store.save(row({ name: "Mine again" })), isConflict);
+  const all = await files(fs);
+  assert.equal(all.length, 2, all.join());
+  assert.match(await fs.readText(all.find((p) => p !== path)!), /Mine again/);
+});
+
+test("a conflict copy edited since it was written is kept; a retry writes a new copy", async () => {
+  const { fs, store } = setup();
+  const { path } = await editedOutside(fs, store);
+  await assert.rejects(store.save(row({ name: "Mine" })), isConflict);
+  const copy = (await files(fs)).find((p) => p !== path)!;
+  const edited = `${await fs.readText(copy)}\nmy notes\n`;
+  await fs.writeFile(copy, edited);
+  await assert.rejects(store.save(row({ name: "Mine again" })), isConflict);
+  assert.equal(await fs.readText(copy), edited, "the edited copy is untouched");
+  assert.equal((await files(fs)).length, 3);
+});
+
+test("two saves in a row from one store need no read in between", async () => {
+  const { store } = setup();
+  await store.save(row());
+  await store.save(row({ status: "running" }));
+  await store.save(row({ status: "done" }));
+  assert.equal((await store.get(row().id))?.status, "done");
+});
+
 test("a filesystem without conditional writes refuses to save", async () => {
   const fs = new MemoryWorkspaceFs();
   (fs as { writeTextIf?: unknown }).writeTextIf = undefined;
@@ -263,4 +390,106 @@ test("a log entry whose codec path is taken gets a numbered name that keeps its 
   assert.equal(await fs.readText(base), "# a hand-made note at that path\n");
   assert.ok(await fs.stat(numbered), `expected ${numbered}`);
   assert.deepEqual(await store.get("logid01"), { id: "logid01", entryDate: "2026-06-24", body: "" });
+});
+
+// REVIEW-B P1/P2: the caller's base (`seen`), conflict copies per base, and saves of one id in a queue.
+
+test("two quick saves, each based on the row the last one wrote, both go through", async () => {
+  const { store } = setup();
+  const first = row();
+  await store.save(first);
+  const second = { ...first, name: "One" };
+  await store.save(second, first);
+  await store.save({ ...second, name: "Two" }, second);
+  assert.equal((await store.get(first.id))?.name, "Two");
+});
+
+test("a base that differs from the file only by codec normalisation is not a conflict", async () => {
+  const { store } = setup();
+  const saved = row({ resultNote: "a\nb" });
+  await store.save(saved);
+  // CRLF, a null field and a key the kind does not own all normalise away in the codec.
+  const base = { ...saved, resultNote: "a\r\nb", relatedPaper: null, extra: 1 } as unknown as Row;
+  await store.save({ ...saved, name: "Mine" }, base);
+  assert.equal((await store.get(saved.id))?.name, "Mine");
+});
+
+test("a partial base conflicts only when one of its own fields changed outside", async () => {
+  const { fs, store } = setup();
+  const { path, theirs } = await editedOutside(fs, store); // status planned -> running
+  const current = await store.get(row().id);
+  assert.ok(current);
+  await store.save({ ...current, resultNote: "mine" }, { resultNote: undefined });
+  assert.equal((await store.get(row().id))?.resultNote, "mine");
+  await assert.rejects(store.save({ ...current, status: "done" }, { status: "planned" }), isConflict);
+  assert.match(await fs.readText(path), /status: "running"/);
+  assert.notEqual(theirs, "");
+});
+
+test("two different stale bases keep two conflict copies", async () => {
+  const { fs, store } = setup();
+  await store.save(row());
+  const [path] = await files(fs);
+  assert.ok(path);
+  const first = await store.get(row().id);
+  assert.ok(first);
+  await fs.writeFile(path, (await fs.readText(path)).replace('status: "planned"', 'status: "running"'));
+  await assert.rejects(store.save({ ...first, name: "Mine 1" }, first), isConflict);
+  const second = await store.get(row().id);
+  assert.ok(second);
+  await fs.writeFile(path, (await fs.readText(path)).replace('status: "running"', 'status: "done"'));
+  await assert.rejects(store.save({ ...second, name: "Mine 2" }, second), isConflict);
+  const copies = (await files(fs)).filter((p) => p !== path);
+  assert.equal(copies.length, 2, copies.join());
+  const texts = await Promise.all(copies.map((p) => fs.readText(p)));
+  assert.ok(texts.some((t) => t.includes("Mine 1")), "the first copy is kept");
+  assert.ok(texts.some((t) => t.includes("Mine 2")), "the second copy is kept");
+});
+
+test("concurrent saves of one id from one store both land; the last one wins", async () => {
+  const { store } = setup();
+  await store.save(row());
+  await Promise.all([store.save(row({ name: "A" })), store.save(row({ name: "B" }))]);
+  assert.equal((await store.get(row().id))?.name, "B");
+});
+
+test("concurrent saves from the same base: the second is kept in a conflict copy", async () => {
+  const { fs, store } = setup();
+  const base = row();
+  await store.save(base);
+  const [path] = await files(fs);
+  assert.ok(path);
+  const [a, b] = await Promise.allSettled([
+    store.save({ ...base, name: "A" }, base),
+    store.save({ ...base, name: "B" }, base),
+  ]);
+  assert.equal(a.status, "fulfilled");
+  assert.equal(b.status, "rejected");
+  assert.ok(isConflict((b as PromiseRejectedResult).reason as Error));
+  assert.equal((await store.get(base.id))?.name, "A");
+  const copy = (await files(fs)).find((p) => p !== path);
+  assert.ok(copy, "B is kept in a copy");
+  assert.match(await fs.readText(copy), /title: "B"/);
+});
+
+test("a save that loses a race to an outside edit keeps both: theirs in the file, mine in a copy", async () => {
+  const { fs, store } = setup();
+  await store.save(row());
+  const [path] = await files(fs);
+  assert.ok(path);
+  const theirs = (await fs.readText(path)).replace('status: "planned"', 'status: "running"');
+  const original = fs.writeTextIf!.bind(fs);
+  let raced = false;
+  fs.writeTextIf = async (p, text, expected) => {
+    if (p === path && !raced) {
+      raced = true;
+      await fs.writeFile(p, theirs);
+    }
+    return original(p, text, expected);
+  };
+  await assert.rejects(store.save(row({ name: "Mine" })), isConflict);
+  assert.equal(await fs.readText(path), theirs, "the outside edit is kept");
+  const copy = (await files(fs)).find((p) => p !== path);
+  assert.ok(copy, "mine is kept in a copy");
+  assert.match(await fs.readText(copy), /Mine/);
 });
