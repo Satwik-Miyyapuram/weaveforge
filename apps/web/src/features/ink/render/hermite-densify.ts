@@ -9,12 +9,13 @@
  * with straight lines, so drawn as stored they show chords and corners. A raw
  * stroke, whose samples are closer than HERMITE_MIN_SPAN, is returned as it was.
  *
- * A stored point where the stroke turns by more than CORNER_DEGREES is a corner:
- * the curve leaves and enters it along the chords on each side, so an N, z or M
- * keeps its points instead of swinging round them, and the point is flagged so
- * the smoothing that follows leaves it in place.
+ * A stored point where the stroke turns by more than CORNER_DEGREES, next to a
+ * span that is filled, is a corner: the curve leaves and enters it along the
+ * chords on each side, so an N, z or M keeps its points instead of swinging round
+ * them, and the point is flagged so the smoothing that follows leaves it in place.
+ * This matches curve.rs except at corners; curve.rs takes the rule in 0.9.8.
  */
-import { CORNER_DEGREES } from "./corner-smoothing";
+import { CORNER_DEGREES, turnDegrees } from "./corner-smoothing";
 
 /**
  * The longest span, in 0.1 mm, drawn as stored. A pen samples closer than this
@@ -29,8 +30,8 @@ export const HERMITE_MAX_PIECES = 32;
 type Side = "in" | "out";
 
 /**
- * `curve.rs`'s `ink_tangent_at`: Catmull-Rom's direction, the span's length.
- * At a corner, the chord on `side` alone.
+ * `curve.rs`'s `ink_tangent_at` except at corners: Catmull-Rom's direction, the
+ * span's length. At a corner, the chord on `side` alone (curve.rs: not yet).
  */
 function tangentAt(points: readonly number[][], i: number, side: Side, corner: boolean): [number, number] {
   const [x, y] = points[i]!;
@@ -54,31 +55,41 @@ function tangentAt(points: readonly number[][], i: number, side: Side, corner: b
   return [(sx / sl) * magnitude, (sy / sl) * magnitude];
 }
 
-/** The turn, in degrees, of the stroke at each stored point; 0 at the ends. */
-function storedTurns(points: readonly number[][]): number[] {
-  return points.map((q, i) => {
-    const p = points[i - 1];
-    const r = points[i + 1];
-    if (!p || !r) return 0;
-    const ax = q[0]! - p[0]!;
-    const ay = q[1]! - p[1]!;
-    const bx = r[0]! - q[0]!;
-    const by = r[1]! - q[1]!;
-    const lengths = Math.hypot(ax, ay) * Math.hypot(bx, by);
-    if (!(lengths > 0)) return 0;
-    return (Math.acos(Math.max(-1, Math.min(1, (ax * bx + ay * by) / lengths))) * 180) / Math.PI;
-  });
-}
-
 /**
  * True at each stored point that is a corner: it turns by more than
- * CORNER_DEGREES, and by at least twice as much as either neighbour. A packed
- * curve turns at every stored point (a 1 mm loop by up to 98 degrees, measured), a
- * corner turns alone.
+ * CORNER_DEGREES, by at least twice as much as either neighbour that does not
+ * turn sharply the other way, and a span next to it is filled.
+ *
+ * - A packed curve turns at every stored point, all the same way (a 1 mm loop by
+ *   up to 98 degrees, measured); a corner turns alone.
+ * - Side-by-side sharp vertices that turn opposite ways across a filled span (a
+ *   sparse Z, M or W) are all corners; across a short span (the 0.1 mm grid's
+ *   wobble on a packed curve) they are not.
+ * - A pen-rate shake has no filled span, so it is smoothed, never pinned.
  */
 function storedCorners(points: readonly number[][]): boolean[] {
-  const turns = storedTurns(points);
-  return turns.map((t, i) => t > CORNER_DEGREES && t >= 2 * Math.max(turns[i - 1] ?? 0, turns[i + 1] ?? 0));
+  const n = points.length;
+  const turns = points.map((q, i) => (i > 0 && i + 1 < n ? turnDegrees(points[i - 1]!, q, points[i + 1]!) : 0));
+  const sides = points.map((q, i) => (i > 0 && i + 1 < n ? turnSide(points[i - 1]!, q, points[i + 1]!) : 0));
+  const span = (i: number) =>
+    i >= 0 && i + 1 < n ? Math.hypot(points[i + 1]![0]! - points[i]![0]!, points[i + 1]![1]! - points[i]![1]!) : 0;
+  // A neighbour that turns sharply the other way, a filled span off, is the
+  // next vertex of a zig-zag, not part of the same bend.
+  const rival = (i: number, j: number) => {
+    const t = turns[j] ?? 0;
+    return t > CORNER_DEGREES && sides[j] === -sides[i]! && span(Math.min(i, j)) > HERMITE_MIN_SPAN ? 0 : t;
+  };
+  return turns.map(
+    (t, i) =>
+      t > CORNER_DEGREES &&
+      t >= 2 * Math.max(rival(i, i - 1), rival(i, i + 1)) &&
+      Math.max(span(i - 1), span(i)) > HERMITE_MIN_SPAN,
+  );
+}
+
+/** Which way p→q→r turns: 1, -1, or 0 for straight. */
+function turnSide(p: readonly number[], q: readonly number[], r: readonly number[]): number {
+  return Math.sign((q[0]! - p[0]!) * (r[1]! - q[1]!) - (q[1]! - p[1]!) * (r[0]! - q[0]!));
 }
 
 /**

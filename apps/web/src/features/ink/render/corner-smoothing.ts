@@ -37,21 +37,23 @@ export function smoothKeepingCorners(points: number[][], pinned?: readonly boole
   return current;
 }
 
+/** The turn, in degrees, from p→q to q→r; 0 when either is empty. */
+export function turnDegrees(p: readonly number[], q: readonly number[], r: readonly number[]): number {
+  const ax = q[0]! - p[0]!;
+  const ay = q[1]! - p[1]!;
+  const bx = r[0]! - q[0]!;
+  const by = r[1]! - q[1]!;
+  const lengths = Math.hypot(ax, ay) * Math.hypot(bx, by);
+  if (!(lengths > 0)) return 0;
+  return (Math.acos(Math.max(-1, Math.min(1, (ax * bx + ay * by) / lengths))) * 180) / Math.PI;
+}
+
 /** True at each point where the drawn path turns sharply. */
 function cornerMask(points: number[][]): boolean[] {
   const n = points.length;
-  const limit = Math.cos((CORNER_DEGREES * Math.PI) / 180);
   const mask = new Array<boolean>(n).fill(false);
   for (let i = CORNER_SPAN; i < n - CORNER_SPAN; i++) {
-    const p = points[i - CORNER_SPAN]!;
-    const q = points[i]!;
-    const r = points[i + CORNER_SPAN]!;
-    const ax = q[0]! - p[0]!;
-    const ay = q[1]! - p[1]!;
-    const bx = r[0]! - q[0]!;
-    const by = r[1]! - q[1]!;
-    const lengths = Math.hypot(ax, ay) * Math.hypot(bx, by);
-    if (lengths > 0 && (ax * bx + ay * by) / lengths < limit) mask[i] = true;
+    if (turnDegrees(points[i - CORNER_SPAN]!, points[i]!, points[i + CORNER_SPAN]!) > CORNER_DEGREES) mask[i] = true;
   }
   return mask;
 }
