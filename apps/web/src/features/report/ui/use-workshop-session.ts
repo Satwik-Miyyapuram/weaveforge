@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { isLocalMode } from "@/features/auth/infrastructure/no-account-mode";
 import { authHeaders } from "@/lib/auth-headers";
 import { formatError } from "@/lib/format-error";
 import {
@@ -30,7 +31,23 @@ export const browserStore: WorkshopSessionStore = {
   },
 };
 
-export const browserClient: WorkshopClientDeps = { fetch: (url, init) => fetch(url, init), authHeaders };
+/** A copy with no account calls the shell's own routes, which take no bearer token. */
+async function workshopHeaders(extra?: HeadersInit): Promise<HeadersInit> {
+  if (isLocalMode()) return { ...(extra as Record<string, string> | undefined) };
+  return authHeaders(extra);
+}
+
+export const browserClient: WorkshopClientDeps = { fetch: (url, init) => fetch(url, init), authHeaders: workshopHeaders };
+
+/**
+ * Sign-in needs /api/overleaf/workshop routes. The relay server serves them for
+ * signed-in copies (apps/relay/server/src/overleaf_workshop.rs), and the Tauri
+ * shell serves them itself (apps/shell/src/overleaf_workshop.rs), so only a
+ * browser copy with no account goes without.
+ */
+export function canShowWorkshop({ localMode, shell = false }: { localMode: boolean; shell?: boolean }): boolean {
+  return !localMode || shell;
+}
 
 export interface WorkshopSession {
   sessionId: string | null;

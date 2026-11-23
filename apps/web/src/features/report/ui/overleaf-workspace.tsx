@@ -6,7 +6,6 @@ import { FormError } from "@/components/form-error";
 import { Menu, type MenuItem } from "@/components/menu";
 import { Popover } from "@/components/popover";
 import { desktop } from "@/lib/desktop/desktop-bridge";
-import { isLocalMode } from "@/features/auth/infrastructure/no-account-mode";
 import { overleafSyncAvailable } from "@/features/overleaf/application/parts";
 import type { WorkshopClientDeps } from "@/features/overleaf/infrastructure/workshop-session-client";
 import {
@@ -32,8 +31,8 @@ function rowMeta(row: OverleafProjectRow, signedIn: boolean): string {
 
 /**
  * The Overleaf tab: connect once, then one list of projects (the signed-in
- * account's, plus the ones linked to this WeaveForge project with a Git token,
- * marked ★). "Choose projects" turns the list into checkboxes for which
+ * account's, plus any the gateway lists as linked with a Git token, marked ★;
+ * the app's own gateway lists none from 0.9.8). "Choose projects" turns the list into checkboxes for which
  * account projects show. Opening one shows Write and PDF.
  *
  * The sign-in cookie is sent once and kept by the routes (sealed on the server,
@@ -62,7 +61,7 @@ export function OverleafWorkspace({
   canEditAsFiles?: boolean;
   /** Sign-in routes exist (see `canShowWorkshop`). */
   workshop: boolean;
-  /** The open WeaveForge project; links and word targets belong to it. */
+  /** The open WeaveForge project; Git links belong to it. */
   projectId: string | null;
   gateway?: LinkedReportsGateway;
   /** Remembers which account projects the list shows. */
@@ -110,9 +109,9 @@ export function OverleafWorkspace({
     setDraft(null);
   };
 
-  // A Git link is a server feature: a no-account copy has no link to offer, so the
-  // link action and its form are not shown there at all.
-  const linkTarget = projectId && !isLocalMode() ? projectId : null;
+  // A Git link needs somewhere to keep it; where the gateway has none (every copy
+  // from 0.9.8), the link action and its form are not shown at all.
+  const linkTarget = projectId && gateway.canLink ? projectId : null;
 
   const menuItems: MenuItem[] = [
     ...(signedIn ? [{ id: "account", kind: "header" as const, label: "Signed in to Overleaf" }] : []),
@@ -168,7 +167,7 @@ export function OverleafWorkspace({
       client={client}
       inShell={inShell}
       canEditAsFiles={canEditAsFiles}
-      projectId={projectId}
+      projectId={linkTarget}
       onUnlink={linked.unlink}
       onLinksChanged={() => void linked.reload()}
       onError={linked.setError}

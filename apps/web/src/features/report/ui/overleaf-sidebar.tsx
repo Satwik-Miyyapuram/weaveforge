@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { getContainer } from "@/bootstrap";
+import { isLocalMode } from "@/features/auth/infrastructure/no-account-mode";
 import { listWorkshopProjects } from "@/features/overleaf/infrastructure/workshop-session-client";
 import { isTauriShell } from "@/features/experiments/infrastructure/parts";
 import { useProject } from "@/features/projects";
@@ -9,7 +10,7 @@ import { loadOverleafTreeRows, type OverleafTreeRow } from "../lib/parts";
 import { OverleafWorkspace } from "./overleaf-workspace";
 import { browserPicksStore } from "./overleaf-project-picks";
 import { linkedReportsGateway } from "./use-linked-reports";
-import { browserClient, browserStore } from "./use-workshop-session";
+import { browserClient, browserStore, canShowWorkshop } from "./use-workshop-session";
 
 /** A workspace reload within this long reuses the last list rather than asking Overleaf again. */
 const KEEP_MS = 60_000;
@@ -17,7 +18,7 @@ let kept: { key: string; at: number; rows: Promise<OverleafTreeRow[]> } | null =
 
 /** The editor sidebar's Overleaf rows, for the open WeaveForge project. */
 export async function overleafSidebarRows(): Promise<OverleafTreeRow[]> {
-  const workshop = true;
+  const workshop = canShowWorkshop({ localMode: isLocalMode(), shell: isTauriShell() });
   const projectId = getContainer().projects.context.projectId ?? null;
   const sessionId = workshop ? browserStore.get() : null;
   const key = JSON.stringify([projectId, sessionId, browserPicksStore.get()]);
@@ -41,7 +42,7 @@ export function OverleafProjectTab({ overleafId }: { overleafId: string }) {
   const [workshop, setWorkshop] = useState<{ on: boolean; shell: boolean } | null>(null);
   useEffect(() => {
     const shell = isTauriShell();
-    setWorkshop({ on: true, shell });
+    setWorkshop({ on: canShowWorkshop({ localMode: isLocalMode(), shell }), shell });
   }, []);
   if (!workshop) return null;
   return (
