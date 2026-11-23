@@ -15,7 +15,7 @@
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 
-import { holdCloseWhile } from "@/lib/desktop/close-flush";
+import { flushWhenHidden, holdCloseWhile } from "@/lib/desktop/close-flush";
 import { logToApp } from "@/lib/error-report/app-log";
 import { readyCore, typedCore } from "@/lib/rust-core";
 
@@ -239,9 +239,12 @@ export function useInkNoteStore(deps: InkNoteStoreDeps) {
     const flush = () => flushSave();
     win.addEventListener("pagehide", flush);
     win.addEventListener("beforeunload", flush);
+    // Android can kill a backgrounded app with no pagehide.
+    const stopHidden = flushWhenHidden(flush);
     // The desktop close waits until the write that flush started has landed.
     const stopHold = holdCloseWhile(() => getInkSaveStatus().pending > 0);
     return () => {
+      stopHidden();
       stopHold();
       win.removeEventListener("pagehide", flush);
       win.removeEventListener("beforeunload", flush);

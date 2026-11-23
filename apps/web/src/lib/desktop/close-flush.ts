@@ -56,3 +56,22 @@ export function holdCloseWhile(
     probes.delete(isBusy);
   };
 }
+
+type VisibilityHost = EventTarget & { visibilityState?: string };
+
+/**
+ * Run `flush` when the page is sent to the background. Android can kill a
+ * backgrounded app without `pagehide`, so writes still on their debounce must
+ * start here. Returns the stop.
+ */
+export function flushWhenHidden(
+  flush: () => void,
+  doc: VisibilityHost | undefined = typeof document === "undefined" ? undefined : document,
+): () => void {
+  if (typeof doc?.addEventListener !== "function") return () => {};
+  const onChange = () => {
+    if (doc.visibilityState === "hidden") flush();
+  };
+  doc.addEventListener("visibilitychange", onChange);
+  return () => doc.removeEventListener("visibilitychange", onChange);
+}
