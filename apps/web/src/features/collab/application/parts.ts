@@ -1,4 +1,4 @@
-import { holdCloseWhile } from "@/lib/desktop/close-flush";
+import { flushWhenHidden, holdCloseWhile } from "@/lib/desktop/close-flush";
 import { readyCore } from "@/lib/rust-core";
 import type { ICrdtUpdateStore } from "@weaveforge/core";
 import type { Peer } from "../domain/presence";
@@ -170,15 +170,19 @@ export function hasPendingBodySave(): boolean {
 export function flushBodyOnClose(
   saver: ClosingSaver,
   win: EventTarget | undefined = typeof window === "undefined" ? undefined : window,
+  doc: Parameters<typeof flushWhenHidden>[1] = typeof document === "undefined" ? undefined : document,
 ): () => void {
   const target = typeof win?.addEventListener === "function" ? win : undefined;
   openSavers.add(saver);
   const flush = () => void saver.flush();
   target?.addEventListener("pagehide", flush);
   target?.addEventListener("beforeunload", flush);
+  // Android can kill a backgrounded app with no pagehide.
+  const stopHidden = flushWhenHidden(flush, doc);
   // The desktop close waits until that write has landed.
   const stopHold = holdCloseWhile(() => saver.busy(), target);
   return () => {
+    stopHidden();
     stopHold();
     openSavers.delete(saver);
     target?.removeEventListener("pagehide", flush);
