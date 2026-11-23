@@ -68,8 +68,10 @@ function conflictCopyText(text: string): string {
 export class FileEntityStore<T extends { id: string }> {
   /** Per id, the file text this store last read or wrote: a save expects the file to still hold it. */
   private readonly loaded = new Map<string, string>();
-  /** Per id, the conflict copy this store last wrote and its text: a retry reuses it instead of piling up copies. */
-  private readonly copies = new Map<string, { path: string; text: string }>();
+  /** Per id, the conflict copy this store last wrote, its text and base: a retry reuses it instead of piling up copies. */
+  private readonly copies = new Map<string, { base: string; path: string; text: string }>();
+  /** Per id, the end of the saves still running: the next save of that id waits for it. */
+  private readonly queue = new Map<string, Promise<unknown>>();
 
   constructor(
     private readonly fs: IWorkspaceFs,
@@ -145,20 +147,51 @@ export class FileEntityStore<T extends { id: string }> {
     }
   }
 
-  /**
-   * Writes the row to its file (a new one at the codec's path). The row in the file must still be `base`, the
-   * row as the caller read it (`seen`); without it, the one this store last read or wrote (any read refreshes that,
-   * so callers that hold a row for a while should pass `seen`). If another writer changed it, that edit is
-   * kept, this row goes to a conflict copy (one per row: a retry updates it), and the save fails with
-   * ConflictError until the row is read again.
-   */
-  async save(row: T, seen?: T): Promise<void> {
+  /** A row as the codec writes and reads it back, so two rows compare field by field. */
+  private norm(row: Record<string, unknown>): string {
     const core = readyCore();
-    // `seen` is written through the codec, so it compares with the file's row field by field.
-    const loadedText =
-      seen === undefined
-        ? this.loaded.get(row.id)
-        : core.entityFileFromRow(this.kind, null, JSON.parse(JSON.stringify(seen)) as Record<string, unknown>);
+    const plain = JSON.parse(JSON.stringify(row)) as Record<string, unknown>;
+    return JSON.stringify(core.entityRowFromFile(this.kind, core.entityFileFromRow(this.kind, null, plain)));
+  }
+
+  /**
+   * True when the file's row is no longer the caller's base. A base with an `id` is a whole row: every field
+   * counts. One without is the fields the caller's change was based on (an absent field: `key: undefined`).
+   */
+  private seenChanged(seen: Partial<T>, found: FoundEntity<T>): boolean {
+    const now = found.row as unknown as Record<string, unknown>;
+    const base = "id" in seen ? (seen as Record<string, unknown>) : { ...now, ...seen };
+    try {
+      return this.norm(base) !== this.norm(now);
+    } catch {
+      return true;
+    }
+  }
+
+  /**
+   * Writes the row to its file (a new one at the codec's path). The row in the file must still be the caller's
+   * base (`seen`: the row it read, or the fields its change was based on); without it, the one this store last
+   * read or wrote (any read refreshes that, so callers that hold a row for a while should pass `seen`). If
+   * another writer changed it, that edit is kept, this row goes to a conflict copy (one per base: a retry
+   * updates it), and the save fails with ConflictError until the row is read again. Saves of one id run one
+   * after another, so two quick saves never race each other.
+   */
+  save(row: T, seen?: Partial<T>): Promise<void> {
+    const prior = this.queue.get(row.id) ?? Promise.resolve();
+    const run = prior.then(() => this.saveNow(row, seen));
+    const tail = run.catch(() => undefined);
+    this.queue.set(row.id, tail);
+    void tail.then(() => {
+      if (this.queue.get(row.id) === tail) this.queue.delete(row.id);
+    });
+    return run;
+  }
+
+  private async saveNow(row: T, seen?: Partial<T>): Promise<void> {
+    const core = readyCore();
+    const loadedText = seen === undefined ? this.loaded.get(row.id) : undefined;
+    // A copy is reused only by a retry from the same base.
+    const basis = seen === undefined ? (loadedText ?? "") : JSON.stringify(seen);
     const { found: rows, held } = await this.scan();
     const found = rows.find((f) => f.row.id === row.id) ?? null;
     const blocked = held.find((h) => h.id === row.id);
@@ -167,13 +200,19 @@ export class FileEntityStore<T extends { id: string }> {
     }
     const plain = JSON.parse(JSON.stringify(row)) as Record<string, unknown>;
     if (found) {
-      if (loadedText !== undefined && this.rowChanged(loadedText, found)) {
-        const mine = core.entityFileFromRow(this.kind, seen === undefined ? loadedText : found.text, plain);
-        const copy = await this.keepConflictCopy(row.id, found.path, mine);
+      const changed = seen === undefined ? this.rowChanged(loadedText, found) : this.seenChanged(seen, found);
+      if (changed) {
+        const mine = core.entityFileFromRow(this.kind, loadedText ?? found.text, plain);
+        const copy = await this.keepConflictCopy(row.id, basis, found.path, mine);
         throw new ConflictError(`${found.path} changed on disk; your version was kept in ${copy}. Reload before saving.`);
       }
       const text = core.entityFileFromRow(this.kind, found.text, plain);
-      await writeIfUnchanged(this.fs, found.path, text, found.text);
+      if (!this.fs.writeTextIf) throw new Error(`${found.path}: this workspace cannot save without overwriting outside edits.`);
+      if (!(await this.fs.writeTextIf(found.path, text, found.text))) {
+        // Another writer got in between the read and the write: their edit stays, this row goes to a copy.
+        const copy = await this.keepConflictCopy(row.id, basis, found.path, text);
+        throw new ConflictError(`${found.path} changed on disk; your version was kept in ${copy}. Reload before saving.`);
+      }
       this.loaded.set(row.id, text);
       this.copies.delete(row.id);
       return;
@@ -191,23 +230,23 @@ export class FileEntityStore<T extends { id: string }> {
 
   /**
    * Keeps `text` (as a copy without the id) in row `id`'s conflict copy: the one this store wrote last, when it
-   * still holds what was written (unchanged text is not written again), else the first free "(conflict N)"
-   * name beside `path`. A copy edited or removed since is left alone.
+   * still holds what was written (unchanged text is not written again) and came from the same `base`, else the
+   * first free "(conflict N)" name beside `path`. A copy edited or removed since, or from another base, is left alone.
    */
-  private async keepConflictCopy(id: string, path: string, text: string): Promise<string> {
+  private async keepConflictCopy(id: string, base: string, path: string, text: string): Promise<string> {
     const copy = conflictCopyText(text);
     const last = this.copies.get(id);
-    if (last) {
+    if (last && last.base === base) {
       const held = await this.fs.readText(last.path).catch(() => null);
       if (held === last.text && (copy === held || (await this.fs.writeTextIf!(last.path, copy, held)))) {
-        this.copies.set(id, { path: last.path, text: copy });
+        this.copies.set(id, { base, path: last.path, text: copy });
         return last.path;
       }
     }
     for (let n = 1; n <= TRASH_NAME_ATTEMPTS; n += 1) {
       const target = conflictCopyPath(path, n);
       if (await this.fs.writeTextIf!(target, copy, null)) {
-        this.copies.set(id, { path: target, text: copy });
+        this.copies.set(id, { base, path: target, text: copy });
         return target;
       }
     }

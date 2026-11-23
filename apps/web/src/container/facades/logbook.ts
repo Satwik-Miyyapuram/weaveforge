@@ -42,10 +42,12 @@ export class LogbookFacade {
    * point: `getById` answering null means there is nothing to edit, and the
    * update throws NotFound either way. Naming a value here keeps the failure the
    * one the use case already reports rather than inventing a second one.
+   *
+   * `base`: the body the editor started from (see ILogEntryManager.update).
    */
-  async saveEntryBody(id: string, body: string): Promise<LogEntry> {
+  async saveEntryBody(id: string, body: string, base?: string): Promise<LogEntry> {
     const existing = await this.deps.logEntries.getById(id);
-    return this.deps.addLogEntry.update(id, { body, kind: existing?.kind ?? "daily" });
+    return this.deps.addLogEntry.update(id, { body, kind: existing?.kind ?? "daily" }, base);
   }
 
   pushLog(entry: LogEntry) {
