@@ -352,9 +352,11 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
   const store = await createFileStore(sink, prior);
   // Every kind writer writes through the one guarded sink, so no kind can overwrite a differing file.
   const guarded = guardedSink(sink, store);
+  // writerFor takes the first claimant: the folder-aware paper-fields writer goes first, so the root archive
+  // writer (which also claims paperFields) never shadows it when project folders are known.
   const writers: readonly KindWriter[] = [
-    ...(givenWriters?.(guarded) ?? []),
     ...(projectFolders ? [createPaperFieldsWriter(guarded, projectFolders)] : []),
+    ...(givenWriters?.(guarded) ?? []),
   ];
   const trashCount: Record<string, number> = {};
   let current = "*";
