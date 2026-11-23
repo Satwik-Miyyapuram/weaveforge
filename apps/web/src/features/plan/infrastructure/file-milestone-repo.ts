@@ -24,6 +24,7 @@ import type {
   NewMilestoneInput,
 } from "@weaveforge/core";
 import { readyCore } from "@/lib/rust-core";
+import { moveToTrash } from "@/lib/workspace-trash";
 
 /** A milestone as the published feed carries it (Rust `FeedMilestone`). */
 export interface FeedItem {
@@ -38,8 +39,6 @@ export interface FeedItem {
 export type PublishFeed = (items: FeedItem[]) => Promise<void>;
 
 const TYPE = "milestone";
-/** How many numbered trash names a delete tries, as for papers. */
-const TRASH_NAME_ATTEMPTS = 1000;
 const STATUSES: readonly MilestoneStatus[] = ["planned", "in_progress", "done", "blocked"];
 
 interface Found {
@@ -244,22 +243,8 @@ export class FileMilestoneRepository implements IMilestoneRepository, IMilestone
   /** Moves the milestone's file to `.weaveforge/trash/<day>/<path>`; never unlinks it. */
   async delete(id: string): Promise<void> {
     const found = (await this.readAll()).find((f) => f.milestone.id === id);
-    if (found) await this.moveToTrash(found.path);
+    if (found) await moveToTrash(this.fs, found.path, Date.now());
     await this.publishAll();
-  }
-
-  /** Renames `path` to the first free trash name for today (`-2`, `-3`, … on a clash). */
-  private async moveToTrash(path: string): Promise<void> {
-    const core = readyCore();
-    const now = Date.now();
-    for (let n = 1; n <= TRASH_NAME_ATTEMPTS; n += 1) {
-      const target = core.trashPathFor(path, now, n);
-      if (await this.fs.stat(target)) continue;
-      await this.fs.mkdirp(target.slice(0, target.lastIndexOf("/")));
-      await this.fs.rename(path, target);
-      return;
-    }
-    throw new Error(`${path}: no free name in the trash; not deleted.`);
   }
 
   private async write(path: string, text: string, expected: string | null): Promise<void> {

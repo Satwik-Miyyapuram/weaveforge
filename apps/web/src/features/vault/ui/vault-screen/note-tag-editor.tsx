@@ -7,6 +7,7 @@ import { InlineError } from "@/components/form-error";
 import { TagChips } from "@/components/tag-chips";
 import { runNoteAction } from "./run-note-action";
 import { readyCore } from "@/lib/rust-core";
+import { removeNoteTag } from "../../application/remove-note-tag";
 
 export function NoteTagEditor({ page, onChanged }: { page: VaultPage; onChanged: () => void }) {
   const [busy, setBusy] = useState(false);
@@ -15,8 +16,8 @@ export function NoteTagEditor({ page, onChanged }: { page: VaultPage; onChanged:
 
   async function removeTag(tag: string) {
     await runNoteAction(setBusy, setError, async () => {
-      const body = readyCore().removeHashtagFromBody(page.body, tag);
-      await getContainer().vault.manageVaultPage.update(page.id, { body });
+      await removeNoteTag(getContainer().vault.manageVaultPage, page, tag);
+
       await onChanged();
     });
   }

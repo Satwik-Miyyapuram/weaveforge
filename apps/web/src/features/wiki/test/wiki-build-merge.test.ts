@@ -18,13 +18,13 @@ function page(id: string, updatedAt: string): VaultPage {
   return { id, title: id, body: `${id} body`, sortOrder: 0, createdAt: "2026-11-01T00:00:00Z", updatedAt };
 }
 
-function fakeVault(pages: VaultPage[]) {
+function fakeVault(pages: VaultPage[], inputs: unknown[] = []) {
   const calls: string[] = [];
   setContainerForTests({
     vault: {
       getPage: async (id: string) => pages.find((p) => p.id === id) ?? null,
       manageVaultPage: {
-        update: async (id: string) => void calls.push(`update ${id}`),
+        update: async (id: string, input: unknown) => void (calls.push(`update ${id}`), inputs.push(input)),
         remove: async (id: string) => void calls.push(`remove ${id}`),
       },
     },
@@ -40,6 +40,13 @@ test("a merge of the pages the preview read writes the primary and removes the s
   const calls = fakeVault([page("A", T1), page("B", T1)]);
   await applyMerge("A", "B", merged, { primaryUpdatedAt: T1, secondaryUpdatedAt: T1 });
   assert.deepEqual(calls, ["update A", "remove B"]);
+});
+
+test("a merge sends the primary body it read as baseBody, so an outside edit is kept as a copy", async () => {
+  const inputs: unknown[] = [];
+  fakeVault([page("A", T1), page("B", T1)], inputs);
+  await applyMerge("A", "B", merged, { primaryUpdatedAt: T1, secondaryUpdatedAt: T1 });
+  assert.equal((inputs[0] as { baseBody?: string }).baseBody, "A body");
 });
 
 for (const changed of ["A", "B"]) {

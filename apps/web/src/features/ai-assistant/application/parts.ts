@@ -402,13 +402,19 @@ export function createAiProposalExecutors(deps: {
     executor("edit_vault_note", async (proposal) => {
       const page = await editableNote(proposal);
       if (!page) return "conflicted";
-      await deps.vault.update(page.id, readyCore().proposalEditVaultNote(proposal.payload) as Arg<IVaultPageManager["update"], 1>);
+      await deps.vault.update(page.id, {
+        ...(readyCore().proposalEditVaultNote(proposal.payload) as Arg<IVaultPageManager["update"], 1>),
+        baseBody: page.body,
+      });
       return "accepted";
     }),
     executor("append_vault_note", async (proposal) => {
       const page = await editableNote(proposal);
       if (!page) return "conflicted";
-      await deps.vault.update(page.id, { body: readyCore().proposalAppendVaultNoteBody(page.body, proposal.payload) });
+      await deps.vault.update(page.id, {
+        body: readyCore().proposalAppendVaultNoteBody(page.body, proposal.payload),
+        baseBody: page.body,
+      });
       return "accepted";
     }),
     executor("report_edit", async (proposal) => {
