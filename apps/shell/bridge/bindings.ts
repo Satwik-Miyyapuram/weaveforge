@@ -55,7 +55,8 @@ export const commands = {
 	/**
 	 *  Bridge: whether this device's own run in the 0.9.7 report of the workspace at `folder` is
 	 *  verified (`migrationReportVerified`). Reads this device's id from app data, never creates it.
-	 *  An unreadable report or id file is a typed error.
+	 *  An unreadable report is a typed error; an unreadable id file passes (`true`), as the install
+	 *  gate fails open.
 	 */
 	migrationReportVerified: (folder: string) => typedError<boolean, ShellError_Serialize>(__TAURI_INVOKE("migration_report_verified", { folder })),
 	/**

@@ -151,7 +151,7 @@ mod tests {
 
     /// The storage mode the request path would compute for this fixture.
     fn mode_of(fixture: &Fixture) -> Mode {
-        folder_mode(&fixture.vault)
+        folder_mode(&fixture.vault, || true)
     }
 
     impl Fixture {
@@ -295,7 +295,7 @@ mod tests {
     #[test]
     fn no_open_folder_answers_503_on_every_sdk_route() {
         let vault = VaultState::new();
-        assert_eq!(folder_mode(&vault), Mode::Unavailable);
+        assert_eq!(folder_mode(&vault, || true), Mode::Unavailable);
         for (method, path) in [("POST", "/api/sdk/metrics"), ("GET", "/api/sdk/projects")] {
             let request = LocalApiRequest {
                 method: method.to_owned(),

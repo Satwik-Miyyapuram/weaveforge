@@ -50,6 +50,8 @@ const FUTURE_EXPIRY: &str = "The expiry must be in the future.";
 pub type Warn = Arc<dyn Fn(&str) + Send + Sync>;
 /// The tools the MCP server lists, written beside the bridge.
 pub type ToolList = Arc<dyn Fn() -> Vec<Value> + Send + Sync>;
+
+pub use super::verified::GateCheck;
 type Reply = Result<Value, String>;
 
 /// The rewritten configs, each with the original kept beside it when there is one.
@@ -164,6 +166,8 @@ fn read_rank_answer(
 pub struct LocalApiDeps {
     /// The workspace the door opens onto.
     pub vault: VaultState,
+    /// While it fails, every SDK, MCP, vault and search route answers 503.
+    pub install_gate_passes: GateCheck,
     /// Where the switch is remembered.
     pub prefs: Arc<dyn PrefAccess>,
     /// Where the token list lives.
@@ -202,6 +206,7 @@ struct State {
 /// What each request needs, owned so the server task can hold it.
 struct Serving {
     vault: VaultState,
+    gate: GateCheck,
     mcp: Option<Arc<dyn McpRouter>>,
     grants: Arc<Mutex<Vec<TokenRecord>>>,
 }
@@ -212,6 +217,7 @@ impl Serving {
         let deps = RouteDeps {
             vault: &self.vault,
             mcp: self.mcp.as_deref(),
+            gate: Arc::clone(&self.gate),
         };
         let response =
             route_local_request(&deps, &request, &mut expected, now_ms(), &now_iso()).await;
@@ -344,6 +350,7 @@ impl LocalApiControl {
     fn handler(&self) -> Handler {
         let serving = Arc::new(Serving {
             vault: self.deps.vault.clone(),
+            gate: Arc::clone(&self.deps.install_gate_passes),
             mcp: self.deps.mcp.clone(),
             grants: Arc::clone(&self.grants),
         });
@@ -881,6 +888,7 @@ mod tests {
         let ranker = Arc::new(WindowRanker::new(window.clone(), warn));
         let control = LocalApiControl::new(LocalApiDeps {
             vault: VaultState::new(),
+            install_gate_passes: crate::local_http::verified::open_gate(),
             prefs: Arc::new(FakePrefs::default()),
             secrets: secrets.clone(),
             opener: opener.clone(),

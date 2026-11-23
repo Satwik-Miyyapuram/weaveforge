@@ -314,7 +314,8 @@ fn run_is_complete(run: &serde_json::Value) -> bool {
 
 /// Bridge: whether this device's own run in the 0.9.7 report of the workspace at `folder` is
 /// verified (`migrationReportVerified`). Reads this device's id from app data, never creates it.
-/// An unreadable report or id file is a typed error.
+/// An unreadable report is a typed error; an unreadable id file passes (`true`), as the install
+/// gate fails open.
 #[tauri::command]
 #[specta::specta]
 #[allow(
@@ -329,13 +330,24 @@ pub fn migration_report_verified(
     let data = app.path().app_data_dir().map_err(|_| {
         ShellError::coded("app_data_unavailable", "cannot locate the app data folder")
     })?;
-    let device = device_id::read_existing(&data).map_err(|e| {
-        ShellError::coded(
-            "device_id_unreadable",
-            &format!("cannot read this device's id: {e}"),
-        )
-    })?;
-    report_state_verified(Path::new(&folder), device.as_deref())
+    report_verified_or_open(Path::new(&folder), device_id::read_existing(&data))
+}
+
+/// This device's run in the report at `folder` is verified; an unreadable id passes.
+fn report_verified_or_open(
+    folder: &Path,
+    device: std::io::Result<Option<String>>,
+) -> Result<bool, ShellError> {
+    match device {
+        Ok(id) => report_state_verified(folder, id.as_deref()),
+        Err(e) => {
+            eprintln!(
+                "[migrate] device id unreadable ({:?}); the report check passes",
+                e.kind()
+            );
+            Ok(true)
+        }
+    }
 }
 
 /// The non-empty `vault-root` from Electron's preferences, as a path.
@@ -416,6 +428,13 @@ fn exported_here(prefs_dir: &Path, device_id: &str) -> Option<bool> {
     reason = "tauri commands take owned arguments"
 )]
 pub fn install_gate_required(app: tauri::AppHandle) -> Result<bool, ShellError> {
+    let (dir, electron) = gate_dirs(&app);
+    Ok(!install_gate_passes_at(dir.as_deref(), electron.as_deref()))
+}
+
+/// The app data dir and Electron's data dir the install gate reads.
+#[must_use]
+pub fn gate_dirs(app: &tauri::AppHandle) -> (Option<PathBuf>, Option<PathBuf>) {
     use tauri::Manager as _;
     let paths = app.path();
     let dir = paths.app_data_dir().ok();
@@ -427,18 +446,20 @@ pub fn install_gate_required(app: tauri::AppHandle) -> Result<bool, ShellError> 
             let source = crate::launch::app_source(resources);
             crate::launch::electron_data_dir(&source, &app.package_info().name, &config)
         });
-    Ok(!install_gate_passes(
-        dir.as_deref(),
-        electron.as_deref(),
-        |data| {
-            device_id::read_existing(data).map_err(|e| {
-                ShellError::coded(
-                    "device_id_unreadable",
-                    &format!("cannot read this device's id: {e}"),
-                )
-            })
-        },
-    ))
+    (dir, electron)
+}
+
+/// [`install_gate_passes`] with this device's id read from `app_data`.
+#[must_use]
+pub fn install_gate_passes_at(app_data: Option<&Path>, electron: Option<&Path>) -> bool {
+    install_gate_passes(app_data, electron, |data| {
+        device_id::read_existing(data).map_err(|e| {
+            ShellError::coded(
+                "device_id_unreadable",
+                &format!("cannot read this device's id: {e}"),
+            )
+        })
+    })
 }
 
 #[cfg(test)]
@@ -829,6 +850,19 @@ mod tests {
 
     fn device_id_unreadable() -> ShellError {
         ShellError::coded("device_id_unreadable", "cannot read this device's id")
+    }
+
+    #[test]
+    fn an_unreadable_device_id_passes_the_report_check() {
+        let (folder, _) = temp("report-id-unreadable");
+        let unreadable = Err(std::io::Error::other("corrupt device-id"));
+        assert_eq!(report_verified_or_open(&folder, unreadable), Ok(true));
+    }
+
+    #[test]
+    fn no_device_id_is_not_verified() {
+        let (folder, _) = temp("report-no-id");
+        assert_eq!(report_verified_or_open(&folder, Ok(None)), Ok(false));
     }
 
     #[test]
