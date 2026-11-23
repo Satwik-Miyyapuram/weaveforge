@@ -533,6 +533,7 @@ export function PdfReader({
     persistDraft,
     removeLocal,
     saveAnchor,
+    inkUndoSteps: inkUndo.steps,
   });
 
   // Select and the Insert tools work on the paper, not with the pen, so

@@ -52,6 +52,8 @@ export interface PagePointerDeps {
   persistDraft: AnnotationActions["persistDraft"];
   removeLocal: AnnotationActions["removeLocal"];
   saveAnchor: AnnotationActions["saveAnchor"];
+  /** Undo and redo steps taken (`InkUndo.steps`); a change ends the mark in progress. */
+  inkUndoSteps?: number;
 }
 
 export interface PagePointer {
@@ -94,7 +96,8 @@ export interface PagePointer {
    * Save a stroke the notes' pen finished on a page (`PdfInkPen`), joining
    * the mark in progress when there is one.
    */
-  persistInkStroke: (input: { pageNumber: number; pageHeight: number; path: number[]; width: number }) => Promise<void>;
+  /** Resolves true once the stroke is stored (or there was nothing to store). */
+  persistInkStroke: (input: { pageNumber: number; pageHeight: number; path: number[]; width: number }) => Promise<boolean>;
   /** Hand a page's pen to `cancelStroke`; returns the undo. */
   registerPenCancel: (cancel: () => void) => () => void;
   pendingTextBox: PendingTextBox | null;
@@ -132,6 +135,7 @@ export function usePagePointer({
   persistDraft,
   removeLocal,
   saveAnchor,
+  inkUndoSteps = 0,
 }: PagePointerDeps): PagePointer {
   /**
    * Which pointer may draw, which is ink's palm handling and not the reader's.
@@ -154,6 +158,14 @@ export function usePagePointer({
   const inkGroup = useRef<InkGroup | null>(null);
   /** The group's anchor as last saved; read only while `inkGroup` names its mark. */
   const groupAnchor = useRef<CombinedPdfAnchor | null>(null);
+  /**
+   * The undo steps taken when the group was last written. An undo or redo
+   * since then rewrote the mark under the pen, so `groupAnchor` is stale:
+   * joining onto it brought an undone stroke back.
+   */
+  const groupSteps = useRef(0);
+  const undoSteps = useRef(inkUndoSteps);
+  undoSteps.current = inkUndoSteps;
   const inkMove = useRef<InkMove | null>(null);
   /**
    * What the current eraser drag has left of each mark it touched: the trimmed
@@ -303,9 +315,10 @@ export function usePagePointer({
     pageHeight: number;
     path: number[];
     width: number;
-  }) {
+  }): Promise<boolean> {
     const pageIndex = input.pageNumber - 1;
     const now = Date.now();
+    if (groupSteps.current !== undoSteps.current) inkGroup.current = null;
     const group = inkGroup.current;
 
     if (
@@ -323,8 +336,8 @@ export function usePagePointer({
           lastAt: now,
         };
         groupAnchor.current = merged;
-        await saveAnchor(existing, merged);
-        return;
+        groupSteps.current = undoSteps.current;
+        return saveAnchor(existing, merged);
       }
       // The group's row is gone (erased, or still being created) — fall through
       // and start a fresh mark rather than dropping the stroke.
@@ -338,10 +351,11 @@ export function usePagePointer({
       path: input.path,
       width: input.width,
     });
-    if (!draft) return;
+    if (!draft) return true;
     const created = await persistDraft(draft);
     if (created) {
       groupAnchor.current = created.anchor;
+      groupSteps.current = undoSteps.current;
       inkGroup.current = {
         annotationId: created.id,
         pageIndex,
@@ -351,6 +365,7 @@ export function usePagePointer({
         lastAt: Date.now(),
       };
     }
+    return created !== null;
   }
 
   /** Write a finished move to the stored paths of every mark it carried. */

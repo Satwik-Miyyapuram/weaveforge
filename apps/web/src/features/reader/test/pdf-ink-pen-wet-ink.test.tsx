@@ -80,7 +80,7 @@ const toPdf = (x: number, y: number) => readyCore().screenPointToPdf(x, y, proje
 
 type Save = Parameters<PdfInkPenProps["persistInkStroke"]>[0];
 
-function props(persistInkStroke: (input: Save) => Promise<void>): PdfInkPenProps {
+function props(persistInkStroke: (input: Save) => Promise<boolean>): PdfInkPenProps {
   return {
     pageNumber: 1,
     scale: 1,
@@ -148,7 +148,7 @@ const flick: [number, number][] = Array.from({ length: 11 }, (_, i) => [100 + 12
 
 test("the saved stroke starts and ends where the wet ink did (no lift point)", async () => {
   const saved: Save[] = [];
-  const { renderer, worker } = await mount(props(async (s) => void saved.push(s)));
+  const { renderer, worker } = await mount(props(async (s) => (saved.push(s), true)));
   worker.answer(wetStroke(flick));
   await flush();
   assert.equal(saved.length, 1, "the committed stroke was not saved");
@@ -172,7 +172,7 @@ test("the saved stroke starts and ends where the wet ink did (no lift point)", a
 
 test("the wet ink stays until the saved mark has replaced it", async () => {
   let resolve!: () => void;
-  const { renderer, worker } = await mount(props(() => new Promise<void>((r) => (resolve = r))));
+  const { renderer, worker } = await mount(props(() => new Promise<boolean>((r) => (resolve = () => r(true)))));
   await flush();
   const before = worker.loads();
   worker.answer(wetStroke(flick));
@@ -184,9 +184,21 @@ test("the wet ink stays until the saved mark has replaced it", async () => {
   act(() => renderer.unmount());
 });
 
+test("a save that did not land keeps the wet ink on screen", async () => {
+  for (const persist of [async () => false, async () => Promise.reject(new Error("disk full"))]) {
+    const { renderer, worker } = await mount(props(persist));
+    await flush();
+    const before = worker.loads();
+    worker.answer(wetStroke(flick));
+    await flush();
+    assert.equal(worker.loads(), before, "the unsaved stroke's wet ink was cleared");
+    act(() => renderer.unmount());
+  }
+});
+
 test("a stroke too short to keep saves nothing", async () => {
   const saved: Save[] = [];
-  const { renderer, worker } = await mount(props(async (s) => void saved.push(s)));
+  const { renderer, worker } = await mount(props(async (s) => (saved.push(s), true)));
   worker.answer(wetStroke([[100, 100]]));
   await flush();
   assert.equal(saved.length, 0);

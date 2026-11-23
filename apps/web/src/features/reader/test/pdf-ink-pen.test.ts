@@ -225,7 +225,7 @@ test("every page on screen carries a pen, not only the current one and its neigh
   assert.deepEqual([...pdfPenPages(new Map(), 1, 3)].sort((a, b) => a - b), [1, 2]);
 });
 
-test("the stroke ends where the pen lifted (< 0.3 pt)", () => {
+test("a short saved mark ends where its wet stroke ended (< 0.3 pt)", () => {
   const short = [100, 100, 101, 100.5, 102.2, 101.1];
   const drawn = drawnThroughPen(short, 0, 2);
   const saved = draftInkAnnotation({ color: "#000", pageIndex: 0, pageHeight: 800, path: drawn, width: 2 })!.anchor
@@ -258,6 +258,18 @@ test("a newer stroke keeps its preview while an older one saves", () => {
   assert.equal(cleared, 0);
   wet.saved();
   assert.equal(cleared, 1);
+});
+
+test("a failed save keeps its wet ink, even after a later save lands", () => {
+  let cleared = 0;
+  const wet = new WetInkClear(() => (cleared += 1), () => false);
+  wet.saving(); // stroke A
+  wet.saving(); // stroke B
+  wet.failed(); // A did not land: only the wet ink shows it
+  wet.saved(); // B lands
+  assert.equal(cleared, 0, "the unsaved stroke was wiped");
+  wet.settle();
+  assert.equal(cleared, 0);
 });
 
 test("the PDF pen writes with the notes' module only", () => {

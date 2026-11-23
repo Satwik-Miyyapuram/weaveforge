@@ -2,7 +2,7 @@
  * The undo stack records only writes that landed (23-01), and a lasso delete
  * is one step, not one per mark (23-16).
  */
-import { test } from "node:test";
+import { before, test } from "node:test";
 import assert from "node:assert/strict";
 import { createElement } from "react";
 import { act, create } from "react-test-renderer";
@@ -10,6 +10,9 @@ import type { NewReaderAnnotation, ReaderAnnotation } from "@weaveforge/core";
 
 import { useInkUndo, type InkUndo } from "../ui/pdf-reader/use-ink-undo";
 import { useAnnotationActions, type AnnotationActions } from "../ui/pdf-reader/use-annotation-actions";
+import { loadTestCore } from "@/lib/test/load-test-core";
+
+before(loadTestCore);
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 (globalThis as { window?: unknown }).window ??= { getSelection: () => null };

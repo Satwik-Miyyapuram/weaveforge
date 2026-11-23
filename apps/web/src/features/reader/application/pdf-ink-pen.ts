@@ -76,10 +76,13 @@ export function pdfPenPages(ratios: ReadonlyMap<number, number>, current: number
  * When the pen's wet ink may be cleared: once every save has landed (the
  * annotation layer draws the mark from then on) and no stroke is in flight,
  * so a newer stroke keeps its preview and an unsaved one never vanishes.
+ * A save that did not land holds the wet ink: it is the only copy of that
+ * stroke on screen, as a note keeps an unsaved stroke and reports the save.
  */
 export class WetInkClear {
   private pending = 0;
   private dirty = false;
+  private held = false;
 
   constructor(
     private readonly clear: () => void,
@@ -96,8 +99,14 @@ export class WetInkClear {
     this.settle();
   }
 
+  /** The save did not land: the wet ink stays for this pen's life. */
+  failed(): void {
+    this.pending -= 1;
+    this.held = true;
+  }
+
   settle(): void {
-    if (this.pending === 0 && this.dirty && !this.penDown()) {
+    if (this.pending === 0 && this.dirty && !this.held && !this.penDown()) {
       this.dirty = false;
       this.clear();
     }

@@ -45,7 +45,8 @@ export interface PdfInkPenProps {
   palette: InkPalette;
   /** The nib in PDF points, as the reader stores it. */
   nibPoints: number;
-  persistInkStroke: (input: { pageNumber: number; pageHeight: number; path: number[]; width: number }) => Promise<void>;
+  /** Resolves true once the stroke is stored; false or a rejection keeps its wet ink. */
+  persistInkStroke: (input: { pageNumber: number; pageHeight: number; path: number[]; width: number }) => Promise<boolean>;
   /** Hand the row a way to end this pen's stroke (a second finger, a pinch); returns the undo. */
   registerCancel: (cancel: () => void) => () => void;
 }
@@ -113,8 +114,10 @@ export function PdfInkPen(props: PdfInkPenProps) {
     wet.current?.saving();
     saves.current = saves.current
       .then(() => p.persistInkStroke({ pageNumber: p.pageNumber, pageHeight: p.pageHeight, path, width: p.nibPoints }))
-      .catch(() => undefined)
-      .then(() => wet.current?.saved());
+      .then(
+        (landed) => (landed ? wet.current?.saved() : wet.current?.failed()),
+        () => wet.current?.failed(),
+      );
   };
 
   const { pen, penHandlers } = useInkPen({

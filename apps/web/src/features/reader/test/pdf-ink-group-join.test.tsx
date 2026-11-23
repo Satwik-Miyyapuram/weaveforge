@@ -87,3 +87,35 @@ test("two strokes joining one mark 10 ms apart both survive a reload", async () 
 
   await h.unmount();
 });
+
+test("a stroke save says whether it landed, so the pen keeps unsaved wet ink", async () => {
+  let landed = true;
+  const deps = {
+    canCreate: true,
+    createTool: "ink",
+    createColor: "#ff0000",
+    inkEditable: true,
+    selectedAnnId: null,
+    pageSize: { width: 600, height: 800 },
+    scale: 1,
+    rotation: 0,
+    pageGeometries: { current: new Map() },
+    annotations: [] as ReaderAnnotation[],
+    annotationsByPage: new Map(),
+    persistDraft: (async (draft: { anchor: CombinedPdfAnchor }) =>
+      landed ? row("a1", draft.anchor) : null) as unknown as PagePointerDeps["persistDraft"],
+    removeLocal: (async () => true) as unknown as PagePointerDeps["removeLocal"],
+    saveAnchor: (async () => landed) as unknown as PagePointerDeps["saveAnchor"],
+  } as unknown as PagePointerDeps;
+  const h = await renderHook(usePagePointer, deps);
+
+  landed = false;
+  assert.equal(await h.current.persistInkStroke(stroke(100)), false, "a failed new mark said it landed");
+  landed = true;
+  assert.equal(await h.current.persistInkStroke(stroke(100)), true);
+  await h.rerender({ ...deps, annotations: [row("a1", { zoteroPosition: { pageIndex: 0, paths: [[100, 100, 120, 140]], width: 2 } } as CombinedPdfAnchor)] });
+  landed = false;
+  assert.equal(await h.current.persistInkStroke(stroke(200)), false, "a failed join said it landed");
+
+  await h.unmount();
+});
