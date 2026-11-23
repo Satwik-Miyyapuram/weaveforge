@@ -251,10 +251,12 @@ from somewhere else does not get to run in it.
 
 ## Working without an account
 
-A window that chose to work without an account keeps that choice, and the
-top of the window shows an **Offline · on this computer** tag while it does. **Sign in**
-in the account menu ends it: there is no session to end, so it brings back the
-sign-in screen, and what is on this computer stays where it is.
+**Use without an account** on the sign-in screen asks for a workspace folder,
+shows any warnings about it until you press **Continue**, then restarts the app
+on that folder. The choice is kept for the next launch. **Sign out** in the
+account menu ends it: there is no session to end, so it brings back the sign-in
+screen, and what is on this computer stays where it is. The button is not
+offered when a signed-in session expires.
 
 What this covers:
 

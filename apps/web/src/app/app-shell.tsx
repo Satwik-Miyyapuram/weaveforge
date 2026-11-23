@@ -358,7 +358,7 @@ function SessionExpiredPrompt() {
     return (
       <div ref={dialogRef} className="session-expired-overlay" role="dialog" aria-modal="true" aria-label="Sign in again">
         <CloseButton label="Not now" onClick={() => setOpen(false)} />
-        <LoginScreen />
+        <LoginScreen offerNoAccount={false} />
       </div>
     );
   }

@@ -17,6 +17,13 @@ const NEEDS_ACCOUNT =
  * writes a database.
  */
 export class NoAccountAuthService implements IAuthService {
+  constructor(
+    private readonly leave: { forget: () => void; reload: () => void } = {
+      forget: () => setLocalMode(false),
+      reload: () => window.location.reload(),
+    },
+  ) {}
+
   async getUser(): Promise<AuthUser | null> {
     return NO_ACCOUNT_USER;
   }
@@ -54,9 +61,14 @@ export class NoAccountAuthService implements IAuthService {
     throw new Error(NEEDS_ACCOUNT);
   }
 
-  /** Leaving "work on this computer" is the only sign-out there is. The files stay. */
+  /**
+   * Leaving "work on this computer" is the only sign-out there is. The files
+   * stay. onChange never answers again, so the reload is what shows the sign-in
+   * screen: the wiring is rebuilt without the flag.
+   */
   async signOut(): Promise<void> {
-    setLocalMode(false);
+    this.leave.forget();
+    this.leave.reload();
   }
 
   /**

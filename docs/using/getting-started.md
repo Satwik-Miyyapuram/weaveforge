@@ -30,9 +30,11 @@ The first screen is the sign-in screen. You can sign in in a few ways, and
   you come back signed in.
 - Type your email, then press **Email me a sign-in code** or **Email me a sign-in link instead**.
 
-If you see the small tag **Offline · on this computer** at the top of the window,
-this copy works without an account: your work is files in your workspace folder
-on this computer. Choose **Sign in** to use an account; your work stays where it is.
+On the desktop app you can also press **Use without an account**. You pick a
+workspace folder, read any warnings about it and press **Continue**, and the
+app restarts with your work as files in that folder on this computer. **Sign
+out** in the account menu brings the sign-in screen back; your files stay where
+they are.
 
 The first time you use an account on the server, you read a short privacy notice
 once, then continue. [Your account](account.md) has the details.
@@ -118,6 +120,6 @@ the buttons become active.
 Probably not. If the paper is already in your library, WeaveForge tells you
 **Already in library** and does not add it again.
 
-*The tag says Offline · on this computer. Is something wrong?*
-No. You are in local mode. Your work stays on this computer, and nothing is sent
+*I chose Use without an account. Where is my work?*
+In the workspace folder you picked, as files on this computer. Nothing is sent
 anywhere. See [The desktop and mobile apps](desktop.md#working-without-an-account).

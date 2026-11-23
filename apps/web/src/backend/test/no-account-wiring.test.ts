@@ -30,6 +30,14 @@ test("no-account auth answers onChange once with the local user", async () => {
   assert.ok(seen && (seen as { id?: string }).id);
 });
 
+test("sign-out forgets the choice, then reloads onto the sign-in screen", async () => {
+  // onChange never fires again, so without the reload the window stays put.
+  const calls: string[] = [];
+  const auth = new NoAccountAuthService({ forget: () => calls.push("forget"), reload: () => calls.push("reload") });
+  await auth.signOut();
+  assert.deepEqual(calls, ["forget", "reload"]);
+});
+
 test("the runtime light backend no longer selects the local database or its auth", () => {
   const parts = src("backend/parts.ts");
   assert.doesNotMatch(parts, /providers\/local\//);
