@@ -301,6 +301,52 @@ fn a_verified_report_from_another_device_holds_0_9_7_back() {
     let _ = std::fs::remove_dir_all(&root);
 }
 
+/// A data folder whose prefs name a workspace folder that does not exist.
+fn data_with_missing_root(name: &str) -> (std::path::PathBuf, std::path::PathBuf) {
+    let root = std::env::temp_dir().join(format!("wf-{name}-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&root);
+    let data = root.join("data");
+    std::fs::create_dir_all(&data).unwrap();
+    let gone = root.join("moved-away");
+    let prefs = serde_json::json!({ "vault-root": gone.to_string_lossy() });
+    std::fs::write(data.join("preferences.json"), prefs.to_string()).unwrap();
+    (root, data)
+}
+
+#[test]
+fn a_missing_workspace_folder_alone_does_not_hold_the_update() {
+    let (root, data) = data_with_missing_root("ws-gone-fresh");
+    let local = local_data_in(Some(&data));
+    assert_eq!(local, LocalData::None);
+    assert!(install_allowed("0.9.7", "0.9.8", local).is_ok());
+    let _ = std::fs::remove_dir_all(&root);
+}
+
+#[test]
+fn a_missing_workspace_folder_with_local_pg_holds_the_update() {
+    let (root, data) = data_with_missing_root("ws-gone-local-pg");
+    let pg = data.join("local-pg");
+    std::fs::create_dir_all(pg.join("data")).unwrap();
+    std::fs::write(pg.join("PG_VERSION"), "16").unwrap();
+    std::fs::write(pg.join("data").join("PG_VERSION"), "16").unwrap();
+    let local = local_data_in(Some(&data));
+    assert_eq!(local, LocalData::Unverified);
+    assert!(install_allowed("0.9.7", "0.9.8", local).is_err());
+    let _ = std::fs::remove_dir_all(&root);
+}
+
+#[test]
+fn a_missing_workspace_folder_with_an_app_db_holds_the_update() {
+    let (root, data) = data_with_missing_root("ws-gone-local-db");
+    let db = data.join("local-db");
+    std::fs::create_dir_all(&db).unwrap();
+    std::fs::write(db.join("PG_VERSION"), "16").unwrap();
+    let local = local_data_in(Some(&data));
+    assert_eq!(local, LocalData::Unverified);
+    assert!(install_allowed("0.9.7", "0.9.8", local).is_err());
+    let _ = std::fs::remove_dir_all(&root);
+}
+
 #[test]
 fn a_missing_device_id_is_not_written_and_holds_the_update() {
     // Legacy data is exported, but this data folder has no device-id file yet. The gate must

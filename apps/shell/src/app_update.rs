@@ -279,10 +279,15 @@ pub fn local_data_in(data: Option<&std::path::Path>) -> LocalData {
     // Read-only: the gate never creates an id. No id means no verified run for this device.
     let device = crate::device_id::get_existing(data);
     let native = native_database_present(&pg);
-    let old = !matches!(
-        crate::migrate::old_db_state(data),
-        crate::migrate::OldDb::None
-    );
+    // A missing workspace folder alone is not old data (a fresh install whose folder moved);
+    // with other old data, or when that cannot be read, it still holds the update.
+    let old = match crate::migrate::old_db_state(data) {
+        crate::migrate::OldDb::None => false,
+        crate::migrate::OldDb::Found(_) => true,
+        crate::migrate::OldDb::WorkspaceMissing(_) => {
+            !matches!(crate::migrate::legacy_db_in(data), Ok(false))
+        }
+    };
     classify_local(
         native,
         crate::migrate::native_data_verified(&pg, device.as_deref()),
