@@ -32,8 +32,9 @@ export async function moveToTrash(fs: IWorkspaceFs, path: string, now: number): 
       const source = await fs.stat(path).catch(() => "unknown" as const);
       // The file left its place (the rename moved it, then reported a failure): it is in the trash. Keep it.
       if (source === null) return;
-      // The file is still in place, so an empty target is only our own claim. A failed clean-up keeps the rename's error.
-      if (source !== "unknown" && (await fs.readText(target).catch(() => null)) === "") {
+      // The file is still in place (or cannot be checked), so an empty target is only our own claim.
+      // A failed clean-up keeps the rename's error.
+      if ((await fs.readText(target).catch(() => null)) === "") {
         await fs.remove(target).catch(() => {});
       }
       throw error;

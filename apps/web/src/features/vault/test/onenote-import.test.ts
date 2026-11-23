@@ -71,7 +71,7 @@ function fakeSection(): OneNoteSection {
 function fakeDeps(opts: { failUpload?: boolean; failAddTitle?: string } = {}) {
   let next = 0;
   const adds: { title: string; parentId?: string; kind?: string; folder?: boolean; id: string }[] = [];
-  const updates: { id: string; body: string }[] = [];
+  const updates: { id: string; body: string; baseBody: string }[] = [];
   const uploads: { pageId: string; ext: string; path: string }[] = [];
   const removed: string[] = [];
   const deps: OneNoteImportDeps = {
@@ -83,13 +83,13 @@ function fakeDeps(opts: { failUpload?: boolean; failAddTitle?: string } = {}) {
       if (opts.failAddTitle === input.title) throw new Error("write refused");
       const id = `id-${next++}`;
       adds.push({ ...input, id });
-      return { id };
+      return { id, body: `added ${id}` };
     },
     async remove(id) {
       removed.push(id);
     },
-    async update(id, body) {
-      updates.push({ id, body });
+    async update(id, body, baseBody) {
+      updates.push({ id, body, baseBody });
     },
     async uploadAsset(pageId, _blob, ext) {
       if (opts.failUpload) throw new Error("network down");
@@ -176,6 +176,13 @@ test("ink strokes land in the canvas's top-level ink layer (OneNote)", async () 
   const canvas = canvasOf(finalBody(fake, pageB.id));
   assert.equal(canvas.wfInk.length, 1);
   assert.ok(canvas.wfInk[0]!.id.startsWith("ink-"));
+});
+
+test("each page's write sends the body its add returned as baseBody, so an edit made meanwhile is kept (OneNote)", async () => {
+  const fake = fakeDeps();
+  await importOneNoteSection(sectionFile(), fake.deps);
+  assert.ok(fake.updates.length > 0);
+  for (const u of fake.updates) assert.equal(u.baseBody, `added ${u.id}`);
 });
 
 test("a page body is normalised canvas text (OneNote)", async () => {

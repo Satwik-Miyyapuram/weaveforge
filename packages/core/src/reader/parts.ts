@@ -159,6 +159,8 @@ export interface IReaderAnnotationProjectSource {
 
 /** What a Zotero write-back learned about one local annotation. */
 export interface ReaderAnnotationSyncRecord {
+  /** The paper's id; lets a file store go straight to its sidecar. */
+  paperId?: string;
   /** The Zotero item key the annotation now lives under. */
   zoteroKey: string;
   /** Zotero's version for that item, for the next update's version guard. */

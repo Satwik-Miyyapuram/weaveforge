@@ -73,7 +73,7 @@ export class DuplicateSharedVaultPageUseCase {
     const body = typedCore().replaceVaultAssetPaths(source.body, rewrites);
 
     if (body !== source.body) {
-      return { page: await this.deps.manageVaultPage.update(page.id, { body }), failedAssets };
+      return { page: await this.deps.manageVaultPage.update(page.id, { body, baseBody: page.body }), failedAssets };
     }
     return { page, failedAssets };
   }

@@ -38,6 +38,12 @@ test("an image that cannot be copied is reported, the others rewritten", async (
   assert.ok(page.body.includes("vault:owner/b.png"));
 });
 
+test("the rewrite sends the copy's added body as baseBody, so an edit made meanwhile is kept", async () => {
+  const { useCase } = setup(new Set());
+  const { page } = await useCase.execute({ resourceId: "src", ownerId: "o" });
+  assert.equal((page as VaultPage & { baseBody?: string }).baseBody, "![a](vault:owner/a.png) ![b](vault:owner/b.png)");
+});
+
 test("a clean copy reports nothing", async () => {
   const { useCase } = setup(new Set());
   const { failedAssets } = await useCase.execute({ resourceId: "src", ownerId: "o" });
