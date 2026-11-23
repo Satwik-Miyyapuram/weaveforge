@@ -69,3 +69,19 @@ test("a real PDF on a web-article paper is unchanged: it still opens or download
     "open",
   );
 });
+
+test("a signed-out web reader sees a sign-in card, not the live-page card, when the page cannot be fetched", () => {
+  assert.deepEqual(planWebArticle({ kept: false, pageUrl: ARTICLE, fetchFailed: true, needsSignIn: true }), {
+    kind: "sign-in",
+    host: "labs.baseten.co",
+  });
+  assert.deepEqual(planWebArticle({ kept: false, pageUrl: ARTICLE, fetchFailed: false, needsSignIn: true }), {
+    kind: "sign-in",
+    host: "labs.baseten.co",
+  });
+});
+
+test("a kept page still wins over sign-in, and no page address still has nothing to show", () => {
+  assert.deepEqual(planWebArticle({ kept: true, pageUrl: ARTICLE, fetchFailed: true, needsSignIn: true }), { kind: "kept" });
+  assert.deepEqual(planWebArticle({ kept: false, pageUrl: null, fetchFailed: true, needsSignIn: true }), { kind: "none" });
+});

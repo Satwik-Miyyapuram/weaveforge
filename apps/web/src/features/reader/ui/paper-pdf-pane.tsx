@@ -28,6 +28,7 @@ import {
   linkPdfSource,
   pdfDownloadNeedsConsent,
   pdfDownloadRemembered,
+  pdfProxyNeedsToken,
   rememberPdfDownload,
 } from "../application/parts";
 import { isLocalMode } from "@/backend/providers/local/local-identity";
@@ -123,6 +124,23 @@ export function PaperPdfPane({
   const [freeStatus, setFreeStatus] = useState<{ text: string; error: boolean } | null>(null);
   /** The web-page fetch for this paper has run to its end (found a page or not). */
   const [webFetchEnded, setWebFetchEnded] = useState(false);
+  /** Web app, no account: the relay refuses page fetches until the reader signs in. */
+  const [signedOut, setSignedOut] = useState(false);
+  useEffect(() => {
+    if (!pdfProxyNeedsToken()) return;
+    let cancelled = false;
+    getContainer()
+      .auth.auth.getAccessToken()
+      .then((token) => {
+        if (!cancelled) setSignedOut(!token);
+      })
+      .catch(() => {
+        if (!cancelled) setSignedOut(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [paperId]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const activityRef = useRef(onActivity);
   activityRef.current = onActivity;
@@ -512,6 +530,7 @@ export function PaperPdfPane({
           pageUrl: openAccessIds.current?.pageUrl,
           // A fetch that has ended without a page is a failed fetch: live page or none.
           fetchFailed: freeStatus?.error === true || webFetchEnded,
+          needsSignIn: signedOut,
         })
       : null;
   const freeCopy = canLoad ? (
@@ -637,6 +656,12 @@ export function PaperPdfPane({
             </a>
           </p>
           {freeCopy}
+        </div>
+      )}
+      {!loading && !error && articlePlan?.kind === "sign-in" && (
+        <div className="card empty-state">
+          <h2>Sign in to preview this page</h2>
+          <p>Web pages are fetched through your WeaveForge account. Sign in, then reopen this paper.</p>
         </div>
       )}
       {!loading && !error && articlePlan?.kind === "none" && (
