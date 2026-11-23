@@ -9,7 +9,7 @@ import { INK_PACK_TOLERANCE } from "@weaveforge/core";
 import { typedCore } from "@/lib/rust-core";
 import { loadTestCore } from "@/lib/test/load-test-core";
 import { freedrawPath, getFreeDrawSvgPath, INK_FREEDRAW, type FreedrawElement } from "../render/excalidraw-freedraw";
-import { smoothKeepingCorners } from "../render/corner-smoothing";
+import { CORNER_DEGREES, smoothKeepingCorners, turnDegrees } from "../render/corner-smoothing";
 import { densifyHermite, HERMITE_MAX_PIECES, HERMITE_MIN_SPAN, HERMITE_STEP } from "../render/hermite-densify";
 
 before(loadTestCore);
@@ -105,7 +105,7 @@ test("a raw stroke, samples closer than the minimum span, draws exactly as befor
   const raw = split(loop(20));
   const points = raw.x.map((v, i) => [v, raw.y[i]!]);
   const pressures = points.map(() => 0.5);
-  assert.deepEqual(densifyHermite(points, pressures), { points, pressures });
+  assert.deepEqual(densifyHermite(points, pressures), { points, pressures, corners: points.map(() => false) });
   const drawn = Math.max(0, 3) * INK_FREEDRAW.widthRatio;
   const before = getFreeDrawSvgPath(
     { points: smoothKeepingCorners(points), pressures, strokeWidth: 0, simulatePressure: true, lastCommittedPoint: [0, 0] } as FreedrawElement,
@@ -115,8 +115,8 @@ test("a raw stroke, samples closer than the minimum span, draws exactly as befor
 });
 
 test("one point and two points", () => {
-  assert.deepEqual(densifyHermite([[5, 5]], [0.3]), { points: [[5, 5]], pressures: [0.3] });
-  assert.deepEqual(densifyHermite([], []), { points: [], pressures: [] });
+  assert.deepEqual(densifyHermite([[5, 5]], [0.3]), { points: [[5, 5]], pressures: [0.3], corners: [false] });
+  assert.deepEqual(densifyHermite([], []), { points: [], pressures: [], corners: [] });
   // Two points: the end tangents are the chord, so the curve is the straight line.
   const two = densifyHermite([[0, 0], [10, 0]], [0, 1]);
   assert.equal(two.points.length, 11);
@@ -153,4 +153,119 @@ test("filling costs at most one point per step of length, and a bounded count pe
   const ms = performance.now() - start;
   assert.ok(filled.points.length <= long.length * HERMITE_MAX_PIECES);
   assert.ok(ms < 100, `${ms.toFixed(1)} ms`);
+});
+
+/** A pen polyline through `corners`, sampled every `spacing` (0.1 mm by default). */
+function polyline(corners: readonly (readonly [number, number])[], spacing = 1): number[] {
+  const out: number[] = [corners[0]![0], corners[0]![1]];
+  for (let c = 1; c < corners.length; c += 1) {
+    const [ax, ay] = corners[c - 1]!;
+    const [bx, by] = corners[c]!;
+    const steps = Math.ceil(Math.hypot(bx - ax, by - ay) / spacing);
+    for (let s = 1; s <= steps; s += 1) out.push(ax + ((bx - ax) * s) / steps, ay + ((by - ay) * s) / steps);
+  }
+  return out;
+}
+
+/** Distance from `p` to the polyline through `corners`. */
+function offPolyline(p: readonly number[], corners: readonly (readonly [number, number])[]): number {
+  let best = Infinity;
+  for (let c = 1; c < corners.length; c += 1) {
+    const [ax, ay] = corners[c - 1]!;
+    const [bx, by] = corners[c]!;
+    const dx = bx - ax;
+    const dy = by - ay;
+    const t = Math.max(0, Math.min(1, ((p[0]! - ax) * dx + (p[1]! - ay) * dy) / (dx * dx + dy * dy)));
+    best = Math.min(best, Math.hypot(p[0]! - (ax + t * dx), p[1]! - (ay + t * dy)));
+  }
+  return best;
+}
+
+const LETTERS: Record<string, readonly (readonly [number, number])[]> = {
+  N: [[10, 110], [10, 10], [70, 110], [70, 10]],
+  z: [[10, 10], [70, 10], [10, 70], [70, 70]],
+  M: [[10, 110], [10, 10], [45, 70], [80, 10], [80, 110]],
+};
+
+test("an old packed N, z and M, and a fast raw one, keep their corners sharp", () => {
+  const strokes = Object.entries(LETTERS).flatMap(([name, corners]) => [
+    { name: `packed ${name}`, corners, old: packed(polyline(corners)) },
+    // A fast pen: 1.2 mm between samples, a sample on each corner.
+    { name: `fast ${name}`, corners, old: split(polyline(corners, 12)) },
+  ]);
+  for (const { name, corners, old } of strokes) {
+    const points = old.x.map((v, i) => [v, old.y[i]!]);
+    const dense = densifyHermite(points, points.map(() => 0.5));
+    const worst = Math.max(...dense.points.map((p) => offPolyline(p, corners)));
+    assert.ok(worst < 0.5, `${name}: filled points stray ${worst.toFixed(2)} from the drawn lines`);
+    // The smoothing after the fill must still see each corner and leave it in place.
+    const smooth = smoothKeepingCorners(dense.points, dense.corners);
+    for (const [cx, cy] of corners) {
+      const near = Math.min(...smooth.map((p) => Math.hypot(p[0]! - cx, p[1]! - cy)));
+      assert.ok(near < 0.05, `${name}: corner ${cx},${cy} rounded off by ${near.toFixed(2)}`);
+    }
+    // And the outline drawn is the one built from those points.
+    const drawn = Math.max(0, 3) * INK_FREEDRAW.widthRatio;
+    const want = getFreeDrawSvgPath(
+      { points: smooth, pressures: dense.pressures, strokeWidth: 0, simulatePressure: true, lastCommittedPoint: [0, 0] } as FreedrawElement,
+      { thinning: INK_FREEDRAW.mouse.thinning, smoothing: INK_FREEDRAW.pen.smoothing, streamline: INK_FREEDRAW.pen.streamline, size: drawn },
+    );
+    assert.equal(freedrawPath(old.x, old.y, 3, true), want, name);
+  }
+});
+
+test("a sparse Z, M and W, every vertex sharp and side by side, keep their corners", () => {
+  const sparse: Record<string, readonly (readonly [number, number])[]> = {
+    Z: [[10, 10], [70, 10], [10, 70], [70, 70]],
+    M: LETTERS.M!,
+    W: [[10, 10], [30, 110], [50, 40], [70, 110], [90, 10]],
+  };
+  for (const [name, corners] of Object.entries(sparse)) {
+    const points = corners.map(([x, y]) => [x, y]);
+    const dense = densifyHermite(points, points.map(() => 0.5));
+    assert.deepEqual(dense.corners.filter((c) => c).length, corners.length - 2, `${name}: corners flagged`);
+    const worst = Math.max(...dense.points.map((p) => offPolyline(p, corners)));
+    assert.ok(worst < 0.5, `${name}: filled points stray ${worst.toFixed(2)} from the drawn lines`);
+  }
+});
+
+test("dense jitter is smoothed, not pinned: no spike survives", () => {
+  // A pen-rate stroke shaking ±0.5 every sample: each sample turns 90 degrees.
+  const points = Array.from({ length: 60 }, (_, i) => [i, i % 2 ? 0.5 : -0.5]);
+  assert.ok(points.slice(1, -1).every((q, i) => turnDegrees(points[i]!, q, points[i + 2]!) > CORNER_DEGREES));
+  const dense = densifyHermite(points, points.map(() => 0.5));
+  assert.ok(dense.corners.every((c) => !c), "a shake on short spans was read as corners");
+  const smooth = smoothKeepingCorners(dense.points, dense.corners);
+  // The ends are held, so the shake fades in over a few samples there.
+  const spike = Math.max(...smooth.slice(6, -6).map((p) => Math.abs(p[1]!)));
+  assert.ok(spike < 0.2, `a ${spike.toFixed(2)} spike survived the smoothing`);
+});
+
+test("the fill matches curve.rs except at corners, where it follows the chords", () => {
+  // Pins the one difference from wf-core's ink_tangent_at until curve.rs takes
+  // the corner rule too (0.9.8).
+  const corners = LETTERS.N!;
+  const old = split(polyline(corners, 12));
+  const x = Float32Array.from(old.x);
+  const y = Float32Array.from(old.y);
+  const points = Array.from(x, (v, i) => [v, y[i]!]);
+  const dense = densifyHermite(points, points.map(() => 0.5));
+  const isCorner = points.map((_, i) => dense.corners[dense.points.indexOf(points[i]!)]!);
+  let at = 0;
+  let worstAway = 0;
+  let mostAtCorner = 0;
+  for (let i = 0; i + 1 < points.length; i += 1) {
+    const length = Math.hypot(x[i + 1]! - x[i]!, y[i + 1]! - y[i]!);
+    const pieces = length > HERMITE_MIN_SPAN ? Math.min(HERMITE_MAX_PIECES, Math.ceil(length / HERMITE_STEP)) : 1;
+    for (let k = 1; k < pieces; k += 1) {
+      const want = typedCore().inkCurveAt(x, y, i, k / pieces);
+      const got = dense.points[at + k]!;
+      const off = Math.hypot(got[0]! - want.x, got[1]! - want.y);
+      if (isCorner[i] || isCorner[i + 1]) mostAtCorner = Math.max(mostAtCorner, off);
+      else worstAway = Math.max(worstAway, off);
+    }
+    at += Math.max(1, pieces);
+  }
+  assert.ok(worstAway < 1e-3, `away from corners the fill left curve.rs by ${worstAway}`);
+  assert.ok(mostAtCorner > 0.5, `at corners the fill should follow the chords, not curve.rs (${mostAtCorner.toFixed(2)})`);
 });

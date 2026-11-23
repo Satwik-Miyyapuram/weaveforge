@@ -132,7 +132,7 @@ test("a highlighter keeps its alpha and is drawn over the pen", () => {
     ),
   );
   assert.match(svg, new RegExp(`stroke-opacity="${HIGHLIGHTER_ALPHA}"`));
-  const highlighter = svg.indexOf('stroke-opacity="0.35"');
+  const highlighter = svg.indexOf(`stroke-opacity="${HIGHLIGHTER_ALPHA}"`);
   const pen = svg.indexOf('d="M30 30');
   // A highlighter tints writing it was laid on: the pen's path is written
   // first and the tinted band after it, which is what "over" means in SVG

@@ -13,6 +13,7 @@ import {
   nativeStrokeEvents,
 } from "../application/parts-2";
 import { INK_RENDER_COLOURS } from "../render/parts-1";
+import { HIGHLIGHTER_ALPHA } from "../render/canvas-renderer";
 
 before(loadTestCore);
 
@@ -78,6 +79,8 @@ test("the shell gets each tool colour as #AARRGGBB from the palette (18-09)", ()
       ["#59ffd400", 8],
       ["#ff212429", 1],
     ]);
+    // The highlighter's alpha is the renderer's, not a copy of it.
+    assert.equal(parseInt(sent[1]![0].slice(1, 3), 16), Math.round(HIGHLIGHTER_ALPHA * 255));
   } finally {
     if (hadWindow) w.window = previous;
     else delete w.window;

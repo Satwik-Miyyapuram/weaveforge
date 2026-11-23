@@ -17,6 +17,7 @@ import type {
   OneEuroFilter as WasmOneEuroFilter,
 } from "@weaveforge/wasm";
 import { createCanvas, openPdf, renderPdfPage, toPngBlob, toWebpBlob } from "./parts-3";
+import { HIGHLIGHTER_ALPHA } from "../render/canvas-renderer";
 import type { PenPointerEvent } from "./use-pen-capture";
 
 // --- native-bridge ---
@@ -106,7 +107,7 @@ export function nativeInkBridge(): NativeInkBridge | null {
     clearViewport: () => android.clearViewport(),
     setTool: ({ tool, colour, widthPx }) =>
       android.setTool(
-        argbHex(colour, tool === "highlighter" ? 0.35 : 1),
+        argbHex(colour, tool === "highlighter" ? HIGHLIGHTER_ALPHA : 1),
         widthPx,
       ),
     setPenOnly: (enabled) => android.setPenOnly(enabled),
