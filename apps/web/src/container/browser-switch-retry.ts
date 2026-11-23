@@ -85,22 +85,23 @@ export function recordReadOnlyStart(readOnly: boolean): void {
 }
 
 type SwitchRun = { run: (signal: AbortSignal) => Promise<SwitchDecision>; onSwitched: () => void };
-/** The last switch asked for, so Retry and sign-in can run it again. */
-let lastRun: SwitchRun | null = null;
+/** The last switch asked for, so Retry and sign-in can run it again, with the same grace. */
+let lastRun: (SwitchRun & { graceMs?: number }) | null = null;
 /** The run in progress. A second request joins it. It clears at the timeout at the latest. */
 let inFlight: Promise<SwitchDecision | null> | null = null;
 /**
  * How long an aborted export may keep running before Retry may start another. The timeout aborts the
  * export, which stops at its next file; a file that hangs must not block Retry for the rest of the page's
  * life. The export's sink refuses every write once the signal aborts, so an old file op that resolves
- * after the grace still writes nothing. A run declared without a signal parameter gets no grace: it
- * cannot stop, so Retry waits for it to settle.
+ * after the grace still writes nothing. The grace is opt-in: a caller passes it only when its run forwards
+ * the signal to the export. Without it, Retry waits for the run to settle, so a run that drops the signal
+ * (whatever its declared parameters) never overlaps a second export.
  */
 export const ABORTED_EXPORT_GRACE_MS = 10_000;
 /**
  * Pending while an export runs, past its timeout too: no second export starts while it may still write
- * OPFS. It settles when the export settles, or `graceMs` after the export's signal aborts (only for a
- * run that takes the signal).
+ * OPFS. It settles when the export settles, or `graceMs` after the export's signal aborts (only when
+ * the caller passed a grace).
  */
 let exportSettled: Promise<void> | null = null;
 
@@ -140,20 +141,20 @@ async function runSwitchOnce(
  * it until a switch succeeds: the browser is still read-only whatever the retry found.
  * A call while a run is in flight joins that run. A timed-out run has its signal aborted; until it
  * settles, or `graceMs` after the abort, a call resolves null without starting a second export.
+ * Pass `graceMs` (normally ABORTED_EXPORT_GRACE_MS) only when `run` forwards its signal to the export.
  * Resolves with the outcome and never rejects.
  */
 export function retrySwitch(
   run: (signal: AbortSignal) => Promise<SwitchDecision>,
   onSwitched: () => void,
   timeoutMs?: number,
-  graceMs: number = ABORTED_EXPORT_GRACE_MS,
+  graceMs?: number,
 ): Promise<SwitchDecision | null> {
   if (!startedReadOnly) return Promise.resolve(null);
-  lastRun = { run, onSwitched };
+  lastRun = { run, onSwitched, graceMs };
   if (inFlight) return inFlight;
   // An aborted export may still be writing its last file. No second export starts until it settles.
   if (exportSettled) return Promise.resolve(null);
-  const acceptsSignal = run.length > 0;
   const tracked = (signal: AbortSignal) => {
     const running = (async () => run(signal))();
     let grace: ReturnType<typeof setTimeout> | undefined;
@@ -162,9 +163,9 @@ export function retrySwitch(
         () => resolve(),
         () => resolve(),
       );
-      // Only a run that takes the signal can stop at the abort. A run that ignores it keeps the old
-      // guard: no second export until this one settles.
-      if (acceptsSignal) {
+      // Only a run its caller vouches for (it forwards the signal) can stop at the abort. Any other run
+      // keeps the old guard: no second export until this one settles.
+      if (graceMs !== undefined) {
         signal.addEventListener("abort", () => (grace = setTimeout(resolve, graceMs)), { once: true });
       }
     });
@@ -184,7 +185,7 @@ export function retrySwitch(
 
 /** Runs the last requested switch again; resolves null when none was requested. Never rejects. */
 export function retrySwitchNow(): Promise<SwitchDecision | null> {
-  return lastRun ? retrySwitch(lastRun.run, lastRun.onSwitched) : Promise.resolve(null);
+  return lastRun ? retrySwitch(lastRun.run, lastRun.onSwitched, undefined, lastRun.graceMs) : Promise.resolve(null);
 }
 
 /** The slice of the auth client the sign-in watch needs. */

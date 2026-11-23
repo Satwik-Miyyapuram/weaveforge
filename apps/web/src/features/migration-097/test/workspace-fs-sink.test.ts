@@ -51,6 +51,15 @@ test("a path that escapes the sink is refused", async () => {
   await assert.rejects(sink.write("../outside.md", "x"), /escapes/);
 });
 
+test("a backslash is a separator, as in core's safe_workspace_path", async () => {
+  const sink = workspaceFsAsSink(new MemoryWorkspaceFs());
+  await sink.write("dir\\a.md", "x");
+  assert.deepEqual(await sink.list(), ["dir/a.md"]);
+  assert.equal(await sink.readText("dir/a.md"), "x");
+  await assert.rejects(sink.write("..\\outside.md", "x"), /escapes/);
+  await assert.rejects(sink.write("dir\\..\\..\\outside.md", "x"), /escapes/);
+});
+
 test("exists is true for a file and false for a missing path or a folder", async () => {
   const sink = workspaceFsAsSink(new MemoryWorkspaceFs());
   await sink.write("papers/a.md", "x");

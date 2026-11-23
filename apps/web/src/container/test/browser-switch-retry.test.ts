@@ -274,19 +274,19 @@ test("(098 P2 hung) an export that ignores the abort frees Retry after the grace
   clearSwitchReloadGuard();
 });
 
-test("(098 P2 hung) a run that drops the signal gets no grace: Retry waits for it to settle", async () => {
+test("(098 P2 hung) without an explicit grace Retry waits for the run to settle, even one that declares a signal", async () => {
   clearSwitchReloadGuard();
   recordReadOnlyStart(true);
   let runs = 0;
   let finish: (d: SwitchDecision) => void = () => {};
-  // No signal parameter: this export cannot stop at the abort, so it may write until it settles.
-  const deaf = () => {
+  // Declares the signal but never forwards it: the export cannot stop at the abort, so it may write until it settles.
+  const deaf = (_signal: AbortSignal) => {
     runs += 1;
     return new Promise<SwitchDecision>((resolve) => {
       finish = resolve;
     });
   };
-  assert.equal(await retrySwitch(deaf, () => {}, 10, 20), null, "timed out");
+  assert.equal(await retrySwitch(deaf, () => {}, 10), null, "timed out");
   await tick(60);
   assert.equal(await retrySwitch(notVerified, () => {}), null, "still held back after the grace");
   assert.equal(runs, 1);

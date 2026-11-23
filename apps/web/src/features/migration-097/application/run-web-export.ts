@@ -259,12 +259,11 @@ async function priorOutputs(sink: FileSink, deviceId: string | undefined): Promi
 }
 
 /**
- * The result of a run its signal stopped. Nothing is written for it: the early report, if one was written,
- * still says "export in progress", which is true of a stopped run.
- */
-/**
  * Refuses every write, rename and remove once `signal` aborts; reads pass through. A file whose read or
  * fetch was still awaiting at the abort therefore never lands, even when it resolves much later.
+ * The check runs on entry only: a write already in progress at the abort runs to its end. That write
+ * carries the same verified bytes a fresh run writes to that path, and a fresh run's write that fails
+ * on it fails that run, which then never verifies.
  */
 function abortableSink(sink: FileSink, signal: AbortSignal): FileSink {
   return {
@@ -279,6 +278,10 @@ function abortableSink(sink: FileSink, signal: AbortSignal): FileSink {
   };
 }
 
+/**
+ * The result of a run its signal stopped. Nothing is written for it: the early report, if one was written,
+ * still says "export in progress", which is true of a stopped run.
+ */
 function abortedResult(now: string, target: MigrationTarget, kind: string, missing: MissingRow[], deviceId: string | undefined, backup: string | null): ExportResult {
   const run: RunReport = {
     startedAt: now,

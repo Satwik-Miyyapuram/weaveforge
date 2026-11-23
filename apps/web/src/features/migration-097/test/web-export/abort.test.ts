@@ -16,21 +16,23 @@ test("abort: a signal aborted after the first file stops the export before the n
   const sink = new MemorySink();
   const controller = new AbortController();
   const base = fakeCodec(SUPPORTED);
-  let files = 0;
+  const encoded: string[] = [];
   const codec: FileCodec = {
     ...base,
     toFile: (kind, row) => {
-      files++;
+      encoded.push(`${kind}/${String(row.id)}`);
       controller.abort();
       return base.toFile(kind, row);
     },
   };
   const result = await runWebExport({ runDeviceId: "dev-test", kinds: KINDS, codec, source, sink, now: NOW, signal: controller.signal });
-  assert.equal(files, 1, "no file after the abort");
+  // Whichever kind and row the export takes first, nothing follows it.
+  assert.equal(encoded.length, 1, "no file after the abort");
   assert.equal(result.state, "incomplete");
   assert.ok(result.run.missing.some((m) => m.reason === "aborted"));
-  assert.ok(!sink.paths().includes("logEntries/l2.json"));
-  assert.ok(!calls.includes("list:experiments"), "the next kind is never read");
+  const otherRows = Object.entries(FIXTURE).flatMap(([kind, rows]) => rows.map((r) => `${kind}/${String(r.id)}`)).filter((p) => p !== encoded[0]);
+  for (const p of otherRows) assert.ok(!sink.paths().some((s) => s.includes(p)), `${p} is never written`);
+  assert.equal(calls.filter((c) => c.startsWith("list:")).length, 1, "the next kind is never read");
   assert.ok(!calls.includes("mark:097"), "an aborted run never marks the server");
   // No write after the abort: the early report ("export in progress") is the last word.
   const runs = await readMigrationRuns(sink);
@@ -61,12 +63,12 @@ test("abort: the blob loop stops between blobs", async () => {
     return bytes;
   };
   const result = await runWebExport({ runDeviceId: "dev-test", kinds: [], codec: fakeCodec([]), source, sink, now: NOW, signal: controller.signal });
-  assert.deepEqual(calls.filter((c) => c.startsWith("blob:")), ["blob:a.png"]);
+  assert.equal(calls.filter((c) => c.startsWith("blob:")).length, 1, "no blob fetched after the abort");
   assert.equal(result.state, "incomplete");
   assert.ok(result.run.missing.some((m) => m.reason === "aborted"));
   assert.ok(!calls.includes("mark:097"));
   // The fetch resolved after the abort: its bytes never land, so a late file cannot overwrite a fresh run's.
-  assert.ok(!sink.paths().some((p) => p.includes("a.png")), "a fetch that resolves after the abort writes nothing");
+  assert.ok(!sink.paths().some((p) => p.includes("a.png") || p.includes("b.png")), "a fetch that resolves after the abort writes nothing");
 });
 
 test("abort: a hung fetch that resolves long after the abort still writes nothing", async () => {
@@ -75,15 +77,21 @@ test("abort: a hung fetch that resolves long after the abort still writes nothin
   const controller = new AbortController();
   const fetchBlob = source.fetchBlob.bind(source);
   let release: () => void = () => {};
+  let entered: () => void = () => {};
+  const fetching = new Promise<void>((resolve) => {
+    entered = resolve;
+  });
   source.fetchBlob = async (ref) => {
     const bytes = await fetchBlob(ref);
+    entered();
     await new Promise<void>((resolve) => {
       release = resolve;
     });
     return bytes;
   };
   const running = runWebExport({ runDeviceId: "dev-test", kinds: [], codec: fakeCodec([]), source, sink, now: NOW, signal: controller.signal });
-  await new Promise((resolve) => setTimeout(resolve, 5));
+  // Abort only once the fetch is in flight, never on a timer.
+  await fetching;
   controller.abort();
   release();
   await running.catch(() => {});

@@ -19,6 +19,15 @@ test("text and bytes round-trip through the sink, leading slash ignored", async 
   assert.equal(await sink.readText(".weaveforge/a.md"), "hello");
 });
 
+test("a backslash is a separator, as in core's safe_workspace_path", async () => {
+  const { fs, sink } = fresh();
+  await fs.writeFile("dir\\a.md", "x");
+  assert.deepEqual(await sink.list(), ["dir/a.md"]);
+  assert.equal(await fs.readText("dir/a.md"), "x");
+  await assert.rejects(fs.writeFile("..\\outside.md", "x"), /escapes/);
+  await assert.rejects(fs.writeFile("dir\\..\\..\\outside.md", "x"), /escapes/);
+});
+
 test("list returns immediate children only, dirs derived from paths", async () => {
   const { fs } = fresh();
   await fs.writeFile("papers/one.md", "1");

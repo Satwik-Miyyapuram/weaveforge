@@ -87,10 +87,15 @@ export async function decideBrowserSwitch(deps: SwitchDeps): Promise<SwitchDecis
       await wiring.close();
       return { switch: false, reason: "not-verified" };
     }
+    // Past the timeout, Retry may start a fresh export: a mark call that resolves late writes nothing more
+    // here. The pending flag set before the check keeps the next start read-only.
+    const stopIfAborted = () => deps.signal?.throwIfAborted();
     try {
       await source.markExported097();
       deps.pending?.set();
+      stopIfAborted();
       await recordServerMarked(sink, deviceId);
+      stopIfAborted();
     } catch (err) {
       await wiring.close();
       throw err;
