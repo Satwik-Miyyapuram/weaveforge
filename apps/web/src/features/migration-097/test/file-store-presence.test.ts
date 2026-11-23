@@ -118,3 +118,49 @@ test("store: a missing blob whose sidecar already holds its own sha256 lands at 
   assert.equal(await sink.readText("f.bin"), "db version");
   assert.equal(await sha256Hex(await sink.readBytes("f.bin")), (await sink.readText("f.bin.sha256")).split("\n")[0]);
 });
+
+/** A sink where the user saves `path` right after the store reads it, before the store writes. */
+class EditAfterReadSink extends MemorySink {
+  constructor(
+    private readonly path: string,
+    private readonly edit: string | Uint8Array,
+  ) {
+    super();
+  }
+  armed = false;
+  override async readBytes(path: string): Promise<Uint8Array> {
+    const bytes = await super.readBytes(path);
+    if (this.armed && path === this.path) {
+      this.armed = false;
+      await super.write(path, this.edit);
+    }
+    return bytes;
+  }
+}
+
+test("store: a text edit between the hash read and the write is kept; the DB version goes to a conflict copy", async () => {
+  const sink = new EditAfterReadSink("g.md", "user edit");
+  await sink.write("g.md", "ours");
+  const store = await createFileStore(sink, { "g.md": await sha256Hex("ours") });
+  sink.armed = true;
+
+  const held = await store.store("g.md", "db version", await sha256Hex("db version"));
+
+  assert.equal(await sink.readText("g.md"), "user edit");
+  assert.equal(held, conflictCopyPath("g.md", 1));
+  assert.equal(await sink.readText(held), "db version");
+});
+
+test("store: a binary edit between the hash read and the write is kept; the DB version goes to a conflict copy", async () => {
+  const sink = new EditAfterReadSink("h.bin", new Uint8Array([9, 9]));
+  await sink.write("h.bin", new Uint8Array([1, 2]));
+  const store = await createFileStore(sink, { "h.bin": await sha256Hex(new Uint8Array([1, 2])) });
+  sink.armed = true;
+  const db = new Uint8Array([3, 4]);
+
+  const held = await store.store("h.bin", db, await sha256Hex(db));
+
+  assert.deepEqual([...(await sink.readBytes("h.bin"))], [9, 9]);
+  assert.notEqual(held, "h.bin");
+  assert.deepEqual([...(await sink.readBytes(held))], [3, 4]);
+});
