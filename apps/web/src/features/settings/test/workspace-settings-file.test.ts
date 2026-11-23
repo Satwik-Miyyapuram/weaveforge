@@ -3,12 +3,17 @@
  * damaged or newer file must never be overwritten and external edits must show up.
  */
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
+import path from "node:path";
+import { pathToFileURL } from "node:url";
 import test from "node:test";
 import type { IWorkspaceFs } from "@weaveforge/core";
 import {
   SETTINGS_PATH,
   SETTINGS_WRITE_DELAY_MS,
   WorkspaceSettingsFile,
+  defaultReminderSchedule,
+  defaultSchedule,
   parseSettings,
   renderSettings,
 } from "../application/workspace-settings-file";
@@ -382,4 +387,32 @@ test("parseSettings: version rules and corrupt shapes", () => {
   assert.deepEqual(parseSettings('{"version":2}'), { ok: false, reason: "newer" });
   assert.deepEqual(parseSettings("[1]"), { ok: false, reason: "corrupt" });
   assert.deepEqual(parseSettings("null"), { ok: false, reason: "corrupt" });
+});
+
+test("the no-folder reminder timer is unref'd, while the write timer stays ref'd so a pending save finishes", () => {
+  const reminder = defaultReminderSchedule(() => {}, 60_000) as ReturnType<typeof setTimeout>;
+  const write = defaultSchedule(() => {}, 60_000) as ReturnType<typeof setTimeout>;
+  try {
+    assert.equal(reminder.hasRef(), false);
+    assert.equal(write.hasRef(), true);
+  } finally {
+    clearTimeout(reminder);
+    clearTimeout(write);
+  }
+});
+
+test("a process with an unsaved edit and no folder open exits on its own (no-folder reminder does not keep it alive)", () => {
+  const moduleUrl = pathToFileURL(path.resolve("src/features/settings/application/workspace-settings-file.ts")).href;
+  const script = `
+    const { WorkspaceSettingsFile } = await import(${JSON.stringify(moduleUrl)});
+    const s = new WorkspaceSettingsFile({ fs: () => null, warn: () => {} });
+    s.set(["ui", "zoom"], 2);
+  `;
+  const run = spawnSync(process.execPath, ["--import", "tsx", "--input-type=module", "-e", script], {
+    cwd: path.resolve("."),
+    timeout: 60_000,
+    encoding: "utf8",
+  });
+  assert.equal(run.signal, null, `child was killed (still alive): ${run.stderr}`);
+  assert.equal(run.status, 0, run.stderr);
 });
