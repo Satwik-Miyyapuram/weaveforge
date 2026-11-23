@@ -59,6 +59,22 @@ function noteOf(info: unknown): string | undefined {
   return typeof note === "string" && note ? note : undefined;
 }
 
+/** A member entry that carries only its link (a bare string or `{ link }`): nothing is lost by dropping it. */
+function isPlainMember(m: unknown): boolean {
+  if (typeof m === "string") return true;
+  if (m === null || typeof m !== "object" || Array.isArray(m)) return false;
+  const keys = Object.keys(m);
+  return keys.length === 1 && keys[0] === "link";
+}
+
+/** A member-notes entry that is exactly `{ note: string }` or empty: nothing is lost by dropping it. */
+function isPlainNote(v: unknown): boolean {
+  if (v === null || typeof v !== "object" || Array.isArray(v)) return false;
+  const keys = Object.keys(v);
+  if (keys.length === 0) return true;
+  return keys.length === 1 && keys[0] === "note" && typeof (v as { note?: unknown }).note === "string";
+}
+
 function recordOf(v: unknown): Record<string, unknown> {
   return v !== null && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : {};
 }
@@ -114,9 +130,12 @@ async function migrateOne(fs: IWorkspaceFs, file: FoundEntity<LegacyRow>, links:
     movedKeys.add(key);
   }
 
-  // Then the list file: drop the moved members and their keys, keep everything else.
-  const remaining = members.filter((_, index) => !movedIndexes.has(index));
-  const keptNotes = Object.fromEntries(Object.entries(notes).filter(([key]) => !movedKeys.has(key)));
+  // Then the list file: drop a moved entry only when nothing beyond what was carried over is in it.
+  // An entry with another field, or a note that is not a string, stays in the list file.
+  const remaining = members.filter((member, index) => !(movedIndexes.has(index) && isPlainMember(member)));
+  const keptNotes = Object.fromEntries(
+    Object.entries(notes).filter(([key, value]) => !(movedKeys.has(key) && isPlainNote(value))),
+  );
   const next = setFrontmatterKeys(file.text, {
     members: remaining.length ? remaining : null,
     "member-notes": Object.keys(keptNotes).length ? keptNotes : null,
