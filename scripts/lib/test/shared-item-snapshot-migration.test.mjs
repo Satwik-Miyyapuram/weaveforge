@@ -77,7 +77,20 @@ test("rollback header carries the exact pre-check query", () => {
 
 test("guard trigger fires on insert too, so a marker cannot be inserted directly", () => {
   assert.match(forward, /before insert or update on profiles/i);
-  assert.match(forward, /tg_op = 'insert'/i);
+  // TG_OP is upper case; a lower-case compare is never true.
+  const ops = [...forward.matchAll(/tg_op\s*=\s*'([^']*)'/gi)].map((m) => m[1]);
+  assert.ok(ops.length > 0);
+  for (const op of ops) assert.equal(op, op.toUpperCase());
+  assert.match(forward, /tg_op = 'INSERT' and new\.exported_097_at is not null/);
+  assert.match(forward, /tg_op = 'UPDATE' and new\.exported_097_at is distinct from old\.exported_097_at/);
+});
+
+test("rollback runs as one transaction, so a failed kind check changes nothing", () => {
+  const body = rollback.replace(/^--.*$/gm, "").trim();
+  assert.match(body, /^begin;/);
+  assert.match(body, /commit;$/);
+  assert.equal((body.match(/^begin;$/gm) ?? []).length, 1);
+  assert.equal((body.match(/^commit;$/gm) ?? []).length, 1);
 });
 
 test("mark_exported_097 raises when the caller has no profiles row", () => {
