@@ -693,6 +693,14 @@ export function usePagePointer({
         const up = screenToPdf(event.currentTarget, event.clientX, event.clientY);
         ink.current.push(up.x, up.y, event.timeStamp);
         ink.current.pushExact(up.x, up.y);
+        // The wet ink shows the tail too, so nothing pops in when the save lands.
+        scheduleDraft({
+          kind: "ink",
+          pageNumber,
+          path: [...ink.current.path],
+          width: nibBase,
+          highlighter: createTool === "highlighter",
+        });
       }
       const path = [...ink.current.path];
       ink.current.clear();
