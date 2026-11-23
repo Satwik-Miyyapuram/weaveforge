@@ -192,8 +192,10 @@ async fn get_without_auth_is_401_and_reads_nothing() {
 #[tokio::test]
 async fn get_legacy_columns_are_cleaned_and_not_cached() {
     let row = r#"[{"zotero_api_key":" z ","semantic_scholar_key":null,"integrations":{"p":{"a":" x ","b":" "}}}]"#;
-    let up = upstream(vec![(SETTINGS, vec![json_reply(200, row)])]).await;
-    let (status, headers, body) = call(&up, keyless(), request("GET", "", true)).await;
+    // The read seals legacy plaintext (so it needs the key); the PATCH answer is the row it changed.
+    let written = json_reply(200, r#"[{"user_id":"user-1"}]"#);
+    let up = upstream(vec![(SETTINGS, vec![json_reply(200, row), written])]).await;
+    let (status, headers, body) = call(&up, keyed(), request("GET", "", true)).await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(
         body,
@@ -202,6 +204,8 @@ async fn get_legacy_columns_are_cleaned_and_not_cached() {
     assert_eq!(header(&headers, "cache-control"), "no-store");
     let seen = calls(&up, SETTINGS);
     assert!(seen[0].target.contains("user_id=eq.user-1"));
+    assert_eq!(seen[1].method, "PATCH");
+    assert!(seen[1].target.contains("user_id=eq.user-1"));
 }
 
 #[tokio::test]
