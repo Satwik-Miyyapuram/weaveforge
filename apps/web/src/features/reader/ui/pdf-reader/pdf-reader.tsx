@@ -60,6 +60,7 @@ import { FocusGlyph } from "@/components/focus-glyph";
 import { ToolbarSlot } from "@/components/toolbar-slot";
 import { DraftShapeOverlay, PageMargin, SafeExternalLink } from "./overlays";
 import { PdfInkPen } from "./pdf-ink-pen";
+import { pdfPenMounts, pdfPenPages } from "../../application/pdf-ink-pen";
 import { readWritingPage, writeWritingPage } from "./writing-page";
 import { hasSidePanel } from "./side-panel";
 import { canvasSize } from "./canvas-size";
@@ -511,6 +512,7 @@ export function PdfReader({
     setPendingTextBox,
     pageProjection,
     persistInkStroke,
+    registerPenCancel,
     onPagePointerDown,
     onPagePointerMove,
     onPagePointerUp,
@@ -1144,8 +1146,15 @@ export function PdfReader({
     [pdf, locus, scale, rotation, containerRef],
   );
 
+  // The pages on screen, for the pen (`pdfPenPages`).
+  const [visibleRatios, setVisibleRatios] = useState<ReadonlyMap<number, number>>(() => new Map());
+  const penPages = useMemo(
+    () => pdfPenPages(visibleRatios, viewport.page, numPages),
+    [visibleRatios, viewport.page, numPages],
+  );
   const onVisibleChange = useCallback(
     (ratios: ReadonlyMap<number, number>) => {
+      setVisibleRatios(new Map(ratios));
       let bestPage = 0;
       let bestRatio = 0;
       for (const [n, ratio] of ratios) {
@@ -1918,24 +1927,6 @@ export function PdfReader({
                     onEditText={editTextOnPage}
                   />
                 )}
-                {/* The notes' pen, on this page and its neighbours only: each
-                    one is a worker and a canvas context. */}
-                {canCreate && pageSize && (createTool === "ink" || createTool === "highlighter") &&
-                  Math.abs(n - viewport.page) <= 1 && (
-                    <PdfInkPen
-                      pageNumber={n}
-                      scale={scale}
-                      projection={pageProjection(n)}
-                      pageHeight={pageGeometries.current.get(n)?.pageHeight ?? pageSize.height}
-                      tool={createTool === "highlighter" ? "highlighter" : "pen"}
-                      width={inkWidth}
-                      highlighterWidth={markerWidth}
-                      colour={drawColour}
-                      palette={inkPalette}
-                      nibPoints={nibPoints}
-                      persistInkStroke={persistInkStroke}
-                    />
-                  )}
                 {/* Inside the page, because it decorates the page's own text
                     layer rather than painting a sibling layer over it. */}
                 {pageSize && refs.index.mentionsByPage.has(n) && pageItems.has(n) && (
@@ -1965,6 +1956,24 @@ export function PdfReader({
                   />
                 )}
               </div>
+              {/* The notes' pen, over the row (page and margin strip), on the
+                  pages on screen only: each one is a worker and a canvas context. */}
+              {pageSize && pdfPenMounts(canCreate, true, createTool) && penPages.has(n) && (
+                <PdfInkPen
+                  pageNumber={n}
+                  scale={scale}
+                  projection={pageProjection(n)}
+                  pageHeight={pageGeometries.current.get(n)?.pageHeight ?? pageSize.height}
+                  tool={createTool === "highlighter" ? "highlighter" : "pen"}
+                  width={inkWidth}
+                  highlighterWidth={markerWidth}
+                  colour={drawColour}
+                  palette={inkPalette}
+                  nibPoints={nibPoints}
+                  persistInkStroke={persistInkStroke}
+                  registerCancel={registerPenCancel}
+                />
+              )}
               {writingPage && pageSize && (
                 <PageMargin
                   notes={layoutMarginNotes(pageAnnotations(n), pageProjection(n))}

@@ -38,7 +38,7 @@ function row(id: string, anchor: CombinedPdfAnchor): ReaderAnnotation {
     createdAt: "2026-01-01T00:00:00.000Z",
     updatedAt: "2026-01-01T00:00:00.000Z",
     anchor,
-  } as ReaderAnnotation;
+  } as unknown as ReaderAnnotation;
 }
 
 const stroke = (x: number) => ({ pageNumber: 1, pageHeight: 800, path: [x, 100, x + 10, 120, x + 20, 140], width: 2 });

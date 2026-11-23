@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { INK_DEFAULT_WIDTH, type PageProjection, type ReaderAnnotation } from "@weaveforge/core";
 import type { CombinedPdfAnchor, ReaderPageSize, PageTextGeometry } from "@weaveforge/wasm";
 import { readyCore } from "@/lib/rust-core";
@@ -95,6 +95,8 @@ export interface PagePointer {
    * the mark in progress when there is one.
    */
   persistInkStroke: (input: { pageNumber: number; pageHeight: number; path: number[]; width: number }) => Promise<void>;
+  /** Hand a page's pen to `cancelStroke`; returns the undo. */
+  registerPenCancel: (cancel: () => void) => () => void;
   pendingTextBox: PendingTextBox | null;
   setPendingTextBox: (box: PendingTextBox | null) => void;
   pageProjection: (pageNumber: number) => PageProjection;
@@ -606,7 +608,22 @@ export function usePagePointer({
     void event;
   }
 
+  /** The pens on the pages (`PdfInkPen`): a second finger or a pinch ends their stroke too. */
+  const penCancels = useRef(new Set<() => void>());
+  const registerPenCancel = useCallback((cancel: () => void) => {
+    penCancels.current.add(cancel);
+    return () => {
+      penCancels.current.delete(cancel);
+    };
+  }, []);
+
+  /** A second finger or a pinch: the row's gesture and the pens' strokes all end. */
   function cancelStroke() {
+    for (const cancel of penCancels.current) cancel();
+    clearStroke();
+  }
+
+  function clearStroke() {
     dragRect.current = null;
     inkMove.current = null;
     lassoPointerId.current = null;
@@ -632,7 +649,7 @@ export function usePagePointer({
     gesture.current.up(id);
     scheduleMove(null);
     erased.current = new Map();
-    cancelStroke();
+    clearStroke();
   }
 
   return {
@@ -649,6 +666,7 @@ export function usePagePointer({
     },
     cancelStroke,
     persistInkStroke,
+    registerPenCancel,
     pendingTextBox,
     setPendingTextBox,
     pageProjection,

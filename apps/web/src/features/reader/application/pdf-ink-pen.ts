@@ -18,16 +18,22 @@ export interface PenPageBox {
   height: number;
 }
 
-/** A client point as pen page units, or null off the page box. */
+/**
+ * A client point as pen page units from the page box's corner, or null off
+ * `area` (the page box itself unless given: the row with its margin strip).
+ */
 export function clientToPenUnits(
   clientX: number,
   clientY: number,
   box: PenPageBox,
   scale: number,
+  area: PenPageBox = box,
 ): { x: number; y: number } | null {
+  const ax = clientX - area.left;
+  const ay = clientY - area.top;
+  if (ax < 0 || ay < 0 || ax > area.width || ay > area.height) return null;
   const x = clientX - box.left;
   const y = clientY - box.top;
-  if (x < 0 || y < 0 || x > box.width || y > box.height) return null;
   return { x: (x / scale) * PEN_UNITS_PER_PT, y: (y / scale) * PEN_UNITS_PER_PT };
 }
 
@@ -48,4 +54,52 @@ export function penPointsToPdfPath(
     path.push(at.x, at.y);
   }
   return path;
+}
+
+/** The pen sits on a page only for the two drawing tools; every other tool keeps the page's own pointer. */
+export function pdfPenMounts(canCreate: boolean, hasSize: boolean, tool: string): boolean {
+  return canCreate && hasSize && (tool === "ink" || tool === "highlighter");
+}
+
+/**
+ * The pages that carry a pen: every page on screen, plus the current page and
+ * its neighbours, so the first stroke on any visible page draws.
+ */
+export function pdfPenPages(ratios: ReadonlyMap<number, number>, current: number, numPages: number): Set<number> {
+  const pages = new Set<number>();
+  for (const [page, ratio] of ratios) if (ratio > 0) pages.add(page);
+  for (const page of [current - 1, current, current + 1]) if (page >= 1 && page <= numPages) pages.add(page);
+  return pages;
+}
+
+/**
+ * When the pen's wet ink may be cleared: once every save has landed (the
+ * annotation layer draws the mark from then on) and no stroke is in flight,
+ * so a newer stroke keeps its preview and an unsaved one never vanishes.
+ */
+export class WetInkClear {
+  private pending = 0;
+  private dirty = false;
+
+  constructor(
+    private readonly clear: () => void,
+    private readonly penDown: () => boolean,
+  ) {}
+
+  saving(): void {
+    this.pending += 1;
+    this.dirty = true;
+  }
+
+  saved(): void {
+    this.pending -= 1;
+    this.settle();
+  }
+
+  settle(): void {
+    if (this.pending === 0 && this.dirty && !this.penDown()) {
+      this.dirty = false;
+      this.clear();
+    }
+  }
 }

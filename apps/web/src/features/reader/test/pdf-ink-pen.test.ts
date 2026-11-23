@@ -10,9 +10,13 @@ import {
 } from "@weaveforge/wasm";
 import type { RustCore } from "@/lib/rust-core";
 import { loadTestCore } from "@/lib/test/load-test-core";
+import { readFileSync } from "node:fs";
 import {
   PEN_UNITS_PER_PT,
+  WetInkClear,
   clientToPenUnits,
+  pdfPenMounts,
+  pdfPenPages,
   penPointsToPdfPath,
   penViewportScale,
 } from "../application/pdf-ink-pen";
@@ -180,4 +184,97 @@ test("existing Zotero ink, which has no pressure, still renders", () => {
     contentHash: "",
   });
   assert.equal(strokes.length, 1);
+});
+
+test("the margin strip beside the page takes ink, measured from the page's corner", () => {
+  const page = { left: 10, top: 10, width: 100, height: 200 };
+  const row = { left: 10, top: 10, width: 160, height: 200 };
+  assert.deepEqual(clientToPenUnits(140, 10, page, 1, row), { x: 130 * PEN_UNITS_PER_PT, y: 0 });
+  assert.equal(clientToPenUnits(171, 50, page, 1, row), null);
+  assert.equal(clientToPenUnits(140, 10, page, 1), null, "without the strip the page box is the edge");
+});
+
+test("the pen's nib and the stored nib are one width", () => {
+  for (const w of [2, 5, 13, 40]) {
+    const pt = rs.inkNoteWidthToPdfPoints(w);
+    // Stored to 0.01 pt, so within half of that.
+    assert.ok(Math.abs(pt * PEN_UNITS_PER_PT - w) <= 0.005 * PEN_UNITS_PER_PT + 1e-9, `width ${w}`);
+  }
+});
+
+test("only the drawing tools put the pen on a page; picture and selection drags keep the page", () => {
+  assert.equal(pdfPenMounts(true, true, "ink"), true);
+  assert.equal(pdfPenMounts(true, true, "highlighter"), true);
+  for (const tool of ["select", "lasso", "image", "text", "erase", "highlight", "underline", "note"]) {
+    assert.equal(pdfPenMounts(true, true, tool), false, tool);
+  }
+  assert.equal(pdfPenMounts(false, true, "ink"), false);
+  assert.equal(pdfPenMounts(true, false, "ink"), false);
+});
+
+test("every page on screen carries a pen, not only the current one and its neighbours", () => {
+  const ratios = new Map([
+    [4, 0.2],
+    [5, 1],
+    [6, 0.6],
+    [7, 0.05],
+    [9, 0],
+  ]);
+  assert.deepEqual([...pdfPenPages(ratios, 5, 10)].sort((a, b) => a - b), [4, 5, 6, 7]);
+  assert.deepEqual([...pdfPenPages(new Map(), 1, 3)].sort((a, b) => a - b), [1, 2]);
+});
+
+test("the stroke ends where the pen lifted (< 0.3 pt)", () => {
+  const short = [100, 100, 101, 100.5, 102.2, 101.1];
+  const drawn = drawnThroughPen(short, 0, 2);
+  const saved = draftInkAnnotation({ color: "#000", pageIndex: 0, pageHeight: 800, path: drawn, width: 2 })!.anchor
+    .zoteroPosition!.paths![0]!;
+  const n = saved.length;
+  assert.ok(Math.hypot(saved[n - 2]! - 102.2, saved[n - 1]! - 101.1) < 0.3);
+});
+
+test("wet ink stays until its save resolves", () => {
+  let cleared = 0;
+  const wet = new WetInkClear(() => (cleared += 1), () => false);
+  wet.saving();
+  assert.equal(cleared, 0, "cleared before the save landed");
+  wet.saved();
+  assert.equal(cleared, 1);
+  wet.settle();
+  assert.equal(cleared, 1, "nothing new to clear");
+});
+
+test("a newer stroke keeps its preview while an older one saves", () => {
+  let cleared = 0;
+  let down = false;
+  const wet = new WetInkClear(() => (cleared += 1), () => down);
+  wet.saving(); // stroke A
+  down = true; // stroke B starts
+  wet.saved(); // A lands mid-B
+  assert.equal(cleared, 0, "B's wet ink was wiped");
+  down = false;
+  wet.saving(); // B commits
+  assert.equal(cleared, 0);
+  wet.saved();
+  assert.equal(cleared, 1);
+});
+
+test("the PDF pen writes with the notes' module only", () => {
+  const sources = ["../ui/pdf-reader/pdf-ink-pen.tsx", "../application/pdf-ink-pen.ts"].map((f) =>
+    readFileSync(new URL(f, import.meta.url), "utf8"),
+  );
+  const allowed = [/^react$/, /^@weaveforge\/core$/, /^@\/lib\/rust-core$/, /^@\/features\/ink\//, /^\.\.\/\.\.\/application\/pdf-ink-pen$/];
+  for (const src of sources) {
+    for (const m of src.matchAll(/from\s+"([^"]+)"/g)) {
+      assert.ok(allowed.some((re) => re.test(m[1]!)), `PDF pen imports ${m[1]}`);
+    }
+    assert.doesNotMatch(src, /Sampler|getStroke|freedraw|NibFilter/, "PDF-only sampling or rendering");
+  }
+});
+
+test("Ctrl+Z is not bound by the pen, so the reader's undo owns it", () => {
+  for (const f of ["../../ink/ui/use-ink-pen.ts", "../../ink/application/use-pen-capture.ts", "../ui/pdf-reader/pdf-ink-pen.tsx"]) {
+    const src = readFileSync(new URL(f, import.meta.url), "utf8");
+    assert.doesNotMatch(src, /keydown|onKeyDown/, f);
+  }
 });
