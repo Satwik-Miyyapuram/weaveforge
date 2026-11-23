@@ -1,6 +1,7 @@
 import { getContainer } from "@/bootstrap";
 import type { ISharedReader, SharedItem } from "@/features/sharing/domain/shared-reader";
 import { readyCore } from "@/lib/rust-core";
+import { logToApp } from "@/lib/error-report/app-log";
 import type {
   Experiment,
   IExperimentRepository,
@@ -150,7 +151,16 @@ export class LoadSharedWithMeScreenUseCase {
       const result = settled[i];
       if (result?.status === "fulfilled") groups.push(result.value);
       // A retired table (1.0.0 drops the personal tables) holds nothing to show.
-      else if (result && !isMissingTable(result.reason)) unavailable.push(type);
+      else if (result && !(HELD_DROP_TYPES.has(type) && isMissingTable(result.reason))) {
+        unavailable.push(type);
+        if (isMissingTable(result.reason)) {
+          logToApp({
+            level: "warn",
+            source: "shared-with-me",
+            message: `missing table for shared ${type} (stale schema cache?)`,
+          });
+        }
+      }
     });
     if (unavailable.length === types.length) {
       throw (settled[0] as PromiseRejectedResult).reason;
@@ -171,6 +181,18 @@ export class LoadSharedWithMeScreenUseCase {
     return { items, members, unavailable };
   }
 }
+
+/**
+ * Types whose table 1.0.0 drops (0165/0167). Only for these is a missing table
+ * expected; elsewhere PGRST205 more likely means a stale schema cache.
+ */
+const HELD_DROP_TYPES: ReadonlySet<ShareableType> = new Set([
+  "paper",
+  "vault_page",
+  "report_section",
+  "reading_list",
+  "milestone",
+]);
 
 /** PostgREST's "table not in the schema cache" (404) or Postgres's undefined_table. */
 function isMissingTable(error: unknown): boolean {

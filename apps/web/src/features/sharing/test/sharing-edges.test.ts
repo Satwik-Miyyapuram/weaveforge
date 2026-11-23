@@ -23,5 +23,6 @@ test("shared-with-me falls back to all when the filtered kind disappears", () =>
 
 test("shared-with-me groups and empty state use the filtered items", () => {
   assert.match(shared, /for \(const it of visibleItems\)/);
-  assert.match(shared, /\{!error && visibleItems\.length === 0 && \(/);
+  assert.match(shared, /sharedWithMeNotice\(data\?\.unavailable \?\? \[\], visibleItems\.length\)/);
+  assert.match(shared, /\{!error && notice\.firstRunEmpty && \(/);
 });

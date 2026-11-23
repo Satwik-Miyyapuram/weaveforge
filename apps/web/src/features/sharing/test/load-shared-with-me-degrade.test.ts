@@ -2,7 +2,8 @@
  * Shared with me reads one source per shareable type. 1.0.0 retires the personal
  * tables those reads select from (0165/0167), so one source can fail with a missing
  * table while the others still answer. The screen keeps the other items:
- * - a missing table (PostgREST 404 PGRST205, or Postgres 42P01) reads as empty;
+ * - a missing table (PostgREST 404 PGRST205, or Postgres 42P01) reads as empty, but only
+ *   for the types whose table 1.0.0 drops; elsewhere it is unavailable and logged;
  * - any other failure of one source is listed in `unavailable` so the screen can say so;
  * - when every source fails, the error still reaches the screen as before.
  */
@@ -88,6 +89,34 @@ test("one source failing otherwise is reported as unavailable; the other items s
   const data = await useCase(reader({ paper: new Error("network down") })).execute();
   assert.deepEqual(ids(data.items), ["vault_page:n1"]);
   assert.deepEqual(data.unavailable, ["paper"]);
+});
+
+test("a missing table outside the held-drop set (e.g. stale schema cache) is unavailable and logged", async () => {
+  const logs: { level: string; source: string; message: string }[] = [];
+  const g = globalThis as { window?: unknown };
+  const before = g.window;
+  g.window = { weaveforge: { fetchTitle: () => {}, reportAppLog: (line: never) => logs.push(line) } };
+  try {
+    const shares = [share("experiment", "e1"), share("vault_page", "n1")];
+    const data = await new LoadSharedWithMeScreenUseCase({
+      sharing: { listSharedWithMe: async () => shares } as never,
+      members: { listDirectory: async () => [] } as never,
+      sharedReader: reader({
+        experiment: { code: "PGRST205", message: "Could not find the table 'public.experiments' in the schema cache" },
+      }),
+      papers: noRows,
+      experiments: noRows,
+      vaultPages: noRows,
+      readingLists: noRows,
+    }).execute();
+    assert.deepEqual(ids(data.items), ["vault_page:n1"]);
+    assert.deepEqual(data.unavailable, ["experiment"]);
+    assert.equal(logs.length, 1);
+    assert.equal(logs[0]?.level, "warn");
+    assert.match(logs[0]?.message ?? "", /experiment/);
+  } finally {
+    g.window = before;
+  }
 });
 
 test("every source failing still rejects, so the screen shows its error as before", async () => {

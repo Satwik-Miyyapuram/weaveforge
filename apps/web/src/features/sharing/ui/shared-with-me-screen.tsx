@@ -72,6 +72,7 @@ export function SharedWithMeScreen() {
     [items, activeKind],
   );
   const ownerCount = useMemo(() => new Set(items.map((it) => it.ownerId)).size, [items]);
+  const notice = sharedWithMeNotice(data?.unavailable ?? [], visibleItems.length);
 
   const byOwner = useMemo(() => {
     const groups = new Map<string, SharedItemDetail[]>();
@@ -143,12 +144,8 @@ export function SharedWithMeScreen() {
         />
       )}
       {error && <FormError>{error}</FormError>}
-      {!error && data && data.unavailable.length > 0 && (
-        <FormError>
-          {`Could not load shared ${data.unavailable.map((k) => pluralLabel(k).toLowerCase()).join(", ")}. The rest is below.`}
-        </FormError>
-      )}
-      {!error && visibleItems.length === 0 && (
+      {!error && notice.banner && <FormError>{notice.banner}</FormError>}
+      {!error && notice.firstRunEmpty && (
         <EmptyState
           variant="first-run"
           icon={<NavIcon name="book" />}
@@ -185,6 +182,21 @@ export function SharedWithMeScreen() {
       ))}
     </section>
   );
+}
+
+/**
+ * What to say when some types could not load. The banner promises items below
+ * only when some are shown, and the first-run card ("nothing shared yet") shows
+ * only when every type answered, since a failed type may hold shared items.
+ */
+export function sharedWithMeNotice(
+  unavailable: ShareableType[],
+  shownCount: number,
+): { banner: string | null; firstRunEmpty: boolean } {
+  if (unavailable.length === 0) return { banner: null, firstRunEmpty: shownCount === 0 };
+  const types = unavailable.map((k) => pluralLabel(k).toLowerCase()).join(", ");
+  const rest = shownCount > 0 ? "The rest is below." : "Nothing else could be shown.";
+  return { banner: `Could not load shared ${types}. ${rest}`, firstRunEmpty: false };
 }
 
 function pluralLabel(kind: SharedItemDetail["kind"]): string {
