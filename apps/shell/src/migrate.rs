@@ -39,10 +39,10 @@ pub enum OldDb {
 pub fn old_db_state(data_dir: &Path) -> OldDb {
     let is_db = |dir: &Path| dir.join("PG_VERSION").is_file();
     let app_db = data_dir.join("local-db");
-    if let Some(root) = configured_root(data_dir) {
-        if !root.is_dir() {
-            return OldDb::WorkspaceMissing(root);
-        }
+    if let Some(root) = configured_root(data_dir)
+        && !root.is_dir()
+    {
+        return OldDb::WorkspaceMissing(root);
     }
     if is_db(&app_db) {
         OldDb::Found(app_db)
@@ -493,9 +493,33 @@ pub fn native_data_verified(pg_root: &Path, device: Option<&str>) -> bool {
         .is_some_and(|folder| report_verified_in(Path::new(folder), device))
 }
 
-/// Whether the 0.9.7 report under `folder` is verified, removing or removed.
+/// Whether this device's 0.9.7 report under `folder` is verified, removing or removed. The report
+/// is this device's own `report-<device>.json` (what the 0.9.7 exporter writes), else the legacy
+/// `report.json`; another device's file never stands in, and an unreadable one is skipped. An
+/// unreadable own or legacy report counts as not verified.
 fn report_verified_in(folder: &Path, device: &str) -> bool {
-    fs::read_to_string(folder.join(REPORT_097)).is_ok_and(|text| report_is_verified(&text, device))
+    // The id becomes a file name, so it must not carry path characters.
+    if device.is_empty()
+        || !device
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_')
+    {
+        return false;
+    }
+    let own = folder
+        .join(REPORT_097)
+        .with_file_name(format!("report-{device}.json"));
+    let text = match fs::read_to_string(&own) {
+        Ok(text) => text,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+            match fs::read_to_string(folder.join(REPORT_097)) {
+                Ok(text) => text,
+                Err(_) => return false,
+            }
+        }
+        Err(_) => return false,
+    };
+    report_is_verified(&text, device)
 }
 
 /// The report's state is `verified`, `removing` or `removed`, and the newest run whose
@@ -853,7 +877,10 @@ mod tests {
 
     #[test]
     fn install_gate_refuses_an_unverified_report_even_with_the_marker() {
-        let folder = report("gate-unverified-marker", r#"{"state":"incomplete"}"#);
+        let folder = report(
+            "gate-unverified-marker",
+            r#"{"state":"incomplete","runs":[]}"#,
+        );
         write_marker(&folder, DEVICE);
         assert_eq!(
             report_verified_or_open(&folder, Ok(Some(DEVICE.to_string()))),
@@ -1580,6 +1607,126 @@ mod tests {
             fs::write(data.join("preferences.json"), prefs.to_string()).unwrap();
             assert!(local_data_verified(&data, Some(DEVICE)));
             assert!(!local_data_verified(&data, Some(OTHER)));
+        }
+
+        /// Writes `body` as `name` in the 0.9.7 migration folder under `folder`.
+        fn put_report(folder: &Path, name: &str, body: &str) {
+            let dir = folder.join(".weaveforge/migration-0.9.7");
+            fs::create_dir_all(&dir).unwrap();
+            fs::write(dir.join(name), body).unwrap();
+        }
+
+        fn linked_pg(name: &str, folder: &Path) -> PathBuf {
+            let (pg, _) = temp(name);
+            let link = serde_json::json!({ "folder": folder.to_string_lossy() });
+            fs::write(pg.join("exported-to.json"), link.to_string()).unwrap();
+            pg
+        }
+
+        /// The 0.9.7 exporter writes only `report-<deviceId>.json`; that file alone proves the export.
+        #[test]
+        fn this_devices_own_report_file_alone_is_verified() {
+            let (data, _) = temp("own-report");
+            let workspace = data.parent().unwrap_or(&data).join("ws-own-report");
+            let _ = fs::remove_dir_all(&workspace);
+            let runs = format!("[{}]", run(DEVICE, r#""missing":[]"#));
+            put_report(
+                &workspace,
+                &format!("report-{DEVICE}.json"),
+                &report("verified", &runs),
+            );
+            let prefs = serde_json::json!({ "vault-root": workspace.to_string_lossy() });
+            fs::write(data.join("preferences.json"), prefs.to_string()).unwrap();
+            assert!(local_data_verified(&data, Some(DEVICE)));
+            let pg = linked_pg("own-report-pg", &workspace);
+            assert!(native_data_verified(&pg, Some(DEVICE)));
+        }
+
+        /// Another device's file never stands in for this one, even when it holds this device's run.
+        #[test]
+        fn another_devices_report_file_alone_is_not_verified() {
+            let (pg, _) = temp("other-report-pg");
+            let folder = pg.parent().unwrap_or(&pg).join("export-other-report");
+            let _ = fs::remove_dir_all(&folder);
+            let runs = format!(
+                "[{},{}]",
+                run(DEVICE, r#""missing":[]"#),
+                run(OTHER, r#""missing":[]"#)
+            );
+            put_report(
+                &folder,
+                &format!("report-{OTHER}.json"),
+                &report("verified", &runs),
+            );
+            let pg = linked_pg("other-report-link", &folder);
+            assert!(!native_data_verified(&pg, Some(DEVICE)));
+            assert!(native_data_verified(&pg, Some(OTHER)));
+        }
+
+        /// The own file decides when there is one; the legacy report.json counts only without it.
+        #[test]
+        fn the_own_report_file_beats_the_legacy_report() {
+            let (pg, _) = temp("own-beats-legacy");
+            let folder = pg.parent().unwrap_or(&pg).join("export-own-beats-legacy");
+            let _ = fs::remove_dir_all(&folder);
+            let ok = format!("[{}]", run(DEVICE, r#""missing":[]"#));
+            let bad = format!("[{}]", run(DEVICE, r#""missing":["a"]"#));
+            put_report(&folder, "report.json", &report("verified", &ok));
+            let pg = linked_pg("own-beats-legacy-link", &folder);
+            assert!(
+                native_data_verified(&pg, Some(DEVICE)),
+                "legacy alone counts"
+            );
+            put_report(
+                &folder,
+                &format!("report-{DEVICE}.json"),
+                &report("verified", &bad),
+            );
+            assert!(!native_data_verified(&pg, Some(DEVICE)), "own file decides");
+        }
+
+        /// An unreadable own file is not verified, even beside a verified legacy report.
+        #[test]
+        fn an_unreadable_own_report_is_not_verified() {
+            let (pg, _) = temp("own-unreadable");
+            let folder = pg.parent().unwrap_or(&pg).join("export-own-unreadable");
+            let _ = fs::remove_dir_all(&folder);
+            let ok = format!("[{}]", run(DEVICE, r#""missing":[]"#));
+            put_report(&folder, "report.json", &report("verified", &ok));
+            put_report(&folder, &format!("report-{DEVICE}.json"), "not json");
+            let pg = linked_pg("own-unreadable-link", &folder);
+            assert!(!native_data_verified(&pg, Some(DEVICE)));
+        }
+
+        /// Another device's unreadable file or a conflict copy does not hold this device's update.
+        #[test]
+        fn another_devices_unreadable_report_does_not_block_the_own_one() {
+            let (pg, _) = temp("other-unreadable");
+            let folder = pg.parent().unwrap_or(&pg).join("export-other-unreadable");
+            let _ = fs::remove_dir_all(&folder);
+            let ok = format!("[{}]", run(DEVICE, r#""missing":[]"#));
+            put_report(
+                &folder,
+                &format!("report-{DEVICE}.json"),
+                &report("verified", &ok),
+            );
+            put_report(&folder, &format!("report-{OTHER}.json"), "not json");
+            put_report(&folder, "report (conflict copy).json", "not json");
+            let pg = linked_pg("other-unreadable-link", &folder);
+            assert!(native_data_verified(&pg, Some(DEVICE)));
+        }
+
+        /// A device id with path characters never names a report file.
+        #[test]
+        fn a_device_id_with_path_characters_is_not_verified() {
+            let (pg, _) = temp("bad-device-id");
+            let folder = pg.parent().unwrap_or(&pg).join("export-bad-device-id");
+            let _ = fs::remove_dir_all(&folder);
+            let bad = "../x";
+            let ok = format!("[{}]", run(bad, r#""missing":[]"#));
+            put_report(&folder, "report.json", &report("verified", &ok));
+            let pg = linked_pg("bad-device-id-link", &folder);
+            assert!(!native_data_verified(&pg, Some(bad)));
         }
 
         #[test]

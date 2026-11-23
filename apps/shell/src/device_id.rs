@@ -22,6 +22,7 @@ pub fn read_existing(dir: &Path) -> io::Result<Option<String>> {
 
 /// The stored id if the file holds a valid one, else `None`. Never writes: a missing, empty or
 /// corrupt file gives `None`, so the update hold stays closed instead of creating an id.
+#[must_use]
 pub fn get_existing(dir: &Path) -> Option<String> {
     read_existing(dir).ok().flatten()
 }

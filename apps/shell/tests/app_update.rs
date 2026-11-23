@@ -4,8 +4,8 @@
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
 use weaveforge_shell_lib::app_update::{
-    AppUpdateStatus, CHECK_FAILED, INSTALL_FAILED, LocalData, Phase, UPDATE_HELD, can_check,
-    can_install, classify_local, configured, install_allowed, local_data_in,
+    AppUpdateStatus, CHECK_FAILED, DownloadProgress, INSTALL_FAILED, LocalData, Phase, UPDATE_HELD,
+    can_check, can_install, classify_local, configured, install_allowed, local_data_in,
     native_database_present, percent,
 };
 
@@ -236,10 +236,11 @@ fn a_same_version_offer_is_not_held() {
 }
 
 #[test]
-fn a_held_release_can_be_checked_and_installed_again() {
-    // The install re-runs the gate, so a held offer may proceed once local data is verified.
+fn a_held_release_can_be_checked_but_not_installed() {
+    // As the page shows it: no install button while held. A new check re-runs the gate and
+    // offers the release again once local data is verified.
     assert!(can_check(Phase::Held));
-    assert!(can_install(Phase::Held));
+    assert!(!can_install(Phase::Held));
 }
 
 #[test]
@@ -250,10 +251,51 @@ fn native_data_counts_only_with_a_pg_version_file() {
     assert!(!native_database_present(&dir));
     std::fs::write(dir.join("stray.txt"), "x").unwrap();
     assert!(!native_database_present(&dir));
+    // The cluster lives in `local-pg/data`; a `PG_VERSION` directly under `local-pg` is not one.
     std::fs::write(dir.join("PG_VERSION"), "16").unwrap();
+    assert!(!native_database_present(&dir));
+    std::fs::create_dir_all(dir.join("data")).unwrap();
+    std::fs::write(dir.join("data").join("PG_VERSION"), "16").unwrap();
     assert!(native_database_present(&dir));
     assert!(!native_database_present(&dir.join("missing")));
     let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// The real native layout (`local-pg/data/PG_VERSION`, as the host creates it) with no export
+/// holds the update: 0.9.8 must not install over data that was never exported.
+#[test]
+fn an_unexported_native_cluster_in_the_real_layout_holds_the_update() {
+    let root = std::env::temp_dir().join(format!("wf-native-layout-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&root);
+    let data = root.join("data");
+    let cluster = data.join("local-pg").join("data");
+    std::fs::create_dir_all(&cluster).unwrap();
+    std::fs::write(cluster.join("PG_VERSION"), "17").unwrap();
+    let local = local_data_in(Some(&data));
+    assert_eq!(local, LocalData::Unverified);
+    assert!(install_allowed("0.9.7", "0.9.8", local).is_err());
+    let _ = std::fs::remove_dir_all(&root);
+}
+
+/// The updater reports each chunk's length, not a running total: several chunks must add up
+/// to 100%, and only a change of percent is reported.
+#[test]
+fn download_progress_adds_up_the_chunks() {
+    let mut progress = DownloadProgress::default();
+    assert_eq!(progress.chunk(250, Some(1000)), Some(Some(25)));
+    assert_eq!(progress.chunk(0, Some(1000)), None, "no change, no report");
+    assert_eq!(progress.chunk(250, Some(1000)), Some(Some(50)));
+    assert_eq!(progress.chunk(500, Some(1000)), Some(Some(100)));
+    assert_eq!(progress.chunk(10, Some(1000)), None, "capped at 100");
+}
+
+#[test]
+fn download_progress_with_no_total_reports_no_percent_once() {
+    let mut progress = DownloadProgress::default();
+    assert_eq!(progress.chunk(10, None), Some(None));
+    assert_eq!(progress.chunk(10, None), None);
+    assert_eq!(progress.chunk(usize::MAX, Some(1)), Some(Some(100)));
+    assert_eq!(progress.chunk(usize::MAX, Some(1)), None, "no overflow");
 }
 
 #[test]
@@ -270,9 +312,9 @@ fn a_verified_report_from_another_device_holds_0_9_7_back() {
     let ws = root.join("ws");
     let pg = data.join("local-pg");
     let report_dir = ws.join(".weaveforge").join("migration-0.9.7");
-    std::fs::create_dir_all(&pg).unwrap();
+    std::fs::create_dir_all(pg.join("data")).unwrap();
     std::fs::create_dir_all(&report_dir).unwrap();
-    std::fs::write(pg.join("PG_VERSION"), "16").unwrap();
+    std::fs::write(pg.join("data").join("PG_VERSION"), "16").unwrap();
     std::fs::write(
         pg.join("exported-to.json"),
         format!(
@@ -375,8 +417,8 @@ fn a_missing_device_id_is_not_written_and_holds_the_update() {
     let data = root.join("data");
     let ws = root.join("ws");
     let pg = data.join("local-pg");
-    std::fs::create_dir_all(&pg).unwrap();
-    std::fs::write(pg.join("PG_VERSION"), "16").unwrap();
+    std::fs::create_dir_all(pg.join("data")).unwrap();
+    std::fs::write(pg.join("data").join("PG_VERSION"), "16").unwrap();
     std::fs::write(
         pg.join("exported-to.json"),
         format!(

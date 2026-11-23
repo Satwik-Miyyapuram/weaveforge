@@ -87,7 +87,8 @@ pub const CHECK_FAILED: &str = "Could not check for an update.";
 /// Shown when the download or the installer failed. The page offers Try again.
 pub const INSTALL_FAILED: &str = "The update did not install. Try again.";
 /// Shown when `install_allowed` refuses a version. The log keeps the exact reason.
-pub const UPDATE_HELD: &str = "This update is held: export your data first, then try again.";
+pub const UPDATE_HELD: &str =
+    "This update is held: export and verify your data in 0.9.7 first, then try again.";
 
 /// Where the shell is in the update cycle.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, specta::Type)]
@@ -110,7 +111,8 @@ pub enum Phase {
     /// The last check or install failed; `error` says so and a retry is allowed.
     Failed,
     /// The release is offered but refused until local data is exported and verified. Not a
-    /// failure: `error` names the rule, and a retry would be refused again.
+    /// failure: `error` names the rule. No install starts from here; a new check may offer it
+    /// again.
     Held,
 }
 
@@ -157,15 +159,17 @@ pub fn can_check(phase: Phase) -> bool {
 /// An install may start only when a release is offered, or after a failure (which re-checks first).
 #[must_use]
 pub fn can_install(phase: Phase) -> bool {
-    // A held offer may install later: the install re-runs the gate before it starts.
-    matches!(phase, Phase::Available | Phase::Failed | Phase::Held)
+    // A held offer is not installed from `Held` (the page shows no install button): a new
+    // check re-runs the gate and offers it again once local data is verified.
+    matches!(phase, Phase::Available | Phase::Failed)
 }
 
-/// Whether `pg` (the `local-pg` directory) holds a native database. Only a `PG_VERSION` file
-/// counts: a directory with stray files is not a database.
+/// Whether `pg` (the `local-pg` directory) holds a native database. The cluster lives in
+/// `pg/data`, as the host creates it, and only its `PG_VERSION` file counts: a directory with
+/// stray files is not a database.
 #[must_use]
 pub fn native_database_present(pg: &std::path::Path) -> bool {
-    pg.join("PG_VERSION").is_file()
+    pg.join("data").join("PG_VERSION").is_file()
 }
 
 /// What the local database holds, as far as an update decision cares.
@@ -271,6 +275,7 @@ fn local_data(app: &AppHandle) -> LocalData {
 
 /// Local-data state for a data folder. None (the folder could not be resolved) is unverified,
 /// so the update is held rather than allowed to strand data.
+#[must_use]
 pub fn local_data_in(data: Option<&std::path::Path>) -> LocalData {
     let Some(data) = data else {
         return LocalData::Unverified;
@@ -462,12 +467,13 @@ fn claim_install<T>(
 pub async fn install(app: &AppHandle) -> AppUpdateStatus {
     let state = app.state::<AppUpdateState>();
     let current = app.package_info().version.to_string();
-    let local = local_data(app);
+    // The local data is read inside the claim, under the status lock, so the gate sees it as
+    // it is when the install starts.
     let (update, before, downloading) = match claim_install(
         &state.status,
         &state.pending,
         platform::version,
-        |offered| install_allowed(&current, offered, local),
+        |offered| install_allowed(&current, offered, local_data(app)),
     ) {
         Claim::Refused(status) => return status,
         Claim::CheckFirst => return check(app).await,
@@ -484,23 +490,7 @@ pub async fn install(app: &AppHandle) -> AppUpdateStatus {
     };
     let version = downloading.version.clone().unwrap_or_default();
     let _ = state.set(app, downloading);
-    let mut last = Some(0_u8);
-    let progress_app = app.clone();
-    let on_chunk = move |downloaded: usize, total: Option<u64>| {
-        let now = percent(u64::try_from(downloaded).unwrap_or(u64::MAX), total);
-        if now != last {
-            last = now;
-            let state = progress_app.state::<AppUpdateState>();
-            let current = state.snapshot();
-            let _ = state.set(
-                &progress_app,
-                AppUpdateStatus {
-                    percent: now,
-                    ..current
-                },
-            );
-        }
-    };
+    let on_chunk = progress_reporter(app.clone());
     let installing_app = app.clone();
     let on_done = move || {
         let state = installing_app.state::<AppUpdateState>();
@@ -534,6 +524,56 @@ pub async fn install(app: &AppHandle) -> AppUpdateStatus {
                     ..before
                 },
             )
+        }
+    }
+}
+
+/// Running download progress. The updater reports each chunk's length, not a running total,
+/// so the chunks are added up here.
+#[derive(Debug)]
+pub struct DownloadProgress {
+    received: u64,
+    last: Option<u8>,
+}
+
+impl Default for DownloadProgress {
+    fn default() -> Self {
+        // The `Downloading` status starts at 0%.
+        Self {
+            received: 0,
+            last: Some(0),
+        }
+    }
+}
+
+impl DownloadProgress {
+    /// Adds one chunk; returns the new percent when it changed, else `None`.
+    pub fn chunk(&mut self, len: usize, total: Option<u64>) -> Option<Option<u8>> {
+        self.received = self
+            .received
+            .saturating_add(u64::try_from(len).unwrap_or(u64::MAX));
+        let now = percent(self.received, total);
+        (now != self.last).then(|| {
+            self.last = now;
+            now
+        })
+    }
+}
+
+/// Download progress callback: publishes the percent each time it changes.
+fn progress_reporter(app: AppHandle) -> impl FnMut(usize, Option<u64>) + Send {
+    let mut progress = DownloadProgress::default();
+    move |len: usize, total: Option<u64>| {
+        if let Some(now) = progress.chunk(len, total) {
+            let state = app.state::<AppUpdateState>();
+            let current = state.snapshot();
+            let _ = state.set(
+                &app,
+                AppUpdateStatus {
+                    percent: now,
+                    ..current
+                },
+            );
         }
     }
 }
