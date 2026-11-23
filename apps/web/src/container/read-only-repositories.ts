@@ -249,10 +249,31 @@ export function readOnlyDb<T extends object>(db: T, orgBuckets: readonly string[
 }
 
 /**
+ * Guards a blob store: `upload` and `remove` reject with ReadOnlyError unless the
+ * bucket is in `orgBuckets`; signing and every other read pass through. The
+ * browser's tiered store (HttpBlobStore) talks to the server over fetch, not
+ * through `db.storage`, so readOnlyDb alone does not cover it.
+ */
+export function readOnlyBlobStore<T extends object>(store: T, orgBuckets: readonly string[] = ORG_SERVER_BUCKETS): T {
+  const buckets: ReadonlySet<string> = new Set(orgBuckets);
+  return new Proxy(store, {
+    get(target, prop) {
+      const value: unknown = Reflect.get(target, prop, target);
+      if (typeof value !== "function") return value;
+      if (prop === "upload" || prop === "remove") {
+        return (bucket: string, ...rest: unknown[]) =>
+          buckets.has(bucket) ? value.call(target, bucket, ...rest) : Promise.reject(new ReadOnlyError());
+      }
+      return value.bind(target);
+    },
+  });
+}
+
+/**
  * Wraps the explicitly listed repository keys of a wired backend and guards its
- * database client. The settings use case is rebuilt over the wrapped settings
- * repository, so settings and credential writes reach no live repository. Other
- * keys (org, sharing, use cases, config) are left as wired.
+ * database client and blob store. The settings use case is rebuilt over the wrapped
+ * settings repository, so settings and credential writes reach no live repository.
+ * Other keys (org, sharing, use cases, config) are left as wired.
  */
 export function readOnlyBackend<T extends object>(backend: T): T {
   const out: Record<string, unknown> = { ...(backend as Record<string, unknown>) };
@@ -268,5 +289,6 @@ export function readOnlyBackend<T extends object>(backend: T): T {
     });
   }
   if (out.db && typeof out.db === "object") out.db = readOnlyDb(out.db);
+  if (out.rawBlobStore && typeof out.rawBlobStore === "object") out.rawBlobStore = readOnlyBlobStore(out.rawBlobStore);
   return out as T;
 }
