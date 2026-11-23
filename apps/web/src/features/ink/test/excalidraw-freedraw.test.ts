@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { test } from "node:test";
 
 import { smoothKeepingCorners } from "../render/corner-smoothing";
+import { densifyHermite } from "../render/hermite-densify";
 import {
   freedrawPath,
   getFreeDrawSvgPath,
@@ -171,4 +172,55 @@ test("smoothing keeps a corner point and both ends where they were drawn", () =>
   assert.deepEqual(out[20], V[20]);
   assert.deepEqual(out.at(-1), V.at(-1));
   assert.deepEqual(smoothKeepingCorners([[0, 0], [1, 1]]), [[0, 0], [1, 1]]);
+});
+
+/** One screen pixel at 100% zoom, in the stroke's 0.1 mm units (96 dpi). */
+const SCREEN_PX = 254 / 96;
+
+/** Distance from (x, y) to the polyline `pts`. */
+function distanceToPath(pts: number[][], x: number, y: number): number {
+  let best = Infinity;
+  for (let i = 0; i + 1 < pts.length; i++) {
+    const [ax, ay] = pts[i]!;
+    const [bx, by] = pts[i + 1]!;
+    const dx = bx! - ax!;
+    const dy = by! - ay!;
+    const len2 = dx * dx + dy * dy;
+    const u = len2 > 0 ? Math.max(0, Math.min(1, ((x - ax!) * dx + (y - ay!) * dy) / len2)) : 0;
+    best = Math.min(best, Math.hypot(ax! + u * dx - x, ay! + u * dy - y));
+  }
+  return best;
+}
+
+test("a zig-zag keeps every vertex within half a screen pixel at 100% and 300% zoom", () => {
+  // The same hand gesture at either zoom: 24 px legs, 120 degree turns, a sample
+  // every `step` screen px with a 0.15 px shake. At 300% the samples sit three
+  // times closer in stroke units, so a corner test counted in samples sees a
+  // third of the arc it sees at 100%.
+  const vertices: number[][] = [];
+  for (let k = 0; k < 7; k++) vertices.push([k * 24 * Math.cos(Math.PI / 6), k % 2 ? 12 : -12]);
+  for (const zoom of [1, 3]) {
+    for (const step of [0.5, 1, 2, 4]) {
+      const unit = SCREEN_PX / zoom;
+      const pts: number[][] = [];
+      let seed = 7;
+      const shake = () => ((seed = (seed * 16807) % 2147483647) / 2147483647 - 0.5) * 0.3;
+      for (let k = 0; k + 1 < vertices.length; k++) {
+        const [ax, ay] = vertices[k]!;
+        const [bx, by] = vertices[k + 1]!;
+        const n = Math.round(Math.hypot(bx! - ax!, by! - ay!) / step);
+        for (let j = 0; j < n; j++) {
+          const u = j / n;
+          pts.push([(ax! + (bx! - ax!) * u + shake()) * unit, (ay! + (by! - ay!) * u + shake()) * unit]);
+        }
+      }
+      pts.push(vertices.at(-1)!.map((v) => v * unit));
+      const dense = densifyHermite(pts, pts.map(() => 0.5));
+      const out = smoothKeepingCorners(dense.points, dense.corners);
+      for (const [vx, vy] of vertices.slice(1, -1)) {
+        const off = distanceToPath(out, vx! * unit, vy! * unit) / unit;
+        assert.ok(off < 0.5, `zoom ${zoom}, a sample every ${step} px: a vertex is ${off.toFixed(2)} px off`);
+      }
+    }
+  }
 });
