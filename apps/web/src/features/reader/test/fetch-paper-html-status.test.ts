@@ -31,6 +31,20 @@ test("a relayed 400 (address the relay will not dial) is also blocked", async ()
   });
 });
 
+test("with no account the relay is not asked: the fetch fails before it is sent", async () => {
+  let asked = false;
+  const spyRelay = async () => {
+    asked = true;
+    return new Response("", { status: 200 });
+  };
+  const signedOut = async () => null;
+  assert.deepEqual(await fetchPaperHtml(URL_, spyRelay as typeof fetch, signedOut), {
+    ok: false,
+    reason: "failed",
+  });
+  assert.equal(asked, false);
+});
+
 test("a relayed 502 (upstream failed) stays a failed fetch", async () => {
   assert.deepEqual(await fetchPaperHtml(URL_, fakeRelay(502) as typeof fetch, noToken), {
     ok: false,

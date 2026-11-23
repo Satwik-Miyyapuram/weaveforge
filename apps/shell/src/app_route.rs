@@ -162,6 +162,9 @@ pub async fn route(routes: &AppRoutes, request: tauri::http::Request<Vec<u8>>) -
     {
         return answer;
     }
+    if path.starts_with("/api/") && routes.relay_client.is_none() {
+        return from_reply(protocol::relay_unavailable());
+    }
     let web = routes.web.clone();
     let query = parts.uri.query().map(str::to_owned);
     blocking(move || {

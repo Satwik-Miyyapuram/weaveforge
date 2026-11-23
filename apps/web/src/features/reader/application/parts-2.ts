@@ -1,6 +1,5 @@
 import { getContainer } from "@/bootstrap";
 import { NibFilter } from "@/features/ink/application/parts-2";
-import { desktop } from "@/lib/desktop/desktop-bridge";
 import { relayUrl } from "@/lib/parts";
 import { loadCore, readyCore, typedCore } from "@/lib/rust-core";
 import {
@@ -66,7 +65,7 @@ export async function fetchPaperHtml(
   let res: Response;
   try {
     const headers: Record<string, string> = {};
-    if (desktop() === null && pdfProxyNeedsToken()) {
+    if (pdfProxyNeedsToken()) {
       const token = await getAccessToken();
       if (!token) return { ok: false, reason: "failed" };
       headers.Authorization = `Bearer ${token}`;

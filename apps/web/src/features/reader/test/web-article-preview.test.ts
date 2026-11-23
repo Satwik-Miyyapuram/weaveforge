@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
-import { planWebArticle } from "../ui/web-article-preview";
+import { planWebArticle, resolveAccount } from "../ui/web-article-preview";
 import { routePdfHit } from "../ui/pdf-hit-route";
 
 // The exact article from the report (labs.baseten.co): no PDF, so its page is the paper.
@@ -79,6 +80,32 @@ test("a signed-out web reader sees a sign-in card, not the live-page card, when 
     kind: "sign-in",
     host: "labs.baseten.co",
   });
+});
+
+test("only a web reader with no token is signed out; a token failure is unknown, not signed out", async () => {
+  const noToken = async () => null;
+  const rejects = async () => {
+    throw new Error("auth locked");
+  };
+  assert.equal(await resolveAccount(true, async () => "token"), "signed-in");
+  assert.equal(await resolveAccount(true, noToken), "signed-out");
+  assert.equal(await resolveAccount(true, rejects), "unknown");
+});
+
+test("local mode never needs sign-in, so its failed fetch shows the live page", async () => {
+  assert.equal(await resolveAccount(false, async () => null), "signed-in");
+  assert.equal(await resolveAccount(false, async () => null), "signed-in");
+  assert.deepEqual(
+    planWebArticle({ kept: false, pageUrl: ARTICLE, fetchFailed: true, needsSignIn: false }),
+    { kind: "live", url: ARTICLE, host: "labs.baseten.co" },
+  );
+});
+
+test("the sign-in card has a sign-in action wired to the existing Google sign-in", () => {
+  const source = readFileSync(new URL("../ui/paper-pdf-pane.tsx", import.meta.url), "utf8");
+  const card = source.slice(source.indexOf('articlePlan?.kind === "sign-in"'));
+  const block = card.slice(0, card.indexOf('articlePlan?.kind === "none"'));
+  assert.match(block, /signInWithGoogle\(authRedirectTo\(\)\)/);
 });
 
 test("a kept page still wins over sign-in, and no page address still has nothing to show", () => {

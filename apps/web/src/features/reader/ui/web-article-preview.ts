@@ -40,6 +40,25 @@ export function planWebArticle(input: WebArticleInput): WebArticlePlan {
   return { kind: "fetch" };
 }
 
+/**
+ * Whether the reader can fetch web pages. `signed-out` only when the reader needs a
+ * token (the web app) and has none; a token lookup that fails is `unknown`, so the
+ * fetch decides instead of a sign-in card. Local and desktop never need sign-in.
+ */
+export type AccountState = "signed-in" | "signed-out" | "unknown";
+
+export async function resolveAccount(
+  needsToken: boolean,
+  getAccessToken: () => Promise<string | null>,
+): Promise<AccountState> {
+  if (!needsToken) return "signed-in";
+  try {
+    return (await getAccessToken()) ? "signed-in" : "signed-out";
+  } catch {
+    return "unknown";
+  }
+}
+
 /** Only a plain web address may be linked from the reader: no javascript:, file: or data:. */
 function webPageUrl(raw: string | null | undefined): string | null {
   const url = raw?.trim() ?? "";

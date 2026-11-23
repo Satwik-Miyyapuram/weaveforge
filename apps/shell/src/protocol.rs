@@ -236,6 +236,16 @@ pub fn app_headers(content_type: &str) -> Vec<(&'static str, String)> {
     headers
 }
 
+/// The answer for an `/api/` path when the shell's relay client did not start.
+#[must_use]
+pub fn relay_unavailable() -> Reply {
+    Reply {
+        status: 404,
+        headers: app_headers("text/plain; charset=utf-8"),
+        body: b"relay unavailable".to_vec(),
+    }
+}
+
 /// The response for a request path, reading from `root` on disk. `range` is the request's `Range` header.
 #[must_use]
 pub fn respond(
@@ -249,12 +259,7 @@ pub fn respond(
         return not_found();
     }
     if path.starts_with("/api/") {
-        // Reached only when no relay answered: the shell's relay client did not start.
-        return Reply {
-            status: 404,
-            headers: app_headers("text/plain; charset=utf-8"),
-            body: b"relay unavailable".to_vec(),
-        };
+        return not_found();
     }
     if let Some(c) = canonical_path(path) {
         let location = match query {
@@ -310,8 +315,15 @@ mod tests {
     }
 
     #[test]
-    fn an_api_path_no_relay_answered_says_relay_unavailable() {
+    fn an_api_path_a_relay_did_not_answer_is_a_plain_404() {
         let reply = respond(root(), Some("app.localhost"), "/api/html-proxy", Some("url=x"), None);
+        assert_eq!(reply.status, 404);
+        assert!(reply.body.is_empty());
+    }
+
+    #[test]
+    fn relay_unavailable_is_a_404_that_says_so() {
+        let reply = relay_unavailable();
         assert_eq!(reply.status, 404);
         assert_eq!(reply.body, b"relay unavailable".to_vec());
     }

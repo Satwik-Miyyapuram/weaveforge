@@ -8,7 +8,7 @@ use tokio::time::{Instant, timeout_at};
 
 use super::shared::{
     Answer, Refusal, fetch_checked_hops, header_latin1, is_public_https_url, read_capped, refuse,
-    shared_public_client, upstream_failed,
+    shared_public_client, upstream_failed, upstream_refusal,
 };
 
 /// Path the page requests.
@@ -154,14 +154,7 @@ fn page_headers() -> HeaderMap {
 fn page_refusal(response: &reqwest::Response, max: usize) -> Option<Refusal> {
     let status = response.status();
     if !status.is_success() {
-        // The site refused the page: relayed as 403, which the reader reads as blocked.
-        if matches!(status.as_u16(), 401 | 403 | 429 | 451) {
-            return Some(refuse(403, "Upstream refused the page"));
-        }
-        return Some(refuse(
-            502,
-            &format!("Upstream returned {}", status.as_u16()),
-        ));
+        return Some(upstream_refusal(status.as_u16()));
     }
     let content_type = header_latin1(response.headers(), CONTENT_TYPE);
     if !is_html_content_type(content_type.as_deref()) {
@@ -329,7 +322,6 @@ mod tests {
         for status_line in [
             "401 Unauthorized",
             "403 Forbidden",
-            "429 Too Many Requests",
             "451 Unavailable For Legal Reasons",
         ] {
             assert_eq!(relayed_status(status_line).await, 403, "upstream {status_line}");
@@ -338,6 +330,7 @@ mod tests {
 
     #[tokio::test]
     async fn other_upstream_failures_stay_bad_gateway() {
+        assert_eq!(relayed_status("429 Too Many Requests").await, 502);
         assert_eq!(relayed_status("500 Internal Server Error").await, 502);
         assert_eq!(relayed_status("404 Not Found").await, 502);
     }
