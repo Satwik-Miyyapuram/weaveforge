@@ -15,9 +15,10 @@ const NAME_ATTEMPTS = 1000;
  * clash). The name is claimed by an exclusive create first, so a file that
  * appears there between a look and the rename is never overwritten. Without a
  * conditional write the name cannot be claimed safely, so it refuses. If the
- * rename fails and the claim is still empty, it is removed again and the error
- * is rethrown; if the file left and its text reached the trash (moved, then an
- * error), the trashed copy is kept and the move counts as done.
+ * rename fails but the file left its place and the trash name is readable
+ * (moved, then an error), the trashed copy is kept, even when empty, and the
+ * move counts as done. Otherwise an empty claim is removed again and the error
+ * is rethrown.
  */
 export async function moveToTrash(fs: IWorkspaceFs, path: string, now: number): Promise<void> {
   if (!fs.writeTextIf) throw new Error(`${path}: this workspace has no conditional write; not deleted.`);
@@ -30,13 +31,12 @@ export async function moveToTrash(fs: IWorkspaceFs, path: string, now: number): 
       await fs.rename(path, target);
     } catch (error) {
       const trashed = await fs.readText(target).catch(() => null);
-      // An empty target is only our own claim: give it back. A failed clean-up keeps the rename's error.
-      if (trashed === "") {
-        await fs.remove(target).catch(() => {});
-        throw error;
-      }
-      // The file left its place and its text is in the trash (moved, then a failure was reported). Keep it.
+      // The file left its place and the trash name holds text (moved, then a failure was reported).
+      // Keep it even when empty: an empty user file that moved looks just like our claim.
       if (trashed !== null && (await fs.stat(path).catch(() => "unknown" as const)) === null) return;
+      // The source is still there (or cannot be checked), so an empty target is only our claim: give
+      // it back. A failed clean-up keeps the rename's error.
+      if (trashed === "") await fs.remove(target).catch(() => {});
       throw error;
     }
     return;
@@ -66,7 +66,12 @@ export async function claimTrashFolder(
       await fs.remove(marker).catch(() => {});
       continue;
     }
-    return { target, release: () => fs.remove(marker).catch(() => {}) };
+    const release = () =>
+      fs.remove(marker).catch((error: unknown) => {
+        // A left-over marker only blocks this one trash name; log it so it can be cleaned up.
+        console.warn(`Trash claim marker ${marker} could not be removed:`, error);
+      });
+    return { target, release };
   }
   throw new ConflictError(`${folder}: no free name in the trash; not removed.`);
 }
