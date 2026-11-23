@@ -44,21 +44,14 @@ greyed out until it is.
 ## Working without an account
 
 On the desktop app there is one more choice on the sign-in screen: **Use without
-an account, local only**. It keeps everything on your own computer, with no
-sign-in, no server and no internet connection needed. The whole story, including
-what the app stores and where, lives in [The desktop and mobile apps](desktop.md#working-without-an-account).
+an account**. You pick a workspace folder, and everything stays there as files
+on your own computer, with no sign-in, no server and no internet connection
+needed. The whole story, including what the app stores and where, lives in
+[The desktop and mobile apps](desktop.md#working-without-an-account).
 For what a local workspace looks like day to day, see [The workspace editor](workspaces.md).
 
-When the app is running this way, a small tag reading "Offline · on this
-computer" sits in the app's header. Hover over it and it says your data is on
-this computer, that nothing is sent anywhere, and that no connection is needed.
-If you see that tag, you know you are in local mode.
-
-If the desktop app shows "Couldn’t start the app", that screen also
-offers **Work on this computer (offline)**, which switches to the same local mode.
-
-You can sign in later on a local copy. Your local work stays where it is on the
-computer; signing in just adds an account and a server alongside it.
+You can sign in later: **Sign out** in the account menu brings back the sign-in
+screen. Your files stay where they are in the folder.
 
 ## The privacy notice
 

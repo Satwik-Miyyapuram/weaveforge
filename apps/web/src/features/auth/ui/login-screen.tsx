@@ -6,14 +6,17 @@ import { FormError } from "@/components/form-error";
 import { WeaveForgeLogo } from "@/components/weave-forge-logo";
 import { appOrigin, authRedirectTo, pastedSignInQuery } from "@/lib/desktop/desktop-auth";
 import { desktop } from "@/lib/desktop/desktop-bridge";
+import { enterNoAccountOnDesktop } from "@/backend/providers/files/enter-no-account";
 import { runBusy } from "./run-busy";
 import { Button } from "@/components/button";
 
 /**
  * Sign in: password, Google, an emailed code or link, or (desktop only) no
  * account at all. On success the AuthProvider flips to signed-in.
+ * `offerNoAccount` is off where the window already has a workspace, such as
+ * the session-expired overlay: there, signing in again is the only answer.
  */
-export function LoginScreen() {
+export function LoginScreen({ offerNoAccount = true }: { offerNoAccount?: boolean } = {}) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isSignUp, setIsSignUp] = useState(false);
@@ -24,6 +27,14 @@ export function LoginScreen() {
   const [otp, setOtp] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Only the desktop app can open a workspace folder without a session, so a
+  // browser never sees the offer. Read after mount: the first render is the server's.
+  const [onThisComputer, setOnThisComputer] = useState(false);
+  useEffect(() => {
+    setOnThisComputer(desktop() !== null);
+  }, []);
+  // The shell's folder warnings, shown before the reload; Continue goes on.
+  const [folderWarnings, setFolderWarnings] = useState<{ text: string; ok: () => void } | null>(null);
   // When another program holds the sign-in port, the browser's redirect never
   // reaches this window, so the reader pastes the address it was sent to.
   const [portTaken, setPortTaken] = useState(false);
@@ -233,6 +244,32 @@ export function LoginScreen() {
                   </div>
                   <Button type="submit" disabled={busy || !pasted.trim()}>Finish sign-in</Button>
                 </form>
+              )}
+
+              {offerNoAccount && onThisComputer && (
+                <Button variant="link"
+                  disabled={busy}
+                  onClick={() => void run(async () => {
+                    await enterNoAccountOnDesktop({
+                      // Loaded on click: the folder module pulls in the full app, not the sign-in bundle.
+                      chooseFolder: async () => (await import("@/features/workspace/application/workspace-folder")).chooseDesktopFolder({}),
+                      showWarnings: (warnings) => new Promise<void>((resolve) => {
+                        setFolderWarnings({ text: warnings.join(" "), ok: resolve });
+                      }),
+                    });
+                  })}
+                >
+                  Use without an account
+                </Button>
+              )}
+
+              {folderWarnings && (
+                <div className="auth-email" role="alert">
+                  <p className="auth-sub">{folderWarnings.text}</p>
+                  <Button variant="primary" onClick={() => { folderWarnings.ok(); setFolderWarnings(null); }}>
+                    Continue
+                  </Button>
+                </div>
               )}
 
               {error && <FormError>{error}</FormError>}
