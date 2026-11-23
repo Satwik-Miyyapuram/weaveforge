@@ -1,6 +1,14 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { assetRequest, checkRelease, fetchRelease, findRelease, parseBridge } from "./check-release-assets.mjs";
+import {
+  ASSET_FETCH_TIMEOUT_MS,
+  assetRequest,
+  checkRelease,
+  fetchAsset,
+  fetchRelease,
+  findRelease,
+  parseBridge,
+} from "./check-release-assets.mjs";
 import { REPO } from "./release-manifest.mjs";
 
 const TAG = "v0.9.7";
@@ -158,6 +166,56 @@ test("an asset whose download URL points at another tag is reported", async () =
   asset.browser_download_url = `https://github.com/Satwik-Miyyapuram/weaveforge/releases/download/v0.9.0/${asset.name}`;
   const problems = await checkRelease({ tag: TAG, release, readAsset: assetsFrom(GOOD_FILES()) });
   assert.ok(problems.some((p) => p.includes("WeaveForge_0.9.7_arm64-setup.exe") && p.includes("URL")));
+});
+
+// A draft release's assets live under untagged-<hash> until it is published.
+const UNTAGGED = "https://github.com/Satwik-Miyyapuram/weaveforge/releases/download/untagged-6f1c2a9";
+
+function draftWithUntaggedUrls(names = ALL) {
+  const release = releaseFixture(names);
+  release.draft = true;
+  for (const asset of release.assets) asset.browser_download_url = `${UNTAGGED}/${asset.name}`;
+  return release;
+}
+
+test("a draft's untagged download URLs for the right asset names pass", async () => {
+  const problems = await checkRelease({ tag: TAG, release: draftWithUntaggedUrls(), readAsset: assetsFrom(GOOD_FILES()) });
+  assert.deepEqual(problems, []);
+});
+
+test("a published release with untagged download URLs is reported", async () => {
+  const release = draftWithUntaggedUrls();
+  release.draft = false;
+  const problems = await checkRelease({ tag: TAG, release, readAsset: assetsFrom(GOOD_FILES()) });
+  assert.ok(problems.some((p) => p.includes("WeaveForge_0.9.7_x64-setup.exe") && p.includes("download URL")));
+});
+
+test("a draft whose untagged URL names the wrong asset is reported", async () => {
+  const release = draftWithUntaggedUrls();
+  const asset = release.assets.find((a) => a.name === "WeaveForge_0.9.7_arm64-setup.exe");
+  asset.browser_download_url = `${UNTAGGED}/WeaveForge_0.9.7_x64-setup.exe`;
+  const problems = await checkRelease({ tag: TAG, release, readAsset: assetsFrom(GOOD_FILES()) });
+  assert.ok(problems.some((p) => p.includes("WeaveForge_0.9.7_arm64-setup.exe") && p.includes("download URL")));
+});
+
+test("a published release whose untagged URL names the wrong asset is reported", async () => {
+  const release = draftWithUntaggedUrls();
+  release.draft = false;
+  const asset = release.assets.find((a) => a.name === "WeaveForge_0.9.7_arm64-setup.exe");
+  asset.browser_download_url = `${UNTAGGED}/WeaveForge_0.9.7_x64-setup.exe`;
+  const problems = await checkRelease({ tag: TAG, release, readAsset: assetsFrom(GOOD_FILES()) });
+  assert.ok(problems.some((p) => p.includes("WeaveForge_0.9.7_arm64-setup.exe") && p.includes("download URL")));
+});
+
+test("a stalled asset fetch gives up as a failed download, not a hang", async () => {
+  const stalled = (url, init) =>
+    new Promise((_, reject) => init.signal.addEventListener("abort", () => reject(init.signal.reason)));
+  const asset = { name: "latest-v2.json", url: "https://api.github.com/x", browser_download_url: "https://dl/x" };
+  assert.equal(await fetchAsset(asset, {}, stalled, 50), null);
+});
+
+test("the asset fetch timeout is 60 seconds", () => {
+  assert.equal(ASSET_FETCH_TIMEOUT_MS, 60_000);
 });
 
 // Two manifests per release. A 0.9.8 release keeps latest.json at the 0.9.7 bridge.

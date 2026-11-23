@@ -65,7 +65,7 @@ export function appUpdateView(status: DesktopAppUpdate): AppUpdateView {
       notice = `Installing WeaveForge ${version}. WeaveForge will restart.`;
       break;
     case "held":
-      // Refused by the bridge rule, not a failure: no install button, no retry.
+      // Refused by the bridge rule, not a failure: no install button. canCheck stays true, so the user can check again.
       summary = error ?? HELD_FALLBACK;
       break;
     case "failed":
