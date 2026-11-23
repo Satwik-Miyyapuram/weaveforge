@@ -1,19 +1,15 @@
-import { ManageSettingsUseCase, type IWorkspaceFs } from "@weaveforge/core";
-import { systemClock } from "@/lib/parts";
+import type { IWorkspaceFs } from "@weaveforge/core";
 import type { BackendConfig } from "@/backend/parts";
 import { RefusingSecretsStore } from "@/backend/providers/files/refusing-secrets-store";
 import { FileBlobStore } from "@/backend/providers/files/file-blob-store";
-import { FileModeBlobStore } from "./file-mode-blob-store";
 import { openFileSettingsSection } from "@/backend/providers/files/file-settings-section";
 import { wireFileBackend } from "@/backend/providers/files/wire-file-backend";
-import { wirePostgrestBackend } from "@/backend/providers/postgrest/wire-postgrest-backend";
 import { BrowserWorkspaceFs } from "@/features/workspace/infrastructure/parts";
 import { browserReportVerified } from "@/features/migration-097/domain/report";
 import { reportFolderSink } from "@/features/migration-097/infrastructure/report-folder-sink";
 import { readOrCreateInstallId, type InstallIdFs } from "./browser-install-id";
 import type { WiredBackend } from "./parts";
-import { guardOrgDb } from "./org-db-guard";
-import { overlayFileRepositories } from "./with-file-repositories";
+import { wireFilesMode } from "./files-mode-overlay";
 
 /** A backend whose personal data lives in files: `filesMode` is always true here. */
 export type BrowserFileBackend = WiredBackend & { filesMode: true };
@@ -31,25 +27,16 @@ export type BrowserFileWiring = (
  */
 export async function wireBrowserFiles(fs: IWorkspaceFs): Promise<BrowserFileWiring> {
   const settings = await openFileSettingsSection(fs, "");
-  return (config, projectContext, pid) => {
-    const postgrest = wirePostgrestBackend(config, projectContext, pid, undefined, { filesMode: true });
-    const files = wireFileBackend({ fs, settings, secrets: new RefusingSecretsStore() });
-    // The container reaches the server only through `db`, so the guard sits there: personal
-    // tables and rpcs throw before any request. Org and share tables stay reachable.
-    // manageSettings is built inside wirePostgrestBackend over the server settings repo. Rebuild it
-    // over the file repo, so settings saves and the credential readers never reach PostgREST.
-    const manageSettings = new ManageSettingsUseCase({ repository: files.settingsRepository, clock: systemClock });
-    return {
-      ...overlayFileRepositories(postgrest, files),
-      manageSettings,
-      // Personal blobs (images, experiment files) go to the OPFS file blob store. Only the share
-      // path's `uploadShared` reaches the server blob store. Row scoping of shared images to the
-      // signed-in user is not checked here.
-      rawBlobStore: new FileModeBlobStore(new FileBlobStore(fs), postgrest.rawBlobStore),
-      db: guardOrgDb(postgrest.db),
-      filesMode: true,
-    };
-  };
+  // The shared files-mode overlay (same as the desktop). Row scoping of shared images to the
+  // signed-in user is not checked here.
+  return (config, projectContext, pid) =>
+    wireFilesMode(
+      config,
+      projectContext,
+      pid,
+      wireFileBackend({ fs, settings, secrets: new RefusingSecretsStore() }),
+      new FileBlobStore(fs),
+    );
 }
 
 /** The OPFS folder for the browser and Android WebView. Opened only when the migration allows files. */
