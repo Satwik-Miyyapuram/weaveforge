@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { INK_DEFAULT_WIDTH, type PageProjection, type ReaderAnnotation } from "@weaveforge/core";
-import type { ReaderPageSize, PageTextGeometry } from "@weaveforge/wasm";
+import type { CombinedPdfAnchor, ReaderPageSize, PageTextGeometry } from "@weaveforge/wasm";
 import { readyCore } from "@/lib/rust-core";
 // The shared palm rules, through ink's public API: an ink note needs the same
 // three layers this reader already had, so they live in one place rather than in
@@ -150,6 +150,8 @@ export function usePagePointer({
   const [penSeen, setPenSeen] = useState(false);
   /** The ink annotation the last stroke went into, for stroke grouping. */
   const inkGroup = useRef<InkGroup | null>(null);
+  /** The group's anchor as last saved; read only while `inkGroup` names its mark. */
+  const groupAnchor = useRef<CombinedPdfAnchor | null>(null);
   const inkMove = useRef<InkMove | null>(null);
   /**
    * What the current eraser drag has left of each mark it touched: the trimmed
@@ -308,7 +310,9 @@ export function usePagePointer({
       readyCore().canJoinInkGroup(group, { pageIndex, color: createColor, width: input.width, at: now }) &&
       group
     ) {
-      const existing = annotationsRef.current.find((a) => a.id === group.annotationId);
+      const listed = annotationsRef.current.find((a) => a.id === group.annotationId);
+      // The list is a render behind a save; the group's own anchor is not.
+      const existing = listed && groupAnchor.current ? { ...listed, anchor: groupAnchor.current } : listed;
       const merged = existing ? appendInkStroke(existing.anchor, input.path) : null;
       if (existing && merged) {
         inkGroup.current = {
@@ -316,6 +320,7 @@ export function usePagePointer({
           pathCount: merged.zoteroPosition?.paths?.length ?? group.pathCount + 1,
           lastAt: now,
         };
+        groupAnchor.current = merged;
         await saveAnchor(existing, merged);
         return;
       }
@@ -334,6 +339,7 @@ export function usePagePointer({
     if (!draft) return;
     const created = await persistDraft(draft);
     if (created) {
+      groupAnchor.current = created.anchor;
       inkGroup.current = {
         annotationId: created.id,
         pageIndex,
