@@ -43,9 +43,6 @@ Code in `apps/web` reads these through `readyCore()` from
   `readyCore().r2BlobClientConfig`, and the cold-tier config is read the same way.
   It also calls `readyCore().objectKey`, `uploadContentType` and `readContentType`
   for each object key and content type.
-- `apps/web/src/backend/account/purge-user-blobs.ts` calls
-  `readyCore().blobStorageBuckets()` and sweeps each bucket's prefix on account
-  deletion. It calls `loadCore()` first.
 
 Call `readyCore()` only after `loadCore()` has resolved.
 

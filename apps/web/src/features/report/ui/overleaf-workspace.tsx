@@ -18,7 +18,6 @@ import { OverleafConnect } from "./overleaf-connect";
 import { OverleafProjectCard } from "./overleaf-project-card";
 import { OverleafProjectDetail } from "./overleaf-project-detail";
 import { browserPicksStore, type ProjectPicksStore } from "./overleaf-project-picks";
-import { LinkOverleafForm } from "./overleaf-report-forms";
 import { linkedReportsGateway, useLinkedReports, type LinkedReportsGateway } from "./use-linked-reports";
 import { browserClient, browserStore, useWorkshopSession, type WorkshopSessionStore } from "./use-workshop-session";
 
@@ -31,8 +30,8 @@ function rowMeta(row: OverleafProjectRow, signedIn: boolean): string {
 
 /**
  * The Overleaf tab: connect once, then one list of projects (the signed-in
- * account's, plus any the gateway lists as linked with a Git token, marked ★;
- * the app's own gateway lists none from 0.9.8). "Choose projects" turns the list into checkboxes for which
+ * account's, plus any linked reports the gateway lists, marked ★; the app's
+ * own gateway lists none from 0.9.8). "Choose projects" turns the list into checkboxes for which
  * account projects show. Opening one shows Write and PDF.
  *
  * The sign-in cookie is sent once and kept by the routes (sealed on the server,
@@ -75,7 +74,6 @@ export function OverleafWorkspace({
   const linked = useLinkedReports(projectId, gateway);
   const [query, setQuery] = useState("");
   const [openId, setOpenId] = useState<string | null>(onlyProjectId ?? null);
-  const [linkOpen, setLinkOpen] = useState(false);
   /** The ticked ids while choosing which projects show; null when not choosing. */
   const [draft, setDraft] = useState<Set<string> | null>(null);
   const [picked, setPicked] = useState<Set<string> | null>(() => {
@@ -109,15 +107,8 @@ export function OverleafWorkspace({
     setDraft(null);
   };
 
-  // A Git link needs somewhere to keep it; where the gateway has none (every copy
-  // from 0.9.8), the link action and its form are not shown at all.
-  const linkTarget = projectId && gateway.canLink ? projectId : null;
-
   const menuItems: MenuItem[] = [
     ...(signedIn ? [{ id: "account", kind: "header" as const, label: "Signed in to Overleaf" }] : []),
-    ...(linkTarget
-      ? [{ id: "link", label: "Link a project (Git token)", title: "Link a project you can't sign in to", onSelect: () => setLinkOpen(true) }]
-      : []),
     ...(signedIn ? [{ id: "disconnect", label: "Disconnect", danger: true, onSelect: () => void session.disconnect() }] : []),
   ];
   const accountMenu = menuItems.length > 0 && (
@@ -128,22 +119,6 @@ export function OverleafWorkspace({
 
   const connect = workshop && !signedIn && (
     <OverleafConnect session={session} hasSignInWindow={Boolean(signInWindow)} inShell={inShell} canEditAsFiles={canEditAsFiles} />
-  );
-
-  const linkForm = linkOpen && linkTarget && (
-    <>
-      <p className="linked-overleaf-disclosure">
-        With a Git link, WeaveForge's server fetches the LaTeX source from Overleaf with your token. The source stays in Overleaf and is not stored as WeaveForge project data.
-      </p>
-      <LinkOverleafForm
-        projectId={linkTarget}
-        onLinked={() => { setLinkOpen(false); void linked.reload(); }}
-        onError={linked.setError}
-      />
-      <div>
-        <Button size="sm" variant="cancel" onClick={() => setLinkOpen(false)}>Cancel</Button>
-      </div>
-    </>
   );
 
   const status = (
@@ -166,7 +141,6 @@ export function OverleafWorkspace({
       client={client}
       inShell={inShell}
       canEditAsFiles={canEditAsFiles}
-      projectId={linkTarget}
       onUnlink={linked.unlink}
       onLinksChanged={() => void linked.reload()}
       onError={linked.setError}
@@ -205,14 +179,12 @@ export function OverleafWorkspace({
           <h2>No Overleaf projects yet</h2>
           <p className="muted">
             {signedIn ? "This Overleaf account has no projects. " : ""}
-            Start one from this project&apos;s report as a ZIP{linkTarget ? ", or link an existing one with a Git token" : ""}.
+            Start one from this project&apos;s report as a ZIP.
           </p>
           <div className="linked-overleaf-form__actions">
             <Button variant="primary" onClick={onExport}>Export for Overleaf</Button>
-            {linkTarget && !linkOpen && <Button onClick={() => setLinkOpen(true)}>Link a project (Git token)</Button>}
             {accountMenu}
           </div>
-          {linkForm}
         </div>
       ) : rows.length > 0 ? (
         <div className="overleaf-project-list">
@@ -234,7 +206,6 @@ export function OverleafWorkspace({
               </>
             )}
           </div>
-          {linkForm}
           <input
             className="overleaf-project-list__search"
             type="search"

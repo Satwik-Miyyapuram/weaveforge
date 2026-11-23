@@ -2,10 +2,8 @@ import { useCallback, useEffect, useState } from "react";
 import { formatError } from "@/lib/format-error";
 import type { LinkedReport } from "./linked-overleaf-api";
 
-/** Where linked reports (git-token links) are kept, and whether new ones can be made. */
+/** Where linked reports (git-token links made before 0.9.8) are kept. No new ones are made. */
 export interface LinkedReportsGateway {
-  /** False hides every Link action: there is nowhere to keep a new link. */
-  readonly canLink: boolean;
   list(projectId: string): Promise<LinkedReport[]>;
   unlink(id: string): Promise<void>;
 }
@@ -13,11 +11,10 @@ export interface LinkedReportsGateway {
 /**
  * 0.9.8 keeps no Git links anywhere: the relay's /api/overleaf/reports and
  * /connections answer 410, and a copy with no account has no local database.
- * So there are no rows to list and no Link action. Overleaf sign-in (the
+ * So there are no rows to list. Overleaf sign-in (the
  * workshop routes) is unaffected.
  */
 export const linkedReportsGateway: LinkedReportsGateway = {
-  canLink: false,
   list: async () => [],
   unlink: async () => { throw new Error("Git links to Overleaf are no longer kept."); },
 };

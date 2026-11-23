@@ -286,6 +286,5 @@ export * from "./search/parts.js";
 // backend
 export type { AuthUser, AuthChangeCallback, IAuthService } from "./backend/parts.js";
 export type { ICurrentUserProvider } from "./backend/parts.js";
-export type { IAdminUserProvisioner, ProvisionUserInput } from "./backend/parts.js";
 // database
 export * from "./local-user.js";

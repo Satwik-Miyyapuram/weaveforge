@@ -2,10 +2,8 @@
 
 import { useState } from "react";
 import { formatError } from "@/lib/format-error";
-import { linkOverleafReport } from "../application/parts";
 import { type LinkedReport, local, api } from "./linked-overleaf-api";
 import { Button } from "@/components/button";
-import { ConfirmDialog } from "@/components/confirm-dialog";
 
 /**
  * Edits this app's link row — title, which Overleaf project it points at, and
@@ -50,65 +48,4 @@ export function EditOverleafReportForm({ report, onSaved, onCancel, onError }: {
       </div>
     </form>
   );
-}
-
-export function LinkOverleafForm({ projectId, onLinked, onError, defaults }: {
-  projectId: string;
-  onLinked: () => void;
-  onError: (message: string) => void;
-  /** Prefills the project fields, e.g. when linking a project picked from the list. */
-  defaults?: { title?: string; overleafProjectId?: string };
-}) {
-  const [busy, setBusy] = useState(false);
-  /** The form's values while the replace-token question is open. */
-  const [pending, setPending] = useState<FormData | null>(null);
-  async function submit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault(); setBusy(true); onError("");
-    const form = new FormData(event.currentTarget);
-    try {
-      const gateway = local();
-      // This copy keeps one token; a new one switches every linked report to it (P2-3).
-      if (gateway && (await gateway.hasConnection())) { setPending(form); return; }
-      await linkReport(form, false);
-    } catch (err) { onError(formatError(err)); }
-    finally { setBusy(false); }
-  }
-  async function confirmReplace() {
-    const form = pending;
-    setPending(null);
-    if (!form) return;
-    setBusy(true);
-    try { await linkReport(form, true); } catch (err) { onError(formatError(err)); }
-    finally { setBusy(false); }
-  }
-  async function linkReport(form: FormData, replaceToken: boolean) {
-      const gateway = local();
-      const link = {
-        projectId,
-        title: String(form.get("title") ?? ""),
-        overleafProjectId: String(form.get("overleafProjectId") ?? ""),
-        entryFile: String(form.get("entryFile") ?? "main.tex"),
-      };
-      const name = String(form.get("connectionName") ?? "");
-      const token = String(form.get("token") ?? "");
-      await linkOverleafReport(link, gateway
-        ? {
-            saveConnection: () => gateway.saveConnection(name, token, { replaceToken }),
-            createReport: (input) => gateway.createReport(input),
-            // A replaced token is the one every linked report uses: keep its row.
-            ...(replaceToken ? {} : { deleteConnection: (id: string) => gateway.deleteConnection(id) }),
-          }
-        : {
-            saveConnection: async () => {
-              const id = (await api("/api/overleaf/connections", { method: "POST", body: JSON.stringify({ name, token }) })).connection?.id;
-              if (!id) throw new Error("The Overleaf connection was not saved.");
-              return id;
-            },
-            createReport: (input) => api("/api/overleaf/reports", { method: "POST", body: JSON.stringify(input) }),
-            deleteConnection: (id) => api(`/api/overleaf/connections?id=${encodeURIComponent(id)}`, { method: "DELETE" }),
-          });
-      onLinked();
-  }
-  return <><form className="linked-overleaf-form" onSubmit={(event) => void submit(event)}><label>Connection name<input name="connectionName" required placeholder="My Overleaf account" /></label><label>Overleaf Git token<input name="token" type="password" required autoComplete="off" /></label><label>Report title<input name="title" required placeholder="MSc thesis" defaultValue={defaults?.title} /></label><label>Overleaf project ID<input name="overleafProjectId" required placeholder="1234567" defaultValue={defaults?.overleafProjectId} /></label><label>Entry file<input name="entryFile" defaultValue="main.tex" required /></label><Button variant="primary" disabled={busy} type="submit">{busy ? "Linking…" : "Save and link report"}</Button></form>
-    {pending ? <ConfirmDialog title="Replace the Overleaf token?" body="An Overleaf token is already saved on this computer. Every linked report will use the new token." confirmLabel="Replace token" onConfirm={() => void confirmReplace()} onClose={() => setPending(null)} /> : null}</>;
 }

@@ -7,7 +7,7 @@ import type { LatexSectionTree } from "@weaveforge/wasm";
  *
  * 0.9.8 has no local database and the desktop copy ships no server, so there is
  * nowhere to keep link rows or the token. Overleaf is a server feature: every
- * operation here (all 8 of them) refuses with the same copy the rest of the app
+ * operation here (all 4 of them) refuses with the same copy the rest of the app
  * uses for account-only features.
  */
 
@@ -31,22 +31,6 @@ function refuse(): Promise<never> {
 
 export class LocalOverleafGateway {
   listReports(_projectId: string): Promise<OverleafReportRow[]> {
-    return refuse();
-  }
-
-  saveConnection(_name: string, _token: string, _options: { replaceToken?: boolean } = {}): Promise<string> {
-    return refuse();
-  }
-
-  deleteConnection(_id: string): Promise<void> {
-    return refuse();
-  }
-
-  hasConnection(): Promise<boolean> {
-    return refuse();
-  }
-
-  createReport(_input: { projectId: string; connectionId: string; title: string; overleafProjectId: string; entryFile: string }): Promise<void> {
     return refuse();
   }
 

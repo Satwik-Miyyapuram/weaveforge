@@ -16,14 +16,11 @@ const row = {
 test("gateway: every operation refuses with the needs-an-account copy", async () => {
   const calls = [
     () => gateway.listReports("p1"),
-    () => gateway.saveConnection("Overleaf", "olp_token"),
-    () => gateway.deleteConnection("c1"),
-    () => gateway.hasConnection(),
-    () => gateway.createReport({ projectId: "p1", connectionId: "c1", title: "T", overleafProjectId: "654321", entryFile: "main.tex" }),
     () => gateway.patchReport({ id: "r1", title: "T2" }),
     () => gateway.deleteReport("r1"),
     () => gateway.readContent(row),
   ];
+  assert.equal(calls.length, Object.getOwnPropertyNames(LocalOverleafGateway.prototype).length - 1, "one call per method");
   for (const call of calls) {
     await assert.rejects(call, (err: Error) => err.message === OVERLEAF_NEEDS_ACCOUNT);
   }
