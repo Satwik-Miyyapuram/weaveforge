@@ -45,8 +45,8 @@ export class FileLogEntryRepository implements ILogEntryRepository, ILogEntryMan
       .sort(newestFirst);
   }
 
-  save(entry: LogEntry): Promise<void> {
-    return this.store.save(entry);
+  save(entry: LogEntry, seen?: LogEntry): Promise<void> {
+    return this.store.save(entry, seen);
   }
 
   delete(id: string): Promise<void> {
@@ -65,13 +65,13 @@ export class FileLogEntryRepository implements ILogEntryRepository, ILogEntryMan
     return entry;
   }
 
-  async update(id: string, input: EditLogEntryInput): Promise<LogEntry> {
+  async update(id: string, input: EditLogEntryInput, base?: string): Promise<LogEntry> {
     const current = await this.store.get(id);
     if (!current) throw new NotFoundError(`No log entry with id "${id}".`);
     const body = input.body.trim();
     if (!body) throw new LogEntryValidationError("Log entry body is required.");
     const next: LogEntry = { ...current, body, kind: input.kind };
-    await this.store.save(next);
+    await this.store.save(next, base === undefined ? undefined : { body: base.trim() });
     return next;
   }
 

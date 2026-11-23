@@ -76,6 +76,7 @@ export interface EditLogEntryInput {
 /** Log entry operations (Rust `log_entries` repo arms; was AddLogEntryUseCase). */
 export interface ILogEntryManager {
   add(input: NewLogEntryInput): Promise<LogEntry>;
-  update(id: string, input: EditLogEntryInput): Promise<LogEntry>;
+  /** `base`: the body the editor started from; a body changed since is kept and this save is refused (ConflictError). */
+  update(id: string, input: EditLogEntryInput, base?: string): Promise<LogEntry>;
   remove(id: string): Promise<void>;
 }

@@ -230,6 +230,7 @@ export interface IReportSectionManager {
   setParent(id: string, parentId: string | null): Promise<ReportSection>;
   setStatus(id: string, status: ReportStatus): Promise<ReportSection>;
   setProgress(id: string, wordCount: number): Promise<ReportSection>;
-  setNotes(id: string, notes: string): Promise<ReportSection>;
+  /** `base`: the notes the editor started from; notes changed since are kept and this save is refused (ConflictError). */
+  setNotes(id: string, notes: string, base?: string): Promise<ReportSection>;
   remove(id: string): Promise<void>;
 }

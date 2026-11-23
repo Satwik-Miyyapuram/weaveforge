@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { type LabSnapshot, type LogEntry, type LogKind } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { removeLater, useHiddenKeys } from "@/lib/toast/index";
@@ -299,6 +299,9 @@ function EditLogForm({
   const [kind, setKind] = useState<LogKind>(entry.kind);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // The body the next save is based on (the one opened, then each one saved), and the saves still running.
+  const savedBody = useRef(entry.body);
+  const saving = useRef<Promise<unknown>>(Promise.resolve());
   // The note editor's stack for this entry, with its images under its own id (S-16).
   const markdownEditing = useMemo(
     () => ({ placeholder: LOG_PLACEHOLDER, imagePaste: logImageUpload(entry.id, setError) }),
@@ -314,8 +317,19 @@ function EditLogForm({
   async function saveBody(nextBody: string) {
     setBody(nextBody);
     const logbook = getContainer().logbook;
-    const updated = await logbook.addLogEntry.update(entry.id, { body: nextBody, kind });
+    const updated = await saveInOrder({ body: nextBody, kind });
     await bestEffort("Git push", () => logbook.pushLog(updated));
+  }
+
+  /** Saves one after another, each based on the body the last one stored, so an outside edit since is kept. */
+  function saveInOrder(input: { body: string; kind: LogKind }): Promise<LogEntry> {
+    const run = saving.current.then(async () => {
+      const updated = await getContainer().logbook.addLogEntry.update(entry.id, input, savedBody.current);
+      savedBody.current = updated.body;
+      return updated;
+    });
+    saving.current = run.catch(() => undefined);
+    return run;
   }
 
   async function submit(e: React.FormEvent) {
@@ -324,7 +338,7 @@ function EditLogForm({
     setError(null);
     try {
       const logbook = getContainer().logbook;
-      const updated = await logbook.addLogEntry.update(entry.id, { body, kind });
+      const updated = await saveInOrder({ body, kind });
       await bestEffort("Git push", () => logbook.pushLog(updated));
       await onSaved();
     } catch (err) {
