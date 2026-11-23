@@ -33,7 +33,7 @@ import { CollabBodyHost, type SaveBody } from "@/features/collab";
 // are theirs, not because this screen learned the prefixes.
 import { InkHost } from "@/features/ink";
 import { PaperMarkdown, paperImageMarkdown } from "@/features/papers";
-import { PaperPdfPane } from "@/features/reader";
+import { PaneErrorBoundary, PaperPdfPane } from "@/features/reader";
 import {
   OVERLEAF_SIGN_IN_ROW,
   OverleafProjectTab,
@@ -445,7 +445,11 @@ export function DocumentHost({
   if (renderer === "pdf_ink") {
     // The reader's paper half, in the tab. The route is the same component
     // with a header around it; the PDF is not loaded twice.
-    return <PaperPdfPane paperId={tab.id} inkRail />;
+    return (
+      <PaneErrorBoundary label="Reader">
+        <PaperPdfPane paperId={tab.id} inkRail />
+      </PaneErrorBoundary>
+    );
   }
 
   if (renderer === "markdown" && tab.kind !== "paper" && tab.kind !== "report_section") {
