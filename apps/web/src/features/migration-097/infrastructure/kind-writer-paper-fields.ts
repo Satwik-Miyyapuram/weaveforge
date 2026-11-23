@@ -46,6 +46,7 @@ function checkedWrites(sink: FileSink, check: (path: string, expected: string) =
   return {
     write: (path, data) => sink.write(path, data),
     list: () => sink.list(),
+    ...(sink.entries && { entries: (dir: string) => sink.entries!(dir) }),
     readText: (path) => sink.readText(path),
     readBytes: (path) => sink.readBytes(path),
     exists: (path) => sink.exists(path),

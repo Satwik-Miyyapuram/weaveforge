@@ -32,6 +32,20 @@ export function workspaceFileSink(fs: OpfsLike): FileSink {
       return paths;
     },
 
+    // Sizes come with the walk, so no file is read. A folder that is not there walks as empty.
+    async entries(dir) {
+      const out: { path: string; size: number }[] = [];
+      try {
+        for await (const entry of fs.walk(dir)) {
+          if (entry.kind === "file") out.push({ path: entry.path, size: entry.size });
+        }
+      } catch (err) {
+        if ((await fs.stat(dir)) === null) return [];
+        throw err;
+      }
+      return out;
+    },
+
     readText: (path) => fs.readText(path),
     readBytes: (path) => fs.readFile(path),
 

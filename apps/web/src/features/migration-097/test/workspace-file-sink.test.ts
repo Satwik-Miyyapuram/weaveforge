@@ -80,3 +80,12 @@ test("rename moves the file", async () => {
   await workspaceFileSink(fs).rename("a.md", "b.md");
   assert.deepEqual(fs.files, { "b.md": "1" });
 });
+
+test("entries gives each file the walk finds with its size, and a missing folder as empty", async () => {
+  const fs = memoryFs({ "d/a.md": "abc", "d/e/b.md": "x", "top.md": "1" });
+  const walk = fs.walk;
+  fs.walk = (dir) => (dir === "gone" ? (async function* () { throw new Error("ENOENT: gone"); })() : walk(dir));
+  const sink = workspaceFileSink(fs);
+  assert.deepEqual(await sink.entries!(""), [{ path: "d/a.md", size: 3 }, { path: "d/e/b.md", size: 1 }, { path: "top.md", size: 1 }]);
+  assert.deepEqual(await sink.entries!("gone"), []);
+});

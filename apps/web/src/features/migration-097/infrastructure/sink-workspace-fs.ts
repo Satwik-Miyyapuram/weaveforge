@@ -28,10 +28,22 @@ function prefixOf(dir: string): string {
  * only as path prefixes, so mkdirp is a no-op.
  */
 export function sinkAsWorkspaceFs(sink: FileSink, options: { compareAndSet?: boolean } = {}): IWorkspaceFs {
-  const fileNames = async (): Promise<string[]> => (await sink.list()).map(norm);
+  const exists = (path: string): Promise<boolean> => sink.exists(norm(path));
 
-  async function exists(path: string): Promise<boolean> {
-    return (await fileNames()).includes(norm(path));
+  /** Files under `dir`. A sink with a sized listing walks that folder only; others list all and read each file. */
+  async function filesUnder(dir: string): Promise<WorkspaceStat[]> {
+    const prefix = prefixOf(dir);
+    const file = (path: string, size: number): WorkspaceStat => ({ path, size, modifiedAt: NO_MTIME, kind: "file" });
+    if (sink.entries) {
+      return (await sink.entries(norm(dir)))
+        .map((entry) => file(norm(entry.path), entry.size))
+        .filter((entry) => entry.path.startsWith(prefix));
+    }
+    const out: WorkspaceStat[] = [];
+    for (const name of (await sink.list()).map(norm)) {
+      if (name.startsWith(prefix)) out.push(file(name, (await sink.readBytes(name)).byteLength));
+    }
+    return out;
   }
 
   async function statOf(path: string): Promise<WorkspaceStat | null> {
@@ -40,22 +52,11 @@ export function sinkAsWorkspaceFs(sink: FileSink, options: { compareAndSet?: boo
       const bytes = await sink.readBytes(clean);
       return { path: clean, size: bytes.byteLength, modifiedAt: NO_MTIME, kind: "file" };
     }
-    const prefix = `${clean}/`;
-    if ((await fileNames()).some((name) => name.startsWith(prefix))) {
-      return { path: clean, size: 0, modifiedAt: NO_MTIME, kind: "dir" };
-    }
-    return null;
-  }
-
-  async function filesUnder(dir: string): Promise<WorkspaceStat[]> {
-    const prefix = prefixOf(dir);
-    const out: WorkspaceStat[] = [];
-    for (const name of await fileNames()) {
-      if (!name.startsWith(prefix)) continue;
-      const bytes = await sink.readBytes(name);
-      out.push({ path: name, size: bytes.byteLength, modifiedAt: NO_MTIME, kind: "file" });
-    }
-    return out;
+    if (clean === "") return null;
+    const under = sink.entries
+      ? (await sink.entries(clean)).length > 0
+      : (await sink.list()).map(norm).some((name) => name.startsWith(`${clean}/`));
+    return under ? { path: clean, size: 0, modifiedAt: NO_MTIME, kind: "dir" } : null;
   }
 
   return {
@@ -112,13 +113,11 @@ export function sinkAsWorkspaceFs(sink: FileSink, options: { compareAndSet?: boo
     async list(dir) {
       const prefix = prefixOf(dir);
       const children = new Map<string, WorkspaceStat>();
-      for (const name of await fileNames()) {
-        if (!name.startsWith(prefix)) continue;
-        const rest = name.slice(prefix.length);
+      for (const entry of await filesUnder(dir)) {
+        const rest = entry.path.slice(prefix.length);
         const slash = rest.indexOf("/");
         if (slash === -1) {
-          const bytes = await sink.readBytes(name);
-          children.set(name, { path: name, size: bytes.byteLength, modifiedAt: NO_MTIME, kind: "file" });
+          children.set(entry.path, entry);
         } else {
           const dirPath = `${prefix}${rest.slice(0, slash)}`;
           children.set(dirPath, { path: dirPath, size: 0, modifiedAt: NO_MTIME, kind: "dir" });

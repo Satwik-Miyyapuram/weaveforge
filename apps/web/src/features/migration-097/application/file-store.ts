@@ -161,6 +161,7 @@ export function guardedSink(sink: FileSink, store: FileStore): FileSink {
       await storeWithCopy(path, data);
     },
     list: () => sink.list(),
+    ...(sink.entries && { entries: (dir: string) => sink.entries!(dir) }),
     readText: (path) => sink.readText(path),
     readBytes: (path) => sink.readBytes(path),
     exists: (path) => sink.exists(path),

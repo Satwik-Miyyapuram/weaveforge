@@ -35,6 +35,11 @@ export interface FileCodec {
 export interface FileSink {
   write(path: string, data: string | Uint8Array): Promise<void>;
   list(): Promise<string[]>;
+  /**
+   * Files under `dir` ("" = all) with their sizes, from one listing. Optional: without it a caller lists the whole
+   * sink and reads each file for its size.
+   */
+  entries?(dir: string): Promise<{ path: string; size: number }[]>;
   readText(path: string): Promise<string>;
   readBytes(path: string): Promise<Uint8Array>;
   /** Stat-style presence check, true when the file is there. It throws when the check itself fails. */

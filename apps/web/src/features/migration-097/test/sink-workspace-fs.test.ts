@@ -113,3 +113,67 @@ test("an entity save whose file changes again right after the write reports fals
   assert.equal(await fs.writeTextIf!("notes/x.md", "new", "old"), false);
   assert.equal(await sink.readText("notes/x.md"), "user edit");
 });
+/** A MemorySink with a sized listing, counting the calls that scan or read every file. */
+class ListingSink extends MemorySink {
+  calls = { list: 0, readBytes: 0, entries: [] as string[] };
+  override async list(): Promise<string[]> {
+    this.calls.list++;
+    return super.list();
+  }
+  override async readBytes(path: string): Promise<Uint8Array> {
+    this.calls.readBytes++;
+    return super.readBytes(path);
+  }
+  async entries(dir: string): Promise<{ path: string; size: number }[]> {
+    this.calls.entries.push(dir);
+    const prefix = dir === "" ? "" : `${dir}/`;
+    const out: { path: string; size: number }[] = [];
+    for (const path of await super.list()) {
+      if (path.startsWith(prefix)) out.push({ path, size: (await super.readBytes(path)).byteLength });
+    }
+    return out;
+  }
+}
+
+test("with a sized listing, list/walk/stat read no file bodies and scan only the asked folder", async () => {
+  const sink = new ListingSink();
+  const fs = sinkAsWorkspaceFs(sink);
+  await fs.writeFile("papers/one.md", "abc");
+  await fs.writeFile("papers/sub/two.md", "de");
+  await fs.writeFile("notes/n.md", "x");
+  sink.calls = { list: 0, readBytes: 0, entries: [] };
+
+  const listed = (await fs.list("papers")).map((s) => `${s.kind}:${s.path}:${s.size}`).sort();
+  assert.deepEqual(listed, ["dir:papers/sub:0", "file:papers/one.md:3"]);
+  const walked: string[] = [];
+  for await (const e of fs.walk("/papers/")) walked.push(`${e.path}:${e.size}`);
+  assert.deepEqual(walked.sort(), ["papers/one.md:3", "papers/sub/two.md:2"]);
+  assert.equal((await fs.stat("papers"))?.kind, "dir");
+  assert.equal(await fs.stat("nothing"), null);
+  assert.equal((await fs.stat("notes/n.md"))?.kind, "file");
+
+  assert.equal(sink.calls.list, 0);
+  assert.deepEqual(sink.calls.entries, ["papers", "papers", "papers", "nothing"]);
+  assert.equal(sink.calls.readBytes, 1, "only the one file stat reads its own body");
+});
+
+test("remove of a file checks that file only, never the whole sink", async () => {
+  const sink = new ListingSink();
+  const fs = sinkAsWorkspaceFs(sink);
+  await fs.writeFile("a.md", "1");
+  await fs.writeFile("dir/b.md", "2");
+  sink.calls = { list: 0, readBytes: 0, entries: [] };
+  await fs.remove("a.md");
+  assert.equal(await sink.exists("a.md"), false);
+  assert.equal(sink.calls.list + sink.calls.entries.length + sink.calls.readBytes, 0);
+  await fs.remove("dir", { recursive: true });
+  assert.equal(await sink.exists("dir/b.md"), false);
+});
+
+test("guardedSink forwards the sized listing, and leaves it out when the sink has none", async () => {
+  const sized = new ListingSink();
+  await sized.write("a/b.md", "xy");
+  const guarded = guardedSink(sized, await createFileStore(sized, {}));
+  assert.deepEqual(await guarded.entries?.("a"), [{ path: "a/b.md", size: 2 }]);
+  assert.equal(guardedSink(new MemorySink(), await createFileStore(new MemorySink(), {})).entries, undefined);
+});
