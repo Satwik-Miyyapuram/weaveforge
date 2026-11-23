@@ -59,6 +59,7 @@ import { useScreenActive } from "@/lib/hooks/use-screen-active";
 import { FocusGlyph } from "@/components/focus-glyph";
 import { ToolbarSlot } from "@/components/toolbar-slot";
 import { DraftShapeOverlay, PageMargin, SafeExternalLink } from "./overlays";
+import { PdfInkPen } from "./pdf-ink-pen";
 import { readWritingPage, writeWritingPage } from "./writing-page";
 import { hasSidePanel } from "./side-panel";
 import { canvasSize } from "./canvas-size";
@@ -509,6 +510,7 @@ export function PdfReader({
     pendingTextBox,
     setPendingTextBox,
     pageProjection,
+    persistInkStroke,
     onPagePointerDown,
     onPagePointerMove,
     onPagePointerUp,
@@ -519,8 +521,6 @@ export function PdfReader({
     createTool,
     createColor,
     inkEditable,
-    inkWidth: penWidth,
-    highlighterWidth: markerWidth,
     selectedAnnId,
     pageSize,
     scale,
@@ -1918,6 +1918,24 @@ export function PdfReader({
                     onEditText={editTextOnPage}
                   />
                 )}
+                {/* The notes' pen, on this page and its neighbours only: each
+                    one is a worker and a canvas context. */}
+                {canCreate && pageSize && (createTool === "ink" || createTool === "highlighter") &&
+                  Math.abs(n - viewport.page) <= 1 && (
+                    <PdfInkPen
+                      pageNumber={n}
+                      scale={scale}
+                      projection={pageProjection(n)}
+                      pageHeight={pageGeometries.current.get(n)?.pageHeight ?? pageSize.height}
+                      tool={createTool === "highlighter" ? "highlighter" : "pen"}
+                      width={inkWidth}
+                      highlighterWidth={markerWidth}
+                      colour={drawColour}
+                      palette={inkPalette}
+                      nibPoints={nibPoints}
+                      persistInkStroke={persistInkStroke}
+                    />
+                  )}
                 {/* Inside the page, because it decorates the page's own text
                     layer rather than painting a sibling layer over it. */}
                 {pageSize && refs.index.mentionsByPage.has(n) && pageItems.has(n) && (
