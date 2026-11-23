@@ -23,10 +23,10 @@ use super::connect::{
 use super::rewrite::kept_backup;
 use super::route::{RouteDeps, route_local_request};
 use super::server::{Handler, bind, serve};
-use super::verified::ModeSource;
 use super::token::{
     MAX_LOCAL_API_TOKENS, hash_local_api_token, make_local_api_token, parse_local_api_tokens,
 };
+use super::verified::ModeSource;
 use super::{
     BoxFuture, Expected, LocalApiRequest, LocalApiResponse, McpRouter, Permission, SaveArtifact,
     SdkQuery, SemanticRanker, TokenRecord,

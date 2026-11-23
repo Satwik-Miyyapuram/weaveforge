@@ -5,8 +5,8 @@ use serde_json::{Value, json};
 
 use super::sdk::{SDK_PREFIX, route_sdk_request};
 use super::sdk_files;
-use super::verified::{Mode, ModeSource, folder_mode};
 use super::token::grant_permissions;
+use super::verified::{Mode, ModeSource, folder_mode};
 use super::{
     Expected, LocalApiRequest, LocalApiResponse, McpRouter, Permission, SaveArtifact, SdkQuery,
 };
@@ -339,9 +339,7 @@ mod tests {
             _sql: &'a str,
             _params: Vec<Value>,
         ) -> BoxFuture<'a, Result<Vec<Value>, String>> {
-            let _ = self
-                .calls
-                .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            let _ = self.calls.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
             Box::pin(async { Ok(Vec::new()) })
         }
     }
@@ -398,8 +396,11 @@ mod tests {
         .to_string();
         fs::write(dir.join("report.json"), report).expect("write report");
         let project = json!({ "id": "proj-1", "name": "Lab" }).to_string();
-        fs::write(fixture.root.join(".weaveforge").join("workspace.json"), project)
-            .expect("write workspace");
+        fs::write(
+            fixture.root.join(".weaveforge").join("workspace.json"),
+            project,
+        )
+        .expect("write workspace");
     }
 
     #[test]
@@ -956,7 +957,10 @@ mod tests {
         assert_eq!(answer.status, 503);
         let reply: Value = serde_json::from_str(&answer.body).expect("json");
         assert!(
-            reply["error"].as_str().unwrap_or_default().contains("0.9.8"),
+            reply["error"]
+                .as_str()
+                .unwrap_or_default()
+                .contains("0.9.8"),
             "{}",
             answer.body
         );

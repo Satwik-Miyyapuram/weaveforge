@@ -484,7 +484,13 @@ mod tests {
         let project = json!({ "id": "proj-1", "name": "Lab" }).to_string();
         fs::write(meta.join("workspace.json"), project).expect("workspace");
         let db = Arc::new(CountingDb::default());
-        let mcp = LocalMcp::new(fx.vault.clone(), fx.mode.clone(), Some(db.clone()), None, None);
+        let mcp = LocalMcp::new(
+            fx.vault.clone(),
+            fx.mode.clone(),
+            Some(db.clone()),
+            None,
+            None,
+        );
         let answer = call(&mcp, "list_projects", json!({}), false, false);
         assert!(answer.to_string().contains("Lab"), "{answer}");
         assert_eq!(db.asked.load(Ordering::SeqCst), 0);
@@ -582,7 +588,13 @@ mod tests {
     fn search_asks_the_ranker_without_holding_the_lock() {
         let fx = Fixture::new("search");
         let ranker = Arc::new(Reverse::default());
-        let mcp = LocalMcp::new(fx.vault.clone(), fx.mode.clone(), None, Some(ranker.clone()), None);
+        let mcp = LocalMcp::new(
+            fx.vault.clone(),
+            fx.mode.clone(),
+            None,
+            Some(ranker.clone()),
+            None,
+        );
         let answer = call(
             &mcp,
             "search_workspace",

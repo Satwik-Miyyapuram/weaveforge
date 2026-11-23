@@ -77,9 +77,8 @@ pub async fn migrate_097_remove_old(
     };
     let stop_app = app.clone();
     tokio::task::spawn_blocking(move || {
-        let mut secrets = || {
-            local_rows.ok_or_else(|| "refused: local_secrets count was not read".to_owned())
-        };
+        let mut secrets =
+            || local_rows.ok_or_else(|| "refused: local_secrets count was not read".to_owned());
         let mut stop = || crate::stop_postgres(&stop_app, false);
         let removed = remove_old_data(&folder, &root, &now, &device, &mut secrets, &mut stop);
         // The lock covers the whole removal; it is dropped only once the cluster is gone.
@@ -105,10 +104,16 @@ pub async fn mark_exported_097(app: tauri::AppHandle, folder: String) -> Result<
 
 async fn count_local_secrets(db: &LocalDb) -> Result<u64, ShellError> {
     let rows = db
-        .query("select count(*)::text as n from local_secrets".to_owned(), Vec::new())
+        .query(
+            "select count(*)::text as n from local_secrets".to_owned(),
+            Vec::new(),
+        )
         .await?;
     rows.first()
         .map(|row| &row["n"])
-        .and_then(|v| v.as_u64().or_else(|| v.as_str().and_then(|s| s.parse().ok())))
+        .and_then(|v| {
+            v.as_u64()
+                .or_else(|| v.as_str().and_then(|s| s.parse().ok()))
+        })
         .ok_or_else(|| ShellError::from("local_secrets count unreadable".to_owned()))
 }

@@ -39,7 +39,10 @@ pub const READ_LOCAL_SECRETS_SQL: &str = "select secrets from local_secrets";
 #[tauri::command]
 #[specta::specta]
 #[must_use]
-#[allow(clippy::needless_pass_by_value, reason = "tauri commands take State by value")]
+#[allow(
+    clippy::needless_pass_by_value,
+    reason = "tauri commands take State by value"
+)]
 pub fn legacy_db_present(db: tauri::State<'_, LocalDb>) -> bool {
     db.legacy_db_present()
 }
@@ -73,7 +76,9 @@ pub async fn migrate_097_move_secrets(
     let device = crate::device_id::get_or_create(&app_data)
         .map_err(|err| ShellError::from(err.to_string()))?;
     if !crate::device_id::is_file_name_id(&device) {
-        return Err(ShellError::from(format!("the device id {device:?} is not usable in a file name")));
+        return Err(ShellError::from(format!(
+            "the device id {device:?} is not usable in a file name"
+        )));
     }
     // No legacy database folder means no old rows: a fresh install moves zero rows. A stopped or
     // unreadable database is an error, so the save that asked for the move is refused.

@@ -180,9 +180,10 @@ pub fn run() -> tauri::Result<()> {
             stop_local_api(handle);
             // After a removal the cluster is gone, so there is nothing to back up on exit.
             use tauri::Manager;
-            let removed = handle.path().app_data_dir().is_ok_and(|data| {
-                migrate_097::remove::old_db_removed(&native_root(&data))
-            });
+            let removed = handle
+                .path()
+                .app_data_dir()
+                .is_ok_and(|data| migrate_097::remove::old_db_removed(&native_root(&data)));
             if let Err(e) = stop_local_db(handle, !removed) {
                 local_api::warn(handle, &format!("postgres stop on exit failed: {e}"));
             }
@@ -480,17 +481,22 @@ fn start_local_db(app: &tauri::AppHandle) {
             let source = launch::app_source(resources.clone());
             // After a 0.9.7 removal the cluster stays gone: no start, so no restore from backups.
             let pg_root = native_root(&data);
-            let refused = migrate_097::remove::start_refusal(migrate_097::remove::old_db_removed(&pg_root))
-                .map(str::to_owned)
-                .or_else(|| {
-                    let root = app.try_state::<vault::VaultState>()?.lock().root()?;
-                    // Without a device id the start is refused: the report it reads is per device.
-                    let device = match crate::device_id::get_or_create(&data) {
-                        Ok(device) => device,
-                        Err(e) => return Some(format!("refused: device id unreadable: {e}")),
-                    };
-                    migrate_097::remove::removal_refusal(&std::path::PathBuf::from(&root.path), &device, &pg_root)
-                });
+            let refused =
+                migrate_097::remove::start_refusal(migrate_097::remove::old_db_removed(&pg_root))
+                    .map(str::to_owned)
+                    .or_else(|| {
+                        let root = app.try_state::<vault::VaultState>()?.lock().root()?;
+                        // Without a device id the start is refused: the report it reads is per device.
+                        let device = match crate::device_id::get_or_create(&data) {
+                            Ok(device) => device,
+                            Err(e) => return Some(format!("refused: device id unreadable: {e}")),
+                        };
+                        migrate_097::remove::removal_refusal(
+                            &std::path::PathBuf::from(&root.path),
+                            &device,
+                            &pg_root,
+                        )
+                    });
             let native = if let Some(reason) = refused {
                 Err(reason)
             } else {
@@ -519,7 +525,10 @@ fn local_api_deps(app: &tauri::AppHandle) -> Option<(local_http::control::LocalA
     let prefs = app.try_state::<prefs::Prefs>()?.inner().clone();
     let secrets = app.try_state::<secrets::Secrets>()?.inner().clone();
     let vault = app.try_state::<vault::VaultState>()?.inner().clone();
-    let mode = app.try_state::<local_http::verified::ModeSource>()?.inner().clone();
+    let mode = app
+        .try_state::<local_http::verified::ModeSource>()?
+        .inner()
+        .clone();
     let paths = app.path();
     let product = app.package_info().name.clone();
     // Without a resource dir the build is unknown, so it is treated as Dev: it must never
@@ -627,7 +636,9 @@ pub(crate) fn stop_postgres(app: &tauri::AppHandle, backup: bool) -> Result<(), 
         tauri::async_runtime::block_on(db.shutdown_with(backup));
     }
     let data = app.path().app_data_dir().map_err(|e| e.to_string())?;
-    match migrate_097::remove::live_postmaster(&native_root(&data).join("data").join("postmaster.pid")) {
+    match migrate_097::remove::live_postmaster(
+        &native_root(&data).join("data").join("postmaster.pid"),
+    ) {
         Some(running) => Err(format!("refused: postgres did not stop ({running})")),
         None => Ok(()),
     }

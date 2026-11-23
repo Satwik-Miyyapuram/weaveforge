@@ -5,8 +5,8 @@
 use std::path::{Path, PathBuf};
 
 use weaveforge_shell_lib::local_pg::server::PgServer;
-use weaveforge_shell_lib::migrate_097::counts::count_rows;
 use weaveforge_shell_lib::local_pg::{Conn, PgError, db};
+use weaveforge_shell_lib::migrate_097::counts::count_rows;
 
 /// Migrations the server runs but the local cluster never had.
 const SERVER_ONLY: [&str; 2] = [
@@ -71,19 +71,34 @@ async fn fixture_loads_into_0_9_4_schema() -> Result<(), String> {
             )
             .await
             .map_err(|e| e.message)?;
-        assert_eq!(ink.rows[0][0].as_deref(), Some("1"), "one ink chunk in vault-assets");
+        assert_eq!(
+            ink.rows[0][0].as_deref(),
+            Some("1"),
+            "one ink chunk in vault-assets"
+        );
 
         let points = conn
-            .query("select count(*)::text from public.experiment_metric_points", &[])
+            .query(
+                "select count(*)::text from public.experiment_metric_points",
+                &[],
+            )
             .await
             .map_err(|e| e.message)?;
-        assert_eq!(points.rows[0][0].as_deref(), Some("3"), "three metric points");
+        assert_eq!(
+            points.rows[0][0].as_deref(),
+            Some("3"),
+            "three metric points"
+        );
 
         let notes = conn
             .query("select count(*)::text from public.vault_pages", &[])
             .await
             .map_err(|e| e.message)?;
-        assert_eq!(notes.rows[0][0].as_deref(), Some("3"), "three notes: two in the first project, one in the second");
+        assert_eq!(
+            notes.rows[0][0].as_deref(),
+            Some("3"),
+            "three notes: two in the first project, one in the second"
+        );
         Ok(())
     }
     .await;
@@ -92,7 +107,12 @@ async fn fixture_loads_into_0_9_4_schema() -> Result<(), String> {
 
 async fn scalar(conn: &mut impl Conn, sql: &str) -> Result<u64, String> {
     let rows = conn.query(sql, &[]).await.map_err(|e| e.message)?;
-    let cell = rows.rows.first().and_then(|row| row.first()).cloned().flatten();
+    let cell = rows
+        .rows
+        .first()
+        .and_then(|row| row.first())
+        .cloned()
+        .flatten();
     cell.ok_or_else(|| format!("no value: {sql}"))?
         .parse()
         .map_err(|e| format!("not a count: {e}"))

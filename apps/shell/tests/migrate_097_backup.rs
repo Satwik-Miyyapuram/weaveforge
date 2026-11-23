@@ -59,7 +59,11 @@ fn a_failed_dump_leaves_no_file_and_says_why() {
     })
     .unwrap_err();
     assert!(err.contains("pg_dump failed: boom"), "{err}");
-    assert!(!f.join(DIR).join(format!("pre-migration-{STAMP}.dump")).exists());
+    assert!(
+        !f.join(DIR)
+            .join(format!("pre-migration-{STAMP}.dump"))
+            .exists()
+    );
 }
 
 #[test]

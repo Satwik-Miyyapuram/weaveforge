@@ -138,12 +138,18 @@ mod tests {
 
     #[test]
     fn incomplete_is_read_only() {
-        assert_eq!(mode_for_status(&status("incomplete")), Mode::DatabaseReadOnly);
+        assert_eq!(
+            mode_for_status(&status("incomplete")),
+            Mode::DatabaseReadOnly
+        );
     }
 
     #[test]
     fn unexported_is_read_only() {
-        assert_eq!(mode_for_status(&status("unexported")), Mode::DatabaseReadOnly);
+        assert_eq!(
+            mode_for_status(&status("unexported")),
+            Mode::DatabaseReadOnly
+        );
     }
 
     #[test]
@@ -157,7 +163,11 @@ mod tests {
     #[test]
     fn unavailable_and_unknown_states_are_503() {
         for state in ["unavailable", "exporting", "something-else", ""] {
-            assert_eq!(mode_for_status(&status(state)), Mode::Unavailable, "state {state}");
+            assert_eq!(
+                mode_for_status(&status(state)),
+                Mode::Unavailable,
+                "state {state}"
+            );
         }
     }
 

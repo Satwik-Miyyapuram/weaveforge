@@ -30,7 +30,11 @@ pub fn write_backup(
     stamp: &str,
     dump: &mut dyn FnMut(&Path) -> Result<(), String>,
 ) -> Result<BackupOut, String> {
-    if stamp.is_empty() || !stamp.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-') {
+    if stamp.is_empty()
+        || !stamp
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || b == b'-')
+    {
         return Err("refused: backup stamp must be letters, digits or '-'".to_owned());
     }
     let dir = folder.join(DIR_REL);

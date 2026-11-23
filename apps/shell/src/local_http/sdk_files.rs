@@ -26,7 +26,8 @@ const TASK_FAILED: &str = "The metrics could not be written.";
 /// Said by every SDK route when the folder's migration status cannot be trusted.
 pub(super) const UNAVAILABLE: &str = "folder status unavailable";
 /// Said by a read-only database folder for a write on an SDK route.
-pub(super) const READ_ONLY: &str = "read-only: this folder's database takes no writes in its migration state";
+pub(super) const READ_ONLY: &str =
+    "read-only: this folder's database takes no writes in its migration state";
 /// Said by a files-mode folder for experiments and artifacts, which return in 0.9.8.
 pub(super) const EXPERIMENTS_LATER: &str =
     "experiment tracking is unavailable in files mode in 0.9.7; it returns in 0.9.8";
@@ -213,7 +214,8 @@ mod tests {
                 report["removingDeviceId"] = json!(DEVICE);
             }
             if state == "removed" {
-                report["removals"][DEVICE] = json!({ "state": "removed", "removedAt": "2026-11-02T00:00:00Z" });
+                report["removals"][DEVICE] =
+                    json!({ "state": "removed", "removedAt": "2026-11-02T00:00:00Z" });
             }
             self.write_report(&report)
         }
@@ -271,7 +273,13 @@ mod tests {
             .enable_all()
             .build()
             .expect("runtime")
-            .block_on(route(mode_of(fixture), &fixture.vault, &request, "/api/sdk/metrics", ""))
+            .block_on(route(
+                mode_of(fixture),
+                &fixture.vault,
+                &request,
+                "/api/sdk/metrics",
+                "",
+            ))
     }
 
     fn route_get(fixture: &Fixture, path: &str, search: &str) -> Option<LocalApiResponse> {
@@ -285,7 +293,13 @@ mod tests {
             .enable_all()
             .build()
             .expect("runtime")
-            .block_on(route(mode_of(fixture), &fixture.vault, &request, path, search))
+            .block_on(route(
+                mode_of(fixture),
+                &fixture.vault,
+                &request,
+                path,
+                search,
+            ))
     }
 
     #[test]

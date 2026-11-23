@@ -51,7 +51,11 @@ pub fn record_exported_to(pg_root: &Path, folder: &Path) -> Result<(), String> {
 
 /// Records the export of `folder` only when this device's newest run in its report is verified.
 /// An unreadable, unparsable, or unverified report records nothing.
-pub fn record_verified_export(pg_root: &Path, folder: &Path, device_id: &str) -> Result<(), String> {
+pub fn record_verified_export(
+    pg_root: &Path,
+    folder: &Path,
+    device_id: &str,
+) -> Result<(), String> {
     let reports = read_reports(folder, device_id).map_err(|problem| problem.refusal())?;
     let report = device_report(&reports, device_id).ok_or_else(no_device_report)?;
     check_own_run_verdict(report, device_id)?;
@@ -64,7 +68,10 @@ pub fn record_verified_export(pg_root: &Path, folder: &Path, device_id: &str) ->
 /// uses `pre-migration.dump`. A null field has nothing to remove. A name with a path separator or
 /// `..` is refused.
 pub fn backup_name(report: &serde_json::Value, device_id: &str) -> Result<String, String> {
-    if let Some(value) = own_run(report, device_id).ok().and_then(|run| run.get("backup")) {
+    if let Some(value) = own_run(report, device_id)
+        .ok()
+        .and_then(|run| run.get("backup"))
+    {
         return match value.is_null() {
             true => Err(NOTHING_TO_REMOVE.to_owned()),
             false => plain_backup_name(value),
@@ -94,11 +101,16 @@ fn plain_backup_name(value: &serde_json::Value) -> Result<String, String> {
     let mut parts = Path::new(name).components();
     let plain = !name.is_empty()
         && !name.contains(['/', '\\'])
-        && matches!((parts.next(), parts.next()), (Some(Component::Normal(_)), None));
+        && matches!(
+            (parts.next(), parts.next()),
+            (Some(Component::Normal(_)), None)
+        );
     if plain {
         Ok(name.to_owned())
     } else {
-        Err(format!("refused: backup name {name:?} is not a plain file name"))
+        Err(format!(
+            "refused: backup name {name:?} is not a plain file name"
+        ))
     }
 }
 
@@ -137,7 +149,10 @@ type ReportWrite<'a> = dyn FnMut(&Path, &dyn Fn(&mut serde_json::Value)) -> Resu
 
 /// `remove_old_data` with the final report write injected. The write runs after the cluster is
 /// deleted; if it fails, the next launch resumes from the `removing` entry and finishes it.
-#[allow(clippy::too_many_lines, reason = "one ordered removal sequence; removed in 0.9.8")]
+#[allow(
+    clippy::too_many_lines,
+    reason = "one ordered removal sequence; removed in 0.9.8"
+)]
 pub(crate) fn remove_with(
     folder: &Path,
     pg_root: &Path,
@@ -149,11 +164,16 @@ pub(crate) fn remove_with(
 ) -> Result<(), String> {
     let report_path = own_report_path(folder, device_id);
     let reports = read_reports(folder, device_id).map_err(|problem| problem.refusal())?;
-    let report = device_report(&reports, device_id).ok_or_else(no_device_report)?.clone();
+    let report = device_report(&reports, device_id)
+        .ok_or_else(no_device_report)?
+        .clone();
     let state = report["state"].as_str().unwrap_or("").to_owned();
     // Per device: this device's removals entry and local marker decide "already removed". The
     // top-level state belongs to whichever device wrote last, so it only counts in a legacy report.
-    let own_entry = report["removals"][device_id]["state"].as_str().unwrap_or("").to_owned();
+    let own_entry = report["removals"][device_id]["state"]
+        .as_str()
+        .unwrap_or("")
+        .to_owned();
     let resume = own_entry == "removing"
         || (state == "removing" && report["removingDeviceId"].as_str() == Some(device_id));
     let legacy_removed = report.get("removals").is_none() && state == "removed";
@@ -168,7 +188,7 @@ pub(crate) fn remove_with(
             other => {
                 return Err(format!(
                     "refused: migration state is not verified (report state: {other})"
-                ))
+                ));
             }
         }
     }
@@ -258,7 +278,12 @@ pub(crate) fn remove_with(
             r["removedAt"] = now.into();
         }
     })
-    .map_err(|e| format!("removed, but {} not updated: {e}", own_report_name(device_id)))
+    .map_err(|e| {
+        format!(
+            "removed, but {} not updated: {e}",
+            own_report_name(device_id)
+        )
+    })
 }
 
 /// Launch hook: finishes a removal this device started and did not finish (a crash or power cut
@@ -273,7 +298,10 @@ pub fn resume_on_launch(
     stop_pg: &mut dyn FnMut() -> Result<(), String>,
 ) -> Result<bool, String> {
     let reports = read_reports(folder, device_id).map_err(|problem| problem.refusal())?;
-    if !reports.iter().any(|(_, report)| own_removing(report, device_id)) {
+    if !reports
+        .iter()
+        .any(|(_, report)| own_removing(report, device_id))
+    {
         return Ok(false);
     }
     // A resume never reads the secrets count (Postgres is already down); the closure refuses if asked.
@@ -285,13 +313,19 @@ pub fn resume_on_launch(
 /// Whether the top-level state is one a removal may move on from. Another device's "incomplete"
 /// or "exporting" is left alone; this device's own removals entry is what it reads back.
 fn is_removal_state(report: &serde_json::Value) -> bool {
-    matches!(report["state"].as_str(), Some("verified" | "removing" | "removed"))
+    matches!(
+        report["state"].as_str(),
+        Some("verified" | "removing" | "removed")
+    )
 }
 
 /// Writes this device's report file as `change` applied to a fresh read, so other devices' runs and removal
 /// entries survive. Re-reads just before the write, then reads back after the rename and retries
 /// when the change did not land. A narrow window remains between the re-read and the rename.
-fn update_report(report_path: &Path, change: impl Fn(&mut serde_json::Value)) -> Result<(), String> {
+fn update_report(
+    report_path: &Path,
+    change: impl Fn(&mut serde_json::Value),
+) -> Result<(), String> {
     for _ in 0..REPORT_WRITE_TRIES {
         let before = fs::read_to_string(report_path)
             .map_err(|e| format!("cannot read {}: {e}", report_path.display()))?;
@@ -308,10 +342,13 @@ fn update_report(report_path: &Path, change: impl Fn(&mut serde_json::Value)) ->
             }
         }
     }
-    let name = report_path
-        .file_name()
-        .map_or_else(|| "the report".to_owned(), |n| n.to_string_lossy().into_owned());
-    Err(format!("refused: {name} kept changing during the removal; try again"))
+    let name = report_path.file_name().map_or_else(
+        || "the report".to_owned(),
+        |n| n.to_string_lossy().into_owned(),
+    );
+    Err(format!(
+        "refused: {name} kept changing during the removal; try again"
+    ))
 }
 
 /// The running postgres named by a `postmaster.pid` left in the cluster, described for the refusal.
@@ -319,7 +356,11 @@ fn update_report(report_path: &Path, change: impl Fn(&mut serde_json::Value)) ->
 #[must_use]
 pub fn live_postmaster(pid_file: &Path) -> Option<String> {
     match fs::read_to_string(pid_file) {
-        Ok(text) => match text.lines().next().and_then(|line| line.trim().parse::<u32>().ok()) {
+        Ok(text) => match text
+            .lines()
+            .next()
+            .and_then(|line| line.trim().parse::<u32>().ok())
+        {
             Some(pid) if process_alive(pid) => Some(format!("pid {pid} from data/postmaster.pid")),
             Some(_) => None,
             None => Some("data/postmaster.pid is unreadable".to_owned()),
@@ -387,11 +428,13 @@ pub fn removal_refusal(folder: &Path, device_id: &str, pg_root: &Path) -> Option
     let unfinished = reports.iter().any(|(_, report)| {
         report["state"].as_str() == Some("removing")
             || report["removals"].as_object().is_some_and(|map| {
-                map.values().any(|entry| entry["state"].as_str() == Some("removing"))
+                map.values()
+                    .any(|entry| entry["state"].as_str() == Some("removing"))
             })
     });
-    (unfinished && !old_db_removed(pg_root))
-        .then(|| "refused: a 0.9.7 removal is unfinished; it finishes on the next launch".to_owned())
+    (unfinished && !old_db_removed(pg_root)).then(|| {
+        "refused: a 0.9.7 removal is unfinished; it finishes on the next launch".to_owned()
+    })
 }
 
 /// This device's own report file name, the only report file this device writes.
@@ -402,7 +445,6 @@ pub(super) fn own_report_name(device_id: &str) -> String {
 pub(super) fn own_report_path(folder: &Path, device_id: &str) -> PathBuf {
     folder.join(MIGRATION_DIR).join(own_report_name(device_id))
 }
-
 
 /// Why the migration reports cannot be read as a whole. Either one refuses.
 #[derive(Debug, PartialEq, Eq)]
@@ -541,7 +583,11 @@ fn backups_dir(pg_root: &Path) -> std::path::PathBuf {
 /// Writes the marker before anything is deleted; an existing marker is kept.
 fn mark_removed(pg_root: &Path) -> Result<(), String> {
     let path = marker_path(pg_root);
-    match fs::OpenOptions::new().write(true).create_new(true).open(&path) {
+    match fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&path)
+    {
         Ok(_) => Ok(()),
         Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => Ok(()),
         Err(e) => Err(format!("cannot write {}: {e}", path.display())),
@@ -550,7 +596,10 @@ fn mark_removed(pg_root: &Path) -> Result<(), String> {
 
 /// This device's newest run: the last entry of `runs` whose `deviceId` is `device_id`. A run from
 /// another device never counts; no run from this device refuses.
-pub(super) fn own_run<'a>(report: &'a serde_json::Value, device_id: &str) -> Result<&'a serde_json::Value, String> {
+pub(super) fn own_run<'a>(
+    report: &'a serde_json::Value,
+    device_id: &str,
+) -> Result<&'a serde_json::Value, String> {
     let runs = report["runs"]
         .as_array()
         .ok_or("refused: report has no runs; verify again")?;
@@ -561,10 +610,7 @@ pub(super) fn own_run<'a>(report: &'a serde_json::Value, device_id: &str) -> Res
 }
 
 /// The `missing` kinds of this device's newest run (see `own_run`).
-pub fn own_run_missing(
-    report: &serde_json::Value,
-    device_id: &str,
-) -> Result<Vec<String>, String> {
+pub fn own_run_missing(report: &serde_json::Value, device_id: &str) -> Result<Vec<String>, String> {
     let own = own_run(report, device_id)?;
     let items = own["missing"]
         .as_array()
@@ -601,9 +647,13 @@ fn check_own_run_verdict(report: &serde_json::Value, device_id: &str) -> Result<
         _ => return Err("refused: verify run has no kinds to compare; verify again".to_owned()),
     };
     let conflicted = has_conflicts(&run["conflicts"])
-        || kinds.values().any(|counts| has_conflicts(&counts["conflicts"]));
+        || kinds
+            .values()
+            .any(|counts| has_conflicts(&counts["conflicts"]));
     if conflicted {
-        return Err("refused: this device's export left conflict copies; resolve them first".to_owned());
+        return Err(
+            "refused: this device's export left conflict copies; resolve them first".to_owned(),
+        );
     }
     let show = |n: Option<u64>| n.map_or("?".to_owned(), |n| n.to_string());
     for (kind, counts) in kinds {
@@ -702,7 +752,8 @@ fn check_exported_to(pg_root: &Path, folder: &Path) -> Result<(), String> {
 /// Reads `count` from this device's `secrets-moved-<deviceId>.json`. Missing, unparsable or
 /// count-less files refuse, and so does a file that names no `deviceId` or another device's.
 fn read_secrets_moved(folder: &Path, device_id: &str) -> Result<u64, String> {
-    let rel = secrets_rel(device_id).ok_or_else(|| "refused: secrets-moved file for this device is missing".to_owned())?;
+    let rel = secrets_rel(device_id)
+        .ok_or_else(|| "refused: secrets-moved file for this device is missing".to_owned())?;
     let text = fs::read_to_string(folder.join(rel))
         .map_err(|_| "refused: secrets-moved file for this device is missing".to_owned())?;
     let value: serde_json::Value = serde_json::from_str(&text)
@@ -782,7 +833,8 @@ mod update_report_tests {
     use std::cell::Cell;
 
     fn scratch_report(name: &str, text: &str) -> std::path::PathBuf {
-        let dir = std::env::temp_dir().join(format!("wf-m097-report-{name}-{}", std::process::id()));
+        let dir =
+            std::env::temp_dir().join(format!("wf-m097-report-{name}-{}", std::process::id()));
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(&dir).unwrap();
         let path = dir.join("report.json");
@@ -797,7 +849,11 @@ mod update_report_tests {
         let result = update_report(&path, |r| {
             if !raced.replace(true) {
                 // Another device writes between this read and the write.
-                fs::write(&path, r#"{"version":1,"state":"verified","runs":[],"other":"dev-b"}"#).unwrap();
+                fs::write(
+                    &path,
+                    r#"{"version":1,"state":"verified","runs":[],"other":"dev-b"}"#,
+                )
+                .unwrap();
             }
             r["removals"]["dev-a"] = serde_json::json!({ "state": "removing" });
         });
@@ -805,7 +861,10 @@ mod update_report_tests {
         let value: serde_json::Value = serde_json::from_str(&text).unwrap();
         let _ = fs::remove_dir_all(path.parent().unwrap());
         result.expect("the retry lands the change");
-        assert_eq!(value["other"], "dev-b", "the other device's change must survive");
+        assert_eq!(
+            value["other"], "dev-b",
+            "the other device's change must survive"
+        );
         assert_eq!(value["removals"]["dev-a"]["state"], "removing");
     }
 
@@ -816,11 +875,18 @@ mod update_report_tests {
         let result = update_report(&path, |_| {
             let n = calls.get();
             calls.set(n + 1);
-            fs::write(&path, format!(r#"{{"version":1,"state":"verified","runs":[],"n":{n}}}"#)).unwrap();
+            fs::write(
+                &path,
+                format!(r#"{{"version":1,"state":"verified","runs":[],"n":{n}}}"#),
+            )
+            .unwrap();
         });
         let _ = fs::remove_dir_all(path.parent().unwrap());
         let err = result.expect_err("a report that keeps moving must refuse");
-        assert!(err.starts_with("refused: report.json kept changing"), "{err}");
+        assert!(
+            err.starts_with("refused: report.json kept changing"),
+            "{err}"
+        );
         assert_eq!(calls.get(), REPORT_WRITE_TRIES);
     }
 }
@@ -849,8 +915,8 @@ mod final_write_tests {
     /// A verified folder with a good backup, this device's secrets file and exported-to.json, plus
     /// a cluster dir and a backups dir beside it. Mirrors what `remove_old_data` gates on.
     fn setup(name: &str) -> Setup {
-        let base = std::env::temp_dir()
-            .join(format!("wf-m097-final-write-{name}-{}", std::process::id()));
+        let base =
+            std::env::temp_dir().join(format!("wf-m097-final-write-{name}-{}", std::process::id()));
         let _ = fs::remove_dir_all(&base);
         let folder = base.join("vault");
         let pg_root = base.join("local-pg");
@@ -913,8 +979,14 @@ mod final_write_tests {
             "the failure must say the cluster is gone: {err}"
         );
         assert_eq!(injected.get(), 1, "the final write runs once");
-        assert!(!s.pg_root.exists(), "the cluster is deleted before the final write");
-        assert!(old_db_removed(&s.pg_root), "the marker is written before the delete");
+        assert!(
+            !s.pg_root.exists(),
+            "the cluster is deleted before the final write"
+        );
+        assert!(
+            old_db_removed(&s.pg_root),
+            "the marker is written before the delete"
+        );
         let stuck = read_report(&s.folder);
         assert_eq!(stuck["state"], "removing");
         assert_eq!(stuck["removals"][DEV]["state"], "removing");
@@ -934,7 +1006,13 @@ mod final_write_tests {
         assert_eq!(done["removals"][DEV]["state"], "removed");
         assert!(old_db_removed(&s.pg_root), "the marker survives the resume");
         assert!(!s.pg_root.exists(), "the cluster stays deleted");
-        assert!(!s.pg_root.parent().unwrap().join("local-db-backups").exists());
+        assert!(
+            !s.pg_root
+                .parent()
+                .unwrap()
+                .join("local-db-backups")
+                .exists()
+        );
     }
 
     #[test]
@@ -955,10 +1033,17 @@ mod final_write_tests {
             stops += 1;
             Ok(())
         };
-        assert_eq!(resume_on_launch(&s.folder, &s.pg_root, DEV, NOW_T, &mut count_stop), Ok(true));
+        assert_eq!(
+            resume_on_launch(&s.folder, &s.pg_root, DEV, NOW_T, &mut count_stop),
+            Ok(true)
+        );
         assert_eq!(stops, 1, "postgres is stopped once on the resume");
-        let done: serde_json::Value = serde_json::from_str(&fs::read_to_string(&own).unwrap()).unwrap();
-        assert_eq!(done["state"], "removed", "the resume writes this device's own file");
+        let done: serde_json::Value =
+            serde_json::from_str(&fs::read_to_string(&own).unwrap()).unwrap();
+        assert_eq!(
+            done["state"], "removed",
+            "the resume writes this device's own file"
+        );
         assert!(!legacy.exists(), "the legacy report.json is never created");
     }
 }
@@ -975,7 +1060,8 @@ mod union_tests {
 
     /// A migration folder holding the given report files, and a cluster root with no removed marker.
     fn fixture(name: &str, files: &[(&str, &str)]) -> (PathBuf, PathBuf, PathBuf) {
-        let base = std::env::temp_dir().join(format!("wf-m097-union-{name}-{}", std::process::id()));
+        let base =
+            std::env::temp_dir().join(format!("wf-m097-union-{name}-{}", std::process::id()));
         let _ = fs::remove_dir_all(&base);
         let folder = base.join("vault");
         let dir = folder.join(MIGRATION_DIR);
@@ -992,7 +1078,10 @@ mod union_tests {
         let (base, folder, pg_root) = fixture("own-removing", &[("report-dev-a.json", REMOVING)]);
         let refusal = removal_refusal(&folder, ME, &pg_root);
         let _ = fs::remove_dir_all(&base);
-        assert!(refusal.is_some_and(|r| r.contains("unfinished")), "a removing own file refuses the start");
+        assert!(
+            refusal.is_some_and(|r| r.contains("unfinished")),
+            "a removing own file refuses the start"
+        );
     }
 
     #[test]
@@ -1002,7 +1091,9 @@ mod union_tests {
         let _ = fs::remove_dir_all(&base);
         assert_eq!(
             refusal.as_deref(),
-            Some("refused: report.json is unreadable; restore it from your backup or run the export again")
+            Some(
+                "refused: report.json is unreadable; restore it from your backup or run the export again"
+            )
         );
     }
 
@@ -1013,17 +1104,23 @@ mod union_tests {
         let _ = fs::remove_dir_all(&base);
         assert_eq!(
             refusal.as_deref(),
-            Some("refused: report-dev-a.json is unreadable; restore it from your backup or run the export again")
+            Some(
+                "refused: report-dev-a.json is unreadable; restore it from your backup or run the export again"
+            )
         );
     }
 
     #[test]
     fn a_verified_mark_in_another_devices_file_never_records_the_export() {
-        let (base, folder, pg_root) = fixture("other-verified", &[("report-dev-b.json", VERIFIED_B)]);
+        let (base, folder, pg_root) =
+            fixture("other-verified", &[("report-dev-b.json", VERIFIED_B)]);
         let result = record_verified_export(&pg_root, &folder, ME);
         let recorded = pg_root.join(EXPORTED_TO).exists();
         let _ = fs::remove_dir_all(&base);
-        assert!(result.is_err() && !recorded, "another device's verified run unlocks nothing");
+        assert!(
+            result.is_err() && !recorded,
+            "another device's verified run unlocks nothing"
+        );
     }
 
     #[test]
@@ -1033,7 +1130,10 @@ mod union_tests {
         let mut stop = || Ok(());
         let result = remove_old_data(&folder, &pg_root, NOW, ME, &mut secrets, &mut stop);
         let _ = fs::remove_dir_all(&base);
-        assert!(result.is_err(), "another device's verified run never unlocks removal");
+        assert!(
+            result.is_err(),
+            "another device's verified run never unlocks removal"
+        );
     }
 
     #[test]
@@ -1042,20 +1142,28 @@ mod union_tests {
         let result = record_verified_export(&pg_root, &folder, ME);
         let recorded = pg_root.join(EXPORTED_TO).exists();
         let _ = fs::remove_dir_all(&base);
-        assert!(result.is_ok() && recorded, "this device's own verified run records the export");
+        assert!(
+            result.is_ok() && recorded,
+            "this device's own verified run records the export"
+        );
     }
 
     #[test]
     fn an_unreadable_conflict_copy_refuses_recording_the_export() {
         let (base, folder, pg_root) = fixture(
             "conflict-record",
-            &[("report-dev-a.json", VERIFIED_A), ("report-dev-a (1).json", "{ not json")],
+            &[
+                ("report-dev-a.json", VERIFIED_A),
+                ("report-dev-a (1).json", "{ not json"),
+            ],
         );
         let result = record_verified_export(&pg_root, &folder, ME);
         let _ = fs::remove_dir_all(&base);
         assert_eq!(
             result.err().as_deref(),
-            Some("refused: migration report report-dev-a (1).json is unreadable; delete the conflict copy report-dev-a (1).json")
+            Some(
+                "refused: migration report report-dev-a (1).json is unreadable; delete the conflict copy report-dev-a (1).json"
+            )
         );
     }
 
@@ -1063,7 +1171,10 @@ mod union_tests {
     fn an_unreadable_conflict_copy_refuses_the_removal() {
         let (base, folder, pg_root) = fixture(
             "conflict-remove",
-            &[("report-dev-a.json", VERIFIED_A), ("report-dev-a (1).json", "{ not json")],
+            &[
+                ("report-dev-a.json", VERIFIED_A),
+                ("report-dev-a (1).json", "{ not json"),
+            ],
         );
         let mut secrets = || Ok(0);
         let mut stop = || Ok(());
@@ -1071,7 +1182,9 @@ mod union_tests {
         let _ = fs::remove_dir_all(&base);
         assert_eq!(
             result.err().as_deref(),
-            Some("refused: migration report report-dev-a (1).json is unreadable; delete the conflict copy report-dev-a (1).json")
+            Some(
+                "refused: migration report report-dev-a (1).json is unreadable; delete the conflict copy report-dev-a (1).json"
+            )
         );
     }
 
@@ -1080,7 +1193,10 @@ mod union_tests {
         let (base, folder, pg_root) = fixture(
             "conflict",
             &[
-                ("report-dev-a.json", r#"{"version":1,"state":"verified","runs":[]}"#),
+                (
+                    "report-dev-a.json",
+                    r#"{"version":1,"state":"verified","runs":[]}"#,
+                ),
                 ("report-dev-a (1).json", "{ not json"),
             ],
         );
@@ -1088,7 +1204,9 @@ mod union_tests {
         let _ = fs::remove_dir_all(&base);
         assert_eq!(
             refusal.as_deref(),
-            Some("refused: migration report report-dev-a (1).json is unreadable; delete the conflict copy report-dev-a (1).json")
+            Some(
+                "refused: migration report report-dev-a (1).json is unreadable; delete the conflict copy report-dev-a (1).json"
+            )
         );
     }
 
@@ -1106,8 +1224,14 @@ mod union_tests {
             let exported = pg_root.join(EXPORTED_TO).exists();
             let _ = fs::remove_dir_all(&base);
             assert!(read.is_err(), "{id:?}: the reader refuses the id");
-            assert!(refusal.as_deref().is_some_and(|r| r.contains("device id")), "{id:?}: {refusal:?}");
-            assert!(recorded.is_err() && !exported, "{id:?}: nothing is recorded");
+            assert!(
+                refusal.as_deref().is_some_and(|r| r.contains("device id")),
+                "{id:?}: {refusal:?}"
+            );
+            assert!(
+                recorded.is_err() && !exported,
+                "{id:?}: nothing is recorded"
+            );
             assert!(removed.is_err(), "{id:?}: the removal refuses the id");
         }
     }
