@@ -4,7 +4,9 @@
  * one-time migration moves it), written, or deleted.
  */
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { before, describe, it } from "node:test";
 import type { DesktopBridge } from "@/lib/desktop/desktop-bridge";
 import { loadCore } from "../../lib/rust-core";
@@ -78,13 +80,30 @@ const indexOf = (keys: string[], source = "move") => JSON.stringify({ source, ke
 /** A flat field map for a save: top-level names the typed `Secrets` does not list (the test fixtures). */
 const flat = (fields: Record<string, string>) => fields as unknown as Parameters<DeviceSecretsStore["save"]>[0];
 
-// The core is process-wide and loaded by the suite below, so this suite must run first.
+// Every web test file preloads the core (preload-core.mts), so an in-process test cannot
+// observe "core not loaded". This runs the same guard in a child process with no preload.
 describe("the Rust core is required to read the legacy row", () => {
-  it("a core that is not loaded throws, and never reads as no credentials", async () => {
-    const { keychain } = fakeKeychain();
-    const db = fakeRun([{ secrets: '{"zoteroApiKey":"k"}' }]);
-    const store = new DeviceSecretsStore(db.run, keychain, async () => {}, async () => false);
-    await assert.rejects(store.load(), /Rust core not loaded/);
+  it("a core that is not loaded throws, and never reads as no credentials", () => {
+    const moduleUrl = new URL("../providers/local/parts.ts", import.meta.url).href;
+    const script = `
+      const { DeviceSecretsStore } = await import(${JSON.stringify(moduleUrl)});
+      const keychain = { read: async () => null, write: async () => {}, clear: async () => {} };
+      const run = async () => [{ secrets: '{"zoteroApiKey":"k"}' }];
+      const store = new DeviceSecretsStore(run, keychain, async () => {}, async () => false);
+      try {
+        await store.load();
+        console.log("RESULT:resolved");
+      } catch (e) {
+        console.log("RESULT:" + String(e && e.message));
+      }
+    `;
+    const run = spawnSync(process.execPath, ["--import", "tsx", "--input-type=module", "-e", script], {
+      cwd: fileURLToPath(new URL("../../../", import.meta.url)),
+      timeout: 120_000,
+      encoding: "utf8",
+    });
+    assert.equal(run.status, 0, run.stderr);
+    assert.match(run.stdout, /RESULT:.*Rust core not loaded/);
   });
 });
 
@@ -415,7 +434,7 @@ describe("no keychain on this machine (Linux without a Secret Service)", () => {
     const shown: string[] = [];
     await desktopMoveSecrets(bridge, (message) => shown.push(message))();
     assert.deepEqual(shown, [
-      "These keys were not moved to the keychain: Overleaf git token, Zotero key. Re-enter them in Settings.",
+      "These keys were not moved to the keychain: Overleaf git token, Zotero API key. Re-enter them in Settings.",
     ]);
   });
 
