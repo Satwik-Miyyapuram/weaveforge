@@ -72,7 +72,9 @@ whose links still use the old title. Update those by hand.
 4. When the toast closes, or you click its close button, the note is deleted.
    With no workspace folder open, it is then gone for good. With a folder
    open, the note's `.md` file and its ink pages move to the workspace trash
-   (`.weaveforge/trash/<day>/`), where you can still get them back.
+   (`.weaveforge/trash/<day>/`). The app has no restore button: to get a note
+   back, move its files from there into your workspace folder with your file
+   manager, or take them from your GitHub history if the folder is synced.
 5. If the delete fails, the note comes back and a toast says so.
 
 ### When two places save at once

@@ -1,9 +1,9 @@
 # Desktop shell (`weaveforge-shell`)
 
-`apps/shell` is the desktop and phone app on Tauri 2. It serves the static web export over the `app` scheme, starts the native local database behind typed DB commands, and gives the main window the `window.weaveforge` bridge (`apps/shell/src/lib.rs` says so).
+`apps/shell` is the desktop and phone app on Tauri 2. It serves the static web export over the `app` scheme and gives the main window the `window.weaveforge` bridge (`apps/shell/src/lib.rs` says so).
 
 - Workspace: its own (`[workspace]` in `apps/shell/Cargo.toml`). Tauri brings duplicate crate versions that the root workspace's `cargo-deny` bans must not take in. The shell's bans are in `apps/shell/deny.toml`.
-- Modules: 51 `pub mod` in `src/lib.rs`. `local_http/` is the local HTTP API and MCP server; `local_pg/` is the native Postgres child that replaced PGlite.
+- Modules: 58 `pub mod` in `src/lib.rs`. `local_http/` is the local HTTP API and MCP server. From 0.9.8 there is no local database; `migrate.rs` only checks whether an old one is still on disk.
 - Our crates: [`wf-core`](wf-core.md), [`wf-store`](wf-store.md) (on phones with `default-features = false`), and [`wf-relay`](relay.md) with feature `specta`.
 - Typed commands: `tauri-specta` writes `apps/shell/bridge/bindings.ts` from the command signatures.
 - Desktops use `native-tls` and `git2` with https and ssh. Phones use `rustls` on `ring` and `git2` without https.

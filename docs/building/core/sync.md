@@ -52,7 +52,7 @@ results in.
 - `ink_note.rs`: `splitInkTextLayer` splits an ink note body into text layers.
 - `stamp_workspace_id.rs`: `stampWorkspaceId` writes the `weaveforge-id` line
   into a hand-written file's frontmatter.
-- `pglite_sql.rs`: SQL-text helpers for the local PGlite backend.
+- `pglite_sql.rs`: SQL-text helpers for the PGlite test harness. No shipped app runs PGlite from 0.9.8.
 - `workspace_snapshot.rs`: the snapshot types and counts that the serializer
   reads.
 - `sync_phase.rs`: `initialPhase`, `afterCycle`, `afterFailure` and `isCaughtUp`
@@ -112,8 +112,8 @@ Code in `apps/web` reads these through `readyCore()` or `typedCore()` from
   file reads and writes stay in `apps/web/src/features/workspace/application/parts-1.ts`.
 - **Git and network.** Running git and sending the push stay in TypeScript.
   Rust only checks the URL and describes the result.
-- **The PGlite runtime.** `pglite_sql.rs` builds SQL text. The value encoding and
-  the PGlite client stay in `apps/web/src/backend/providers/local/pglite-client.ts`.
+- **The PGlite test harness.** `pglite_sql.rs` builds SQL text. The value encoding and
+  the PGlite client stay in the test-only `apps/web/src/backend/test/pglite-client.ts`.
 - **Store reads.** `collectWorkspaceSnapshot` reads the stores and is not
   ported. Rust keeps only the fields the serializer reads.
 

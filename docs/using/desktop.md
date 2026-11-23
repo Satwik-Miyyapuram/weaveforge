@@ -20,8 +20,9 @@ Download the installer from the
 [releases page](https://github.com/Satwik-Miyyapuram/weaveforge/releases/latest):
 `WeaveForge_<version>_x64-setup.exe` for most people, or
 `WeaveForge_<version>_x64_en-US.msi` if your IT department deploys MSI packages.
-Both install the same app. The build is for 64-bit Intel and AMD PCs; Arm PCs
-(Snapdragon) run it through Windows' built-in emulation.
+Both install the same app. Those are for 64-bit Intel and AMD PCs; on an Arm PC
+(Snapdragon) take the `arm64` files instead, such as
+`WeaveForge_<version>_arm64-setup.exe`.
 
 The Windows build is free and open-source, and is not signed with an expensive
 commercial EV code-signing certificate (which costs hundreds of dollars a year).
@@ -38,16 +39,17 @@ unrecognized app from starting."* To install and run:
    or **OK**, then double-click the installer.
 3. **In PowerShell**, if you prefer the terminal:
    ```powershell
-   Unblock-File -Path .\WeaveForge-*-Windows-*.exe
+   Unblock-File -Path .\WeaveForge_*-setup.exe
    ```
 
 ## Installing on a Mac
 
-Download `WeaveForge-<version>-macOS.dmg` (one file for Apple silicon and Intel) from the
-[releases page](https://github.com/Satwik-Miyyapuram/weaveforge/releases/latest),
-open it, and drag WeaveForge into Applications.
+The [releases page](https://github.com/Satwik-Miyyapuram/weaveforge/releases/latest)
+has Windows installers only; there is no Mac download yet. On a Mac, build the
+app from source (`npm run tauri -- build` in `apps/shell`) and drag
+`WeaveForge.app` into Applications.
 
-The Mac build is free and is not notarised by Apple, which costs a yearly
+A Mac build is free and is not notarised by Apple, which costs a yearly
 developer fee. So the first time you open it, macOS Gatekeeper says it cannot
 check the app for malicious software or that the developer cannot be verified,
 and offers only **Done** or **Move to Trash**. To open it:
