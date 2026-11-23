@@ -19,7 +19,7 @@ import {
   type DesktopLocalDbState,
 } from "@/lib/desktop/desktop-bridge";
 import { isLocalMode } from "@/backend/providers/local/local-identity";
-import { enterLocalOnly } from "@/lib/desktop/local-only-entry";
+import { enterLocalOnly, localOnlyEntryVisible } from "@/lib/desktop/local-only-entry";
 import { desktopRunExport } from "@/lib/desktop/migrate-097-gate";
 import { Button } from "@/components/button";
 
@@ -188,7 +188,7 @@ function StartupFailure({ message }: { message: string }) {
         <Button variant={broken ? "secondary" : "primary"} onClick={() => window.location.reload()}>
           Reload
         </Button>
-        {desktop() && !isLocalMode() ? (
+        {desktop() && !isLocalMode() && localOnlyEntryVisible(true) ? (
           <Button
             onClick={() => {
               const shell = desktop();

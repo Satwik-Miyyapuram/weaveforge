@@ -6,17 +6,22 @@
  * window reloads so the gate can show the upgrade screen if the run stops short.
  * The route never calls the local database: it only names the folder and reloads.
  */
+import { LOCAL_MODE_IN_BUILD } from "@/backend/providers/local/local-identity";
 import { migrate097Status, usesFileBackend, type Migrate097Bridge } from "./migrate-097";
 import type { ExportRunner } from "./migrate-097-upgrade";
 
 /**
  * Web keeps the local-only entry hidden until the OPFS browser wiring lands.
- * Flip this to true then; the desktop entry is always shown.
+ * Flip this to true then.
  */
 export const WEB_LOCAL_ONLY_ENTRY = false;
 
+/**
+ * Hidden everywhere while the build has no local mode: sign-in is the only way
+ * past the login screen then, so the entry would reload straight back onto it.
+ */
 export function localOnlyEntryVisible(onDesktop: boolean): boolean {
-  return onDesktop || WEB_LOCAL_ONLY_ENTRY;
+  return LOCAL_MODE_IN_BUILD && (onDesktop || WEB_LOCAL_ONLY_ENTRY);
 }
 
 export type LocalOnlyOutcome = "reload" | "cancelled" | "unavailable";

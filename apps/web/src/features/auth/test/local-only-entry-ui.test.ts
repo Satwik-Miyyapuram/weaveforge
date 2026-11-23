@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
 
+import { LOCAL_MODE_IN_BUILD } from "@/backend/providers/local/local-identity";
 import { localOnlyEntryVisible, WEB_LOCAL_ONLY_ENTRY } from "@/lib/desktop/local-only-entry";
 
 test("the web local-only entry stays hidden until the OPFS wiring lands", () => {
@@ -9,8 +10,17 @@ test("the web local-only entry stays hidden until the OPFS wiring lands", () => 
   assert.equal(localOnlyEntryVisible(false), false);
 });
 
-test("the desktop local-only entry is always shown", () => {
-  assert.equal(localOnlyEntryVisible(true), true);
+test("no local-only entry shows while the build has no local mode: it would reload onto the sign-in screen", () => {
+  assert.equal(LOCAL_MODE_IN_BUILD, false);
+  assert.equal(localOnlyEntryVisible(true), false);
+  assert.equal(localOnlyEntryVisible(false), false);
+});
+
+test("both login surfaces ask localOnlyEntryVisible before showing the local-only button", () => {
+  for (const rel of ["../ui/login-screen.tsx", "../ui/privacy-disclaimer-gate.tsx"]) {
+    const source = readFileSync(new URL(rel, import.meta.url), "utf8");
+    assert.equal(source.includes("localOnlyEntryVisible("), true, `${rel} must gate the button on localOnlyEntryVisible`);
+  }
 });
 
 test("neither login surface calls setLocalMode, and both route through the folder entry", () => {
