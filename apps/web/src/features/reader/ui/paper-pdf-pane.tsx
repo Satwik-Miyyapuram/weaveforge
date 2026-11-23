@@ -29,9 +29,10 @@ import { AnnotationSidebar } from "./annotation-sidebar";
 import { readyCore } from "@/lib/rust-core";
 import { relayUrl } from "@/lib/parts";
 import { PaperHtmlView } from "./paper-html-view";
-import { routePdfHit, safeHostname } from "./pdf-hit-route";
+import { routePdfHit, safeHostname, servedPdfExists } from "./pdf-hit-route";
 import { Button } from "@/components/button";
 import { paperGuard } from "./paper-guard";
+import { planWebArticle } from "./web-article-preview";
 
 async function keptHtmlPage(paperId: string): Promise<PaperHtmlPage | null> {
   const { paperHtmlStore } = await import("../infrastructure/paper-html-store");
@@ -197,13 +198,22 @@ export function PaperPdfPane({
         if (cancelled) return;
         // A web article's guessed GitHub path is not a PDF: leave it to the page
         // branch below. Every other hit opens here (this build has no download prompt).
+        // A GitHub-repo guess is only a path: probe it before opening it in pdf.js, so
+        // a file the repo does not hold falls through to the else branch below.
+        const webArticle = !!openAccessIds.current && readyCore().isWebArticle(openAccessIds.current);
+        const guessFound =
+          resolution.ok && resolution.resolverId === "github-repo" && !webArticle
+            ? await servedPdfExists(resolution.hit.url)
+            : undefined;
+        if (cancelled) return;
         const route = resolution.ok
           ? routePdfHit({
               url: resolution.hit.url,
               resolverId: resolution.resolverId,
               localMode: false,
               stored: true,
-              webArticle: !!openAccessIds.current && readyCore().isWebArticle(openAccessIds.current),
+              webArticle,
+              guessFound,
             })
           : null;
         if (resolution.ok && route === "open") {
@@ -226,9 +236,9 @@ export function PaperPdfPane({
           if (kept) {
             setHtmlPage(kept);
           } else if (openAccessIds.current && readyCore().isWebArticle(openAccessIds.current)) {
-            // A blog post or an essay: its own page is the paper, so open it
-            // rather than wait for a button press to go and get it.
-            setError("This paper is a web page and has no PDF.");
+            // A blog post or an essay: its own page is the paper, so fetch and keep
+            // it now. A failed fetch leaves the live-page fallback in the render
+            // (planWebArticle), never a PDF prompt or an error card.
             void findFreeRef.current(paper.title);
           } else {
             setError("This paper has no PDF the reader can open yet.");
@@ -419,10 +429,19 @@ export function PaperPdfPane({
   }
 
   const canLoad = allowLoad && Boolean(paperId);
+  const articleIs = !!openAccessIds.current && readyCore().isWebArticle(openAccessIds.current);
+  const articlePlan =
+    articleIs && !pdfUrl
+      ? planWebArticle({
+          kept: htmlPage !== null,
+          pageUrl: openAccessIds.current?.pageUrl,
+          fetchFailed: freeStatus?.error === true,
+        })
+      : null;
   const freeCopy = canLoad ? (
     <div className="paper-free-copy">
       <Button variant="primary" size="sm" disabled={freeBusy} onClick={() => void findFree()}>
-        {freeBusy ? "Searching…" : openAccessIds.current && readyCore().isWebArticle(openAccessIds.current) ? "Open the page" : "Find a free copy"}
+        {freeBusy ? "Searching…" : articleIs ? "Find another copy" : "Find a free copy"}
       </Button>
       {freeStatus && (
         <p className="paper-free-copy-status" role={freeStatus.error ? "alert" : "status"}>
@@ -497,7 +516,32 @@ export function PaperPdfPane({
           {loadButton}
         </div>
       )}
-      {!loading && !error && !pdfUrl && !htmlPage && (
+      {!loading && articlePlan?.kind === "fetch" && (
+        <div className="card empty-state">
+          <h2>Fetching the page…</h2>
+          <p>{freeStatus?.text ?? "The paper is a web page, so its text is fetched and kept here."}</p>
+        </div>
+      )}
+      {!loading && articlePlan?.kind === "live" && (
+        <div className="card empty-state">
+          <h2>The page did not load here</h2>
+          <p>{freeStatus?.text}</p>
+          <p>
+            <a href={articlePlan.url} target="_blank" rel="noopener noreferrer">
+              Open the page on {articlePlan.host}
+            </a>
+          </p>
+          {freeCopy}
+        </div>
+      )}
+      {!loading && articlePlan?.kind === "none" && (
+        <div className="card empty-state">
+          <h2>No page to show</h2>
+          <p>This article has no page address on record.</p>
+          {freeCopy}
+        </div>
+      )}
+      {!loading && !error && !pdfUrl && !htmlPage && !articlePlan && (
         <div className="card empty-state">
           <h2>Nothing to show</h2>
           <p>No PDF was provided for this locus.</p>
