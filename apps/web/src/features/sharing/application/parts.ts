@@ -1,6 +1,7 @@
 import { getContainer } from "@/bootstrap";
 import type { ISharedReader, SharedItem } from "@/features/sharing/domain/shared-reader";
 import { readyCore } from "@/lib/rust-core";
+import { logToApp } from "@/lib/error-report/app-log";
 import type {
   Experiment,
   IExperimentRepository,
@@ -11,6 +12,7 @@ import type {
   ManageSharingUseCase,
   Member,
   Paper,
+  ShareableType,
   VaultPage,
 } from "@weaveforge/core";
 
@@ -112,6 +114,8 @@ export async function loadSharedItemDetails(
 export interface LoadSharedWithMeScreenData {
   items: SharedItemDetail[];
   members: Member[];
+  /** Types whose shared items could not be read this time; the rest are still in `items`. */
+  unavailable: ShareableType[];
 }
 
 export class LoadSharedWithMeScreenUseCase {
@@ -133,12 +137,41 @@ export class LoadSharedWithMeScreenUseCase {
       this.deps.members.listDirectory(),
     ]);
 
-    const groups = await Promise.all(
-      readyCore().shareableTypes().map((type) => {
+    // One read per type, settled apart, so one failing type does not hide the others.
+    const types = readyCore().shareableTypes();
+    const settled = await Promise.allSettled(
+      types.map((type) => {
         const { ids, owners } = readyCore().shareTargets(shares, type);
         return this.deps.sharedReader.read(type, ids, owners);
       }),
     );
+    const groups: SharedItem[][] = [];
+    const unavailable: ShareableType[] = [];
+    types.forEach((type, i) => {
+      const result = settled[i];
+      if (result?.status === "fulfilled") groups.push(result.value);
+      // A retired table (1.0.0 drops the personal tables) holds nothing to show.
+      // The tables are only held in 0.9.8, so the log still notes a stale schema cache.
+      else if (result && HELD_DROP_TYPES.has(type) && isMissingTable(result.reason)) {
+        logToApp({
+          level: "warn",
+          source: "shared-with-me",
+          message: `missing table for shared ${type} (${errorCode(result.reason)}), read as empty`,
+        });
+      } else if (result) {
+        unavailable.push(type);
+        if (isMissingTable(result.reason)) {
+          logToApp({
+            level: "warn",
+            source: "shared-with-me",
+            message: `missing table for shared ${type} (stale schema cache?)`,
+          });
+        }
+      }
+    });
+    if (unavailable.length === types.length) {
+      throw (settled[0] as PromiseRejectedResult).reason;
+    }
     const enriched = await loadSharedItemDetails(groups.flat(), {
       papers: this.deps.papers,
       experiments: this.deps.experiments,
@@ -152,6 +185,28 @@ export class LoadSharedWithMeScreenUseCase {
       ),
     }));
 
-    return { items, members };
+    return { items, members, unavailable };
   }
+}
+
+/**
+ * Types whose table 1.0.0 drops (0165/0167). Only for these is a missing table
+ * expected; elsewhere PGRST205 more likely means a stale schema cache.
+ */
+const HELD_DROP_TYPES: ReadonlySet<ShareableType> = new Set([
+  "paper",
+  "vault_page",
+  "report_section",
+  "reading_list",
+  "milestone",
+]);
+
+/** PostgREST's "table not in the schema cache" (404) or Postgres's undefined_table. */
+function isMissingTable(error: unknown): boolean {
+  const code = errorCode(error);
+  return code === "PGRST205" || code === "42P01";
+}
+
+function errorCode(error: unknown): unknown {
+  return (error as { code?: unknown } | null)?.code;
 }
