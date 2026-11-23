@@ -88,7 +88,7 @@ pub const CHECK_FAILED: &str = "Could not check for an update.";
 pub const INSTALL_FAILED: &str = "The update did not install. Try again.";
 /// Shown when `install_allowed` refuses a version. The log keeps the exact reason.
 pub const UPDATE_HELD: &str =
-    "This update is held: export your data first, then try again.";
+    "This update is held: export and verify your data in 0.9.7 first, then try again.";
 
 /// Where the shell is in the update cycle.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, specta::Type)]
@@ -272,6 +272,7 @@ fn local_data(app: &AppHandle) -> LocalData {
 
 /// Local-data state for a data folder. None (the folder could not be resolved) is unverified,
 /// so the update is held rather than allowed to strand data.
+#[must_use]
 pub fn local_data_in(data: Option<&std::path::Path>) -> LocalData {
     let Some(data) = data else {
         return LocalData::Unverified;
@@ -480,23 +481,7 @@ pub async fn install(app: &AppHandle) -> AppUpdateStatus {
     };
     let version = downloading.version.clone().unwrap_or_default();
     let _ = state.set(app, downloading);
-    let mut last = Some(0_u8);
-    let progress_app = app.clone();
-    let on_chunk = move |downloaded: usize, total: Option<u64>| {
-        let now = percent(u64::try_from(downloaded).unwrap_or(u64::MAX), total);
-        if now != last {
-            last = now;
-            let state = progress_app.state::<AppUpdateState>();
-            let current = state.snapshot();
-            let _ = state.set(
-                &progress_app,
-                AppUpdateStatus {
-                    percent: now,
-                    ..current
-                },
-            );
-        }
-    };
+    let on_chunk = progress_reporter(app.clone());
     let installing_app = app.clone();
     let on_done = move || {
         let state = installing_app.state::<AppUpdateState>();
@@ -530,6 +515,26 @@ pub async fn install(app: &AppHandle) -> AppUpdateStatus {
                     ..before
                 },
             )
+        }
+    }
+}
+
+/// Download progress callback: publishes the percent each time it changes.
+fn progress_reporter(app: AppHandle) -> impl FnMut(usize, Option<u64>) + Send {
+    let mut last = Some(0_u8);
+    move |downloaded: usize, total: Option<u64>| {
+        let now = percent(u64::try_from(downloaded).unwrap_or(u64::MAX), total);
+        if now != last {
+            last = now;
+            let state = app.state::<AppUpdateState>();
+            let current = state.snapshot();
+            let _ = state.set(
+                &app,
+                AppUpdateStatus {
+                    percent: now,
+                    ..current
+                },
+            );
         }
     }
 }

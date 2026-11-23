@@ -29,6 +29,7 @@ pub fn get_or_create(dir: &Path) -> io::Result<String> {
 
 /// Returns the stored id if the file holds a valid one. Never writes: a missing, empty or corrupt
 /// file gives `None`, so a read-only check stays closed instead of creating an id.
+#[must_use]
 pub fn get_existing(dir: &Path) -> Option<String> {
     let text = fs::read_to_string(dir.join(FILE)).ok()?;
     let id = text.trim();
@@ -38,6 +39,10 @@ pub fn get_existing(dir: &Path) -> Option<String> {
 /// Tauri command: this machine's id, created on first use in the app data folder.
 #[tauri::command]
 #[specta::specta]
+#[allow(
+    clippy::needless_pass_by_value,
+    reason = "tauri commands take AppHandle by value"
+)]
 pub fn device_id(app: tauri::AppHandle) -> Result<String, String> {
     use tauri::Manager;
     let dir = app.path().app_data_dir().map_err(|e| e.to_string())?;

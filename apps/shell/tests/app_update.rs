@@ -275,7 +275,10 @@ fn a_verified_report_from_another_device_holds_0_9_7_back() {
     std::fs::write(pg.join("PG_VERSION"), "16").unwrap();
     std::fs::write(
         pg.join("exported-to.json"),
-        format!(r#"{{"folder":"{}"}}"#, ws.display().to_string().replace('\\', "\\\\")),
+        format!(
+            r#"{{"folder":"{}"}}"#,
+            ws.display().to_string().replace('\\', "\\\\")
+        ),
     )
     .unwrap();
     let other = "f".repeat(64);
@@ -286,7 +289,10 @@ fn a_verified_report_from_another_device_holds_0_9_7_back() {
     .unwrap();
     let mine = weaveforge_shell_lib::device_id::get_or_create(&data).unwrap();
     assert_ne!(mine, other);
-    assert!(!weaveforge_shell_lib::migrate::native_data_verified(&pg, Some(&mine)));
+    assert!(!weaveforge_shell_lib::migrate::native_data_verified(
+        &pg,
+        Some(&mine)
+    ));
     let local = local_data_in(Some(&data));
     assert_eq!(local, LocalData::Unverified);
     assert!(install_allowed("0.9.7", "0.9.8", local).is_err());
@@ -306,12 +312,18 @@ fn a_missing_device_id_is_not_written_and_holds_the_update() {
     std::fs::write(pg.join("PG_VERSION"), "16").unwrap();
     std::fs::write(
         pg.join("exported-to.json"),
-        format!(r#"{{"folder":"{}"}}"#, ws.display().to_string().replace('\\', "\\\\")),
+        format!(
+            r#"{{"folder":"{}"}}"#,
+            ws.display().to_string().replace('\\', "\\\\")
+        ),
     )
     .unwrap();
     let local = local_data_in(Some(&data));
     assert_eq!(local, LocalData::Unverified);
     assert!(install_allowed("0.9.7", "0.9.8", local).is_err());
-    assert!(!data.join("device-id").exists(), "the check wrote a device id");
+    assert!(
+        !data.join("device-id").exists(),
+        "the check wrote a device id"
+    );
     let _ = std::fs::remove_dir_all(&root);
 }
