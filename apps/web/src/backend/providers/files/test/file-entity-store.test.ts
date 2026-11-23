@@ -93,6 +93,62 @@ test("a save never overwrites a file changed on disk since it was read", async (
   await assert.rejects(store.save(row({ status: "done" })), /changed on disk/);
 });
 
+test("a save from a stale row keeps the outside edit and puts the row in a conflict copy", async () => {
+  const { fs, store } = setup();
+  await store.save(row());
+  const loaded = await store.get(row().id);
+  assert.ok(loaded);
+  const [path] = await files(fs);
+  assert.ok(path);
+  // Another app edits the file after this store handed the row out.
+  const theirs = (await fs.readText(path)).replace('status: "planned"', 'status: "running"');
+  assert.notEqual(theirs, await fs.readText(path));
+  await fs.writeFile(path, theirs);
+  const warn = console.warn;
+  const warned: unknown[] = [];
+  console.warn = (...args: unknown[]) => void warned.push(args);
+  try {
+    await assert.rejects(store.save({ ...loaded, name: "Mine" }), (e: Error) => e.name === "ConflictError");
+    assert.equal(await fs.readText(path), theirs, "the outside edit is kept");
+    const all = await files(fs);
+    assert.equal(all.length, 2, all.join());
+    const copy = all.find((p) => p !== path)!;
+    assert.match(copy, /\.experiment \(conflict\)\.md$/);
+    const copyText = await fs.readText(copy);
+    assert.match(copyText, /Mine/);
+    assert.doesNotMatch(copyText, /^weaveforge-id:/m, "the copy never repeats the id");
+    // The store still lists the one row, from the outside edit.
+    assert.deepEqual((await store.all()).map((r) => r.status), ["running"]);
+  } finally {
+    console.warn = warn;
+  }
+  assert.equal(warned.length, 0, "the conflict copy is not reported as a bad file");
+});
+
+test("after a conflict, a save without a fresh read still refuses; a fresh read lets it through", async () => {
+  const { fs, store } = setup();
+  await store.save(row());
+  const [path] = await files(fs);
+  assert.ok(path);
+  await fs.writeFile(path, (await fs.readText(path)).replace('status: "planned"', 'status: "running"'));
+  await assert.rejects(store.save(row({ name: "Mine" })), (e: Error) => e.name === "ConflictError");
+  await assert.rejects(store.save(row({ name: "Mine again" })), (e: Error) => e.name === "ConflictError");
+  assert.equal((await files(fs)).length, 3, "each refused save keeps its own copy");
+  const fresh = await store.get(row().id);
+  assert.ok(fresh);
+  await store.save({ ...fresh, name: "Mine" });
+  assert.equal((await store.get(row().id))?.name, "Mine");
+  assert.equal((await store.get(row().id))?.status, "running");
+});
+
+test("two saves in a row from one store need no read in between", async () => {
+  const { store } = setup();
+  await store.save(row());
+  await store.save(row({ status: "running" }));
+  await store.save(row({ status: "done" }));
+  assert.equal((await store.get(row().id))?.status, "done");
+});
+
 test("a filesystem without conditional writes refuses to save", async () => {
   const fs = new MemoryWorkspaceFs();
   (fs as { writeTextIf?: unknown }).writeTextIf = undefined;

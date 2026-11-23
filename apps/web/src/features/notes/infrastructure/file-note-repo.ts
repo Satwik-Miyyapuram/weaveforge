@@ -10,7 +10,7 @@
  * - Changing only `sortOrder` changes only the `order` line.
  * - A save that would make a note its own ancestor is refused and writes nothing.
  * - A save keeps the path and every field it does not own.
- * - A save never overwrites a file changed since it was read.
+ * - A save never overwrites a file changed since it was read; a stale `save` puts the page in a conflict copy.
  * - `add` and `update` refuse a blank title or another note's title, as the Rust repo does.
  * - A guarded `update` (one with `baseBody`) never drops an outside edit: the
  *   file's text is kept as a conflict copy, then the caller's text is written.
@@ -18,6 +18,7 @@
  * Canvas notes live in `.canvas` files and are not saved here.
  */
 import {
+  ConflictError,
   NotFoundError,
   VaultPageValidationError,
   type EditVaultPageInput,
@@ -81,6 +82,9 @@ function byOrder(a: { sortOrder: number; title: string }, b: { sortOrder: number
 }
 
 export class FileNoteRepository implements IVaultPageRepository, IVaultPageManager {
+  /** Per id, the file text this repo last read or wrote: `save` expects the file to still hold that page. */
+  private readonly loaded = new Map<string, string>();
+
   constructor(
     private readonly fs: IWorkspaceFs,
     /** Project folder the `notes/` folder sits in ("" for the workspace root). */
@@ -98,7 +102,10 @@ export class FileNoteRepository implements IVaultPageRepository, IVaultPageManag
     for await (const entry of this.fs.walk(this.dir)) {
       if (!entry.path.endsWith(SUFFIX)) continue;
       const parsed = parse(entry.path, await this.fs.readText(entry.path));
-      if (parsed) found.push(parsed);
+      if (parsed) {
+        found.push(parsed);
+        this.loaded.set(parsed.page.id, parsed.text);
+      }
     }
     return found.sort((a, b) => a.path.localeCompare(b.path));
   }
@@ -141,8 +148,24 @@ export class FileNoteRepository implements IVaultPageRepository, IVaultPageManag
     return (await this.list()).some((p) => p.id !== exceptId && readyCore().normalizeTitleKey(p.title) === key);
   }
 
+  /**
+   * Writes the whole page. The page in the file must still be the one this repo last read or wrote; if
+   * another writer changed it since, that edit is kept, this page goes to a conflict copy, and the save
+   * fails with ConflictError until the page is read again. Keys the repo does not own never count.
+   */
   async save(page: VaultPage): Promise<void> {
-    await this.put(await this.readAll(), page);
+    const loadedText = this.loaded.get(page.id);
+    const all = await this.readAll();
+    const found = all.find((f) => f.page.id === page.id);
+    if (found && loadedText !== undefined && loadedText !== found.text) {
+      const before = parse(found.path, loadedText)?.page;
+      if (JSON.stringify(before) !== JSON.stringify(found.page)) {
+        await this.conflictCopy(all, page);
+        this.loaded.set(page.id, loadedText);
+        throw new ConflictError(`${found.path} changed on disk; your version was kept as a conflict copy. Reload before saving.`);
+      }
+    }
+    await this.put(all, page);
   }
 
   async add(input: NewVaultPageInput): Promise<VaultPage> {
@@ -279,12 +302,14 @@ export class FileNoteRepository implements IVaultPageRepository, IVaultPageManag
     const text = core.writeFrontmatter(fields, lf(page.body));
     if (text === found?.text) return;
     await this.write(path, text, found?.text ?? null);
+    this.loaded.set(page.id, text);
   }
 
   async delete(id: string): Promise<void> {
     const found = (await this.readAll()).find((f) => f.page.id === id);
     // To the trash, like a paper: a note is the user's file and a delete must be undoable.
     if (found) await moveToTrash(this.fs, found.path, Date.now());
+    this.loaded.delete(id);
   }
 
   private async write(path: string, text: string, expected: string | null): Promise<void> {
