@@ -192,8 +192,10 @@ async fn get_without_auth_is_401_and_reads_nothing() {
 #[tokio::test]
 async fn get_legacy_columns_are_cleaned_and_not_cached() {
     let row = r#"[{"zotero_api_key":" z ","semantic_scholar_key":null,"integrations":{"p":{"a":" x ","b":" "}}}]"#;
-    let up = upstream(vec![(SETTINGS, vec![json_reply(200, row)])]).await;
-    let (status, headers, body) = call(&up, keyless(), request("GET", "", true)).await;
+    // The read seals legacy plaintext (so it needs the key); the PATCH answer is the row it changed.
+    let written = json_reply(200, r#"[{"user_id":"user-1"}]"#);
+    let up = upstream(vec![(SETTINGS, vec![json_reply(200, row), written])]).await;
+    let (status, headers, body) = call(&up, keyed(), request("GET", "", true)).await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(
         body,
@@ -202,6 +204,8 @@ async fn get_legacy_columns_are_cleaned_and_not_cached() {
     assert_eq!(header(&headers, "cache-control"), "no-store");
     let seen = calls(&up, SETTINGS);
     assert!(seen[0].target.contains("user_id=eq.user-1"));
+    assert_eq!(seen[1].method, "PATCH");
+    assert!(seen[1].target.contains("user_id=eq.user-1"));
 }
 
 #[tokio::test]
@@ -282,6 +286,35 @@ async fn post_without_auth_is_401_and_writes_nothing() {
     assert_eq!(status, StatusCode::UNAUTHORIZED);
     assert_eq!(error_of(&body), "Not authenticated.");
     assert!(calls(&up, SETTINGS).is_empty());
+}
+
+/// A request to the credentials route carrying an SDK API token, not a session.
+fn api_token_request(method: &str, body: &str) -> Request<Body> {
+    Request::builder()
+        .method(method)
+        .uri(PATH)
+        .header("authorization", "Bearer tt_abc")
+        .body(Body::from(body.to_owned()))
+        .expect("request")
+}
+
+#[tokio::test]
+async fn get_with_api_token_is_401_and_reads_nothing() {
+    let up = upstream(vec![(SETTINGS, vec![sealed_row(r#"{"k":"v"}"#, KEY)])]).await;
+    let (status, _, body) = call(&up, keyed(), api_token_request("GET", "")).await;
+    assert_eq!(status, StatusCode::UNAUTHORIZED);
+    assert_eq!(error_of(&body), "Invalid session.");
+    assert!(up.seen().is_empty());
+}
+
+#[tokio::test]
+async fn post_with_api_token_is_401_and_writes_nothing() {
+    let up = upstream(vec![(SETTINGS, vec![json_reply(201, "[]")])]).await;
+    let req = api_token_request("POST", r#"{"secrets":{"k":"v"}}"#);
+    let (status, _, body) = call(&up, keyed(), req).await;
+    assert_eq!(status, StatusCode::UNAUTHORIZED);
+    assert_eq!(error_of(&body), "Invalid session.");
+    assert!(up.seen().is_empty());
 }
 
 #[tokio::test]

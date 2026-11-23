@@ -16,6 +16,7 @@ use yrs::{ReadTxn, StateVector, Transact, Update};
 use crate::collab::hub::{self, Event, Room, RoomInner};
 use crate::collab::lease::LeaseReply;
 use crate::collab::protocol::{self, Control, Incoming};
+use crate::collab::quota::QuotaGuard;
 use crate::collab::store::{DocRow, DocStatus};
 use crate::collab::update_log::is_safe_item_id;
 use crate::collab::{CollabState, Permission};
@@ -33,6 +34,29 @@ const SYNC_STEP1_BURST: i64 = 3;
 const RESYNC_BURST: i64 = 1;
 /// How often a held-back resync or SyncStep1 reply is retried.
 const RETRY_EVERY: Duration = Duration::from_millis(250);
+/// How often the server pings a client, so a silent dead peer is noticed.
+const PING_EVERY: Duration = Duration::from_secs(30);
+/// A client heard from for this long (no frame, not even a pong) is dropped.
+const IDLE_LIMIT: Duration = Duration::from_secs(90);
+/// Largest document a room grows to; an update past it is refused.
+const MAX_DOC_BYTES: u64 = 64 * 1024 * 1024;
+/// Document updates one client may send back to back; past it the socket is closed with
+/// `rate-limited` (the client rejoins and resyncs). Typing sends far fewer.
+pub const UPDATE_BURST: i64 = 500;
+/// One update token comes back this often (100 per second sustained).
+pub const UPDATE_PERIOD_MS: i64 = 10;
+
+/// Whether a client silent for `silent` should be dropped.
+fn idle_too_long(silent: Duration) -> bool {
+    silent >= IDLE_LIMIT
+}
+
+/// Whether an `update` of this many bytes would grow a doc of `base` saved bytes plus `log`
+/// logged bytes past the cap.
+fn doc_too_large(base: u64, log: u64, update: usize) -> bool {
+    let update = u64::try_from(update).unwrap_or(u64::MAX);
+    base.saturating_add(log).saturating_add(update) > MAX_DOC_BYTES
+}
 
 /// What the socket loop woke up for.
 enum Next {
@@ -44,6 +68,8 @@ enum Next {
     GrantCheck,
     /// The retry timer fired: a held-back resync or SyncStep1 reply may be due now.
     Retry,
+    /// The ping timer fired: drop a client gone silent, else ping it.
+    Ping,
 }
 
 /// One connected client's view of the document.
@@ -68,6 +94,10 @@ struct Client {
     resync_pending: bool,
     /// The newest SyncStep1 the budget held back; the retry tick answers it.
     deferred_sv: Option<StateVector>,
+    /// When the session token stops being valid (Unix ms); `None`: never.
+    expires_at: Option<i64>,
+    /// How far the update tokens are spent (Unix ms); see `take_update_slot`.
+    update_spent_to: i64,
 }
 
 impl Client {
@@ -78,6 +108,7 @@ impl Client {
         client_format: i64,
         format_version: i64,
         now: i64,
+        expires_at: Option<i64>,
     ) -> Self {
         Self {
             id,
@@ -93,7 +124,26 @@ impl Client {
             resync_spent_to: now.saturating_sub(RESYNC_BURST * 1_000),
             resync_pending: false,
             deferred_sv: None,
+            expires_at,
+            update_spent_to: now.saturating_sub(UPDATE_BURST * UPDATE_PERIOD_MS),
         }
+    }
+
+    /// Whether the session token has expired at `now`. No skew grace: the auth server
+    /// refuses the token at `exp` by its own clock, and the client refreshes before `exp`, so a
+    /// relay clock a few seconds off only moves the reconnect by that much.
+    fn expired(&self, now: i64) -> bool {
+        self.expires_at.is_some_and(|at| at <= now)
+    }
+
+    /// Takes one update token (burst `UPDATE_BURST`, one back per `UPDATE_PERIOD_MS`).
+    fn take_update_slot(&mut self, now: i64) -> bool {
+        take_token(
+            &mut self.update_spent_to,
+            now,
+            UPDATE_BURST,
+            UPDATE_PERIOD_MS,
+        )
     }
 
     /// Takes one SyncStep1 token (burst `SYNC_STEP1_BURST`, one back per second).
@@ -183,15 +233,9 @@ pub async fn ws_handler(
     headers: HeaderMap,
     ws: WebSocketUpgrade,
 ) -> Response {
-    let token = headers
-        .get(header::SEC_WEBSOCKET_PROTOCOL)
-        .and_then(|value| value.to_str().ok())
-        .and_then(protocol::token_from_protocols);
-    let Some(token) = token else {
-        return refuse(StatusCode::UNAUTHORIZED, "Not signed in.");
-    };
-    let Some(user) = state.auth.user_for(token).await else {
-        return refuse(StatusCode::UNAUTHORIZED, "Invalid session.");
+    let (user, expires_at) = match sign_in(&state, &headers).await {
+        Ok(signed_in) => signed_in,
+        Err(refusal) => return refusal,
     };
     // An id that cannot name a log file cannot be a document, so refuse it before any work.
     if !is_safe_item_id(&item_id) {
@@ -226,31 +270,70 @@ pub async fn ws_handler(
     let query_format = query
         .get("format")
         .and_then(|value| value.parse::<i64>().ok());
+    // Taken last, so a refused join holds no slot; the guard lives as long as the socket.
+    let slot = match state.hub.quota().acquire(&user, &item_id) {
+        Ok(slot) => slot,
+        Err(reason) => return refuse(StatusCode::TOO_MANY_REQUESTS, reason),
+    };
+    let caller = Caller {
+        user,
+        permission,
+        expires_at,
+        _slot: slot,
+    };
     ws.protocols([protocol::SUBPROTOCOL])
         .max_message_size(MAX_MESSAGE_BYTES)
-        .on_upgrade(move |socket| {
-            run_client(
-                state,
-                row,
-                user,
-                permission,
-                query_epoch,
-                query_format,
-                socket,
-            )
-        })
+        .on_upgrade(move |socket| run_client(state, row, caller, query_epoch, query_format, socket))
+}
+
+/// The signed-in user behind a socket, and the quota slot it holds.
+struct Caller {
+    user: String,
+    permission: Permission,
+    /// When the session token stops being valid (Unix ms); `None`: never.
+    expires_at: Option<i64>,
+    /// Given back when the socket ends.
+    _slot: QuotaGuard,
+}
+
+/// The user and token expiry from the socket's protocol header, or the refusal to send.
+async fn sign_in(
+    state: &CollabState,
+    headers: &HeaderMap,
+) -> Result<(String, Option<i64>), Response> {
+    let token = headers
+        .get(header::SEC_WEBSOCKET_PROTOCOL)
+        .and_then(|value| value.to_str().ok())
+        .and_then(protocol::token_from_protocols);
+    let Some(token) = token else {
+        return Err(refuse(StatusCode::UNAUTHORIZED, "Not signed in."));
+    };
+    let Some(user) = state.auth.user_for(token).await else {
+        return Err(refuse(StatusCode::UNAUTHORIZED, "Invalid session."));
+    };
+    let expires_at = state.auth.expires_at_ms(token);
+    if expires_at.is_some_and(|at| at <= state.clock.now_ms()) {
+        return Err(refuse(StatusCode::UNAUTHORIZED, "Session expired."));
+    }
+    Ok((user, expires_at))
 }
 
 /// Joins the room, greets the client, runs the loop, then leaves.
 async fn run_client(
     state: Arc<CollabState>,
     row: DocRow,
-    user: String,
-    permission: Permission,
+    caller: Caller,
     query_epoch: Option<i64>,
     query_format: Option<i64>,
     mut socket: WebSocket,
 ) {
+    // `_slot` stays bound until the socket ends, then gives the quota slot back.
+    let Caller {
+        user,
+        permission,
+        expires_at,
+        _slot,
+    } = caller;
     let item_id = row.item_id.clone();
     let room = match hub::open_room(&state, row).await {
         Ok(room) => room,
@@ -274,6 +357,7 @@ async fn run_client(
         query_format.unwrap_or(format_version),
         format_version,
         now,
+        expires_at,
     );
     if greet(&mut socket, &client, epoch, query_epoch).await {
         pump(&state, &room, &mut client, &mut socket, &mut rx).await;
@@ -320,15 +404,27 @@ async fn pump(
     let mut retry_timer = tokio::time::interval(RETRY_EVERY);
     retry_timer.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
     let _ = retry_timer.tick().await;
+    // Real time, not the state clock: a dead peer that never closes its TCP side would
+    // otherwise hold its room slot (and the room) open forever.
+    let mut ping_timer = tokio::time::interval(PING_EVERY);
+    let _ = ping_timer.tick().await;
+    let mut last_heard = tokio::time::Instant::now();
     loop {
         let next = tokio::select! {
             frame = socket.recv() => Next::Frame(frame),
             event = rx.recv() => Next::Event(event),
             _ = grant_timer.tick() => Next::GrantCheck,
             _ = retry_timer.tick(), if client.retry_needed() => Next::Retry,
+            _ = ping_timer.tick() => Next::Ping,
         };
+        // Checked on every wake, before the frame is handled; the grant tick wakes idle sockets.
+        if client.expired(state.clock.now_ms()) {
+            let _ = send_text(socket, protocol::denied_json("token-expired")).await;
+            break;
+        }
         let keep_going = match next {
             Next::Frame(Some(Ok(message))) => {
+                last_heard = tokio::time::Instant::now();
                 on_message(state, room, client, socket, message).await
             }
             Next::Frame(_) => false,
@@ -349,6 +445,10 @@ async fn pump(
             Next::Event(Err(broadcast::error::RecvError::Closed)) => false,
             Next::GrantCheck => recheck(state, room, client, socket).await,
             Next::Retry => flush_deferred(state, room, client, socket).await,
+            Next::Ping => {
+                !idle_too_long(last_heard.elapsed())
+                    && send(socket, Message::Ping(Vec::<u8>::new().into())).await
+            }
         };
         if !keep_going {
             break;
@@ -470,6 +570,11 @@ async fn on_update(
         return false;
     }
     let now = state.clock.now_ms();
+    // Each update is fsynced to the log under the room lock, so a flood would stall the room.
+    if !client.take_update_slot(now) {
+        let _ = send_text(socket, protocol::denied_json("rate-limited")).await;
+        return false;
+    }
     if now.saturating_sub(client.last_check) >= state.config.grant_cache_ms {
         match state.store.access(&room.item_id, &client.user).await {
             Ok(Some(permission)) => apply_grant(state, room, client, permission, now).await,
@@ -516,6 +621,15 @@ fn apply_locked(inner: &mut RoomInner, update: &[u8]) -> Result<(), &'static str
     }
     if inner.status == DocStatus::Closing {
         return Err("closing");
+    }
+    // An unreadable log length refuses the update, so the cap still holds.
+    let log_len = inner.log.byte_len().map_err(|err| {
+        eprintln!("collab log length: {err}");
+        "log-unreadable"
+    })?;
+    let unsaved = log_len.saturating_sub(inner.log_mark);
+    if doc_too_large(inner.base_len, unsaved, update.len()) {
+        return Err("too-large");
     }
     let decoded = Update::decode_v1(update).map_err(|_| "bad-update")?;
     // Applied before logging, so a record that cannot apply never reaches the log
@@ -736,7 +850,50 @@ mod budget_tests {
     use super::*;
 
     fn client_at(now: i64) -> Client {
-        Client::new(1, "tester".into(), Permission::Edit, 1, 1, now)
+        Client::new(1, "tester".into(), Permission::Edit, 1, 1, now, None)
+    }
+
+    #[test]
+    fn update_budget_allows_the_burst_then_refills() {
+        let now = 50_000;
+        let mut client = client_at(now);
+        for _ in 0..UPDATE_BURST {
+            assert!(client.take_update_slot(now));
+        }
+        assert!(!client.take_update_slot(now), "past the burst");
+        assert!(
+            client.take_update_slot(now + UPDATE_PERIOD_MS),
+            "one token back per period"
+        );
+        assert!(!client.take_update_slot(now + UPDATE_PERIOD_MS));
+    }
+
+    #[test]
+    fn a_session_expires_at_its_exp() {
+        let mut client = client_at(1_000);
+        assert!(!client.expired(i64::MAX), "no expiry: never expires");
+        client.expires_at = Some(2_000);
+        assert!(!client.expired(1_999));
+        assert!(client.expired(2_000));
+    }
+
+    #[test]
+    fn a_client_is_dropped_only_after_the_idle_limit() {
+        assert!(!idle_too_long(Duration::ZERO));
+        assert!(!idle_too_long(IDLE_LIMIT - Duration::from_millis(1)));
+        assert!(idle_too_long(IDLE_LIMIT));
+        // Pings go out well before the limit, so a live client always answers in time.
+        assert!(PING_EVERY * 2 < IDLE_LIMIT);
+    }
+
+    #[test]
+    fn doc_cap_counts_saved_state_log_and_update() {
+        assert!(!doc_too_large(0, 0, 10));
+        assert!(!doc_too_large(MAX_DOC_BYTES - 10, 0, 10));
+        assert!(doc_too_large(MAX_DOC_BYTES - 10, 0, 11));
+        assert!(doc_too_large(MAX_DOC_BYTES / 2, MAX_DOC_BYTES / 2, 1));
+        // Huge inputs saturate instead of wrapping round to "small".
+        assert!(doc_too_large(u64::MAX, u64::MAX, usize::MAX));
     }
 
     #[test]

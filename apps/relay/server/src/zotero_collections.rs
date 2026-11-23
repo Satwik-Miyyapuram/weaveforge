@@ -16,6 +16,7 @@ use serde_json::{Value, json};
 use wf_core::zotero::normalize_library;
 
 use crate::routes::AppState;
+use crate::safe_error::transport_log_line;
 use crate::sdk::{caller, error_response, json_response, no_store};
 
 /// How long Zotero gets to answer before the request is reported as unreachable.
@@ -73,7 +74,7 @@ async fn fetch_rows(
     let answer = match sent {
         Ok(answer) => answer,
         Err(err) => {
-            eprintln!("[zotero-collections] Zotero unreachable: {err}");
+            eprintln!("{}", transport_log_line(&err, "zotero-collections"));
             return Err(error_response(502, "Unable to reach Zotero."));
         }
     };

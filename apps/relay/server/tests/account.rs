@@ -165,15 +165,15 @@ async fn otp_is_sent_and_only_a_hint_is_returned() {
 }
 
 #[tokio::test]
-async fn otp_upstream_refusal_is_500_with_its_message() {
+async fn otp_upstream_refusal_is_500_with_fixed_wording() {
     let up = upstream(
         PROFILE_OK,
-        vec![(OTP, vec![json_reply(429, r#"{"msg":"rate"}"#)])],
+        vec![(OTP, vec![json_reply(500, r#"{"msg":"smtp secret-key"}"#)])],
     )
     .await;
     let (status, _, value) = reply(&up, post(DELETE_OTP, "", Some(SESSION))).await;
     assert_eq!(status, StatusCode::INTERNAL_SERVER_ERROR);
-    assert_eq!(value, json!({"error": "rate"}));
+    assert_eq!(value, json!({"error": "Failed to send confirmation code."}));
 }
 
 #[tokio::test]
@@ -254,8 +254,42 @@ async fn expired_code_is_400_and_deletes_nothing() {
     .await;
     let (status, _, value) = reply(&up, post(DELETE_USER, CONFIRMED, Some(SESSION))).await;
     assert_eq!(status, StatusCode::BAD_REQUEST);
-    assert_eq!(value, json!({"error": "Token has expired or is invalid"}));
+    assert_eq!(
+        value,
+        json!({"error": "Invalid or expired confirmation code."})
+    );
     assert!(calls(&up, "POST", RPC).is_empty());
+}
+
+#[tokio::test]
+async fn verify_without_a_user_id_is_500_and_deletes_nothing() {
+    let up = upstream(PROFILE_OK, vec![(VERIFY, vec![json_reply(200, "{}")])]).await;
+    let (status, _, value) = reply(&up, post(DELETE_USER, CONFIRMED, Some(SESSION))).await;
+    assert_eq!(status, StatusCode::INTERNAL_SERVER_ERROR);
+    assert_eq!(
+        value,
+        json!({"error": "The sign-in server could not check the code. Try again later."})
+    );
+    assert!(calls(&up, "POST", RPC).is_empty());
+    assert!(calls(&up, "DELETE", ADMIN_DELETE).is_empty());
+}
+
+#[tokio::test]
+async fn auth_delete_refusal_is_500_without_the_auth_text() {
+    let up = upstream(
+        PROFILE_OK,
+        vec![(
+            ADMIN_DELETE,
+            vec![json_reply(
+                403,
+                r#"{"msg":"Forbidden: invalid secret-key"}"#,
+            )],
+        )],
+    )
+    .await;
+    let (status, _, value) = reply(&up, post(DELETE_USER, CONFIRMED, Some(SESSION))).await;
+    assert_eq!(status, StatusCode::INTERNAL_SERVER_ERROR);
+    assert_eq!(value, json!({"error": "Failed to delete user."}));
 }
 
 #[tokio::test]
@@ -282,4 +316,47 @@ async fn failed_data_delete_keeps_the_auth_account() {
     assert_eq!(status, StatusCode::INTERNAL_SERVER_ERROR);
     assert!(value["error"].as_str().is_some_and(|m| !m.is_empty()));
     assert!(calls(&up, "DELETE", ADMIN_DELETE).is_empty());
+}
+
+/// A database reply that echoes a key and an email in its message and details.
+const LEAKY: &str = r#"{"code":"42501","message":"permission denied eq.secret-key","details":"Key (email)=(jane@example.com)"}"#;
+
+/// The response body never carries the database message, whichever step failed.
+fn assert_no_leak(value: &Value) {
+    let error = value["error"].as_str().expect("error message");
+    assert!(!error.is_empty());
+    assert!(
+        !error.contains("secret") && !error.contains("jane"),
+        "{error}"
+    );
+    assert!(!error.contains("HTTP 403"), "{error}");
+}
+
+#[tokio::test]
+async fn data_delete_error_never_echoes_the_database_message() {
+    let up = upstream(PROFILE_OK, vec![(RPC, vec![json_reply(403, LEAKY)])]).await;
+    let (status, _, value) = reply(&up, post(DELETE_USER, CONFIRMED, Some(SESSION))).await;
+    assert_eq!(status, StatusCode::INTERNAL_SERVER_ERROR);
+    assert_no_leak(&value);
+    assert!(calls(&up, "DELETE", ADMIN_DELETE).is_empty());
+}
+
+#[tokio::test]
+async fn blob_purge_error_never_echoes_the_database_message() {
+    let up = upstream(PROFILE_OK, vec![(BLOBS, vec![json_reply(403, LEAKY)])]).await;
+    let (status, _, value) = reply(&up, post(DELETE_USER, CONFIRMED, Some(SESSION))).await;
+    assert_eq!(status, StatusCode::INTERNAL_SERVER_ERROR);
+    assert_no_leak(&value);
+    assert!(calls(&up, "POST", RPC).is_empty());
+    assert!(calls(&up, "DELETE", ADMIN_DELETE).is_empty());
+}
+
+#[tokio::test]
+async fn profile_read_error_is_401_without_the_database_message() {
+    let up = upstream(PROFILE_OK, vec![(PROFILES, vec![json_reply(403, LEAKY)])]).await;
+    for path in [DELETE_USER, DELETE_OTP] {
+        let (status, _, value) = reply(&up, post(path, CONFIRMED, Some(SESSION))).await;
+        assert_eq!(status, StatusCode::UNAUTHORIZED, "{path}");
+        assert_no_leak(&value);
+    }
 }

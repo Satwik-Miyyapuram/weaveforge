@@ -14,10 +14,10 @@ use axum::http::{HeaderMap, HeaderValue, StatusCode, Uri};
 use axum::response::{IntoResponse, Response};
 use serde_json::{Map, Value, json};
 
-use crate::auth::{Caller, require_caller, require_mcp_relay};
+use crate::auth::{Caller, require_caller, require_mcp_relay, require_session};
 use crate::postgrest::{DbError, UserDb, eq};
 use crate::routes::AppState;
-use crate::safe_error::format_error_for_response;
+use crate::safe_error::{format_error_for_response, log_line};
 
 /// Columns the server owns; a request that names them is mistaken or probing.
 const SERVER_OWNED_COLUMNS: [&str; 5] = [
@@ -42,7 +42,7 @@ pub async fn whoami(State(state): State<Arc<AppState>>, headers: HeaderMap) -> R
     let profile = match db.select("profiles", &query).await {
         Ok(rows) => first_row(rows),
         Err(err) => {
-            eprintln!("[sdk-whoami] profile read failed: {}", err.message);
+            eprintln!("{}", log_line(&err, "sdk-whoami profile read"));
             Value::Null
         }
     };
@@ -167,6 +167,16 @@ pub(crate) async fn caller(state: &AppState, headers: &HeaderMap) -> Result<Call
         .get(AUTHORIZATION)
         .and_then(|value| value.to_str().ok());
     require_caller(&state.client, &state.config, authorization)
+        .await
+        .map_err(|err| error_response(err.status, &err.message))
+}
+
+/// A signed-in session, or the refusal reply. API tokens are refused here.
+pub(crate) async fn session(state: &AppState, headers: &HeaderMap) -> Result<Caller, Response> {
+    let authorization = headers
+        .get(AUTHORIZATION)
+        .and_then(|value| value.to_str().ok());
+    require_session(&state.client, &state.config, authorization)
         .await
         .map_err(|err| error_response(err.status, &err.message))
 }

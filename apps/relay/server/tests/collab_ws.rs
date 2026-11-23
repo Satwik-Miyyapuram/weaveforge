@@ -34,7 +34,7 @@ use wf_relay_server::collab::store::{
 };
 use wf_relay_server::collab::update_log::log_path;
 use wf_relay_server::collab::{
-    Authenticator, BoxFut, Clock, CollabConfig, CollabState, Permission, routes,
+    Authenticator, BoxFut, Clock, CollabConfig, CollabState, Permission, quota, routes, ws,
 };
 use yrs::updates::decoder::Decode;
 use yrs::{Doc, GetString, Map, ReadTxn, StateVector, Text, Transact, Update};
@@ -43,6 +43,11 @@ const OWNER: &str = "owner-1";
 const GUEST: &str = "guest-2";
 const OWNER_TOKEN: &str = "tok-owner";
 const GUEST_TOKEN: &str = "tok-guest";
+/// The owner, on a session that expires a minute after `START_MS`.
+const EXPIRING_TOKEN: &str = "tok-owner-expiring";
+const EXPIRING_AT_MS: i64 = START_MS + 60_000;
+/// The owner, on a session that has already expired at `START_MS`.
+const EXPIRED_TOKEN: &str = "tok-owner-expired";
 const ITEM: &str = "doc-item";
 const Q1: &str = "?epoch=1&format=1";
 const RECV: Duration = Duration::from_secs(5);
@@ -88,6 +93,14 @@ impl Authenticator for Tokens {
     fn user_for<'a>(&'a self, token: &'a str) -> BoxFut<'a, Option<String>> {
         Box::pin(async move { self.0.get(token).cloned() })
     }
+
+    fn expires_at_ms(&self, token: &str) -> Option<i64> {
+        match token {
+            EXPIRING_TOKEN => Some(EXPIRING_AT_MS),
+            EXPIRED_TOKEN => Some(START_MS),
+            _ => None,
+        }
+    }
 }
 
 /// A clock the test owns: it only moves when the test says so.
@@ -119,6 +132,8 @@ fn build_state(
         auth: Arc::new(Tokens(HashMap::from([
             (OWNER_TOKEN.to_owned(), OWNER.to_owned()),
             (GUEST_TOKEN.to_owned(), GUEST.to_owned()),
+            (EXPIRING_TOKEN.to_owned(), OWNER.to_owned()),
+            (EXPIRED_TOKEN.to_owned(), OWNER.to_owned()),
         ]))),
         clock: Arc::new(ManualClock(now)),
         hub: Hub::new(),
@@ -727,6 +742,50 @@ async fn room_opened_at_a_stale_epoch_is_retired_on_save() {
     assert_eq!(logged, 0, "the stale room's log was kept");
 }
 
+/// A log that a restore could not empty is marked stale: the next room for the item must cut it
+/// before replay, so the old edits never land on the restored doc.
+#[tokio::test]
+async fn a_stale_log_is_not_replayed_onto_the_restored_doc() {
+    let dir = TempDir::new("stale-log");
+    let mem = Arc::new(MemoryStore::new());
+    seed(&mem, ITEM, text_update("v1")).await;
+    let state = build_state(
+        dir.path(),
+        mem.clone(),
+        Duration::from_secs(3600),
+        GRANT_CHECK_IDLE,
+        Arc::new(AtomicI64::new(START_MS)),
+    );
+    let row = mem.load(ITEM).await.expect("load").expect("row");
+    let room = hub::open_room(&state, row).await.expect("open room");
+    apply_and_log(&room, &map_update("old", "edit")).await;
+    let _ = state.hub.remove(ITEM);
+    drop(room);
+    let _ = mem
+        .replace_state(ITEM, "canvas", &text_update("restored"))
+        .await
+        .expect("replace");
+    state.hub.mark_stale_log(ITEM);
+
+    let row = mem.load(ITEM).await.expect("load").expect("row");
+    let room = hub::open_room(&state, row).await.expect("reopen room");
+
+    let inner = room.inner.lock().await;
+    let full = inner
+        .doc
+        .transact()
+        .encode_state_as_update_v1(&StateVector::default());
+    assert!(!map_has(&full, "old"), "the old log was replayed");
+    assert_eq!(text_of(&full), "restored");
+    assert!(!inner.dirty, "nothing was replayed, so nothing is unsaved");
+    assert_eq!(inner.log.byte_len().expect("log len"), 0);
+    drop(inner);
+    assert!(
+        !state.hub.take_stale_log(ITEM),
+        "the stale mark outlived the cut"
+    );
+}
+
 /// Appends `value` as a lib0 varuint.
 fn varuint(mut value: usize, out: &mut Vec<u8>) {
     loop {
@@ -970,7 +1029,9 @@ async fn lagged_client_rechecks_after_revoke() {
     let url = relay.url(&format!("/grants/{grant_id}"));
     let (status, _) = http(reqwest::Method::DELETE, &url, OWNER_TOKEN, None).await;
     assert_eq!(status, 200);
-    for i in 0..400 {
+    // 450 updates in all: still past the broadcast capacity, and inside the owner's update
+    // budget (`ws::UPDATE_BURST`), so the owner is not closed as rate-limited mid-flood.
+    for i in 0..250 {
         send_frame(&mut owner, update_frame(map_update(&format!("b{i}"), &big))).await;
     }
 
@@ -1394,6 +1455,177 @@ async fn room_lock_is_free_while_a_save_is_in_flight() {
     release.notify_one();
     saver.await.expect("saver joins").expect("persist succeeds");
     assert!(acquired, "room lock was held across the store save");
+}
+
+/// Updates that keep arriving during every save must not grow the log without bound: once the
+/// log outgrows the saved state, it is rewritten as one record holding the whole document.
+#[tokio::test]
+async fn a_busy_room_compacts_its_log_after_a_save() {
+    let dir = TempDir::new("compact");
+    let mem = Arc::new(MemoryStore::new());
+    seed(&mem, ITEM, Vec::new()).await;
+    let entered = Arc::new(tokio::sync::Notify::new());
+    let release = Arc::new(tokio::sync::Notify::new());
+    let store = Arc::new(GatedSave {
+        inner: mem.clone(),
+        entered: entered.clone(),
+        release: release.clone(),
+    });
+    let state = build_state(
+        dir.path(),
+        store,
+        Duration::from_secs(3600),
+        GRANT_CHECK_IDLE,
+        Arc::new(AtomicI64::new(START_MS)),
+    );
+    let row = mem.load(ITEM).await.expect("load").expect("row");
+    let room = hub::open_room(&state, row).await.expect("open room");
+    room.inner.lock().await.dirty = true;
+    let saver = {
+        let state = state.clone();
+        let room = room.clone();
+        tokio::spawn(async move { hub::persist_room(&state, &room).await })
+    };
+    tokio::time::timeout(RECV, entered.notified())
+        .await
+        .expect("save started");
+    {
+        // Updates land while the (empty) snapshot is being written.
+        let mut inner = room.inner.lock().await;
+        for _ in 0..20 {
+            let update = text_update("hello");
+            let decoded = Update::decode_v1(&update).expect("decode");
+            inner
+                .doc
+                .transact_mut()
+                .apply_update(decoded)
+                .expect("apply");
+            inner.log.append(&update).expect("append");
+            inner.version = inner.version.wrapping_add(1);
+        }
+    }
+    release.notify_one();
+    saver.await.expect("saver joins").expect("persist succeeds");
+    let inner = room.inner.lock().await;
+    let records = inner.log.read_all().expect("read log");
+    assert_eq!(records.len(), 1, "log was not compacted");
+    let full = inner
+        .doc
+        .transact()
+        .encode_state_as_update_v1(&StateVector::default());
+    assert_eq!(text_of(&records[0]), text_of(&full));
+    assert!(inner.dirty, "the unsaved updates must still be saved later");
+    // The log alone now holds the doc, so the size cap counts only the log.
+    assert_eq!(inner.base_len, 0);
+    assert_eq!(inner.log_mark, 0);
+}
+
+/// Applies `update` to the room's doc and log, as an accepted client update does.
+async fn apply_and_log(room: &hub::Room, update: &[u8]) {
+    let mut inner = room.inner.lock().await;
+    let decoded = Update::decode_v1(update).expect("decode");
+    inner
+        .doc
+        .transact_mut()
+        .apply_update(decoded)
+        .expect("apply");
+    inner.log.append(update).expect("append");
+    inner.version = inner.version.wrapping_add(1);
+    inner.dirty = true;
+}
+
+/// A save during edits records how much of the log its snapshot already holds, so the size cap
+/// counts saved state plus only the log bytes written after the snapshot.
+#[tokio::test]
+async fn a_busy_save_marks_the_log_bytes_it_already_holds() {
+    let dir = TempDir::new("log-mark");
+    let mem = Arc::new(MemoryStore::new());
+    seed(&mem, ITEM, text_update(&"x".repeat(4096))).await;
+    let entered = Arc::new(tokio::sync::Notify::new());
+    let release = Arc::new(tokio::sync::Notify::new());
+    let store = Arc::new(GatedSave {
+        inner: mem.clone(),
+        entered: entered.clone(),
+        release: release.clone(),
+    });
+    let state = build_state(
+        dir.path(),
+        store,
+        Duration::from_secs(3600),
+        GRANT_CHECK_IDLE,
+        Arc::new(AtomicI64::new(START_MS)),
+    );
+    let row = mem.load(ITEM).await.expect("load").expect("row");
+    let room = hub::open_room(&state, row).await.expect("open room");
+    apply_and_log(&room, &text_update("a")).await;
+    let mark = room.inner.lock().await.log.byte_len().expect("log length");
+    let saver = {
+        let state = state.clone();
+        let room = room.clone();
+        tokio::spawn(async move { hub::persist_room(&state, &room).await })
+    };
+    tokio::time::timeout(RECV, entered.notified())
+        .await
+        .expect("save started");
+    apply_and_log(&room, &text_update("b")).await;
+    release.notify_one();
+    saver.await.expect("saver joins").expect("persist succeeds");
+    let inner = room.inner.lock().await;
+    let records = inner.log.read_all().expect("read log");
+    assert_eq!(
+        records.len(),
+        2,
+        "a log under twice the saved state is left as is"
+    );
+    assert_eq!(inner.log_mark, mark);
+    assert!(
+        inner.base_len > 4096,
+        "base_len is the saved state's length"
+    );
+}
+
+/// A restore that retires the room during a save hands its log file to the new room: the
+/// finishing save must not empty it.
+#[tokio::test]
+async fn a_save_that_finishes_after_retirement_keeps_the_log() {
+    let dir = TempDir::new("retired-save");
+    let mem = Arc::new(MemoryStore::new());
+    seed(&mem, ITEM, Vec::new()).await;
+    let entered = Arc::new(tokio::sync::Notify::new());
+    let release = Arc::new(tokio::sync::Notify::new());
+    let store = Arc::new(GatedSave {
+        inner: mem.clone(),
+        entered: entered.clone(),
+        release: release.clone(),
+    });
+    let state = build_state(
+        dir.path(),
+        store,
+        Duration::from_secs(3600),
+        GRANT_CHECK_IDLE,
+        Arc::new(AtomicI64::new(START_MS)),
+    );
+    let row = mem.load(ITEM).await.expect("load").expect("row");
+    let room = hub::open_room(&state, row).await.expect("open room");
+    room.inner.lock().await.dirty = true;
+    let saver = {
+        let state = state.clone();
+        let room = room.clone();
+        tokio::spawn(async move { hub::persist_room(&state, &room).await })
+    };
+    tokio::time::timeout(RECV, entered.notified())
+        .await
+        .expect("save started");
+    {
+        // Stands in for the restore: the room retires and the next room logs an update.
+        let mut inner = room.inner.lock().await;
+        inner.retired = true;
+        inner.log.append(&text_update("next")).expect("append");
+    }
+    release.notify_one();
+    saver.await.expect("saver joins").expect("persist succeeds");
+    let records = room.inner.lock().await.log.read_all().expect("read log");
+    assert_eq!(records.len(), 1, "the new room's log was emptied");
 }
 
 /// Delegates to a `MemoryStore`; while `gate` is set, `access` announces itself on `entered`
@@ -1953,4 +2185,181 @@ async fn lease_not_granted_when_writer_record_fails() {
     })
     .await
     .expect("refused acquire leaves no lease behind");
+}
+
+/// A socket whose session expires is closed with `token-expired` on the next grant tick, even
+/// when the client sends nothing; the client reconnects with a fresh token.
+#[tokio::test]
+async fn idle_socket_closes_when_its_session_expires() {
+    let dir = TempDir::new("token-expiry-idle");
+    let store = Arc::new(MemoryStore::new());
+    seed(&store, ITEM, text_update("seed")).await;
+    let relay = Relay::start_with(
+        dir.path(),
+        store.clone(),
+        PERSIST,
+        Duration::from_millis(50),
+    )
+    .await;
+
+    let mut owner = join(relay.port, ITEM, EXPIRING_TOKEN, Q1)
+        .await
+        .expect("owner joins");
+    let hello = next_json(&mut owner).await;
+    assert_eq!(hello["type"], "hello");
+    relay.now.store(EXPIRING_AT_MS, Ordering::SeqCst);
+
+    let denied = expect_json(&mut owner, "denied").await;
+    assert_eq!(denied["reason"], "token-expired");
+    expect_close(&mut owner).await;
+}
+
+/// An update sent after the session expired is refused and the socket closed, even before the
+/// idle grant tick comes round.
+#[tokio::test]
+async fn update_after_session_expiry_is_refused() {
+    let dir = TempDir::new("token-expiry-update");
+    let store = Arc::new(MemoryStore::new());
+    seed(&store, ITEM, text_update("seed")).await;
+    let relay = Relay::start(dir.path(), store.clone(), PERSIST).await;
+
+    let mut owner = join(relay.port, ITEM, EXPIRING_TOKEN, Q1)
+        .await
+        .expect("owner joins");
+    let _hello = next_json(&mut owner).await;
+    relay.now.store(EXPIRING_AT_MS, Ordering::SeqCst);
+    send_frame(&mut owner, update_frame(map_update("late", "edit"))).await;
+
+    let denied = expect_json(&mut owner, "denied").await;
+    assert_eq!(denied["reason"], "token-expired");
+    expect_close(&mut owner).await;
+    let row = store.doc(ITEM).expect("doc row");
+    assert!(!map_has(&row.state, "late"), "the late update was saved");
+    if let Some(room) = relay.state.hub.get(ITEM) {
+        let inner = room.inner.lock().await;
+        assert_eq!(
+            inner.log.byte_len().expect("log len"),
+            0,
+            "the late update was logged"
+        );
+    }
+}
+
+/// A session that has already expired cannot open a socket.
+#[tokio::test]
+async fn expired_session_cannot_join() {
+    let dir = TempDir::new("token-expired-join");
+    let store = Arc::new(MemoryStore::new());
+    seed(&store, ITEM, text_update("seed")).await;
+    let relay = Relay::start(dir.path(), store.clone(), PERSIST).await;
+
+    assert_http_status(join(relay.port, ITEM, EXPIRED_TOKEN, Q1).await, 401);
+}
+
+/// A client that floods updates past its budget is told `rate-limited` and closed; it rejoins
+/// and resyncs. Updates inside the budget are all kept.
+#[tokio::test]
+async fn update_flood_past_the_budget_is_refused() {
+    let dir = TempDir::new("update-rate");
+    let store = Arc::new(MemoryStore::new());
+    seed(&store, ITEM, text_update("seed")).await;
+    let relay = Relay::start(dir.path(), store.clone(), PERSIST).await;
+
+    let mut owner = join(relay.port, ITEM, OWNER_TOKEN, Q1)
+        .await
+        .expect("owner joins");
+    let _hello = next_json(&mut owner).await;
+    // The relay clock does not move, so no token comes back during the flood.
+    let burst = usize::try_from(ws::UPDATE_BURST).expect("burst fits usize");
+    for i in 0..=burst {
+        send_frame(&mut owner, update_frame(map_update(&format!("k{i}"), "v"))).await;
+    }
+
+    let denied = expect_json(&mut owner, "denied").await;
+    assert_eq!(denied["reason"], "rate-limited");
+    expect_close(&mut owner).await;
+    let kept = format!("k{}", burst - 1);
+    tokio::time::timeout(Duration::from_secs(5), async {
+        while !map_has(&store.doc(ITEM).expect("doc row").state, &kept) {
+            tokio::time::sleep(Duration::from_millis(20)).await;
+        }
+    })
+    .await
+    .expect("an update inside the budget was lost");
+    let saved = store.doc(ITEM).expect("doc row").state;
+    assert!(
+        !map_has(&saved, &format!("k{burst}")),
+        "the update past the budget was applied"
+    );
+}
+
+/// One user may hold at most `MAX_SOCKETS_PER_USER` sockets; the next is refused with 429 until
+/// one closes.
+#[tokio::test]
+async fn sockets_per_user_are_capped() {
+    let dir = TempDir::new("socket-cap");
+    let store = Arc::new(MemoryStore::new());
+    seed(&store, ITEM, text_update("seed")).await;
+    let relay = Relay::start(dir.path(), store.clone(), PERSIST).await;
+
+    let mut open = Vec::new();
+    for _ in 0..quota::MAX_SOCKETS_PER_USER {
+        let mut ws = join(relay.port, ITEM, OWNER_TOKEN, Q1)
+            .await
+            .expect("join under the cap");
+        let _hello = next_json(&mut ws).await;
+        open.push(ws);
+    }
+    assert_http_status(join(relay.port, ITEM, OWNER_TOKEN, Q1).await, 429);
+    // Another user is not affected.
+    let _grant = grant_edit(&store, ITEM).await;
+    let mut guest = join(relay.port, ITEM, GUEST_TOKEN, Q1)
+        .await
+        .expect("another user joins");
+    let _hello = next_json(&mut guest).await;
+
+    let mut first = open.remove(0);
+    first.close(None).await.expect("close");
+    expect_close(&mut first).await;
+    tokio::time::timeout(Duration::from_secs(5), async {
+        loop {
+            if let Ok(mut ws) = join(relay.port, ITEM, OWNER_TOKEN, Q1).await {
+                let _hello = next_json(&mut ws).await;
+                return;
+            }
+            tokio::time::sleep(Duration::from_millis(20)).await;
+        }
+    })
+    .await
+    .expect("a closed socket frees its slot");
+}
+
+/// One user may have at most `MAX_ROOMS_PER_USER` documents open at once; another socket on an
+/// already open one is still fine.
+#[tokio::test]
+async fn open_documents_per_user_are_capped() {
+    let dir = TempDir::new("room-cap");
+    let store = Arc::new(MemoryStore::new());
+    let items: Vec<String> = (0..=quota::MAX_ROOMS_PER_USER)
+        .map(|i| format!("doc-{i}"))
+        .collect();
+    for item in &items {
+        seed(&store, item, text_update("seed")).await;
+    }
+    let relay = Relay::start(dir.path(), store.clone(), PERSIST).await;
+
+    let mut open = Vec::new();
+    for item in &items[..quota::MAX_ROOMS_PER_USER] {
+        let mut ws = join(relay.port, item, OWNER_TOKEN, Q1)
+            .await
+            .expect("join under the cap");
+        let _hello = next_json(&mut ws).await;
+        open.push(ws);
+    }
+    let last = &items[quota::MAX_ROOMS_PER_USER];
+    assert_http_status(join(relay.port, last, OWNER_TOKEN, Q1).await, 429);
+    let mut again = join(relay.port, &items[0], OWNER_TOKEN, Q1)
+        .await
+        .expect("a second socket on an open document");
+    let _hello = next_json(&mut again).await;
 }

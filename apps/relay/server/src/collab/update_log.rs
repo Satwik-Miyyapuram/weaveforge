@@ -185,6 +185,52 @@ impl UpdateLog {
         file.sync_data()
     }
 
+    /// The log file's length in bytes.
+    pub fn byte_len(&self) -> io::Result<u64> {
+        self.file.metadata().map(|meta| meta.len())
+    }
+
+    /// Replaces the whole log with the single record `update`. The record is written to a side
+    /// file and renamed over the log, so a crash leaves either the old log or the new one.
+    pub fn replace_with(&mut self, update: &[u8]) -> io::Result<()> {
+        let name = self
+            .path
+            .file_name()
+            .map(|name| name.to_string_lossy().into_owned())
+            .unwrap_or_default();
+        // Not ending in `.ylog`, so a side file left by a crash is never listed as a log.
+        let side = self.path.with_file_name(format!("{name}.tmp"));
+        let len = u32::try_from(update.len()).map_err(|_| {
+            io::Error::new(io::ErrorKind::InvalidInput, "update longer than u32::MAX")
+        })?;
+        let mut out = File::create(&side)?;
+        out.write_all(&len.to_le_bytes())?;
+        out.write_all(update)?;
+        out.sync_all()?;
+        // Windows cannot rename over a file this process still holds open, so let go of the
+        // log first; `out` holds the slot until the log is reopened below.
+        drop(std::mem::replace(&mut self.file, out));
+        let renamed = fs::rename(&side, &self.path);
+        // Reopened either way: the new log after a rename, the untouched old one after a
+        // failed one. Appends must never go to the side file.
+        let reopened = OpenOptions::new().append(true).read(true).open(&self.path);
+        let reopen_failed = match reopened {
+            Ok(file) => {
+                self.file = file;
+                None
+            }
+            Err(err) => Some(err),
+        };
+        // No side file may outlive this call. If both steps failed, `self.file` is still the
+        // side handle and appends after this go nowhere lasting; the room stays dirty, so the
+        // next save keeps them in the database.
+        if renamed.is_err() || reopen_failed.is_some() {
+            let _gone: io::Result<()> = fs::remove_file(&side);
+        }
+        renamed?;
+        reopen_failed.map_or(Ok(()), Err)
+    }
+
     /// Deletes the log file; a log that is already gone is fine.
     pub fn remove(self) -> io::Result<()> {
         let Self { path, file } = self;
@@ -216,6 +262,28 @@ mod tests {
         let mut out = len.to_le_bytes().to_vec();
         out.extend_from_slice(body);
         out
+    }
+
+    #[test]
+    fn replace_with_leaves_one_record_and_later_appends_follow_it() {
+        let dir = scratch_dir("replace");
+        let mut log = UpdateLog::open(&dir, "doc1").expect("open log");
+        log.append(b"one").expect("append");
+        log.append(b"two").expect("append");
+        log.replace_with(b"all").expect("replace");
+        log.append(b"three").expect("append after replace");
+        assert_eq!(
+            log.read_all().expect("read"),
+            vec![b"all".to_vec(), b"three".to_vec()]
+        );
+        assert_eq!(log.byte_len().expect("len"), 4 + 3 + 4 + 5);
+        log.remove().expect("remove log");
+        let left: Vec<PathBuf> = fs::read_dir(&dir)
+            .expect("list dir")
+            .map(|entry| entry.expect("entry").path())
+            .collect();
+        assert!(left.is_empty(), "side file left behind: {left:?}");
+        fs::remove_dir(&dir).expect("remove scratch dir");
     }
 
     #[test]

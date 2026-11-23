@@ -1,7 +1,7 @@
 //! Open shared documents ("rooms"): each holds its Yjs doc, lease and update log in memory.
 //! The hub map lock is only held for a quick lookup, insert or remove, never across an await.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::io;
 use std::path::Path;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -13,6 +13,7 @@ use yrs::{Doc, ReadTxn, StateVector, Transact, Update};
 use crate::collab::CollabState;
 use crate::collab::lease::LeaseBook;
 use crate::collab::protocol::{event_json, rejoin_json};
+use crate::collab::quota::Quota;
 use crate::collab::store::{DocRow, DocStatus};
 use crate::collab::update_log::{UpdateLog, list_logs, log_path};
 
@@ -70,6 +71,11 @@ pub struct RoomInner {
     pub clients: usize,
     /// Set when a restore replaced this room: it takes no more updates (its log is the new room's).
     pub retired: bool,
+    /// Bytes of the doc's state held outside the log (the last save), so this plus the log's
+    /// length past `log_mark` bounds the doc's size without encoding it.
+    pub base_len: u64,
+    /// Log bytes the last saved snapshot already holds; the size cap does not count them twice.
+    pub log_mark: u64,
 }
 
 /// One open shared document, shared by every client that joined it.
@@ -106,6 +112,12 @@ pub struct Hub {
     next_client: AtomicU64,
     /// Held for a whole `open_room`, so two opens of one item cannot both cut and replay its log.
     open_gate: Mutex<()>,
+    /// Items whose log a restore could not empty: the next open cuts it before replay, so the
+    /// old edits never land on the restored doc. Lost on restart, which needs both a failed
+    /// truncate and a failed delete first.
+    stale_logs: Mutex<HashSet<String>>,
+    /// Per-user socket and document caps.
+    quota: Arc<Quota>,
 }
 
 impl Hub {
@@ -154,6 +166,29 @@ impl Hub {
                 room.send(event.clone());
             }
         }
+    }
+
+    /// The per-user socket and document caps.
+    #[must_use]
+    pub fn quota(&self) -> &Arc<Quota> {
+        &self.quota
+    }
+
+    /// Marks `item_id`'s log as holding edits from before a restore: the next open cuts it.
+    pub fn mark_stale_log(&self, item_id: &str) {
+        let _ = self.stale().insert(item_id.to_owned());
+    }
+
+    /// Whether `item_id`'s log was marked stale; clears the mark.
+    #[must_use]
+    pub fn take_stale_log(&self, item_id: &str) -> bool {
+        self.stale().remove(item_id)
+    }
+
+    fn stale(&self) -> MutexGuard<'_, HashSet<String>> {
+        self.stale_logs
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
     }
 
     /// The room map, even when a panic poisoned its lock.
@@ -234,7 +269,16 @@ pub async fn open_room(state: &CollabState, row: DocRow) -> Result<Arc<Room>, St
     if !row.state.is_empty() {
         apply_bytes(&doc, &row.state)?;
     }
-    let log = UpdateLog::open(&state.config.log_dir, &item_id).map_err(|err| err.to_string())?;
+    let mut log =
+        UpdateLog::open(&state.config.log_dir, &item_id).map_err(|err| err.to_string())?;
+    // A restore that could not empty this log left the old edits in it: cut them, or refuse to
+    // open, but never replay them onto the restored doc.
+    if state.hub.take_stale_log(&item_id)
+        && let Err(err) = log.truncate()
+    {
+        state.hub.mark_stale_log(&item_id);
+        return Err(err.to_string());
+    }
     // Replayed one record at a time, so a long log is not read into memory in full.
     let mut replayed = false;
     log.for_each(|update| {
@@ -256,6 +300,9 @@ pub async fn open_room(state: &CollabState, row: DocRow) -> Result<Arc<Room>, St
         log,
         clients: 0,
         retired: false,
+        base_len: u64::try_from(row.state.len()).unwrap_or(u64::MAX),
+        // A log left from before a restart may repeat the row's state; counting it all is safe.
+        log_mark: 0,
     };
     let room = Arc::new(Room {
         item_id,
@@ -271,12 +318,14 @@ pub async fn open_room(state: &CollabState, row: DocRow) -> Result<Arc<Room>, St
 pub async fn persist_room(state: &CollabState, room: &Room) -> Result<(), String> {
     // One save at a time per room: otherwise an older snapshot could be written after a newer one.
     let _saving = room.saving.lock().await;
-    let (bytes, epoch, version) = {
+    let (bytes, epoch, version, mark) = {
         let inner = room.inner.lock().await;
         if !inner.dirty {
             return Ok(());
         }
-        (encode_full(&inner.doc), inner.epoch, inner.version)
+        // Everything logged so far is in this snapshot.
+        let mark = inner.log.byte_len().map_err(|err| err.to_string())?;
+        (encode_full(&inner.doc), inner.epoch, inner.version, mark)
     };
     // The room lock is released during the store write, so clients keep sending updates.
     if let Err(err) = state.store.save_state(&room.item_id, epoch, &bytes).await {
@@ -290,11 +339,34 @@ pub async fn persist_room(state: &CollabState, room: &Room) -> Result<(), String
         return Err(err);
     }
     let mut inner = room.inner.lock().await;
+    // A restore during the save retired this room: its log file is now the new room's, so
+    // neither truncate nor rewrite it.
+    if inner.retired {
+        return Ok(());
+    }
+    let saved_len = u64::try_from(bytes.len()).unwrap_or(u64::MAX);
+    inner.base_len = saved_len;
+    inner.log_mark = mark;
     // Updates that arrived during the save are not in `bytes`: keep their log and the dirty flag.
     if inner.version != version {
+        // A room that never goes quiet would grow its log forever. Once the log is twice the
+        // saved state, rewrite it as one record of the whole doc (replaying it is idempotent).
+        // Twice, not once: right after a rewrite the log is about the doc's size already.
+        let log_len = inner.log.byte_len().map_err(|err| err.to_string())?;
+        if log_len > saved_len.saturating_mul(2) {
+            let full = encode_full(&inner.doc);
+            inner
+                .log
+                .replace_with(&full)
+                .map_err(|err| err.to_string())?;
+            // The log now holds the whole doc by itself.
+            inner.base_len = 0;
+            inner.log_mark = 0;
+        }
         return Ok(());
     }
     inner.log.truncate().map_err(|err| err.to_string())?;
+    inner.log_mark = 0;
     inner.dirty = false;
     Ok(())
 }
@@ -419,7 +491,8 @@ pub async fn sweep_closing(state: &CollabState) {
 }
 
 /// Replaces a doc's state, bumps its epoch and drops the open room so clients rejoin.
-/// Returns the new epoch.
+/// Returns the new epoch. Once the state is replaced the restore has happened, so a log that
+/// could not be emptied is logged, not returned: `retire` marks it stale instead.
 pub async fn restore(
     state: &CollabState,
     item_id: &str,
@@ -427,19 +500,32 @@ pub async fn restore(
     bytes: &[u8],
 ) -> Result<i64, String> {
     let new_epoch = state.store.replace_state(item_id, kind, bytes).await?;
-    if let Some(room) = state.hub.get(item_id) {
-        retire(state, &room, new_epoch).await?;
+    if let Some(room) = state.hub.get(item_id)
+        && let Err(err) = retire(state, &room, new_epoch).await
+    {
+        eprintln!("restore {item_id}: old log not emptied, marked stale: {err}");
     }
     Ok(new_epoch)
 }
 
 /// Ends `room` for a newer `epoch`: empties its log, drops it from the hub and tells its clients
 /// to rejoin. One critical section: an update applied after it sees `retired` and is refused, so
-/// nothing reaches the log the next room replays.
+/// nothing reaches the log the next room replays. When the log cannot be emptied it is marked
+/// stale (before the room leaves the hub), so the next open cuts it rather than replay it, and
+/// deleted.
 async fn retire(state: &CollabState, room: &Room, epoch: i64) -> Result<(), String> {
     let cleared = {
         let mut inner = room.inner.lock().await;
-        let cleared = inner.log.truncate().map_err(|err| err.to_string());
+        let cleared = inner
+            .log
+            .truncate()
+            .map_err(|err| err.to_string())
+            .or_else(|err| {
+                // Marked even when the delete works: on Windows the file stays until this
+                // handle drops, so the next open may still see it. Cutting an empty log is free.
+                state.hub.mark_stale_log(&room.item_id);
+                remove_log(&state.config.log_dir, &room.item_id).map_err(|_| err)
+            });
         inner.dirty = false;
         inner.retired = true;
         state.hub.remove_if_same(room);

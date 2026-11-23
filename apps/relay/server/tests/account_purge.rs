@@ -170,13 +170,15 @@ async fn full_page_asks_for_the_next_offset() {
 async fn storage_listing_error_keeps_registry_rows() {
     let up = upstream(vec![(
         PAPER_LIST,
-        vec![json_reply(500, r#"{"message":"boom"}"#)],
+        vec![json_reply(500, r#"{"message":"boom secret-key"}"#)],
     )])
     .await;
     let err = purge_user_blobs(&state(&up, StorageConfig::default()), "u1")
         .await
         .unwrap_err();
-    assert_eq!(err, "boom");
+    // The storage API's own text never reaches the caller; only the status does.
+    assert_eq!(err, "Object storage refused the request (HTTP 500).");
+    assert!(!err.contains("boom") && !err.contains("secret"));
     assert!(
         !up.seen()
             .iter()
@@ -197,6 +199,28 @@ async fn registry_select_error_stops_before_storage() {
             .is_err()
     );
     assert!(list_calls(&up).is_empty());
+}
+
+#[tokio::test]
+async fn registry_errors_carry_the_code_and_never_the_message() {
+    let secret = r#"{"code":"42501","message":"permission denied eq.secret-key","details":"Key (email)=(jane@example.com)"}"#;
+    let select = upstream(vec![(BLOBS, vec![json_reply(403, secret)])]).await;
+    let err = purge_user_blobs(&state(&select, StorageConfig::default()), "u1")
+        .await
+        .unwrap_err();
+    assert!(err.contains("42501"), "{err}");
+    assert!(!err.contains("secret") && !err.contains("jane"), "{err}");
+
+    let delete = upstream(vec![(
+        BLOBS,
+        vec![json_reply(200, "[]"), json_reply(403, secret)],
+    )])
+    .await;
+    let err = purge_user_blobs(&state(&delete, StorageConfig::default()), "u1")
+        .await
+        .unwrap_err();
+    assert!(err.contains("42501"), "{err}");
+    assert!(!err.contains("secret") && !err.contains("jane"), "{err}");
 }
 
 #[tokio::test]

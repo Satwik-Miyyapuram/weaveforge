@@ -124,6 +124,42 @@ pub fn cdn_pdf_url(domain: &str, url: &str, group: &str, server: &str) -> String
     )
 }
 
+/// PDF hosts allowed for each Overleaf host, besides the Overleaf host itself.
+const PDF_HOSTS: &[(&str, &[&str])] = &[
+    ("www.overleaf.com", &["compiles.overleafusercontent.com"]),
+    ("overleaf.com", &["compiles.overleafusercontent.com"]),
+];
+
+/// True when `domain` (Overleaf's `pdfDownloadDomain`) may be fetched for the Overleaf at `base`.
+///
+/// Fails closed: the domain must be a bare origin, either the same origin as `base` or
+/// `https` on the default port with a host listed for an `https` base host.
+#[must_use]
+pub fn pdf_domain_allowed(domain: &str, base: &str) -> bool {
+    let (Ok(domain), Ok(base)) = (url::Url::parse(domain), url::Url::parse(base)) else {
+        return false;
+    };
+    let bare = domain.username().is_empty()
+        && domain.password().is_none()
+        && domain.query().is_none()
+        && domain.fragment().is_none()
+        && domain.path() == "/";
+    if !bare {
+        return false;
+    }
+    if domain.origin().is_tuple() && domain.origin() == base.origin() {
+        return true;
+    }
+    if domain.scheme() != "https" || base.scheme() != "https" || domain.port().is_some() {
+        return false;
+    }
+    let (Some(host), Some(base_host)) = (domain.host_str(), base.host_str()) else {
+        return false;
+    };
+    PDF_HOSTS
+        .iter()
+        .any(|(site, hosts)| *site == base_host && hosts.contains(&host))
+}
 /// Session id as a string when `body.sessionId` is a valid UUID.
 fn session_id_field(body: &Value) -> Option<String> {
     body.get("sessionId")

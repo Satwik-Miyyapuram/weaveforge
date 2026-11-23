@@ -11,6 +11,7 @@ use wf_core::sync::instant::{format_instant, parse_instant};
 
 use crate::collab::{BoxFut, Permission};
 use crate::postgrest::{UserDb, eq};
+use crate::safe_error::log_line;
 
 /// Whether a shared document is live or being deleted.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -589,7 +590,7 @@ impl SharedDocStore for PgStore {
                 .db()
                 .select("shared_docs", &query)
                 .await
-                .map_err(|err| err.message)?;
+                .map_err(|err| log_line(&err, "collab store"))?;
             let first = rows.first().map(parse_doc).transpose()?;
             Ok(first)
         })
@@ -600,7 +601,7 @@ impl SharedDocStore for PgStore {
             self.db()
                 .insert_ignore("shared_docs", &doc_json(row), "item_id")
                 .await
-                .map_err(|err| err.message)
+                .map_err(|err| log_line(&err, "collab store"))
         })
     }
 
@@ -618,7 +619,7 @@ impl SharedDocStore for PgStore {
                 .db()
                 .update_returning("shared_docs", &query, &patch)
                 .await
-                .map_err(|err| err.message)?;
+                .map_err(|err| log_line(&err, "collab store"))?;
             if changed.is_empty() {
                 return Err(format!("save_state: no row for {item_id} at epoch {epoch}"));
             }
@@ -642,7 +643,7 @@ impl SharedDocStore for PgStore {
                 .db()
                 .rpc("shared_doc_restore", &args)
                 .await
-                .map_err(|err| err.message)?;
+                .map_err(|err| log_line(&err, "collab store"))?;
             reply
                 .as_i64()
                 .ok_or_else(|| "shared_doc_restore: unexpected reply".to_owned())
@@ -660,7 +661,7 @@ impl SharedDocStore for PgStore {
             self.db()
                 .update("shared_docs", &query, &patch)
                 .await
-                .map_err(|err| err.message)
+                .map_err(|err| log_line(&err, "collab store"))
         })
     }
 
@@ -679,7 +680,7 @@ impl SharedDocStore for PgStore {
             self.db()
                 .update("shared_docs", &query, &patch)
                 .await
-                .map_err(|err| err.message)
+                .map_err(|err| log_line(&err, "collab store"))
         })
     }
 
@@ -689,7 +690,7 @@ impl SharedDocStore for PgStore {
             self.db()
                 .delete("shared_docs", &query)
                 .await
-                .map_err(|err| err.message)
+                .map_err(|err| log_line(&err, "collab store"))
         })
     }
 
@@ -704,7 +705,7 @@ impl SharedDocStore for PgStore {
                 .db()
                 .rpc("shared_doc_access", &args)
                 .await
-                .map_err(|err| err.message)?;
+                .map_err(|err| log_line(&err, "collab store"))?;
             match reply {
                 Value::Null => Ok(None),
                 Value::String(text) => Ok(Permission::parse(&text)),
@@ -727,7 +728,7 @@ impl SharedDocStore for PgStore {
                 .db()
                 .insert_returning("grants", &body, &[])
                 .await
-                .map_err(|err| err.message)?;
+                .map_err(|err| log_line(&err, "collab store"))?;
             let first = rows
                 .into_iter()
                 .next()
@@ -754,7 +755,7 @@ impl SharedDocStore for PgStore {
                 .db()
                 .select("grants", &query)
                 .await
-                .map_err(|err| err.message)?;
+                .map_err(|err| log_line(&err, "collab store"))?;
             rows.into_iter()
                 .map(|row| serde_json::from_value::<GrantRow>(row).map_err(|err| err.to_string()))
                 .collect::<Result<Vec<GrantRow>, String>>()
@@ -772,7 +773,7 @@ impl SharedDocStore for PgStore {
                 .db()
                 .rpc("revoke_grant", &args)
                 .await
-                .map_err(|err| err.message)?;
+                .map_err(|err| log_line(&err, "collab store"))?;
             match reply {
                 Value::Null => Ok(None),
                 Value::String(target) => Ok(Some(target)),
@@ -792,7 +793,7 @@ impl SharedDocStore for PgStore {
             self.db()
                 .update("grants", &query, &patch)
                 .await
-                .map_err(|err| err.message)
+                .map_err(|err| log_line(&err, "collab store"))
         })
     }
 }

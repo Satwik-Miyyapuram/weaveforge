@@ -337,6 +337,49 @@ async fn projects_maps_id_and_name() {
     );
 }
 
+/// The `created_at` filter on the stored-session lookup, decoded.
+fn created_at_filter(up: &Upstream) -> Option<String> {
+    let sent = calls(up, TABLE);
+    let query = sent.first()?.target.split_once('?')?.1.to_owned();
+    url::form_urlencoded::parse(query.as_bytes())
+        .find(|(key, _)| key == "created_at")
+        .map(|(_, value)| value.into_owned())
+}
+
+#[tokio::test]
+async fn a_session_older_than_a_day_is_not_loaded() {
+    // The row filter, not the reply, does the expiring: PostgREST returns no row for an old
+    // session, so the reply is the same 401 `expired` as a missing one.
+    let up = upstream(vec![(TABLE, vec![json_reply(200, "[]")])]).await;
+    let req = request("POST", &format!("{PREFIX}/projects"), &session_body(), true);
+    let (status, _, reply) = call(&up, settings(&up, Some(KEY)), req).await;
+    assert_eq!(status, StatusCode::UNAUTHORIZED);
+    assert_eq!(json(&reply), json!({"error": NOT_FOUND, "expired": true}));
+    let filter = created_at_filter(&up).expect("created_at filter");
+    // `gt.YYYY-MM-DDTHH:MM:SSZ`; the exact stamp is checked by the unit test on the cutoff.
+    assert!(
+        filter.starts_with("gt.") && filter.ends_with('Z'),
+        "{filter}"
+    );
+    assert_eq!(filter.len(), "gt.".len() + 19 + 1, "{filter}");
+}
+
+#[tokio::test]
+async fn compile_and_pdf_lookups_also_expire() {
+    for route in ["compile", "pdf"] {
+        let up = upstream(vec![(TABLE, vec![json_reply(200, "[]")])]).await;
+        let req = request("POST", &format!("{PREFIX}/{route}"), &work_body(), true);
+        let (status, _, reply) = call(&up, settings(&up, Some(KEY)), req).await;
+        assert_eq!(status, StatusCode::UNAUTHORIZED, "{route}");
+        assert_eq!(
+            json(&reply),
+            json!({"error": NOT_FOUND, "expired": true}),
+            "{route}"
+        );
+        assert!(created_at_filter(&up).is_some(), "{route}");
+    }
+}
+
 #[tokio::test]
 async fn projects_load_error_is_502() {
     let up = upstream(vec![(
@@ -362,12 +405,12 @@ async fn compile_bad_body_is_400() {
 }
 
 #[tokio::test]
-async fn compile_missing_row_is_401_without_expired() {
+async fn compile_missing_row_is_401_expired() {
     let up = upstream(vec![(TABLE, vec![json_reply(200, "[]")])]).await;
     let req = request("POST", &format!("{PREFIX}/compile"), &work_body(), true);
     let (status, _, reply) = call(&up, settings(&up, Some(KEY)), req).await;
     assert_eq!(status, StatusCode::UNAUTHORIZED);
-    assert_eq!(json(&reply), json!({"error": NOT_FOUND}));
+    assert_eq!(json(&reply), json!({"error": NOT_FOUND, "expired": true}));
 }
 
 #[tokio::test]
@@ -395,13 +438,29 @@ async fn compile_returns_status_and_output_files() {
 async fn compile_overleaf_403_is_502() {
     let up = upstream(vec![
         (TABLE, vec![row_reply()]),
-        (COMPILE, vec![response(403, &[], b"denied")]),
+        (COMPILE, vec![response(403, &[], b"denied secret-token")]),
     ])
     .await;
     let req = request("POST", &format!("{PREFIX}/compile"), &work_body(), true);
     let (status, _, reply) = call(&up, settings(&up, Some(KEY)), req).await;
     assert_eq!(status, StatusCode::BAD_GATEWAY);
-    assert_eq!(error_of(&reply), "403: denied");
+    assert_eq!(error_of(&reply), "Overleaf refused the request (HTTP 403).");
+}
+
+#[tokio::test]
+async fn projects_overleaf_error_is_502_without_its_body() {
+    let up = upstream(vec![
+        (TABLE, vec![row_reply()]),
+        (
+            "/user/projects",
+            vec![response(500, &[], b"stack trace secret-token")],
+        ),
+    ])
+    .await;
+    let req = request("POST", &format!("{PREFIX}/projects"), &session_body(), true);
+    let (status, _, reply) = call(&up, settings(&up, Some(KEY)), req).await;
+    assert_eq!(status, StatusCode::BAD_GATEWAY);
+    assert_eq!(error_of(&reply), "Overleaf refused the request (HTTP 500).");
 }
 
 #[tokio::test]
@@ -443,6 +502,29 @@ async fn pdf_failure_status_is_502() {
 }
 
 #[tokio::test]
+async fn pdf_odd_compile_status_is_not_echoed() {
+    let odd = [
+        r#"{"status":{"detail":"secret-token"},"outputFiles":[]}"#,
+        r#"{"status":"failed at https://overleaf.internal/secret-token","outputFiles":[]}"#,
+    ];
+    for failed in odd {
+        let up = upstream(vec![
+            (TABLE, vec![row_reply()]),
+            (COMPILE, vec![json_reply(200, failed)]),
+        ])
+        .await;
+        let req = request("POST", &format!("{PREFIX}/pdf"), &work_body(), true);
+        let (status, _, reply) = call(&up, settings(&up, Some(KEY)), req).await;
+        assert_eq!(status, StatusCode::BAD_GATEWAY, "{failed}");
+        assert_eq!(
+            error_of(&reply),
+            "Compile failed (status unknown).",
+            "{failed}"
+        );
+    }
+}
+
+#[tokio::test]
 async fn pdf_without_output_pdf_is_502() {
     let no_pdf = r#"{"status":"success","compileGroup":"g","outputFiles":[{"path":"main.log","url":"/build/main.log"}]}"#;
     let up = upstream(vec![
@@ -468,4 +550,60 @@ async fn pdf_empty_download_is_502() {
     let (status, _, reply) = call(&up, settings(&up, Some(KEY)), req).await;
     assert_eq!(status, StatusCode::BAD_GATEWAY);
     assert_eq!(error_of(&reply), NOT_DOWNLOADED);
+}
+
+#[tokio::test]
+async fn pdf_truncated_download_is_502_not_200() {
+    let up = upstream(vec![
+        (TABLE, vec![row_reply()]),
+        (COMPILE, vec![pdf_compile_reply()]),
+        (
+            "/build/output.pdf",
+            vec![
+                response(206, &[("Content-Range", "bytes 0-3/9")], b"%PDF"),
+                response(500, &[], b"oops"),
+            ],
+        ),
+    ])
+    .await;
+    let req = request("POST", &format!("{PREFIX}/pdf"), &work_body(), true);
+    let (status, _, reply) = call(&up, settings(&up, Some(KEY)), req).await;
+    assert_eq!(status, StatusCode::BAD_GATEWAY);
+    assert_eq!(error_of(&reply), "Overleaf sent an incomplete PDF.");
+}
+
+#[tokio::test]
+async fn pdf_on_a_host_outside_the_allowlist_is_502_without_a_fetch() {
+    // A live host off the allowlist (`localhost`, not the 127.0.0.1 base) that would serve a PDF.
+    let other = serve(vec![(
+        "/build/output.pdf",
+        vec![response(200, &[], b"%PDF-1.4 evil")],
+    )])
+    .await;
+    let evil = json!({
+        "status": "success",
+        "compileGroup": "g",
+        "clsiServerId": "s1",
+        "pdfDownloadDomain": format!("http://localhost:{}", other.port),
+        "outputFiles": [{"path": "output.pdf", "url": "/build/output.pdf"}]
+    })
+    .to_string();
+    let up = upstream(vec![
+        (TABLE, vec![row_reply()]),
+        (COMPILE, vec![json_reply(200, &evil)]),
+        (
+            "/build/output.pdf",
+            vec![response(200, &[], b"%PDF-1.4 test")],
+        ),
+    ])
+    .await;
+    let req = request("POST", &format!("{PREFIX}/pdf"), &work_body(), true);
+    let (status, _, reply) = call(&up, settings(&up, Some(KEY)), req).await;
+    assert_eq!(status, StatusCode::BAD_GATEWAY);
+    assert_eq!(
+        error_of(&reply),
+        "Overleaf named a PDF host that is not allowed."
+    );
+    assert!(calls(&up, "/build/output.pdf").is_empty());
+    assert!(other.seen().is_empty());
 }

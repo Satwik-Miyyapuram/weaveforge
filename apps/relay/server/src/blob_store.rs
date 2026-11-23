@@ -10,7 +10,7 @@ use wf_core::storage::blob_access::{BlobRefusal, resource_id_from_path, shared_r
 use crate::postgrest::{DbError, UserDb, eq, in_list};
 use crate::routes::AppState;
 use crate::s3::{S3Object, delete_object, get_object, put_object};
-use crate::safe_error::{SERVER_FAULT, format_error_for_response};
+use crate::safe_error::{SERVER_FAULT, format_error_for_response, log_line};
 
 const REGISTRY: &str = "blob_objects";
 
@@ -164,7 +164,7 @@ pub async fn record_access_many(db: &UserDb<'_>, bucket: &str, paths: &[String])
     }
     let args = json!({"p_bucket": bucket, "p_paths": paths});
     if let Err(err) = db.rpc("record_blob_access_many", &args).await {
-        eprintln!("[blobs] record access failed: {}", err.message);
+        eprintln!("{}", log_line(&err, "blobs record access"));
     }
 }
 

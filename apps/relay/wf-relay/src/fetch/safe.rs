@@ -271,13 +271,10 @@ fn next_hop(current: &Url, response: &Response) -> Result<Url, FetchFailure> {
         .get("location")
         .and_then(|value| std::str::from_utf8(value.as_bytes()).ok())
         .ok_or_else(|| upstream(502, "That site redirected to nowhere."))?;
-    current.join(location).map_err(|_| {
-        let head: String = location.chars().take(200).collect();
-        upstream(
-            502,
-            format!("That site redirected somewhere unreadable: {head}"),
-        )
-    })
+    // The target is never echoed: its query can carry a third party's tokens.
+    current
+        .join(location)
+        .map_err(|_| upstream(502, "That site redirected somewhere unreadable."))
 }
 
 /// Reads the body up to `max_bytes`, refusing early when the declared length is over it.
@@ -331,7 +328,15 @@ fn reach_failure(url: &Url, error: &reqwest::Error) -> FetchFailure {
             "That site could not be reached: {host} ({TOO_SLOW})."
         ));
     }
-    eprintln!("[fetch] {host} could not be reached: {error}");
+    // The error's own text names the full URL, whose query can carry tokens; log its kind only.
+    let kind = if error.is_connect() {
+        "connect"
+    } else if error.is_request() {
+        "request"
+    } else {
+        "other"
+    };
+    eprintln!("[fetch] {host} could not be reached: {kind}");
     could_not_reach(format!("That site could not be reached: {host}."))
 }
 

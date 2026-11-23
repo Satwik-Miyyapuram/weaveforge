@@ -314,10 +314,9 @@ impl<'a> OrgService<'a> {
         let bytes = response.bytes().await.unwrap_or_default();
         let body: Value = serde_json::from_slice(&bytes).unwrap_or(Value::Null);
         if !status.is_success() {
-            let message = text(&body, "msg")
-                .or_else(|| text(&body, "message"))
-                .unwrap_or_else(|| "User not found.".to_string());
-            return Err(OrgError::Validation(message));
+            // The auth server's own text is never passed on.
+            eprintln!("[org admin user] HTTP {}", status.as_u16());
+            return Err(not_found());
         }
         Ok(body)
     }

@@ -222,6 +222,18 @@ click **Approve** or **Reject**. Some proposals show **Approve and append** or
 
 ---
 
+## Where your keys are stored on the web
+
+Keys you enter on the web (Zotero, Semantic Scholar and other integration tokens) are
+stored encrypted on our server, not as plain text. Some older accounts still hold keys
+saved only as plain text. The server encrypts those keys the next time the web app loads them,
+or earlier if the server operator runs the one-time conversion. Your keys keep working and
+you do not need to enter them again.
+
+If an older version of the app saved a key as plain text after your keys were encrypted,
+the encrypted copy is the one used. If a key you changed in an older version does not
+take effect, enter it again in Settings.
+
 ## 7. Web Browser Capture & Paper Import
 
 Capture papers directly into WeaveForge while browsing arXiv, PubMed, IEEE Xplore,

@@ -285,14 +285,13 @@ async fn clone_failure_is_502_without_the_token() {
     assert_eq!(status, StatusCode::BAD_GATEWAY);
     assert_eq!(headers["cache-control"], "no-store");
     let message = error_of(&body);
-    assert!(
-        message.starts_with("Overleaf git clone failed:"),
-        "{message}"
-    );
-    assert!(!message.contains("tok"), "{message}");
+    assert_eq!(message, "Overleaf git clone failed: project not found.");
     let sent = patches(&up);
     assert_eq!(sent.len(), 1);
-    assert!(body_json(&sent[0])["last_error"].is_string());
+    assert_eq!(
+        body_json(&sent[0])["last_error"],
+        "Overleaf git clone failed: project not found."
+    );
 }
 
 #[tokio::test]
