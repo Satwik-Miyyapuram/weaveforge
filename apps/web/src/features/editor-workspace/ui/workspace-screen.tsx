@@ -174,6 +174,13 @@ export function WorkspaceScreen() {
   const noteSavesRef = useRef<NoteSaves | null>(null);
   noteSavesRef.current ??= new NoteSaves(hydrated);
   const noteSaves = noteSavesRef.current;
+  // The same for report sections and log entries, with their own bases: a save names the text the last one
+  // stored, so an edit made outside since is kept (the save is refused) and two quick saves never refuse
+  // each other. A refused save forgets its base, so the next one starts from the reloaded text.
+  const entityBasesRef = useRef(new Map<string, string>());
+  const entitySavesRef = useRef<NoteSaves | null>(null);
+  entitySavesRef.current ??= new NoteSaves(entityBasesRef.current);
+  const entitySaves = entitySavesRef.current;
   // Each reload's number: late Overleaf rows apply only to the newest load.
   const loadRef = useRef(0);
   const reload = useCallback(async () => {
@@ -318,15 +325,25 @@ export function WorkspaceScreen() {
             }
             return saved.body;
           });
+        const saveEntity = (id: string, write: (base: string | undefined) => Promise<string>) =>
+          entitySaves
+            .run(id, doc?.body, (base) =>
+              write(base).catch((err: unknown) => {
+                entityBasesRef.current.delete(id);
+                throw err;
+              }),
+            )
+            .then(() => undefined);
         const writers: Record<string, (id: string, next: string) => Promise<unknown>> = {
           vault_page: saveNote,
           // An ink note is a vault page whose body starts with the ink header (§4.1).
           ink_page: saveNote,
           paper: (id, next) => container.papers.updatePaper.setSummary(id, next),
-          report_section: (id, next) => container.report.manageReportSection.setNotes(id, next),
+          report_section: (id, next) =>
+            saveEntity(id, async (base) => (await container.report.manageReportSection.setNotes(id, next, base)).notes ?? ""),
           // A log entry is markdown, so the editor's text *is* the entry's body.
           // The kind is not ours to write: see LogbookFacade.saveEntryBody.
-          log_entry: (id, next) => container.logbook.saveEntryBody(id, next),
+          log_entry: (id, next) => saveEntity(id, async (base) => (await container.logbook.saveEntryBody(id, next, base)).body),
         };
         const result = await writers[tab.kind]?.(tab.id, body);
         const stored = typeof result === "string" ? result : body;
@@ -352,7 +369,7 @@ export function WorkspaceScreen() {
         setPending(pendingRef.current);
       }
     },
-    [hydrated, noteSaves, reload],
+    [hydrated, noteSaves, entitySaves, reload],
   );
 
   // The browser only honours the guard if the handler is registered before the

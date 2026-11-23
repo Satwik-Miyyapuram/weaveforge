@@ -173,7 +173,11 @@ export interface IReadableRepository<T extends Identifiable, F = unknown> {
 }
 
 export interface IWritableRepository<T extends Identifiable> {
-  save(entity: T): Promise<void>;
+  /**
+   * Writes the entity. `seen` is the entity as the caller read it: a store that can tell keeps an edit made
+   * since (outside the app) and refuses this save with ConflictError instead of overwriting it.
+   */
+  save(entity: T, seen?: T): Promise<void>;
   delete(id: string): Promise<void>;
 }
 

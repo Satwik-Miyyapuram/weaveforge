@@ -55,8 +55,8 @@ export class FileExperimentRepository implements IExperimentRepository, IExperim
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   }
 
-  save(experiment: Experiment): Promise<void> {
-    return this.store.save(experiment);
+  save(experiment: Experiment, seen?: Experiment): Promise<void> {
+    return this.store.save(experiment, seen);
   }
 
   delete(id: string): Promise<void> {
@@ -109,9 +109,10 @@ export class FileExperimentRepository implements IExperimentRepository, IExperim
     }));
   }
 
-  setResultNote(id: string, note: string): Promise<Experiment> {
+  setResultNote(id: string, note: string, base?: string): Promise<Experiment> {
     const trimmed = note.trim();
-    return this.update(id, (current) => applyPatch(current, { resultNote: trimmed || undefined }));
+    const seen = base === undefined ? undefined : { resultNote: base.trim() || undefined };
+    return this.update(id, (current) => applyPatch(current, { resultNote: trimmed || undefined }), seen);
   }
 
   /** Trashes the file and the folder beside it (`metrics/`), file by file, so nothing is unlinked. */
@@ -126,11 +127,16 @@ export class FileExperimentRepository implements IExperimentRepository, IExperim
     for (const path of inside) await moveToTrash(this.fs, path, now);
   }
 
-  private async update(id: string, change: (current: Experiment) => Experiment): Promise<Experiment> {
+  /** `seen`: the fields the caller's change was based on; changed on disk since, the save is refused. */
+  private async update(
+    id: string,
+    change: (current: Experiment) => Experiment,
+    seen?: Partial<Experiment>,
+  ): Promise<Experiment> {
     const current = await this.store.get(id);
     if (!current) throw new NotFoundError(`No experiment with id "${id}".`);
     const next = change(current);
-    await this.store.save(next);
+    await this.store.save(next, seen);
     return next;
   }
 }

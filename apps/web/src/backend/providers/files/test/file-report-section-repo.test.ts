@@ -154,3 +154,41 @@ test("delete and remove move the file to the trash", async () => {
   for await (const e of fs.walk(".weaveforge/trash")) if (e.kind === "file") trashed += 1;
   assert.equal(trashed, 2);
 });
+
+/** Rewrites the file holding `from` as another app would; returns its path. */
+async function editOutside(fs: MemoryWorkspaceFs, from: string, to: string): Promise<string> {
+  for await (const e of fs.walk("")) {
+    if (e.kind !== "file") continue;
+    const text = await fs.readText(e.path);
+    if (text.includes(from)) {
+      await fs.writeFile(e.path, text.replace(from, to));
+      return e.path;
+    }
+  }
+  throw new Error(`no file holds ${from}`);
+}
+
+/** The texts of every file except `path`. */
+async function othersThan(fs: MemoryWorkspaceFs, path: string): Promise<string[]> {
+  const out: string[] = [];
+  for await (const e of fs.walk("")) if (e.kind === "file" && e.path !== path) out.push(await fs.readText(e.path));
+  return out;
+}
+test("setNotes from a stale base keeps the outside edit and puts mine in a conflict copy", async () => {
+  const { fs, repo } = setup();
+  const s = section({ notes: "first words" });
+  await repo.save(s);
+  const path = await editOutside(fs, "first words", "their words");
+  await assert.rejects(repo.setNotes(s.id, "my words", "first words"), (e: Error) => e.name === "ConflictError");
+  assert.equal((await repo.getById(s.id))?.notes, "their words");
+  assert.ok((await othersThan(fs, path)).some((t) => t.includes("my words")), "mine is kept in a copy");
+});
+
+test("setNotes twice, each based on what the last one wrote, both go through", async () => {
+  const { repo } = setup();
+  const s = section({ notes: "a" });
+  await repo.save(s);
+  const one = await repo.setNotes(s.id, "b", "a");
+  await repo.setNotes(s.id, "c", one.notes ?? "");
+  assert.equal((await repo.getById(s.id))?.notes, "c");
+});
