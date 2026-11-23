@@ -27,6 +27,10 @@ tracks at once.
 - **Changed:** On the desktop and without an account, the app's database client now refuses personal tables before a request is sent, as the web app already did. Organisation, sharing and live-share rows still reach the server.
 - **Fixed:** Error messages no longer repeat text from Overleaf, the sign-in server or storage. They are fixed short messages, with the HTTP status where it helps. Too many confirmation-code requests now ask you to wait a minute, and a sign-in server problem while a code is checked no longer looks like a wrong code. Server logs record only the error kind or status.
 - **Changed:** Sync to folder no longer writes `.weaveforge/tables/`, and Apply no longer restores table rows. Table files that 0.9.7 wrote stay in the folder unread. See [The workspace folder](docs/using/workspace-folder.md).
+- **Removed:** The server no longer keeps API keys, Overleaf Git links or the SDK project list. `/api/settings/credentials`, `/api/overleaf/reports`, `/api/overleaf/connections` and `/api/sdk/projects` answer 410. On the web, keys can't be saved in the browser, and the Overleaf tab no longer offers "Link a project (Git token)". Signing in to Overleaf still works.
+- **Removed:** Calendar links made in earlier versions stop working. Remove that calendar from your calendar app. Settings no longer makes new calendar links.
+- **Changed:** Adding a lab member sends them an email invite to set their own password. You no longer set a password for them.
+- **Changed:** An Overleaf sign-in lasts 24 hours. After that, sign in again.
 
 ### Python SDK
 - **Added:** The SDK reads the token file the desktop app's Connect panel writes under `~/.weaveforge`, so it reaches the local API without a pasted token.
