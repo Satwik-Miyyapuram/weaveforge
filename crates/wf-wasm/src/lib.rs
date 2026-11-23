@@ -164,6 +164,8 @@ mod storage_config;
 mod sync;
 mod sync_conflict_attention;
 mod sync_conflict_deletion;
+mod sync_local_identity;
+mod sync_pglite_sql;
 mod sync_sql_ident;
 mod tag_tone;
 mod text;
