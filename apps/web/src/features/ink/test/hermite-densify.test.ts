@@ -105,7 +105,7 @@ test("a raw stroke, samples closer than the minimum span, draws exactly as befor
   const raw = split(loop(20));
   const points = raw.x.map((v, i) => [v, raw.y[i]!]);
   const pressures = points.map(() => 0.5);
-  assert.deepEqual(densifyHermite(points, pressures), { points, pressures });
+  assert.deepEqual(densifyHermite(points, pressures), { points, pressures, corners: points.map(() => false) });
   const drawn = Math.max(0, 3) * INK_FREEDRAW.widthRatio;
   const before = getFreeDrawSvgPath(
     { points: smoothKeepingCorners(points), pressures, strokeWidth: 0, simulatePressure: true, lastCommittedPoint: [0, 0] } as FreedrawElement,
@@ -115,8 +115,8 @@ test("a raw stroke, samples closer than the minimum span, draws exactly as befor
 });
 
 test("one point and two points", () => {
-  assert.deepEqual(densifyHermite([[5, 5]], [0.3]), { points: [[5, 5]], pressures: [0.3] });
-  assert.deepEqual(densifyHermite([], []), { points: [], pressures: [] });
+  assert.deepEqual(densifyHermite([[5, 5]], [0.3]), { points: [[5, 5]], pressures: [0.3], corners: [false] });
+  assert.deepEqual(densifyHermite([], []), { points: [], pressures: [], corners: [] });
   // Two points: the end tangents are the chord, so the curve is the straight line.
   const two = densifyHermite([[0, 0], [10, 0]], [0, 1]);
   assert.equal(two.points.length, 11);
@@ -153,4 +153,63 @@ test("filling costs at most one point per step of length, and a bounded count pe
   const ms = performance.now() - start;
   assert.ok(filled.points.length <= long.length * HERMITE_MAX_PIECES);
   assert.ok(ms < 100, `${ms.toFixed(1)} ms`);
+});
+
+/** A pen polyline through `corners`, sampled every `spacing` (0.1 mm by default). */
+function polyline(corners: readonly (readonly [number, number])[], spacing = 1): number[] {
+  const out: number[] = [corners[0]![0], corners[0]![1]];
+  for (let c = 1; c < corners.length; c += 1) {
+    const [ax, ay] = corners[c - 1]!;
+    const [bx, by] = corners[c]!;
+    const steps = Math.ceil(Math.hypot(bx - ax, by - ay) / spacing);
+    for (let s = 1; s <= steps; s += 1) out.push(ax + ((bx - ax) * s) / steps, ay + ((by - ay) * s) / steps);
+  }
+  return out;
+}
+
+/** Distance from `p` to the polyline through `corners`. */
+function offPolyline(p: readonly number[], corners: readonly (readonly [number, number])[]): number {
+  let best = Infinity;
+  for (let c = 1; c < corners.length; c += 1) {
+    const [ax, ay] = corners[c - 1]!;
+    const [bx, by] = corners[c]!;
+    const dx = bx - ax;
+    const dy = by - ay;
+    const t = Math.max(0, Math.min(1, ((p[0]! - ax) * dx + (p[1]! - ay) * dy) / (dx * dx + dy * dy)));
+    best = Math.min(best, Math.hypot(p[0]! - (ax + t * dx), p[1]! - (ay + t * dy)));
+  }
+  return best;
+}
+
+const LETTERS: Record<string, readonly (readonly [number, number])[]> = {
+  N: [[10, 110], [10, 10], [70, 110], [70, 10]],
+  z: [[10, 10], [70, 10], [10, 70], [70, 70]],
+  M: [[10, 110], [10, 10], [45, 70], [80, 10], [80, 110]],
+};
+
+test("an old packed N, z and M, and a fast raw one, keep their corners sharp", () => {
+  const strokes = Object.entries(LETTERS).flatMap(([name, corners]) => [
+    { name: `packed ${name}`, corners, old: packed(polyline(corners)) },
+    // A fast pen: 1.2 mm between samples, a sample on each corner.
+    { name: `fast ${name}`, corners, old: split(polyline(corners, 12)) },
+  ]);
+  for (const { name, corners, old } of strokes) {
+    const points = old.x.map((v, i) => [v, old.y[i]!]);
+    const dense = densifyHermite(points, points.map(() => 0.5));
+    const worst = Math.max(...dense.points.map((p) => offPolyline(p, corners)));
+    assert.ok(worst < 0.5, `${name}: filled points stray ${worst.toFixed(2)} from the drawn lines`);
+    // The smoothing after the fill must still see each corner and leave it in place.
+    const smooth = smoothKeepingCorners(dense.points, dense.corners);
+    for (const [cx, cy] of corners) {
+      const near = Math.min(...smooth.map((p) => Math.hypot(p[0]! - cx, p[1]! - cy)));
+      assert.ok(near < 0.05, `${name}: corner ${cx},${cy} rounded off by ${near.toFixed(2)}`);
+    }
+    // And the outline drawn is the one built from those points.
+    const drawn = Math.max(0, 3) * INK_FREEDRAW.widthRatio;
+    const want = getFreeDrawSvgPath(
+      { points: smooth, pressures: dense.pressures, strokeWidth: 0, simulatePressure: true, lastCommittedPoint: [0, 0] } as FreedrawElement,
+      { thinning: INK_FREEDRAW.mouse.thinning, smoothing: INK_FREEDRAW.pen.smoothing, streamline: INK_FREEDRAW.pen.streamline, size: drawn },
+    );
+    assert.equal(freedrawPath(old.x, old.y, 3, true), want, name);
+  }
 });

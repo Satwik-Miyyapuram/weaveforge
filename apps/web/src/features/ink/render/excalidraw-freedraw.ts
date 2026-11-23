@@ -189,7 +189,7 @@ export function inkFreedrawPath(
       : pressures.map((p) => Math.max(shape.minWidth, p) ** shape.pressureGamma);
   const dense = densifyHermite(points, reshaped);
   return getFreeDrawSvgPath(
-    { points: smoothKeepingCorners(dense.points), pressures: dense.pressures, strokeWidth: 0, simulatePressure, lastCommittedPoint: last ? [0, 0] : null },
+    { points: smoothKeepingCorners(dense.points, dense.corners), pressures: dense.pressures, strokeWidth: 0, simulatePressure, lastCommittedPoint: last ? [0, 0] : null },
     options,
   );
 }

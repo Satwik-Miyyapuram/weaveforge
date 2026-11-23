@@ -6,17 +6,22 @@
  * drawn, as do both ends. Every other point is averaged with its neighbours
  * (weights 1, 2, 1), SMOOTHING_PASSES times. This lets the freehand outline run
  * with a low streamline, which reaches into corners, while a shaky circle still
- * draws round.
+ * draws round. `pinned` marks more points that stay put: the corners a sparse
+ * stroke had before it was filled in (hermite-densify.ts), which a span of
+ * CORNER_SPAN filled points is too short to see.
  */
 
-const CORNER_DEGREES = 50;
+export const CORNER_DEGREES = 50;
 const CORNER_SPAN = 2;
 const SMOOTHING_PASSES = 4;
 
-export function smoothKeepingCorners(points: number[][]): number[][] {
+export function smoothKeepingCorners(points: number[][], pinned?: readonly boolean[]): number[][] {
   const n = points.length;
   if (n < 3) return points;
   const fixed = cornerMask(points);
+  pinned?.forEach((pin, i) => {
+    if (pin) fixed[i] = true;
+  });
   let current = points;
   for (let pass = 0; pass < SMOOTHING_PASSES; pass++) {
     const next = current.slice();
