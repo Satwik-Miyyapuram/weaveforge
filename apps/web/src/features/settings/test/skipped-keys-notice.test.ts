@@ -7,7 +7,13 @@ import { test } from "node:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { DeviceSecretsStore, type DeviceKeychain } from "@/backend/device-secrets-store";
-import { SkippedKeysNoticeView, skippedKeysOf, skippedKeysText } from "@/features/settings/ui/skipped-keys-notice";
+import { DEVICE_KEYS_LINE, SkippedKeysNoticeView, skippedKeysOf, skippedKeysText } from "@/features/settings/ui/skipped-keys-notice";
+
+test("the device keys line names the system keychain, not a file", () => {
+  assert.match(DEVICE_KEYS_LINE, /system keychain \(Windows Credential Manager, the macOS keychain, Secret Service on Linux, or the Android Keystore\)/);
+  assert.match(DEVICE_KEYS_LINE, /Signing in does not move them to your account\./);
+  assert.doesNotMatch(DEVICE_KEYS_LINE, /folder|file permissions/);
+});
 
 test("no skipped keys shows nothing", () => {
   assert.equal(skippedKeysText([]), null);

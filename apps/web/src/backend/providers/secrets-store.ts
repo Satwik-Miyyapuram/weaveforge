@@ -23,6 +23,6 @@ import { RefusingSecretsStore } from "./files/refusing-secrets-store";
  */
 export function secretsStoreFor(hasServerRoutes: boolean = !isOfflineBuild()): SecretsStore {
   if (hasServerRoutes) return new RefusingSecretsStore();
-  // Saves go to the OS keychain; until the 0.9.7 move runs, load still reads the old device row. (local/parts.ts)
+  // Loads and saves use the OS keychain only; no database row is read or written.
   return new DeviceSecretsStore();
 }
