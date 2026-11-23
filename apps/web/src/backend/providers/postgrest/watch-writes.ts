@@ -65,7 +65,6 @@ export const RPC_WRITES: Readonly<Record<string, string | null>> = {
   record_blob_access_many: null,
   resolve_api_token: null,
   resolve_mcp_relay_token: null,
-  resolve_plan_feed_token: null,
   resolve_share_link: null,
   shared_to_user: null,
   switch_active_org: null,

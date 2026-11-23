@@ -1,4 +1,8 @@
 import type { FileRepositories } from "@/backend/providers/files/wire-file-backend";
+import type { WiredPostgrestBackend } from "@/backend/providers/postgrest/wire-postgrest-backend";
+
+/** 0.9.8: a wired backend with its personal repositories from files. The integrations store exists only here; the server wiring has none. */
+export type PersonalBackend = WiredPostgrestBackend & Pick<FileRepositories, "integrationsStore">;
 
 /**
  * Every personal-data key of the file backend. The record is typed over

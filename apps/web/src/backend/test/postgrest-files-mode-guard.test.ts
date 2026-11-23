@@ -37,14 +37,11 @@ const signedIn = { session: { getCurrentUserId: async () => "u-1" } } as never;
 
 /** Personal writes and reads: in files mode every one is refused before any request. */
 const personalCalls: [string, (b: Wired) => Promise<unknown>][] = [
-  [
-    "integrationsStore.save",
-    (b) => call(b.integrationsStore.save, "p-1", { provider: "github", enabled: true, branch: "main", repo: "a/b" }),
-  ],
   // paper_tags is not in ORG_SERVER_TABLES, so both probes below must be refused in files mode.
   ["paperTagRepository.listAll", (b) => call(b.paperTagRepository.listAll)],
   ["paperTagRepository.listForTag", (b) => call(b.paperTagRepository.listForTag, "t-1")],
   ["paperTagRepository.link", (b) => call(b.paperTagRepository.link, { paperId: "p-1", tagId: "t-1", source: "manual" })],
+  ["projectBibliographyCollection.setCollection", (b) => call(b.projectBibliographyCollection.setCollection, "p-1", "Lib")],
   ["screeningRepository.listForItems", (b) => call(b.screeningRepository.listForItems, ["i-1"])],
   ["releaseNoticesRepository.latest", (b) => call(b.releaseNoticesRepository.latest)],
   // 0.9.8: the personal repos wired over the client itself are guarded too, not just the five above.

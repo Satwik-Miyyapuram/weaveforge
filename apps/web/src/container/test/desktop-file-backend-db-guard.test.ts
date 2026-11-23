@@ -96,11 +96,14 @@ test("desktop: a personal blob upload lands in the folder and makes no request",
   assert.ok(written.some((p) => p.endsWith("paper-images/u-1/a.png")), JSON.stringify(written));
 });
 
-test("files mode refuses a personal integrations read on the server client (the desktop wiring)", async () => {
+test("files mode refuses the personal integrations table on the server client (the desktop wiring)", () => {
   // The same wiring call as desktop-file-backend.ts: server client guarded by readOnlyDb, then files mode's org-table guard.
   const postgrest = wirePostgrestBackend(config, { projectId: null }, () => null, undefined, { filesMode: true }, readOnlyDb);
-  await assert.rejects(
-    postgrest.integrationsStore.get("p-1", "zotero" as never),
-    /Table not allowed on the org server: project_integrations/,
-  );
+  try {
+    // 0.9.8: the server wiring has no integrations store at all; the workspace files hold them.
+    assert.equal("integrationsStore" in postgrest, false);
+    assert.throws(() => postgrest.db.from("project_integrations"), /Table not allowed on the org server: project_integrations/);
+  } finally {
+    postgrest.dispose();
+  }
 });
