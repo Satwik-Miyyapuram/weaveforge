@@ -87,10 +87,19 @@ export function SectionNote({
     }
   }
 
-  // The notes the next save is based on (last loaded or saved), so an outside edit since is kept, not overwritten.
+  // The notes the next save is based on: what the editor opened with or last saved. A reload with outside
+  // text does not move it while the editor still holds the old text, so that edit is kept, not overwritten.
   const notesBase = useRef({ id: section.id, notes: section.notes ?? "" });
+  // Set after a conflict: the next reload re-seeds the base and remounts the editor on the text on disk.
+  const reseed = useRef(false);
+  const [editorKey, setEditorKey] = useState(0);
   useEffect(() => {
+    if (notesBase.current.id === section.id && !reseed.current) return;
     notesBase.current = { id: section.id, notes: section.notes ?? "" };
+    if (reseed.current) {
+      reseed.current = false;
+      setEditorKey((k) => k + 1);
+    }
   }, [section.id, section.notes]);
   // Saves run one after another, so each is based on the one before.
   const saving = useRef<Promise<void>>(Promise.resolve());
@@ -117,12 +126,17 @@ export function SectionNote({
           if (uploadError) throw uploadError;
         } catch (err) {
           setSaveError(formatError(err));
+          // The text on disk changed and mine is in a conflict copy: reload, then edit what is on disk.
+          if (err instanceof Error && err.name === "ConflictError") {
+            reseed.current = true;
+            onChanged();
+          }
         }
       });
       saving.current = run;
       return run;
     },
-    [onReplace, section.id, section.notes],
+    [onReplace, onChanged, section.id, section.notes],
   );
 
   /**
@@ -236,6 +250,7 @@ export function SectionNote({
               moreSections={editing ? [citeAsSection(citationFormat, setCitationFormat)] : undefined}
             >
             <DocumentBody
+              key={editorKey}
               tab={{ kind: "report_section", id: section.id }}
               mode={editing ? "edit" : "read"}
               body={section.notes ?? ""}

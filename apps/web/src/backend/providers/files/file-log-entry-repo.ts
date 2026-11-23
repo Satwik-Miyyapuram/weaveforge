@@ -71,7 +71,7 @@ export class FileLogEntryRepository implements ILogEntryRepository, ILogEntryMan
     const body = input.body.trim();
     if (!body) throw new LogEntryValidationError("Log entry body is required.");
     const next: LogEntry = { ...current, body, kind: input.kind };
-    await this.store.save(next, base === undefined ? undefined : { body: base.trim() });
+    await this.store.save(next, base === undefined ? undefined : { body: base });
     return next;
   }
 

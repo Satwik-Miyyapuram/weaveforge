@@ -12,7 +12,18 @@ import { bodyWithoutTag, type LiveText } from "./tag-editor-body";
  * no manual add here; deleting a chip removes that hashtag from the body,
  * and from the open `editor` too when there is one.
  */
-export function TagEditor({ paper, onReplace, editor }: { paper: Paper; onReplace: (p: Paper) => void; editor?: RefObject<LiveText | null> }) {
+export function TagEditor({
+  paper,
+  onReplace,
+  editor,
+  saveSummary,
+}: {
+  paper: Paper;
+  onReplace: (p: Paper) => void;
+  editor?: RefObject<LiveText | null>;
+  /** The note's own summary save, so this write is based on what the editor opened with. */
+  saveSummary: (body: string) => Promise<Paper>;
+}) {
   const [busy, setBusy] = useState(false);
 
   async function removeTag(tag: string) {
@@ -20,7 +31,7 @@ export function TagEditor({ paper, onReplace, editor }: { paper: Paper; onReplac
     try {
       const papers = getContainer().papers;
       const body = bodyWithoutTag(tag, editor?.current, paper.summary ?? "");
-      const saved = await papers.updatePaper.setSummary(paper.id, body);
+      const saved = await saveSummary(body);
       onReplace((await reconcileTagsFromBodyOrDefer(papers, paper.id, body)) ?? saved);
     } finally {
       setBusy(false);

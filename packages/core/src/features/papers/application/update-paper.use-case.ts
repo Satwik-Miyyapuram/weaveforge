@@ -42,9 +42,14 @@ export class UpdatePaperUseCase {
     return this.mutate(id, (p) => ({ ...p, title: trimmed }));
   }
 
-  /** Reader-authored summary. */
-  async setSummary(id: string, summary: string): Promise<Paper> {
-    return this.mutate(id, (p) => ({ ...p, summary: rust().cleanPaperSummary(summary) }));
+  /**
+   * Reader-authored summary. `base` is the summary the editor started from, as read (untrimmed):
+   * the store then refuses the save when the summary on disk is no longer that, so an edit made
+   * outside since is not overwritten. Without it the save is unchecked.
+   */
+  async setSummary(id: string, summary: string, base?: string): Promise<Paper> {
+    const seen = base === undefined ? undefined : (p: Paper): Paper => ({ ...p, summary: base || undefined });
+    return this.mutate(id, (p) => ({ ...p, summary: rust().cleanPaperSummary(summary) }), seen);
   }
 
   async setRating(id: string, rating: number | undefined): Promise<Paper> {
@@ -124,8 +129,8 @@ export class UpdatePaperUseCase {
     return this.enqueue(id, () => this.deps.repository.delete(id));
   }
 
-  private mutate(id: string, change: (p: Paper) => Paper): Promise<Paper> {
-    return this.enqueue(id, () => this.apply(id, change));
+  private mutate(id: string, change: (p: Paper) => Paper, seen?: (p: Paper) => Paper): Promise<Paper> {
+    return this.enqueue(id, () => this.apply(id, change, seen));
   }
 
   /**
@@ -152,6 +157,7 @@ export class UpdatePaperUseCase {
   private async apply(
     id: string,
     change: (p: Paper) => Paper,
+    seen?: (p: Paper) => Paper,
   ): Promise<Paper> {
     const existing = await this.deps.repository.getById(id);
     if (!existing) {
@@ -159,7 +165,7 @@ export class UpdatePaperUseCase {
       throw new NotFoundError(`No paper with id "${id}".`);
     }
     const updated = { ...change(existing), updatedAt: this.deps.clock.nowIso() };
-    await this.deps.repository.save(updated);
+    await (seen ? this.deps.repository.save(updated, seen(existing)) : this.deps.repository.save(updated));
     return updated;
   }
 }

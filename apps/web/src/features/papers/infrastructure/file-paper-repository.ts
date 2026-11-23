@@ -132,8 +132,22 @@ export class FilePaperRepository implements IPaperRepository {
     return (await this.scan()).failures;
   }
 
-  async save(entity: Paper): Promise<void> {
-    await this.write(entity.id, () => toRow(entity), true);
+  /**
+   * With `seen`, the save is refused (ConflictError) when the file is gone or its summary is no
+   * longer `seen.summary`: an outside edit to the summary since the editor opened is kept.
+   */
+  async save(entity: Paper, seen?: Paper): Promise<void> {
+    await this.write(
+      entity.id,
+      (current) => {
+        if (seen && !current) throw new ConflictError(`Paper ${entity.id} is not on disk; not saved.`);
+        if (seen && (current?.summary || undefined) !== (seen.summary || undefined)) {
+          throw new ConflictError(`Paper ${entity.id}'s summary changed on disk; not saved. Reload before saving.`);
+        }
+        return toRow(entity);
+      },
+      true,
+    );
   }
 
   async setTags(id: string, tags: string[], updatedAt: string): Promise<void> {

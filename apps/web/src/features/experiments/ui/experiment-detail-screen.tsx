@@ -101,6 +101,13 @@ export function ExperimentDetailScreen({ id: idProp }: { id?: string }) {
   }, [live, load]);
 
   const [resultDraft, setResultDraft] = useState<string | null>(null);
+  // The result note the draft opened with. A running experiment reloads every few seconds, so
+  // `exp.resultNote` may already hold an outside edit; saving against it would overwrite that edit.
+  const resultBase = useRef("");
+  const openResultDraft = (note: string) => {
+    resultBase.current = note;
+    setResultDraft(note);
+  };
   const [resultError, setResultError] = useState<string | null>(null);
   const [statusError, setStatusError] = useState<string | null>(null);
   const [cmdCopied, setCmdCopied] = useState(false);
@@ -123,7 +130,7 @@ export function ExperimentDetailScreen({ id: idProp }: { id?: string }) {
   async function saveResult() {
     if (!exp || resultDraft === null) return;
     try {
-      setExp(await getContainer().experiments.manageExperiment.setResultNote(exp.id, resultDraft, exp.resultNote ?? ""));
+      setExp(await getContainer().experiments.manageExperiment.setResultNote(exp.id, resultDraft, resultBase.current));
       setResultDraft(null);
       setResultError(null);
     } catch (err) {
@@ -241,7 +248,7 @@ export function ExperimentDetailScreen({ id: idProp }: { id?: string }) {
               label="Result"
               tag={
                 resultDraft === null ? (
-                  <Button variant="ghost" size="sm" onClick={() => setResultDraft(exp.resultNote ?? "")}>
+                  <Button variant="ghost" size="sm" onClick={() => openResultDraft(exp.resultNote ?? "")}>
                     {exp.resultNote ? "Edit" : "Write result"}
                   </Button>
                 ) : undefined

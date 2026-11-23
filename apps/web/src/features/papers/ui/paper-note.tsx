@@ -173,6 +173,46 @@ export function PaperNote({
     finally { setBusy(false); }
   }
 
+  // The summary the next save is based on: what the editor opened with or last saved. A reload with
+  // outside text does not move it while the editor still holds the old text, so that edit is kept.
+  const summaryBase = useRef({ id: paper.id, summary: paper.summary ?? "" });
+  // Set after a conflict: the next reload re-seeds the base and remounts the editor on the text on disk.
+  const reseed = useRef(false);
+  const [editorKey, setEditorKey] = useState(0);
+  useEffect(() => {
+    if (summaryBase.current.id === paper.id && !reseed.current) return;
+    summaryBase.current = { id: paper.id, summary: paper.summary ?? "" };
+    if (reseed.current) {
+      reseed.current = false;
+      setEditorKey((k) => k + 1);
+    }
+  }, [paper.id, paper.summary]);
+  // Summary saves (the editor's and a tag chip's) run one after another, each based on the one before.
+  const saving = useRef<Promise<unknown>>(Promise.resolve());
+
+  /** Every summary write. A ConflictError asks for a reload; the editor then starts from the text on disk. */
+  const saveSummary = useCallback(
+    (body: string): Promise<Paper> => {
+      const run = saving.current.then(async () => {
+        const base = summaryBase.current.id === paper.id ? summaryBase.current.summary : (paper.summary ?? "");
+        try {
+          const saved = await getContainer().papers.updatePaper.setSummary(paper.id, body, base);
+          summaryBase.current = { id: paper.id, summary: saved.summary ?? "" };
+          return saved;
+        } catch (err) {
+          if (err instanceof Error && err.name === "ConflictError") {
+            reseed.current = true;
+            onChanged();
+          }
+          throw err;
+        }
+      });
+      saving.current = run.catch(() => undefined);
+      return run;
+    },
+    [onChanged, paper.id, paper.summary],
+  );
+
   /** Tags are derived solely from the note body's #hashtags. */
   const reconcileTags = useCallback(
     async (body: string, saved?: Paper) => {
@@ -198,7 +238,7 @@ export function PaperNote({
         const { body, uploadError } = await materializePaperBlobImages(nextBody, paper.id, (id, blob, ext) =>
           papers.uploadImage(id, blob, ext),
         );
-        const saved = await papers.updatePaper.setSummary(paper.id, body);
+        const saved = await saveSummary(body);
         if (modeRef.current === "read" || closedRef.current) await reconcileTags(body, saved);
         else pendingTagsRef.current = body;
         // The text is saved; a failed upload is still said out loud.
@@ -207,7 +247,7 @@ export function PaperNote({
         setSaveError(formatError(err));
       }
     },
-    [paper.id, reconcileTags],
+    [paper.id, reconcileTags, saveSummary],
   );
 
   // Closing the page mid-edit (Back, another paper) settles the tags too, or a
@@ -521,6 +561,7 @@ export function PaperNote({
                   focus={inkFocus.focus}
                 >
                 <DocumentBody
+                  key={editorKey}
                   tab={{ kind: "paper", id: paper.id }}
                   mode={mode}
                   body={paper.summary ?? ""}
@@ -534,7 +575,7 @@ export function PaperNote({
               </div>
             )}
             {saveError && <InlineError>{saveError}</InlineError>}
-            {mode === "edit" && !readOnly && <TagEditor paper={paper} onReplace={onReplace} editor={editorHandle} />}
+            {mode === "edit" && !readOnly && <TagEditor paper={paper} onReplace={onReplace} editor={editorHandle} saveSummary={saveSummary} />}
           </RecordSection>
 
           <RecordSection label="Annotations" tag={annotationCount > 0 ? String(annotationCount) : "None yet"}>

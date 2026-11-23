@@ -159,3 +159,13 @@ test("update twice, each based on what the last one wrote, both go through", asy
   await repo.update(e.id, { body: "c", kind: "daily" }, one.body);
   assert.equal((await repo.getById(e.id))?.body, "c");
 });
+test("update based on an indented body with extra blank lines, as read, goes through", async () => {
+  const { fs, repo } = setup();
+  const e = entry({ body: "first" });
+  await repo.save(e);
+  await editOutside(fs, "first", "  indented\n\n");
+  const read = (await repo.getById(e.id))!.body;
+  assert.notEqual(read, read.trim(), "the body on disk keeps its outer whitespace");
+  await repo.update(e.id, { body: "mine", kind: "daily" }, read);
+  assert.equal((await repo.getById(e.id))?.body, "mine");
+});
