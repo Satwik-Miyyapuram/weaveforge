@@ -57,7 +57,13 @@ pub async fn create_user(
     }
 }
 
-/// The body as a validated new member; a non-object body reads as `{}`.
+/// Stands in for the password that `validate_new_member` still requires. The account is an
+/// invite (the user sets their own password from the email), so any `password` in the body
+/// is ignored and this value is never sent anywhere. Drop it once wf-core stops asking.
+const INVITE_PLACEHOLDER_PASSWORD: &str = "invite-placeholder";
+
+/// The body as a validated new member; a non-object body reads as `{}`. Any `password`
+/// field is ignored: the account is invited, not given a password.
 fn parse_input(body: &[u8]) -> Result<NewMember, Response> {
     let parsed = serde_json::from_slice::<Value>(body)
         .map_err(|err| error_response(400, &format!("Invalid JSON body: {err}")))?;
@@ -66,13 +72,12 @@ fn parse_input(body: &[u8]) -> Result<NewMember, Response> {
         _ => Map::new(),
     };
     let email = required_text(&object, "email")?;
-    let password = required_text(&object, "password")?;
     let full_name = optional_text(&object, "fullName")?;
     let supervisor_id = optional_text(&object, "supervisorId")?;
     let role = role_text(&object);
     validate_new_member(
         &email,
-        &password,
+        INVITE_PLACEHOLDER_PASSWORD,
         full_name.as_deref(),
         &role,
         supervisor_id.as_deref(),
@@ -115,13 +120,7 @@ async fn provision(
     supervisor_id: &str,
     input: &NewMember,
 ) -> Result<Value, String> {
-    let id = gotrue::admin_create_user(
-        state,
-        &input.email,
-        &input.password,
-        input.full_name.as_deref(),
-    )
-    .await?;
+    let id = gotrue::admin_create_user(state, &input.email, input.full_name.as_deref()).await?;
     let db = UserDb::new(
         &state.client,
         &state.config.data_url,

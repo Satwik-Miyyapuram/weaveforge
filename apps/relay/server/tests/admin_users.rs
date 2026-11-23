@@ -21,9 +21,14 @@ use wf_relay_server::url_meta::MetaUpstreams;
 const SESSION: &str = "Bearer a.b.c";
 const AUTH_USER: &str = "/auth/v1/user";
 const PROFILES: &str = "/rest/v1/profiles";
-const ADMIN_USERS: &str = "/auth/v1/admin/users";
+const INVITE: &str = "/auth/v1/invite";
+/// The full invite target: GoTrue sends the invite link back to the app's reset-password page.
+const INVITE_TARGET: &str =
+    "/auth/v1/invite?redirect_to=https%3A%2F%2Fapp.weaveforge.org%2Freset-password";
 const NEW_USER: &str = "/auth/v1/admin/users/new-1";
 const CREATE: &str = "/api/admin/create-user";
+/// An invite reply naming a user made by that call.
+const MADE_NOW: &str = r#"{"id":"new-1","created_at":"2999-01-01T00:00:00Z"}"#;
 const GOOD: &str = r#"{"email":"  New@Example.com ","password":"password1","fullName":"  Jane Doe  ","role":"phd"}"#;
 
 fn json_reply(status: u16, body: &str) -> Reply {
@@ -49,7 +54,7 @@ async fn upstream(profiles: Vec<Reply>, gotrue: Vec<Reply>) -> Upstream {
     serve(vec![
         (AUTH_USER, vec![json_reply(200, r#"{"id":"prof-1"}"#)]),
         (PROFILES, profiles),
-        (ADMIN_USERS, gotrue),
+        (INVITE, gotrue),
         (NEW_USER, vec![json_reply(200, "{}")]),
     ])
     .await
@@ -116,7 +121,11 @@ async fn no_session_is_401() {
     let (status, _, value) = reply(&up, post(GOOD, None)).await;
     assert_eq!(status, StatusCode::UNAUTHORIZED);
     assert_eq!(value, json!({"error": "Not authenticated."}));
-    assert!(up.seen().iter().all(|seen| seen.target != ADMIN_USERS));
+    assert!(
+        up.seen()
+            .iter()
+            .all(|seen| !seen.target.starts_with(INVITE))
+    );
 }
 
 #[tokio::test]
@@ -125,7 +134,7 @@ async fn profile_read_failure_is_503() {
     let (status, _, value) = reply(&up, post(GOOD, Some(SESSION))).await;
     assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE);
     assert!(value["error"].is_string(), "{value}");
-    assert!(calls(&up, "POST", ADMIN_USERS).is_empty());
+    assert!(calls(&up, "POST", INVITE_TARGET).is_empty());
 }
 
 #[tokio::test]
@@ -158,16 +167,33 @@ async fn non_string_email_is_400() {
 }
 
 #[tokio::test]
-async fn short_password_is_400() {
-    let up = upstream(vec![caller("professor")], vec![]).await;
-    let body = r#"{"email":"a@example.com","password":"short","role":"phd"}"#;
-    let (status, _, value) = reply(&up, post(body, Some(SESSION))).await;
-    assert_eq!(status, StatusCode::BAD_REQUEST);
-    assert_eq!(
-        value,
-        json!({"error": "Password must be at least 8 characters."})
-    );
-    assert!(calls(&up, "POST", ADMIN_USERS).is_empty());
+async fn a_short_or_missing_password_is_ignored_and_never_sent() {
+    for body in [
+        r#"{"email":"a@example.com","password":"short","role":"phd"}"#,
+        r#"{"email":"a@example.com","password":5,"role":"phd"}"#,
+        r#"{"email":"a@example.com","role":"phd"}"#,
+    ] {
+        let up = upstream(
+            vec![
+                caller("professor"),
+                json_reply(201, r#"[{"user_id":"new-1"}]"#),
+            ],
+            vec![json_reply(200, MADE_NOW)],
+        )
+        .await;
+        let (status, _, value) = reply(&up, post(body, Some(SESSION))).await;
+        assert_eq!(status, StatusCode::CREATED, "{body}: {value}");
+        let invites = calls(&up, "POST", INVITE_TARGET);
+        assert_eq!(invites.len(), 1, "{body}");
+        let sent: Value = serde_json::from_slice(&invites[0].body).expect("json body");
+        assert_eq!(sent, json!({"email": "a@example.com"}), "{body}");
+        assert!(
+            up.seen()
+                .iter()
+                .all(|seen| !String::from_utf8_lossy(&seen.body).contains("password")),
+            "{body}"
+        );
+    }
 }
 
 #[tokio::test]
@@ -189,7 +215,7 @@ async fn masters_cannot_create_masters() {
         value,
         json!({"error": "A masters cannot create a masters account."})
     );
-    assert!(calls(&up, "POST", ADMIN_USERS).is_empty());
+    assert!(calls(&up, "POST", INVITE_TARGET).is_empty());
 }
 
 #[tokio::test]
@@ -199,7 +225,7 @@ async fn professor_creates_a_phd_under_themselves() {
             caller("professor"),
             json_reply(201, r#"[{"user_id":"new-1"}]"#),
         ],
-        vec![json_reply(200, r#"{"id":"new-1"}"#)],
+        vec![json_reply(200, MADE_NOW)],
     )
     .await;
     let (status, _, value) = reply(&up, post(GOOD, Some(SESSION))).await;
@@ -215,12 +241,21 @@ async fn professor_creates_a_phd_under_themselves() {
         }})
     );
 
-    let created = calls(&up, "POST", ADMIN_USERS);
+    let created = calls(&up, "POST", INVITE_TARGET);
     let sent: Value =
-        serde_json::from_slice(&created.first().expect("admin call").body).expect("json body");
-    assert_eq!(sent["email"], json!("new@example.com"));
-    assert_eq!(sent["email_confirm"], json!(true));
-    assert_eq!(sent["user_metadata"]["full_name"], json!("Jane Doe"));
+        serde_json::from_slice(&created.first().expect("invite call").body).expect("json body");
+    assert_eq!(created.len(), 1);
+    assert_eq!(created[0].header("apikey"), Some("service"));
+    assert_eq!(
+        sent,
+        json!({"email": "new@example.com", "data": {"full_name": "Jane Doe"}})
+    );
+    assert!(
+        up.seen()
+            .iter()
+            .all(|seen| !String::from_utf8_lossy(&seen.body).contains("password1")),
+        "the password must never leave the relay"
+    );
 
     let rows = calls(&up, "POST", PROFILES);
     let row: Value =
@@ -249,6 +284,30 @@ async fn existing_email_is_409() {
         value,
         json!({"error": "An account with that email address already exists."})
     );
+    assert_eq!(calls(&up, "POST", INVITE_TARGET).len(), 1);
+    assert!(calls(&up, "DELETE", NEW_USER).is_empty());
+}
+
+/// An invite to an existing unconfirmed account answers 200 with that (older) account: it is
+/// a taken email, so no profile is written and the account is not deleted.
+#[tokio::test]
+async fn invite_answered_with_an_existing_account_is_409_and_touches_nothing() {
+    let up = upstream(
+        vec![caller("professor")],
+        vec![json_reply(
+            200,
+            r#"{"id":"old-1","created_at":"2001-01-01T00:00:00Z"}"#,
+        )],
+    )
+    .await;
+    let (status, _, value) = reply(&up, post(GOOD, Some(SESSION))).await;
+    assert_eq!(status, StatusCode::CONFLICT);
+    assert_eq!(
+        value,
+        json!({"error": "An account with that email address already exists."})
+    );
+    assert!(calls(&up, "POST", PROFILES).is_empty());
+    assert!(up.seen().iter().all(|seen| seen.method != "DELETE"));
 }
 
 #[tokio::test]
@@ -270,7 +329,7 @@ async fn profile_write_failure_removes_the_new_user() {
             caller("professor"),
             json_reply(500, r#"{"message":"boom"}"#),
         ],
-        vec![json_reply(200, r#"{"id":"new-1"}"#)],
+        vec![json_reply(200, MADE_NOW)],
     )
     .await;
     let (status, _, value) = reply(&up, post(GOOD, Some(SESSION))).await;
@@ -289,7 +348,7 @@ async fn profile_write_conflict_is_409_and_removes_the_new_user() {
                 r#"{"code":"23505","message":"duplicate key value","details":"Key (email)=(new@example.com) already exists."}"#,
             ),
         ],
-        vec![json_reply(200, r#"{"id":"new-1"}"#)],
+        vec![json_reply(200, MADE_NOW)],
     )
     .await;
     let (status, _, value) = reply(&up, post(GOOD, Some(SESSION))).await;

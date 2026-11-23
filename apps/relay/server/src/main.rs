@@ -64,6 +64,8 @@ async fn run() -> Result<(), String> {
     let config = Config::from_env(|key| std::env::var(key).ok())?;
     let client = relay_client().map_err(|e| format!("cannot build the HTTP client: {e}"))?;
     let bind = config.bind;
+    let settings = SettingsConfig::from_env(|key| std::env::var(key).ok());
+    settings.check()?;
     let state = Arc::new(AppState {
         config,
         client,
@@ -72,7 +74,7 @@ async fn run() -> Result<(), String> {
         pages: RateLimiter::new(PAGE_FETCH_LIMIT),
         pastes: RateLimiter::new(PASTE_FETCH_LIMIT),
         storage: StorageConfig::from_env(|key| std::env::var(key).ok()),
-        settings: SettingsConfig::from_env(|key| std::env::var(key).ok()),
+        settings,
     });
     let collab = Arc::new(CollabState {
         config: CollabConfig::production(PathBuf::from(

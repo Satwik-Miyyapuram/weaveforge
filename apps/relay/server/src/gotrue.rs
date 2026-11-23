@@ -95,20 +95,24 @@ pub async fn resolve_member(state: &AppState, token: &str) -> Result<Option<Memb
     }))
 }
 
-/// Creates a confirmed auth user; the new user's id, or fixed wording on refusal:
-/// "Email already registered." for a taken email, else "Failed to create user.".
+/// Invites a new auth user by email (GoTrue `/invite`): the user sets their own password
+/// from the emailed link, which returns to `<app origin>/reset-password`. No password is
+/// ever sent. The new user's id, or fixed wording on refusal: "Email already registered."
+/// for a taken email, else "Failed to create user.".
 pub async fn admin_create_user(
     state: &AppState,
     email: &str,
-    password: &str,
     full_name: Option<&str>,
 ) -> Result<String, String> {
-    let mut body = json!({"email": email, "password": password, "email_confirm": true});
+    let mut body = json!({"email": email});
     if let Some(full_name) = full_name {
-        body["user_metadata"] = json!({"full_name": full_name});
+        body["data"] = json!({"full_name": full_name});
     }
+    let back_to = format!("{}/reset-password", state.settings.app_origin);
+    let back_to: String = ::url::form_urlencoded::byte_serialize(back_to.as_bytes()).collect();
+    let path = format!("/auth/v1/invite?redirect_to={back_to}");
     let made_after = SystemTime::now();
-    let answer = send(admin(state, Method::POST, "/auth/v1/admin/users", &body)).await?;
+    let answer = send(admin(state, Method::POST, &path, &body)).await?;
     if !answer.ok {
         log_refusal("admin create user", answer.status);
         let text = auth_message(&answer.body, "").to_lowercase();
@@ -126,31 +130,56 @@ pub async fn admin_create_user(
         });
     }
     if let Some(id) = user_id_of(&answer.body) {
-        return Ok(id);
-    }
-    // A 2xx that is not a JSON object did not come from GoTrue (a proxy page, say), so no
-    // user was made and nothing is cleaned up.
-    if !answer.body.is_object() {
+        match made_by_this_call(&answer.body, made_after) {
+            Some(true) => return Ok(id),
+            // GoTrue re-sends an invite to an existing unconfirmed account and answers 2xx
+            // with it: a taken email, left alone (no profile is written, nothing is deleted).
+            Some(false) => {
+                eprintln!("[gotrue admin create user] invite answered with an older user; refused");
+                return Err("Email already registered.".to_string());
+            }
+            // Undated: the user may be new, so it is cleaned up below like an unnamed one.
+            None => eprintln!("[gotrue admin create user] invite reply has no created_at"),
+        }
+    } else if !answer.body.is_object() {
+        // A 2xx that is not a JSON object did not come from GoTrue (a proxy page, say), so
+        // no user was made and nothing is cleaned up.
         eprintln!("[gotrue admin create user] 2xx reply was not a JSON object; nothing cleaned up");
         return Err("Failed to create user.".to_string());
     }
-    // GoTrue made the user but named no id, so the profile cannot be written: remove the
-    // half-made user (found by exact email) and fail, rather than leave it without a profile.
+    // GoTrue made a user it did not name or date, so the profile cannot safely be written:
+    // remove the half-made user (found by exact email) and fail, rather than leave it
+    // without a profile.
     remove_unnamed_user(state, email, made_after).await;
     Err("Failed to create user.".to_string())
+}
+
+/// Whether the user an invite answered with (bare, or under `user`) was made by that call:
+/// `Some(false)` for a `created_at` older than the skew allows, `None` when it is unreadable.
+fn made_by_this_call(body: &Value, made_after: SystemTime) -> Option<bool> {
+    let user = body
+        .get("user")
+        .filter(|user| user.is_object())
+        .unwrap_or(body);
+    let stamp = user.get("created_at").and_then(Value::as_str)?;
+    Some(made_since(stamp, made_after))
 }
 
 /// Users per lookup page, and the most pages read, when finding a user by email.
 const LOOKUP_PAGE_SIZE: usize = 50;
 const LOOKUP_MAX_PAGES: usize = 20;
 /// How far a user's `created_at` may sit before the create call (clock skew between the
-/// relay and the auth server) and still count as the user that call made.
-const CREATE_CLOCK_SKEW: Duration = Duration::from_secs(600);
+/// relay and the auth server) and still count as the user that call made. Kept tight: an
+/// account made by someone else inside this window would be taken for this call's own.
+/// Assumes the relay and auth clocks agree within it (both NTP-synced). If the auth clock
+/// trails by more, a new user reads as older: refused as taken and left with no profile,
+/// which fails closed (a user with no profile row is never resolved as a member).
+const CREATE_CLOCK_SKEW: Duration = Duration::from_secs(30);
 
-/// Deletes the one auth user whose email is `email` (ignoring ASCII case), whose email is
-/// confirmed (the create asked for that), who was created no more than `CREATE_CLOCK_SKEW`
+/// Deletes the one auth user whose email is `email` (ignoring ASCII case), who was invited
+/// (`invited_at` set, as the invite does), who was created no more than `CREATE_CLOCK_SKEW`
 /// before `made_after` and who has no profile row yet. Best effort and fail closed: a failed
-/// lookup, no match, several matches, an unconfirmed match, an older or unreadable
+/// lookup, no match, several matches, a match never invited, an older or unreadable
 /// `created_at`, a profile row or a failed profile check deletes nothing and is only logged.
 async fn remove_unnamed_user(state: &AppState, email: &str, made_after: SystemTime) {
     let Some(matches) = users_with_email(state, email).await else {
@@ -168,9 +197,9 @@ async fn remove_unnamed_user(state: &AppState, email: &str, made_after: SystemTi
         eprintln!("[gotrue admin create user] no id; match has a bad id, nothing deleted");
         return;
     }
-    // The create sent `email_confirm: true`, so an unconfirmed match is another signup.
-    if !user.get("email_confirmed_at").is_some_and(Value::is_string) {
-        eprintln!("[gotrue admin create user] no id; match is unconfirmed, nothing deleted");
+    // The call was an invite, so a match with no `invited_at` is another signup.
+    if !user.get("invited_at").is_some_and(Value::is_string) {
+        eprintln!("[gotrue admin create user] no id; match is not invited, nothing deleted");
         return;
     }
     // An account made before this call is someone else's, whatever its profile state.
@@ -473,15 +502,18 @@ mod tests {
 
     #[test]
     fn made_since_holds_at_the_skew_and_fails_just_past_it() {
-        // 2024-12-31T23:59:59Z; the floor is 600 s earlier, 23:49:59.
+        // 2024-12-31T23:59:59Z; the floor is 30 s earlier, 23:59:29.
         let made_after = UNIX_EPOCH + Duration::from_secs(1_735_689_599);
-        assert_eq!(CREATE_CLOCK_SKEW, Duration::from_secs(600));
+        assert_eq!(CREATE_CLOCK_SKEW, Duration::from_secs(30));
+        assert!(made_since("2025-01-01T00:00:05Z", made_after));
         assert!(made_since("2024-12-31T23:59:59Z", made_after));
-        assert!(made_since("2024-12-31T23:50:00Z", made_after));
-        assert!(made_since("2024-12-31T23:49:59Z", made_after));
-        assert!(made_since("2024-12-31T23:49:59.5+00:00", made_after));
-        assert!(!made_since("2024-12-31T23:49:58Z", made_after));
-        assert!(!made_since("2024-12-31T23:49:58.999999Z", made_after));
+        assert!(made_since("2024-12-31T23:59:30Z", made_after));
+        assert!(made_since("2024-12-31T23:59:29Z", made_after));
+        assert!(made_since("2024-12-31T23:59:29.5+00:00", made_after));
+        assert!(!made_since("2024-12-31T23:59:28Z", made_after));
+        assert!(!made_since("2024-12-31T23:59:28.999999Z", made_after));
+        // Ten minutes old: inside the old 600 s window, outside this one.
+        assert!(!made_since("2024-12-31T23:49:59Z", made_after));
         assert!(!made_since("2024-12-01T23:59:59Z", made_after));
     }
 
