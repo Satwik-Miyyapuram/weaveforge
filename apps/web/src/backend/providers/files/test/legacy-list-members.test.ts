@@ -82,12 +82,48 @@ test("an old list file is rewritten: members move to their frontmatter, the list
   assert.deepEqual(readMemberFields(await fs.readText(P1)), { lists: [LINK], listNotes: { [LINK]: "key" } });
   const listText = await fs.readText(LIST);
   assert.doesNotMatch(listText, /paper-one/);
-  assert.doesNotMatch(listText, /^member-notes:/m);
+  // The fixture note entry is { id, order, note }: not exactly { note }, so it stays in the list file.
+  assert.match(listText, /"id": ?"i1"/);
   const repo = new FileReadingListItemRepository(fs, () => ROOT);
   assert.deepEqual((await repo.listItems("l1")).map((i) => i.id), ["l1:p1"]);
   assert.deepEqual((await repo.legacyLeftovers("l1")).map((l) => l.legacyLink), ["[[Ghost.paper]]"]);
 });
 
+/** A 0.9.6 list file with the given members and member-notes lines (frontmatter values as JSON). */
+function listWith(members: string, notes: string): string {
+  return ["---", 'weaveforge-id: "l1"', 'weaveforge-type: "reading_list"', 'title: "Review"', `members: ${members}`, `member-notes: ${notes}`, "---", ""].join("\n");
+}
+
+test("a member-notes entry with an extra field survives the move; the member still moves", async () => {
+  const fs = await setup();
+  await fs.writeFile(LIST, listWith('["[[paper-one.paper]]"]', '{"paper:p1": {"note": "key", "extra": 1}}'));
+  await migrateLegacyLists(fs, () => ROOT);
+  assert.deepEqual(readMemberFields(await fs.readText(P1)), { lists: [LINK], listNotes: { [LINK]: "key" } });
+  const listText = await fs.readText(LIST);
+  assert.match(listText, /"extra": ?1/);
+  assert.doesNotMatch(listText, /paper-one/);
+});
+
+test("a members object entry with an extra field beyond link survives the move", async () => {
+  const fs = await setup();
+  await fs.writeFile(LIST, listWith('[{"link": "[[paper-one.paper]]", "extra": true}]', "{}"));
+  await migrateLegacyLists(fs, () => ROOT);
+  assert.deepEqual(readMemberFields(await fs.readText(P1)).lists, [LINK]);
+  assert.match(await fs.readText(LIST), /"extra": ?true/);
+});
+
+test("a member-notes entry that is exactly { note } is removed with its moved member", async () => {
+  const fs = await setup();
+  await fs.writeFile(LIST, listWith('["[[paper-one.paper]]"]', '{"paper:p1": {"note": "key"}}'));
+  await migrateLegacyLists(fs, () => ROOT);
+  assert.doesNotMatch(await fs.readText(LIST), /member-notes/);
+});
+test("a member-notes entry whose note is not a string is kept in the list file", async () => {
+  const fs = await setup();
+  await fs.writeFile(LIST, listWith('["[[paper-one.paper]]"]', '{"paper:p1": {"note": 5}}'));
+  await migrateLegacyLists(fs, () => ROOT);
+  assert.match(await fs.readText(LIST), /"note": ?5/);
+});
 test("a duplicate legacy link gives one leftover and no duplicate item id", async () => {
   const fs = await setup();
   await fs.writeFile(
