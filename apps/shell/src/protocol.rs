@@ -249,7 +249,12 @@ pub fn respond(
         return not_found();
     }
     if path.starts_with("/api/") {
-        return not_found();
+        // Reached only when no relay answered: the shell's relay client did not start.
+        return Reply {
+            status: 404,
+            headers: app_headers("text/plain; charset=utf-8"),
+            body: b"relay unavailable".to_vec(),
+        };
     }
     if let Some(c) = canonical_path(path) {
         let location = match query {
@@ -302,6 +307,13 @@ mod tests {
 
     fn root() -> &'static Path {
         Path::new("/bundle")
+    }
+
+    #[test]
+    fn an_api_path_no_relay_answered_says_relay_unavailable() {
+        let reply = respond(root(), Some("app.localhost"), "/api/html-proxy", Some("url=x"), None);
+        assert_eq!(reply.status, 404);
+        assert_eq!(reply.body, b"relay unavailable".to_vec());
     }
 
     /// Pushes each `/`-separated piece of `rel` onto `base`.

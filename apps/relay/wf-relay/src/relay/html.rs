@@ -154,6 +154,10 @@ fn page_headers() -> HeaderMap {
 fn page_refusal(response: &reqwest::Response, max: usize) -> Option<Refusal> {
     let status = response.status();
     if !status.is_success() {
+        // The site refused the page: relayed as 403, which the reader reads as blocked.
+        if matches!(status.as_u16(), 401 | 403 | 429 | 451) {
+            return Some(refuse(403, "Upstream refused the page"));
+        }
         return Some(refuse(
             502,
             &format!("Upstream returned {}", status.as_u16()),
@@ -279,4 +283,62 @@ fn charset_in_tag(rest: &[u8]) -> Option<String> {
         .rev()
         .filter(|&i| i >= 1)
         .find_map(|i| label_at(tag, i + "charset".len(), b"\"'"))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    use tokio::net::TcpListener;
+
+    /// Serves one HTTP response with `status_line` to the next connection, and
+    /// returns the address of that page.
+    async fn serve_once(status_line: &'static str) -> Url {
+        let listener = TcpListener::bind("127.0.0.1:0").await.expect("bind");
+        let addr = listener.local_addr().expect("addr");
+        tokio::spawn(async move {
+            if let Ok((mut socket, _)) = listener.accept().await {
+                let mut request = [0u8; 4096];
+                let _ = socket.read(&mut request).await;
+                let response = format!(
+                    "HTTP/1.1 {status_line}\r\ncontent-type: text/html\r\ncontent-length: 0\r\nconnection: close\r\n\r\n"
+                );
+                let _ = socket.write_all(response.as_bytes()).await;
+            }
+        });
+        Url::parse(&format!("http://{addr}/post")).expect("url")
+    }
+
+    /// The status the relay answers with for a page the upstream answers with `status_line`.
+    async fn relayed_status(status_line: &'static str) -> u16 {
+        let target = serve_once(status_line).await;
+        let client = reqwest::Client::new();
+        relay_html(
+            &client,
+            &target,
+            &|_: &Url| true,
+            HTML_PROXY_MAX_BYTES,
+            HTML_TIMEOUT,
+        )
+        .await
+        .status
+    }
+
+    #[tokio::test]
+    async fn a_site_that_refuses_the_page_is_relayed_as_blocked() {
+        for status_line in [
+            "401 Unauthorized",
+            "403 Forbidden",
+            "429 Too Many Requests",
+            "451 Unavailable For Legal Reasons",
+        ] {
+            assert_eq!(relayed_status(status_line).await, 403, "upstream {status_line}");
+        }
+    }
+
+    #[tokio::test]
+    async fn other_upstream_failures_stay_bad_gateway() {
+        assert_eq!(relayed_status("500 Internal Server Error").await, 502);
+        assert_eq!(relayed_status("404 Not Found").await, 502);
+    }
 }

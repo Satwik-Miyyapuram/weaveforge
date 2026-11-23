@@ -656,7 +656,20 @@ fn start_routes(app: &tauri::AppHandle) {
         models: data.join("models"),
         artifacts: data.join("artifacts"),
         model_client: model_cache::model_client(model_cache::is_upstream_url).ok(),
-        relay_client: relay::shared::relay_client().ok(),
+        relay_client: match relay::shared::relay_client() {
+            Ok(client) => Some(client),
+            Err(error) => {
+                if let Some(log) = app.try_state::<app_log::AppLog>() {
+                    log.record(
+                        app_log::LogLevel::Warn,
+                        "relay",
+                        "Relay client did not start; /api/ relays are unavailable",
+                        Some(&error.to_string()),
+                    );
+                }
+                None
+            }
+        },
         relay_config: relay::route::RelayConfig::production(),
         prefs: app.try_state::<prefs::Prefs>().map(|s| s.inner().clone()),
         secrets: app
