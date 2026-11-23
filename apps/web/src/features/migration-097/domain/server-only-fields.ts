@@ -23,6 +23,9 @@ export const SERVER_ONLY_FIELDS: Readonly<Record<string, readonly string[]>> = {
   ink: OWNER_COLUMNS,
   tags: OWNER_COLUMNS,
   paperFields: OWNER_COLUMNS,
+  // Sync and search bookkeeping the note and paper files never hold.
+  notes: [...OWNER_COLUMNS, "serverSeq", "rowVersion", "snapshotUpto", "bodyPreview", "deletedAt"],
+  papers: [...OWNER_COLUMNS, "doiBidx", "arxivBidx", "serverSeq", "rowVersion", "deletedAt"],
   // A value's file id is `<paper id>:<field id>`, not the server row id, so `id` is not compared either.
   paperFieldValues: ["id", ...OWNER_COLUMNS],
 };

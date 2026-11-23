@@ -30,10 +30,29 @@ function withoutServerOnly(kind: string, row: Row): Row {
   return Object.fromEntries(Object.entries(row).filter(([k]) => !skip.has(k)));
 }
 
+/** Kinds whose files store a null column as an absent key, so null and absent compare equal. */
+const NULL_IS_ABSENT: ReadonlySet<string> = new Set(["notes", "papers", "comments"]);
+
 /** Compared form of a row: a null blob contentType and octet-stream are the same "unknown" type. */
 function comparable(kind: string, row: Row): Row {
   const out = withoutServerOnly(kind, row);
   if (kind === "blobs") out.contentType = out.contentType ?? "application/octet-stream";
+  if (NULL_IS_ABSENT.has(kind)) {
+    // These files leave a null column out, and a note leaves out a false pinned or folder.
+    for (const k of Object.keys(out)) if (out[k] === null || out[k] === undefined) delete out[k];
+    if (kind === "notes") {
+      if (out.pinned === false) delete out.pinned;
+      if (out.folder === false) delete out.folder;
+      // A note file has no kind: "note" is 0157's default (null, already dropped, reads as a note too).
+      if (out.kind === "note") delete out.kind;
+      // The note repo stores CRLF as LF, as the app does.
+      if (typeof out.body === "string") out.body = out.body.replace(/\r\n?/g, "\n");
+    }
+    if (kind === "comments") {
+      // The sidecar's anchor stores an absent part as "", so a "" part on the server is the same as null.
+      for (const k of ["anchorQuote", "anchorPrefix", "anchorSuffix"]) if (out[k] === "") delete out[k];
+    }
+  }
   return out;
 }
 

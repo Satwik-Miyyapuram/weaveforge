@@ -34,7 +34,7 @@ test("web run without runDeviceId is refused with a fixed reason and writes no b
   assert.equal(result.state, "incomplete");
   assert.deepEqual(
     result.run.missing.map((m) => m.reason),
-    ["device id missing"],
+    ["no device id: the browser install id is missing or malformed"],
   );
   assert.equal(result.run.deviceId, undefined, "no invented device id is recorded");
   const written = (await sink.list()).filter((p) => !p.startsWith(".weaveforge/"));

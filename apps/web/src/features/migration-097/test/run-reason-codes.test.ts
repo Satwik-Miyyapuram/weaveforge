@@ -75,10 +75,11 @@ test("run: a backup or outbox error message with a path never reaches report.jso
     },
     debugLog: (line) => debug.push(line),
   });
-  const backupReport = await backupSink.readText(await onlyReportPath(backupSink));
+  // A failed backup leaves the run with no device id, so writeReport writes no report.json at all.
   assert.equal(backedUp.state, "incomplete");
-  assert.ok(backupReport.includes("backup-failed"));
-  assert.ok(!backupReport.includes("/secret/path"));
+  assert.deepEqual(backedUp.run.missing.map((m) => m.reason), ["backup-failed"]);
+  assert.ok(!JSON.stringify(backedUp.run).includes("/secret/path"));
+  assert.deepEqual(await backupSink.list(), [], "no report.json is written");
   assert.ok(debug.some((l) => l.includes("/secret/path/backup.dump")));
 
   const outboxSink = new MemorySink();

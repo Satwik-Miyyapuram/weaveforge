@@ -90,6 +90,11 @@ export class FileNoteRepository implements IVaultPageRepository {
     return (await this.readAll()).find((f) => f.page.id === id)?.page ?? null;
   }
 
+  /** The file that holds note `id`, or null. */
+  async pathOf(id: string): Promise<string | null> {
+    return (await this.readAll()).find((f) => f.page.id === id)?.path ?? null;
+  }
+
   async list(filter: VaultPageFilter = {}): Promise<VaultPage[]> {
     const needle = filter.query?.toLowerCase();
     return (await this.readAll())
