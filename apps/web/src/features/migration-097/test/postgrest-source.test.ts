@@ -241,7 +241,29 @@ test("a table without a deleted_at column is listed with no deleted_at filter (P
   await sourceWith(fetch).listRows("settings");
   assert.equal(
     calls[0]?.url,
-    `${BASE}/user_settings?user_id=eq.${USER}&order=id.asc&limit=1000&offset=0`,
+    `${BASE}/user_settings?user_id=eq.${USER}&order=user_id.asc&limit=1000&offset=0`,
+  );
+});
+
+test("tables with no id column page in their key order, never order=id (PostgREST would 400)", async () => {
+  const { fetch, calls } = fakeFetch(() => Response.json([]));
+  await sourceWith(fetch).listRows("metrics");
+  assert.equal(
+    calls[0]?.url,
+    `${BASE}/experiment_metrics?user_id=eq.${USER}&order=experiment_id.asc,metric.asc,step.asc&limit=1000&offset=0`,
+  );
+});
+
+test("listProjects reads the user's live projects (id, name, createdAt), in id order", async () => {
+  // Paging stops on an empty page, so only offset 0 answers a row.
+  const { fetch, calls } = fakeFetch((call) =>
+    Response.json(new URL(call.url).searchParams.get("offset") === "0" ? [{ id: "p1", name: "Thesis", created_at: NOW }] : []),
+  );
+  const projects = await sourceWith(fetch).listProjects();
+  assert.deepEqual(projects, [{ id: "p1", name: "Thesis", createdAt: NOW }]);
+  assert.equal(
+    calls[0]?.url,
+    `${BASE}/projects?select=id,name,created_at&user_id=eq.${USER}&deleted_at=is.null&order=id.asc&limit=1000&offset=0`,
   );
 });
 
