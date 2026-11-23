@@ -53,10 +53,10 @@ export const commands = {
 	/**  Bridge: whether old local-database data is on this device (`legacyDbPresent`). */
 	legacyDbPresent: () => typedError<boolean, ShellError_Serialize>(__TAURI_INVOKE("legacy_db_present")),
 	/**
-	 *  Bridge: whether this device's own run in the 0.9.7 report of the workspace at `folder` is
-	 *  verified (`migrationReportVerified`). Reads this device's id from app data, never creates it.
-	 *  An unreadable report is a typed error; an unreadable id file passes (`true`), as the install
-	 *  gate fails open.
+	 *  Bridge: whether the install gate passes for the workspace at `folder` (`migrationReportVerified`):
+	 *  this device's own 0.9.7 report is verified AND its secrets-moved marker names this device. Reads
+	 *  this device's id from app data, never creates it. An unreadable report is a typed error; an
+	 *  unreadable id file passes (`true`), as the install gate fails open.
 	 */
 	migrationReportVerified: (folder: string) => typedError<boolean, ShellError_Serialize>(__TAURI_INVOKE("migration_report_verified", { folder })),
 	/**
@@ -1268,7 +1268,13 @@ export type Phase =
 /**  The installer is running; the app is about to close and reopen. */
 "installing" | 
 /**  The last check or install failed; `error` says so and a retry is allowed. */
-"failed";
+"failed" | 
+/**
+ *  The release is offered but refused until local data is exported and verified. Not a
+ *  failure: `error` names the rule. No install starts from here; a new check may offer it
+ *  again.
+ */
+"held";
 
 /**  The plan widget, as `DesktopPlanWidget` in apps/web/src/lib/desktop/desktop-bridge.ts. */
 export type PlanWidgetStatePayload = {
