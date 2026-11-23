@@ -15,7 +15,7 @@ use wf_relay_server::config::Config;
 use wf_relay_server::credential_crypto::{MISSING_KEY, open};
 use wf_relay_server::legacy_credentials::legacy_secrets;
 use wf_relay_server::limiter::{PAGE_FETCH_LIMIT, PASTE_FETCH_LIMIT, RateLimiter};
-use wf_relay_server::routes::{AppState, app};
+use wf_relay_server::routes::{AppState, retired_app};
 use wf_relay_server::seal_legacy::{Report, seal_legacy_credentials};
 use wf_relay_server::settings::SettingsConfig;
 use wf_relay_server::storage::StorageConfig;
@@ -416,7 +416,7 @@ async fn get(up: &Upstream, key: Option<&str>) -> (StatusCode, HeaderMap, Value)
         .header("authorization", SESSION)
         .body(Body::empty())
         .expect("request");
-    let response = app(state(up, key))
+    let response = retired_app(state(up, key))
         .oneshot(req)
         .await
         .expect("router is infallible");

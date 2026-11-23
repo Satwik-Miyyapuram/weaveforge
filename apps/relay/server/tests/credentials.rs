@@ -15,7 +15,7 @@ use wf_relay_server::config::Config;
 use wf_relay_server::credential_crypto::{AUTH_FAILED, MISSING_KEY, open, seal, seal_with_iv};
 use wf_relay_server::credentials::clean_secrets;
 use wf_relay_server::limiter::{PAGE_FETCH_LIMIT, PASTE_FETCH_LIMIT, RateLimiter};
-use wf_relay_server::routes::{AppState, app};
+use wf_relay_server::routes::{AppState, retired_app};
 use wf_relay_server::settings::SettingsConfig;
 use wf_relay_server::storage::StorageConfig;
 use wf_relay_server::url_meta::MetaUpstreams;
@@ -91,7 +91,7 @@ async fn call(
     settings: SettingsConfig,
     req: Request<Body>,
 ) -> (StatusCode, HeaderMap, Value) {
-    let response = app(state(up, settings))
+    let response = retired_app(state(up, settings))
         .oneshot(req)
         .await
         .expect("router is infallible");

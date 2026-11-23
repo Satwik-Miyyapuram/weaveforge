@@ -20,7 +20,6 @@ use wf_relay_server::url_meta::MetaUpstreams;
 const SESSION: &str = "Bearer a.b.c";
 const AUTH_USER: &str = "/auth/v1/user";
 const PROFILES: &str = "/rest/v1/profiles";
-const PROJECTS: &str = "/rest/v1/projects";
 const EXPERIMENTS: &str = "/rest/v1/experiments";
 
 fn json_reply(status: u16, body: &str) -> Reply {
@@ -97,7 +96,6 @@ async fn every_route_refuses_a_missing_token_before_anything_else() {
     let up = upstream(vec![]).await;
     let cases = [
         ("GET", "/api/sdk/whoami", ""),
-        ("GET", "/api/sdk/projects?name=Thesis", ""),
         ("GET", "/api/sdk/experiments?id=e1", ""),
         ("POST", "/api/sdk/experiments", "not json"),
         ("DELETE", "/api/sdk/experiments?id=e1", ""),
@@ -150,57 +148,6 @@ async fn whoami_with_a_profile_error_answers_null_names() {
     assert_eq!(
         value,
         json!({"userId": "user-1", "email": null, "fullName": null})
-    );
-}
-
-#[tokio::test]
-async fn projects_without_a_name_is_400() {
-    let up = upstream(vec![]).await;
-    for uri in ["/api/sdk/projects", "/api/sdk/projects?name=%20"] {
-        let (status, value) = send(&up, request("GET", uri, "")).await;
-        assert_eq!(status, StatusCode::BAD_REQUEST, "{uri}");
-        assert_eq!(value, json!({"error": "Missing project name."}), "{uri}");
-    }
-}
-
-#[tokio::test]
-async fn projects_returns_the_matching_id() {
-    let up = upstream(vec![(
-        PROJECTS,
-        vec![json_reply(200, r#"[{"id":"p1","name":"Thesis"}]"#)],
-    )])
-    .await;
-    let (status, value) = send(&up, request("GET", "/api/sdk/projects?name=Thesis", "")).await;
-    assert_eq!(status, StatusCode::OK);
-    assert_eq!(value, json!({"projectId": "p1"}));
-    let target = &rest_calls(&up)[0].target;
-    assert!(target.contains("name=eq.Thesis"));
-    assert!(target.contains("limit=1"));
-}
-
-#[tokio::test]
-async fn projects_with_no_match_answers_null() {
-    let up = upstream(vec![(PROJECTS, vec![json_reply(200, "[]")])]).await;
-    let (status, value) = send(&up, request("GET", "/api/sdk/projects?name=Thesis", "")).await;
-    assert_eq!(status, StatusCode::OK);
-    assert_eq!(value, json!({"projectId": null}));
-}
-
-#[tokio::test]
-async fn projects_database_error_is_500_with_safe_wording() {
-    let up = upstream(vec![(
-        PROJECTS,
-        vec![json_reply(
-            403,
-            r#"{"code":"42501","message":"permission denied for table projects"}"#,
-        )],
-    )])
-    .await;
-    let (status, value) = send(&up, request("GET", "/api/sdk/projects?name=Thesis", "")).await;
-    assert_eq!(status, StatusCode::INTERNAL_SERVER_ERROR);
-    assert_eq!(
-        value,
-        json!({"error": "You do not have permission to do that. (42501)"})
     );
 }
 

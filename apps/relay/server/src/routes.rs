@@ -10,7 +10,7 @@ use axum::extract::{DefaultBodyLimit, State};
 use axum::http::header::{AUTHORIZATION, CONTENT_TYPE, RETRY_AFTER};
 use axum::http::{HeaderMap, HeaderName, HeaderValue, Method, StatusCode, Uri};
 use axum::response::Response;
-use axum::routing::{get, post};
+use axum::routing::{any, get, post};
 use base64::Engine as _;
 use base64::engine::general_purpose::STANDARD;
 use reqwest::Url;
@@ -38,10 +38,19 @@ use crate::settings::SettingsConfig;
 use crate::storage::StorageConfig;
 use crate::url_meta::{MetaUpstreams, url_meta};
 use crate::{
-    account, admin_users, credentials, mcp_relay, overleaf_connections, overleaf_report_content,
-    overleaf_reports, overleaf_workshop, plan_feed, report_issue, settings_routes,
-    zotero_collections,
+    account, admin_users, credentials, gone, mcp_relay, overleaf_connections,
+    overleaf_report_content, overleaf_reports, overleaf_workshop, plan_feed, report_issue,
+    settings_routes, zotero_collections,
 };
+
+/// The routes whose tables 1.0.0 drops; `app` answers 410 on each (see [`gone`]).
+const RETIRED_PATHS: [&str; 5] = [
+    "/api/sdk/projects",
+    "/api/settings/credentials",
+    "/api/overleaf/connections",
+    "/api/overleaf/reports",
+    "/api/overleaf/reports/{id}/content",
+];
 
 const FETCH_URL_PATH: &str = "/api/fetch-url";
 /// Same caching as the Next.js arXiv route on success.
@@ -85,7 +94,6 @@ pub fn app(state: Arc<AppState>) -> Router {
         .route(FETCH_URL_PATH, get(fetch_url))
         .route(URL_META_PATH, get(url_meta_route))
         .route("/api/sdk/whoami", get(sdk::whoami))
-        .route("/api/sdk/projects", get(sdk::projects))
         .route(
             "/api/sdk/experiments",
             get(sdk::experiments_get)
@@ -132,15 +140,49 @@ pub fn app(state: Arc<AppState>) -> Router {
                 .post(settings_routes::mcp_tokens_post)
                 .delete(settings_routes::mcp_tokens_delete),
         )
-        .route(
-            "/api/settings/credentials",
-            get(credentials::credentials_get).post(credentials::credentials_post),
-        )
         .route("/api/report-issue", post(report_issue::report_issue))
         .merge(plan_feed_routes())
         .merge(account_routes())
         .merge(integration_routes())
+        .merge(gone_routes())
         .layer(cors)
+        .with_state(state)
+}
+
+/// Every retired path, answering 410 on any method.
+fn gone_routes() -> Router<Arc<AppState>> {
+    RETIRED_PATHS
+        .into_iter()
+        .fold(Router::new(), |router, path| {
+            router.route(path, any(gone::gone))
+        })
+}
+
+/// The retired handlers on their old paths. Not mounted by [`app`]: it exists so
+/// the handler tests keep running until the 1.0.0 drop deletes these modules.
+pub fn retired_app(state: Arc<AppState>) -> Router {
+    Router::new()
+        .route(
+            "/api/settings/credentials",
+            get(credentials::credentials_get).post(credentials::credentials_post),
+        )
+        .route(
+            "/api/overleaf/connections",
+            get(overleaf_connections::connections_get)
+                .post(overleaf_connections::connections_post)
+                .delete(overleaf_connections::connections_delete),
+        )
+        .route(
+            "/api/overleaf/reports",
+            get(overleaf_reports::reports_get)
+                .post(overleaf_reports::reports_post)
+                .patch(overleaf_reports::reports_patch)
+                .delete(overleaf_reports::reports_delete),
+        )
+        .route(
+            "/api/overleaf/reports/{id}/content",
+            get(overleaf_report_content::content_get),
+        )
         .with_state(state)
 }
 
@@ -165,19 +207,6 @@ fn account_routes() -> Router<Arc<AppState>> {
 /// Overleaf links, Zotero collections and the MCP relay.
 fn integration_routes() -> Router<Arc<AppState>> {
     Router::new()
-        .route(
-            "/api/overleaf/connections",
-            get(overleaf_connections::connections_get)
-                .post(overleaf_connections::connections_post)
-                .delete(overleaf_connections::connections_delete),
-        )
-        .route(
-            "/api/overleaf/reports",
-            get(overleaf_reports::reports_get)
-                .post(overleaf_reports::reports_post)
-                .patch(overleaf_reports::reports_patch)
-                .delete(overleaf_reports::reports_delete),
-        )
         .route(
             "/api/integrations/zotero/collections",
             post(zotero_collections::collections_post),
@@ -208,10 +237,6 @@ fn integration_routes() -> Router<Arc<AppState>> {
         .route(
             "/api/overleaf/workshop/pdf",
             post(overleaf_workshop::pdf_post),
-        )
-        .route(
-            "/api/overleaf/reports/{id}/content",
-            get(overleaf_report_content::content_get),
         )
 }
 

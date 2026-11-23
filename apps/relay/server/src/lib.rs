@@ -20,6 +20,7 @@ pub mod collab;
 pub mod config;
 pub mod credential_crypto;
 pub mod credentials;
+pub mod gone;
 pub mod gotrue;
 pub mod legacy_credentials;
 pub mod limiter;
