@@ -290,3 +290,25 @@ test("legacyLeftovers with no list id gives every list's leftovers, so the scree
   const repo = new FileReadingListItemRepository(fs, () => ROOT);
   assert.deepEqual((await repo.legacyLeftovers()).map((l) => l.legacyLink), ["[[Ghost.paper]]"]);
 });
+
+test("a member-notes entry { id, order, note } stays: the legacy order is not carried by the move", async () => {
+  const fs = await setup();
+  await fs.writeFile(LIST, listWith('["[[paper-one.paper]]"]', '{"paper:p1": {"id": "i1", "order": 1, "note": "key"}}'));
+  await migrateLegacyLists(fs, () => ROOT);
+  assert.match(await fs.readText(LIST), /"order": ?1/);
+});
+
+test("a member-notes entry { id, order, note, x } stays in the list file", async () => {
+  const fs = await setup();
+  await fs.writeFile(LIST, listWith('["[[paper-one.paper]]"]', '{"paper:p1": {"id": "i1", "order": 1, "note": "key", "x": 1}}'));
+  await migrateLegacyLists(fs, () => ROOT);
+  assert.match(await fs.readText(LIST), /"x": ?1/);
+});
+
+test("a moved list keeps each member's id", async () => {
+  const fs = await setup();
+  await fs.writeFile(LIST, listWith('["[[paper-two.paper]]", "[[paper-one.paper]]"]', "{}"));
+  await migrateLegacyLists(fs, () => ROOT);
+  const repo = new FileReadingListItemRepository(fs, () => ROOT);
+  assert.deepEqual(new Set((await repo.listItems("l1")).map((i) => i.id)), new Set(["l1:p1", "l1:p2"]));
+});
