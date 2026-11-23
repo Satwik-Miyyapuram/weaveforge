@@ -127,6 +127,31 @@ test("(098 P2 hung) aborted while the server mark was in flight: pending set, no
   assert.equal(await readSwitchMarker(sink), null);
 });
 
+test("(098 P2 hung) aborted while the report update was in flight: pending set, no marker", async () => {
+  const controller = new AbortController();
+  // The report read inside recordServerMarked lands after the timeout aborted the switch.
+  class AbortOnReportRead extends MemorySink {
+    override async readText(path: string): Promise<string> {
+      if (path === ownReportPath(INSTALL_ID)) controller.abort();
+      return super.readText(path);
+    }
+  }
+  const sink = new AbortOnReportRead();
+  const events: string[] = [];
+  let closed = 0;
+  const h = harness({
+    signal: controller.signal,
+    openSink: async () => sink,
+    openWiring: async () => ({ close: async () => void (closed += 1) }) as unknown as typeof WIRING,
+    pending: { set: () => void events.push("set"), clear: () => void events.push("clear") },
+  });
+  const out = await decideBrowserSwitch(h.deps);
+  assert.deepEqual(out, { switch: false, reason: "error" });
+  assert.deepEqual(events, ["set"], "the server is marked, so the next start stays read-only");
+  assert.equal(closed, 1, "the opened files are closed");
+  assert.equal(await readSwitchMarker(sink), null, "no marker after the abort");
+});
+
 test("(a) a fresh verified run switches to the OPFS wiring", async () => {
   const h = harness();
   const out = await decideBrowserSwitch(h.deps);

@@ -88,7 +88,9 @@ export async function decideBrowserSwitch(deps: SwitchDeps): Promise<SwitchDecis
       return { switch: false, reason: "not-verified" };
     }
     // Past the timeout, Retry may start a fresh export: a mark call that resolves late writes nothing more
-    // here. The pending flag set before the check keeps the next start read-only.
+    // here. The pending flag set before the check keeps the next start read-only. Accepted window:
+    // recordServerMarked writes the raw sink, so a write of its own that hangs past the abort and the
+    // Retry grace can race a fresh run's report write. The fresh run re-verifies, so no data is lost.
     const stopIfAborted = () => deps.signal?.throwIfAborted();
     try {
       await source.markExported097();
