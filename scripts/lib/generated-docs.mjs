@@ -1,7 +1,7 @@
 /**
- * Files `npm run docs:generate` writes. The git hooks stage and commit only
+ * Files `npm run docs:generate` writes. The pre-push runner commits only
  * these, so other docs being edited by hand stay out of the commit.
- * Run directly, it prints them one per line for the shell hook.
+ * Run directly, it prints them one per line.
  */
 
 import { fileURLToPath } from "node:url";

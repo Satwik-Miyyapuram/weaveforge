@@ -2,6 +2,7 @@
 # Automatically purge rogue desktop.ini files from .git and workspace
 node scripts/clean-desktop-ini.mjs
 
-# Regenerate the generated docs from what is staged, and stage them with the commit
-npm run docs:generate || exit 1
-git add $(node scripts/lib/generated-docs.mjs) || exit 1
+# The generated docs (scripts/lib/generated-docs.mjs) are not touched here:
+# their line counts change with every commit, and staging them from a hook
+# pulled them into unrelated commits. The pre-push runner regenerates and
+# commits them on their own, and CI runs check:docs.

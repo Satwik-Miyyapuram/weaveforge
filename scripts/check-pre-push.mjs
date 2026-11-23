@@ -35,9 +35,9 @@ function run(cmd, desc) {
 // 1. Purge any rogue desktop.ini files
 run("node scripts/clean-desktop-ini.mjs", "Cleaning rogue desktop.ini files");
 
-// 2. Ensure docs are fresh. The pre-commit hook normally keeps them current;
-// a commit made without it (commit-tree, a merge) is caught here and the
-// regenerated docs are committed. A push cannot pick up a commit made during
+// 2. Ensure docs are fresh. The pre-commit hook leaves them alone (their line
+// counts change with every commit), so they are regenerated here and, when
+// stale, committed on their own. A push cannot pick up a commit made during
 // it, so the push stops and asks to be run again.
 run("npm run docs:generate", "Regenerating architecture docs");
 const docs = GENERATED_DOCS.join(" ");
