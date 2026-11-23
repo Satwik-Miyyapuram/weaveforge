@@ -284,8 +284,8 @@ NEXT_PUBLIC_GIT_READ_PROVIDERS=github,gitlab      # comma-separated | none
 ```
 
 - Set a provider to `none` to disable that port (noop adapter + hidden Settings rows).
-- User and project tokens are **never** in environment variables; they are stored in this
-  computer's keychain (desktop); the web stores none.
+- User and project tokens are **never** in environment variables. The desktop and Android
+  apps keep them in the device's system keychain; the browser does not save API keys.
 
 For comprehensive instructions on writing new adapters, manifests, and contract tests,
 see [`extensions.md`](extensions.md).

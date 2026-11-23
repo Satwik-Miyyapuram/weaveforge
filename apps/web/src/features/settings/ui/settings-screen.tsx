@@ -9,7 +9,7 @@ import { userSettingsFromCore, userSettingsToCore } from "@/features/settings/in
 import { Modal, ModalActions } from "@/components/modal";
 import { KeychainUnavailableError } from "@/backend/device-secrets-store";
 import { KeychainMissingDialog } from "./keychain-missing-dialog";
-import { SkippedKeysNotice } from "./skipped-keys-notice";
+import { DEVICE_KEYS_LINE, SkippedKeysNotice } from "./skipped-keys-notice";
 import { ScreenHead } from "@/components/screen-head";
 import { ConnectionState } from "@/components/connection-state";
 import { ScreenLoader } from "@/components/weaveforge-loader";
@@ -509,8 +509,7 @@ export function SettingsScreen() {
                 // account, and it did not. See `DeviceSecretsStore`.
                 <>
                   <p className="muted">
-                    Keys are kept in this computer&rsquo;s keychain. Signing in does not move them to
-                    your account.
+                    {DEVICE_KEYS_LINE}
                   </p>
                   <SkippedKeysNotice />
                 </>

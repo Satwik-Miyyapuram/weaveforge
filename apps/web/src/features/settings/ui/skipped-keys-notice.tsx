@@ -3,6 +3,14 @@
 import { useEffect, useState } from "react";
 import { DeviceSecretsStore } from "@/backend/device-secrets-store";
 
+/**
+ * Where the desktop and Android apps keep integration keys: the OS store each build opens
+ * (`native_store` in apps/shell/src/lib.rs), never a file and never the account.
+ */
+export const DEVICE_KEYS_LINE =
+  "Keys are kept in this device's system keychain (Windows Credential Manager, the macOS keychain, " +
+  "Secret Service on Linux, or the Android Keystore). Signing in does not move them to your account.";
+
 /** Reads which saved keys the keychain could not return. Names only; the values are never passed on. */
 export type SkippedKeysLoader = () => Promise<{ skipped: string[] }>;
 
