@@ -347,3 +347,34 @@ test("ink still on its debounce is written when the window goes away (quit loses
     else delete g.window;
   }
 });
+test("ink still on its debounce is written when the app goes to the background (Android)", async () => {
+  const g = globalThis as { window?: unknown; document?: unknown };
+  const had = "document" in g;
+  const hadWin = "window" in g;
+  const before = g.document;
+  const beforeWin = g.window;
+  const doc = Object.assign(new EventTarget(), { visibilityState: "visible" });
+  g.document = doc;
+  // A browser has both; no pagehide fires here, so only the background flush can write.
+  g.window = new EventTarget();
+  try {
+    const id = typedCore().newInkChunkId();
+    const chunks = new RecordingStore();
+    await chunks.write(NOTE, id, new Uint8Array([1]));
+    chunks.writes = [];
+    const { handle } = mount(chunks, [id]);
+    await settle();
+    act(() => handle().scheduleSave());
+    doc.visibilityState = "hidden";
+    doc.dispatchEvent(new Event("visibilitychange"));
+    await settle();
+    await awaitInkWrites(NOTE);
+    // Well inside INK_SAVE_DELAY_MS: only the visibilitychange flush can have written it.
+    assert.deepEqual(chunks.writes, [id]);
+  } finally {
+    if (had) g.document = before;
+    else delete g.document;
+    if (hadWin) g.window = beforeWin;
+    else delete g.window;
+  }
+});

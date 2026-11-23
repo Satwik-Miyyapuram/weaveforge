@@ -302,3 +302,21 @@ test("beforeunload writes the pending body too, and a closed editor stops listen
   await new Promise((resolve) => setImmediate(resolve));
   assert.deepEqual(saved, ["first"]);
 });
+test("typing still on its debounce is written when the app goes to the background (Android)", async () => {
+  const { saver, saved } = harness();
+  const win = new EventTarget();
+  const doc = Object.assign(new EventTarget(), { visibilityState: "visible" });
+  const stop = flushBodyOnClose(saver, win, doc);
+  saver.schedule("typed before switching apps");
+  doc.visibilityState = "hidden";
+  doc.dispatchEvent(new Event("visibilitychange"));
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.deepEqual(saved, ["typed before switching apps"]);
+  assert.equal(saver.busy(), false);
+  stop();
+  saver.schedule("after close");
+  doc.dispatchEvent(new Event("visibilitychange"));
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.deepEqual(saved, ["typed before switching apps"], "a stopped editor stops listening");
+  await saver.flush();
+});
