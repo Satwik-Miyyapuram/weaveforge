@@ -3,7 +3,6 @@
 import { useMemo, type ReactNode } from "react";
 import {   type PageProjection } from "@weaveforge/core";
 import { readyCore } from "@/lib/rust-core";
-import { InkStrokes } from "@/features/ink";
 import type { DraftShape } from "./types";
 import type { MarginNote } from "../../application/parts-2";
 import { RowButton } from "@/components/controls";
@@ -20,13 +19,12 @@ export function SafeExternalLink({ href, children }: { href: string; children: R
 }
 
 /**
- * Paints the mark currently under the pointer.
+ * Paints the region or lasso currently under the pointer.
  *
  * Uses the same projection as the persisted overlay — `x * scale` and
  * `(pageHeight - y) * scale` — so the preview sits exactly where the saved
- * annotation lands, with no jump on release. The wet stroke goes through the
- * ink note's renderer, so it is the line the saved stroke will be rather than a
- * second approximation of it; the rectangle tools are the reader's own.
+ * annotation lands. The wet ink stroke is not here: it is the notes' pen
+ * drawing on its own canvas (`PdfInkPen`).
  */
 export function DraftShapeOverlay({
   shape,
@@ -64,29 +62,6 @@ export function DraftShapeOverlay({
         <svg className="pdf-reader-ann-svg" width="100%" height="100%">
           <polygon className="ink-lasso" points={loop.join(" ")} />
         </svg>
-      </div>
-    );
-  }
-
-  if (shape.kind === "ink") {
-    return (
-      <div className="pdf-reader-ann-layer" aria-hidden>
-        <InkStrokes
-          className="pdf-reader-ann-svg"
-          // The wet stroke wears the same look the saved one will, including
-          // the reader's own highlighter over a page image.
-          highlighterClassName="pdf-reader-ink--highlighter"
-          strokes={[
-            {
-              points,
-              // Same nib the saved stroke will have, so nothing changes
-              // thickness on release.
-              width: Math.max(shape.width * projection.scale, 0.5),
-              colour: color,
-              highlighter: shape.highlighter,
-            },
-          ]}
-        />
       </div>
     );
   }

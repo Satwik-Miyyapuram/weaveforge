@@ -1,9 +1,10 @@
 /**
- * A cancelled pointer drops its stroke and lets the next one draw (P1-9).
+ * The page row leaves ink to the notes' pen (`PdfInkPen`).
  *
- * The browser sends `pointercancel` (or `lostpointercapture`) when the system
- * takes the pointer away, and never the `pointerup`. The stroke in hand must
- * not be saved, and the pointer that owned it must not keep blocking the pen.
+ * The row used to draw and save the stroke itself; now the pen on the page
+ * does, so a stroke through the row's handlers saves nothing, cancelled or
+ * not. A cancelled pen stroke is the pen session's (P1-9): see
+ * `pen-capture-session.test.ts` and `use-pen-capture-frames.test.tsx`.
  */
 
 import { after, before, test } from "node:test";
@@ -93,19 +94,26 @@ function draw(p: { current: ReturnType<typeof usePagePointer> }, id: number, fro
   p.current.onPagePointerMove(ev(id, from + 80, from + 60));
 }
 
-test("a cancelled stroke is not saved, and the next pointer draws", async () => {
+test("a stroke through the row is the pen's: the row draws and saves nothing", async () => {
   const saved: unknown[] = [];
   const h = await renderHook(usePagePointer, deps(saved));
-
-  draw(h, 1, 100);
-  h.current.onPagePointerCancel(ev(1, 180, 160));
-  await h.flush();
-  assert.equal(saved.length, 0, "the cancelled stroke was saved");
 
   draw(h, 2, 300);
   h.current.onPagePointerUp(1, ev(2, 380, 360));
   await h.flush();
-  assert.equal(saved.length, 1, "the stroke after a cancel was not saved");
+  assert.equal(saved.length, 0, "the row saved a stroke the pen also saves");
+  assert.equal(h.current.draftShape, null, "the row painted a wet stroke");
+
+  await h.unmount();
+});
+
+test("the row's save is the pen's door: a committed path lands as one ink row", async () => {
+  const saved: unknown[] = [];
+  const h = await renderHook(usePagePointer, deps(saved));
+
+  await h.current.persistInkStroke({ pageNumber: 1, pageHeight: 800, path: [100, 100, 140, 130, 180, 160], width: 2 });
+  await h.flush();
+  assert.equal(saved.length, 1);
 
   await h.unmount();
 });

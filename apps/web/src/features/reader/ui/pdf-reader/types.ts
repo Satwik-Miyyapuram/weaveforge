@@ -11,12 +11,10 @@ export type PdfDocument = Awaited<ReturnType<PdfLib["getDocument"]>["promise"]>;
 export type RenderTask = ReturnType<Awaited<ReturnType<PdfDocument["getPage"]>>["render"]>;
 
 /**
- * A mark being drawn right now, in PDF coordinates — either a freehand path
- * (flat x,y pairs, as `inkPath` holds them), a dragged region, or the loop the
- * lasso is drawing.
+ * A mark being drawn right now, in PDF coordinates — a dragged region, or the
+ * loop the lasso is drawing. A freehand stroke is the notes' pen (`PdfInkPen`).
  */
 export type DraftShape =
-  | { kind: "ink"; pageNumber: number; path: number[]; width: number; highlighter: boolean }
   | { kind: "rect"; pageNumber: number; x0: number; y0: number; x1: number; y1: number }
   | { kind: "lasso"; pageNumber: number; path: readonly number[] };
 

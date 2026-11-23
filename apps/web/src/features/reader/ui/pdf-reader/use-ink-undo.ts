@@ -22,6 +22,8 @@ type Writes = StrokeWrites & Partial<Pick<AnnotationActions, "updateLocal">>;
 export interface InkUndo extends StrokeWrites, Pick<AnnotationActions, "updateLocal"> {
   canUndo: boolean;
   canRedo: boolean;
+  /** Undo and redo steps taken so far; the pen ends its mark in progress when it changes. */
+  steps: number;
   /** Delete several marks as one undo step (a lasso delete). */
   removeMany: (ids: readonly string[]) => Promise<void>;
   undo: () => Promise<void>;
@@ -83,6 +85,7 @@ export function useInkUndo(
   // Undo and redo are async; a second Ctrl+Z before the first lands would
   // pop the wrong step. One at a time.
   const busy = useRef(false);
+  const steps = useRef(0);
 
   const persistDraft = useCallback(
     async (draft: NewReaderAnnotation) => {
@@ -207,6 +210,7 @@ export function useInkUndo(
       const taken =
         direction === "undo" ? typedCore().takeInkUndo(stack.current) : typedCore().takeInkRedo(stack.current);
       if (!taken) return;
+      steps.current += 1;
       // Moved before the write so a rename during it finds the entry; moved
       // back when the write fails, so the stack never records a step that did
       // not happen (P2-198).
@@ -241,6 +245,7 @@ export function useInkUndo(
     updateLocal,
     canUndo: stack.current.undo.length > 0,
     canRedo: stack.current.redo.length > 0,
+    steps: steps.current,
     undo: useCallback(() => step("undo"), [step]),
     redo: useCallback(() => step("redo"), [step]),
     reset,
