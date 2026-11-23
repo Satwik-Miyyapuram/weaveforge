@@ -8,7 +8,7 @@ use reqwest::header::{ACCEPT, CONTENT_LENGTH, CONTENT_TYPE, HeaderMap, HeaderVal
 
 use super::shared::{
     Answer, Refusal, fetch_checked_hops, header_latin1, is_public_https_url, read_capped, refuse,
-    shared_public_client, upstream_failed,
+    shared_public_client, upstream_failed, upstream_refusal,
 };
 
 /// The path the page requests: `app://localhost/api/pdf-proxy`.
@@ -187,10 +187,7 @@ pub async fn relay_pdf(
 fn check_headers(response: &reqwest::Response, max: usize) -> Result<(), Refusal> {
     let status = response.status();
     if !status.is_success() {
-        return Err(refuse(
-            502,
-            &format!("Upstream returned {}", status.as_u16()),
-        ));
+        return Err(upstream_refusal(status.as_u16()));
     }
     let content_type = header_latin1(response.headers(), CONTENT_TYPE);
     if !is_pdf_content_type(content_type.as_deref()) {

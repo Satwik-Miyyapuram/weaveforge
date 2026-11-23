@@ -53,6 +53,17 @@ pub fn upstream_failed(
     refuse(status, refusal)
 }
 
+/// The refusal for a non-success status from a site. 401, 403 and 451 mean the site
+/// refused the page, relayed as 403 so the reader shows it as blocked. Any other
+/// status is 502.
+#[must_use]
+pub fn upstream_refusal(status: u16) -> Refusal {
+    if matches!(status, 401 | 403 | 451) {
+        return refuse(403, "Upstream refused the page");
+    }
+    refuse(502, &format!("Upstream returned {status}"))
+}
+
 /// An https address with no username or password, on a host that is not private.
 #[must_use]
 pub fn is_public_https_url(raw: &str) -> bool {
@@ -179,6 +190,22 @@ mod tests {
     #[test]
     fn relay_client_builds() {
         assert!(relay_client().is_ok());
+    }
+
+    #[test]
+    fn upstream_refusal_relays_a_refused_page_as_blocked() {
+        for status in [401, 403, 451] {
+            assert_eq!(upstream_refusal(status).status, 403, "upstream {status}");
+        }
+    }
+
+    #[test]
+    fn upstream_refusal_keeps_other_statuses_bad_gateway() {
+        for status in [404, 429, 500] {
+            let refusal = upstream_refusal(status);
+            assert_eq!(refusal.status, 502, "upstream {status}");
+            assert_eq!(refusal.error, format!("Upstream returned {status}"));
+        }
     }
 
     #[test]

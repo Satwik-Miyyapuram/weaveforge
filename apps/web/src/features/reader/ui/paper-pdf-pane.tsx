@@ -28,6 +28,7 @@ import {
   linkPdfSource,
   pdfDownloadNeedsConsent,
   pdfDownloadRemembered,
+  pdfProxyNeedsToken,
   rememberPdfDownload,
 } from "../application/parts";
 import { isLocalMode } from "@/backend/providers/local/local-identity";
@@ -38,7 +39,10 @@ import { PaperHtmlView } from "./paper-html-view";
 import { Button } from "@/components/button";
 import { paperGuard } from "./paper-guard";
 import { fetchServedPdf, routePdfHit, safeHostname } from "./pdf-hit-route";
-import { planWebArticle } from "./web-article-preview";
+import { type AccountState, planWebArticle, resolveAccount } from "./web-article-preview";
+import { useAuth } from "@/features/auth/ui/auth-provider";
+import { getLightContainer } from "@/light-bootstrap";
+import { authRedirectTo } from "@/lib/desktop/desktop-auth";
 import { fetchPendingPdf } from "./pending-pdf-fetch";
 
 async function keptHtmlPage(paperId: string): Promise<PaperHtmlPage | null> {
@@ -123,6 +127,19 @@ export function PaperPdfPane({
   const [freeStatus, setFreeStatus] = useState<{ text: string; error: boolean } | null>(null);
   /** The web-page fetch for this paper has run to its end (found a page or not). */
   const [webFetchEnded, setWebFetchEnded] = useState(false);
+  /** Web app, no account: the relay refuses page fetches until the reader signs in. */
+  const [account, setAccount] = useState<AccountState>("unknown");
+  const accountUserId = useAuth().user?.id ?? null;
+  // Re-checked when the paper or the signed-in user changes, so signing in clears the card.
+  useEffect(() => {
+    let cancelled = false;
+    void resolveAccount(pdfProxyNeedsToken(), () => getContainer().auth.auth.getAccessToken()).then((state) => {
+      if (!cancelled) setAccount(state);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [paperId, accountUserId]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const activityRef = useRef(onActivity);
   activityRef.current = onActivity;
@@ -512,6 +529,7 @@ export function PaperPdfPane({
           pageUrl: openAccessIds.current?.pageUrl,
           // A fetch that has ended without a page is a failed fetch: live page or none.
           fetchFailed: freeStatus?.error === true || webFetchEnded,
+          needsSignIn: account === "signed-out",
         })
       : null;
   const freeCopy = canLoad ? (
@@ -637,6 +655,15 @@ export function PaperPdfPane({
             </a>
           </p>
           {freeCopy}
+        </div>
+      )}
+      {!loading && !error && articlePlan?.kind === "sign-in" && (
+        <div className="card empty-state">
+          <h2>Sign in to preview this page</h2>
+          <p>Web pages are fetched through your WeaveForge account. Sign in, then reopen this paper.</p>
+          <Button variant="primary" size="sm" onClick={() => void getLightContainer().auth.signInWithGoogle(authRedirectTo())}>
+            Sign in with Google
+          </Button>
         </div>
       )}
       {!loading && !error && articlePlan?.kind === "none" && (
