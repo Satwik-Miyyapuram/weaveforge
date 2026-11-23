@@ -183,7 +183,7 @@ fn refuses_when_state_is_none() {
 fn refuses_when_there_is_no_report() {
     let f = Fixture::new("none", None, Some(good_dump().as_slice()));
     let err = f.run(&mut never_stop()).expect_err("no report must refuse");
-    assert!(err.contains("verified"), "reason names the state: {err}");
+    assert!(err.contains("no export report from this device"), "{err}");
     f.assert_untouched();
 }
 
@@ -876,7 +876,7 @@ fn another_devices_report_writes_during_the_removal_survive() {
         r#"{{"version":1,"state":"verified","backup":"{BACKUP_NAME}","verifiedAt":"{NOW}","runs":[{RUN_CLEAN}]}}"#
     ));
     let dev_b_run = RUN_CLEAN.replace("\"deviceId\":\"dev-a\"", "\"deviceId\":\"dev-b\"");
-    // dev-b writes report.json while this device is between its read and its writes.
+    // dev-b writes the shared report.json while this device is between its read and its writes.
     let mut stop = || {
         let text = format!(
             r#"{{"version":1,"state":"verified","backup":"{BACKUP_NAME}","verifiedAt":"{NOW}","removals":{{"dev-b":{{"state":"removed","removedAt":"{NOW}"}}}},"runs":[{RUN_CLEAN},{dev_b_run}]}}"#
@@ -885,12 +885,17 @@ fn another_devices_report_writes_during_the_removal_survive() {
         Ok(())
     };
     f.run(&mut stop).expect("removal runs although another device wrote");
-    let r = f.report();
-    assert_eq!(r["state"], "removed");
-    assert_eq!(r["removals"]["dev-a"]["state"], "removed");
-    assert_eq!(r["removals"]["dev-b"]["state"], "removed", "dev-b's removal entry kept");
+    // This device writes only its own report-dev-a.json.
+    let own = f.report();
+    assert_eq!(own["state"], "removed");
+    assert_eq!(own["removals"]["dev-a"]["state"], "removed");
+    // dev-b's write to report.json is never overwritten by this device.
+    let shared: serde_json::Value =
+        serde_json::from_str(&fs::read_to_string(f.folder.join(REPORT)).unwrap()).unwrap();
+    assert_eq!(shared["removals"]["dev-b"]["state"], "removed", "dev-b's removal entry kept");
+    assert!(shared["removals"].get("dev-a").is_none(), "report.json is not this device's file");
     assert!(
-        r["runs"].as_array().unwrap().iter().any(|run| run["deviceId"] == "dev-b"),
+        shared["runs"].as_array().unwrap().iter().any(|run| run["deviceId"] == "dev-b"),
         "dev-b's run kept"
     );
 }
@@ -1050,23 +1055,25 @@ fn status_unreadable_report_after_removal_says_removed() {
 }
 
 #[test]
-fn status_report_without_a_state_still_shows_own_verified_run_not_none() {
+fn status_report_without_a_state_is_unavailable_not_none() {
     let f = Fixture::new("status-no-state", Some("verified"), None);
     f.set_report(&format!(
         r#"{{"version":1,"backup":"{BACKUP_NAME}","verifiedAt":"{NOW}","runs":[{RUN_CLEAN}]}}"#
     ));
     let value = serde_json::to_value(migration_status(&f.folder, &f.pg_root, DEVICE)).unwrap();
-    assert_eq!(value["state"], "verified");
+    // A missing top-level state is not a known state: it fails closed, even with an own verified run.
+    assert_eq!(value["state"], "unavailable");
 }
 
 #[test]
-fn status_report_with_a_non_string_state_still_shows_own_verified_run_not_none() {
+fn status_report_with_a_non_string_state_is_unavailable_not_none() {
     let f = Fixture::new("status-num-state", Some("verified"), None);
     f.set_report(&format!(
         r#"{{"version":1,"state":5,"backup":"{BACKUP_NAME}","verifiedAt":"{NOW}","runs":[{RUN_CLEAN}]}}"#
     ));
     let value = serde_json::to_value(migration_status(&f.folder, &f.pg_root, DEVICE)).unwrap();
-    assert_eq!(value["state"], "verified");
+    // A non-string top-level state is not a known state: it fails closed, even with an own verified run.
+    assert_eq!(value["state"], "unavailable");
 }
 
 #[test]
