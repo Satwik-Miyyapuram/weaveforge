@@ -129,6 +129,47 @@ test("the base after a save is what that save wrote", async () => {
   }
 });
 
+test("the error shown is the latest save's: one queued behind a failing save clears it when it goes through", async () => {
+  let release!: () => void;
+  const held = new Promise<void>((resolve) => { release = resolve; });
+  let calls = 0;
+  setContainerForTests(stub({
+    papers: { loadScreenData: async () => null },
+    vault: { loadScreenData: async () => null },
+    report: {
+      loadScreenData: async () => null,
+      uploadImage: async () => "",
+      manageReportSection: {
+        setNotes: async (id: string, notes: string) => {
+          calls += 1;
+          if (calls === 1) {
+            await held;
+            throw new Error("disk full");
+          }
+          return { ...SECTION, id, notes };
+        },
+      },
+    },
+  }) as never);
+  let r!: ReactTestRenderer;
+  await act(async () => { r = create(note(SECTION)); await tick(); });
+  const shown = () => r.root.findAll((n) => typeof n.props.children === "string" && n.props.children.includes("disk full")).length > 0;
+  try {
+    const save = r.root.findByType(DocumentBody).props.onSave as (body: string) => Promise<void>;
+    let first!: Promise<void>;
+    let second!: Promise<void>;
+    // The second keystroke-save is called while the first still runs, so it waits behind it.
+    await act(async () => { first = save("one"); second = save("two"); await tick(); });
+    await act(async () => { release(); await first; });
+    await act(async () => { await second; await tick(); });
+    assert.equal(calls, 2);
+    assert.equal(shown(), false, "the later save went through, so the earlier error is cleared");
+  } finally {
+    act(() => r.unmount());
+    await tick();
+  }
+});
+
 test("another section resets the base to that section's text", async () => {
   const { r, bases, save } = await setup();
   try {

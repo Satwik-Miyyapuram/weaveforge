@@ -95,10 +95,11 @@ export function SectionNote({
   /** Every body write. The host saves as it goes, the way it does in the Editor. */
   const saveNotes = useCallback(
     async (nextBody: string) => {
-      setSaveError(null);
       let uploadError: unknown;
       try {
         await runSave(async (base) => {
+          // Cleared when this save runs, not when it is queued: the error shown is the latest run's.
+          setSaveError(null);
           const report = getContainer().report;
           const done = await materializeBlobImages(
             nextBody,

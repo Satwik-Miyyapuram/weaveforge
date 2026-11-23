@@ -107,9 +107,10 @@ test("saving the result sends the text the draft opened with, not a reloaded one
   }
 });
 
-test("after a conflict the next save is based on a fresh read, and the draft is kept", async () => {
+test("after a conflict the draft shows the text on disk, and the next save never clobbers it", async () => {
   let current = EXP;
   const bases: string[] = [];
+  const notes: string[] = [];
   let conflicts = 1;
   setContainerForTests(stub({
     experiments: {
@@ -117,6 +118,7 @@ test("after a conflict the next save is based on a fresh read, and the draft is 
       manageExperiment: {
         setResultNote: async (_id: string, note: string, base: string) => {
           bases.push(base);
+          notes.push(note);
           if (conflicts-- > 0) throw Object.assign(new Error("changed on disk; yours is in a copy"), { name: "ConflictError" });
           return { ...current, resultNote: note };
         },
@@ -131,9 +133,11 @@ test("after a conflict the next save is based on a fresh read, and the draft is 
     current = { ...EXP, resultNote: "outside edit" };
     await act(async () => { resultBox(r).props.onChange({ target: { value: "mine" } }); await tick(); });
     await act(async () => { byText(r, "Save result").props.onClick(); await tick(); });
-    assert.equal(resultBox(r).props.value, "mine", "the draft stays open after the conflict");
+    // Mine is in the conflict copy; the box now shows the outside edit, as an editor remounts on disk text.
+    assert.equal(resultBox(r).props.value, "outside edit", "the draft shows the text on disk after the conflict");
     await act(async () => { byText(r, "Save result").props.onClick(); await tick(); });
     assert.deepEqual(bases, ["opened text", "outside edit"]);
+    assert.deepEqual(notes, ["mine", "outside edit"], "the second save keeps the outside edit");
   } finally {
     mock.timers.reset();
     act(() => r?.unmount());
