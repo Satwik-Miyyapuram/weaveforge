@@ -12,9 +12,6 @@ import {
   IsomorphicWorkspaceGit,
 } from "../infrastructure/parts";
 import { folderLock } from "./folder-lock";
-// Type-only: the import, restore and table modules load on first use, so they stay
-// out of the first-load bundle of every route that reaches the app container.
-import type { FolderImportDiff, FolderImportPicks, FolderImportResult } from "./workspace-folder-tables";
 import {
   applyFolderImport,
   clearPendingAssets,
@@ -47,7 +44,9 @@ import {
 import { activeProject, activeProjectOrNull, isNoActiveProject, watchForLoss } from "./parts";
 import { mirrorWorkspace } from "./parts-2";
 import { recordSessionSeen, sessionGeneration, sessionSeen } from "./folder-session-seen";
-import type { FolderPreview } from "./workspace-folder-preview";
+// Type-only: the preview module loads on first use, so it stays out of the first-load
+// bundle of every route that reaches the app container.
+import type { FolderImportDiff, FolderImportPicks, FolderImportResult, FolderPreview } from "./workspace-folder-preview";
 import type { SyncOutcome } from "./workspace-folder-sync-report";
 
 /**
