@@ -24,7 +24,16 @@ function walk(dir: string): string[] {
 
 const sources = walk(SRC)
   .filter((f) => /\.(ts|tsx|css)$/.test(f))
-  .filter((f) => !/[\\/]test[\\/]/.test(f));
+  .filter((f) => !/\.test\.tsx?$/.test(f));
+
+// Test-only helpers that run SQL on an in-memory PGlite. Named one by one, so a
+// new file under a test folder is still checked.
+const TEST_DB_HELPERS = new Set([
+  join("backend", "test", "contracts", "harness.ts"),
+  join("backend", "test", "pg-test-db.ts"),
+  join("backend", "test", "pglite-client.ts"),
+  join("features", "org", "infrastructure", "test", "schema-hardening.rls.integration.ts"),
+]);
 
 function offenders(pattern: RegExp, except: (rel: string) => boolean = () => false): string[] {
   return sources
@@ -34,8 +43,8 @@ function offenders(pattern: RegExp, except: (rel: string) => boolean = () => fal
 }
 
 test("no source file imports the local database or uses LocalRunner or the badge", () => {
-  const LOCAL_DB = /["'][^"'\n]*(?:backend\/providers\/local\/|pglite|local-pg|local_pg)[^"'\n]*["']|\bLocalRunner\b|LocalModeBadge|local-mode-badge/i;
-  assert.deepEqual(offenders(LOCAL_DB), []);
+  const LOCAL_DB = /["'`][^"'`\n]*(?:backend\/providers\/local\/|pglite|local-pg|local_pg)[^"'`\n]*["'`]|\bLocalRunner\b|LocalModeBadge|local-mode-badge/i;
+  assert.deepEqual(offenders(LOCAL_DB, (rel) => TEST_DB_HELPERS.has(rel)), []);
 });
 
 test("the no-account flag is read only through the files provider", () => {
