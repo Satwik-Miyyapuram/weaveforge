@@ -25,6 +25,18 @@ import {
 const run = promisify(execFile);
 
 /**
+ * True when `url` is the untagged-<hash> download URL GitHub gives a draft's asset named
+ * `name`. Only a draft may use it; a published release must use the tagged URL.
+ */
+function isDraftUrl(url, name) {
+  const prefix = `https://github.com/${REPO}/releases/download/untagged-`;
+  if (!url.startsWith(prefix)) return false;
+  const rest = url.slice(prefix.length);
+  const slash = rest.indexOf("/");
+  return slash > 0 && /^[A-Za-z0-9]+$/.test(rest.slice(0, slash)) && rest.slice(slash + 1) === name;
+}
+
+/**
  * Returns one line per problem; an empty list means the release passes.
  * `release` is the parsed `gh api releases/tags/<tag>` response. `readAsset(name)`
  * resolves the asset's text, or null when it cannot be downloaded. `bridge` is the
@@ -51,7 +63,9 @@ export async function checkRelease({ tag, release, readAsset, bridgeBytes }) {
     const name = installerName(version, arch);
     if (has(name)) {
       const expected = releaseAssetUrl(tag, name);
-      if (assets.get(name).browser_download_url !== expected) {
+      const url = assets.get(name).browser_download_url;
+      const draftOk = release.draft === true && isDraftUrl(url, name);
+      if (url !== expected && !draftOk) {
         problems.push(`${name} download URL is not ${expected}`);
       }
     }
@@ -175,13 +189,28 @@ export function assetRequest(asset, env = process.env) {
   return { url: asset.browser_download_url, headers: {} };
 }
 
+/** Longest an asset download may take before it counts as a failed download. */
+export const ASSET_FETCH_TIMEOUT_MS = 60_000;
+
+/**
+ * Fetches one asset's bytes, or null when the request fails, returns an error status, or
+ * stalls past `timeoutMs` (so the gate reports it instead of hanging).
+ */
+export async function fetchAsset(asset, env = process.env, fetchImpl = fetch, timeoutMs = ASSET_FETCH_TIMEOUT_MS) {
+  const { url, headers } = assetRequest(asset, env);
+  try {
+    const response = await fetchImpl(url, { headers, signal: AbortSignal.timeout(timeoutMs) });
+    return response.ok ? Buffer.from(await response.arrayBuffer()) : null;
+  } catch {
+    return null;
+  }
+}
+
 async function downloadAsset(release) {
   return async (name) => {
     const asset = release.assets.find((a) => a.name === name);
     if (!asset) return null;
-    const { url, headers } = assetRequest(asset);
-    const response = await fetch(url, { headers });
-    return response.ok ? Buffer.from(await response.arrayBuffer()) : null;
+    return fetchAsset(asset);
   };
 }
 

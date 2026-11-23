@@ -225,9 +225,14 @@ pointed at a newer release. Publish v0.9.7 first, then re-run the release.
 install of a newer release is held unless local data is absent, or exported and verified
 for this device. Unknown local-data state also holds (fail closed), so the data is never
 stranded. If that gate is removed, a 0.9.7 client can update past its local data.
-The published release is checked after `gh release create` by
-`apps/shell/scripts/check-release-assets.mjs` in `release-desktop.yml`, so no manual check
-is needed.
+The draft is checked by `apps/shell/scripts/check-release-assets.mjs` in `release-desktop.yml`
+before it is published, and the published release is checked again after publish, so no manual
+check is needed. The draft's assets may use `untagged-<hash>` download URLs; a published release
+may not.
+Recovery when a run fails after the draft exists: the workflow deletes any leftover draft for
+the same tag (never a published release) before it creates a new one, so re-run the workflow.
+To clear a draft by hand, delete it on the GitHub releases page (the git tag is kept); a
+published release cannot be recreated under the same tag, so publish a new version instead.
 The release workflow also rejects any tag that is not `vX.Y.Z` (for example `v0.9.7-rc1`)
 in its `validate` job, before anything is built.
 
