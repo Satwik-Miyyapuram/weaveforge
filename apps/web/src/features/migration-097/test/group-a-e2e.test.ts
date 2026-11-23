@@ -112,6 +112,8 @@ test("a user's edit to an exported note is kept; the DB copy holds conflictOf, n
   const again = await exportRun(sink, true);
   assert.notEqual(again.state, "verified");
   assert.equal(await sink.readText(path), edited);
+  const reasons = again.run.missing?.filter((m) => m.id === NOTE_ROW.id).map((m) => m.reason);
+  assert.deepEqual(reasons, ["conflict:notes"], "a save kept as a conflict copy is a conflict, not a write failure");
   const ids: string[] = [];
   for (const p of await sink.list()) {
     if (p.startsWith(".weaveforge/")) continue;
