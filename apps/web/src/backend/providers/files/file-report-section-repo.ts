@@ -123,7 +123,7 @@ export class FileReportSectionRepository implements IReportSectionRepository, IR
     return this.update(id, (s) => ({ ...s, wordCount }));
   }
 
-  setNotes(id: string, notes: string): Promise<ReportSection> {
+  setNotes(id: string, notes: string, base?: string): Promise<ReportSection> {
     const text = notes.trim() ? notes : "";
     const wordCount = readyCore().countWords(text);
     return this.update(id, (s) => {
@@ -131,7 +131,7 @@ export class FileReportSectionRepository implements IReportSectionRepository, IR
       if (text) next.notes = text;
       else delete next.notes;
       return next;
-    });
+    }, base === undefined ? undefined : { notes: base.trim() ? base : undefined });
   }
 
   /** Climbs from `parentId`; reaching `id` is a loop. A loop already in the files ends quietly. */
@@ -148,17 +148,22 @@ export class FileReportSectionRepository implements IReportSectionRepository, IR
     }
   }
 
-  private async update(id: string, change: (s: ReportSection) => ReportSection): Promise<ReportSection> {
+  /** `seen`: the fields the caller's change was based on; changed on disk since, the save is refused. */
+  private async update(
+    id: string,
+    change: (s: ReportSection) => ReportSection,
+    seen?: Partial<ReportSection>,
+  ): Promise<ReportSection> {
     const current = await this.store.get(id);
     if (!current) throw new NotFoundError(`No report section with id "${id}".`);
-    return this.stamped(change(current));
+    return this.stamped(change(current), seen);
   }
 
-  private async stamped(section: ReportSection): Promise<ReportSection> {
+  private async stamped(section: ReportSection, seen?: Partial<ReportSection>): Promise<ReportSection> {
     const stored = await this.store.get(section.id);
     const latest = [stored?.updatedAt, section.updatedAt].filter(Boolean).sort().at(-1);
     const next = { ...section, updatedAt: nextRevision(latest) };
-    await this.store.save(next);
+    await this.store.save(next, seen);
     return next;
   }
 }

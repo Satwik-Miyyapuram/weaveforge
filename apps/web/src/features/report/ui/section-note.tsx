@@ -87,27 +87,42 @@ export function SectionNote({
     }
   }
 
+  // The notes the next save is based on (last loaded or saved), so an outside edit since is kept, not overwritten.
+  const notesBase = useRef({ id: section.id, notes: section.notes ?? "" });
+  useEffect(() => {
+    notesBase.current = { id: section.id, notes: section.notes ?? "" };
+  }, [section.id, section.notes]);
+  // Saves run one after another, so each is based on the one before.
+  const saving = useRef<Promise<void>>(Promise.resolve());
+
   /** Every body write. The host saves as it goes, the way it does in the Editor. */
   const saveNotes = useCallback(
-    async (nextBody: string) => {
-      setSaveError(null);
-      try {
-        const report = getContainer().report;
-        const { body, uploadError } = await materializeBlobImages(
-          nextBody,
-          section.id,
-          (id, blob, ext) => report.uploadImage(id, blob, ext),
-          "reportimg:",
-          (text: string) => readyCore().normalizeMarkdownImageSyntax(text),
-        );
-        onReplace(await report.manageReportSection.setNotes(section.id, body));
-        // The text is saved; a failed upload is still said out loud.
-        if (uploadError) throw uploadError;
-      } catch (err) {
-        setSaveError(formatError(err));
-      }
+    (nextBody: string) => {
+      const run = saving.current.then(async () => {
+        setSaveError(null);
+        try {
+          const report = getContainer().report;
+          const { body, uploadError } = await materializeBlobImages(
+            nextBody,
+            section.id,
+            (id, blob, ext) => report.uploadImage(id, blob, ext),
+            "reportimg:",
+            (text: string) => readyCore().normalizeMarkdownImageSyntax(text),
+          );
+          const base = notesBase.current.id === section.id ? notesBase.current.notes : (section.notes ?? "");
+          const saved = await report.manageReportSection.setNotes(section.id, body, base);
+          notesBase.current = { id: section.id, notes: saved.notes ?? "" };
+          onReplace(saved);
+          // The text is saved; a failed upload is still said out loud.
+          if (uploadError) throw uploadError;
+        } catch (err) {
+          setSaveError(formatError(err));
+        }
+      });
+      saving.current = run;
+      return run;
     },
-    [onReplace, section.id],
+    [onReplace, section.id, section.notes],
   );
 
   /**

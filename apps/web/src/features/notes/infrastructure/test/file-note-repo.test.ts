@@ -471,3 +471,54 @@ test("add refuses a parentId no note has, as update does, and writes nothing", a
   const child = await repo.add({ title: "Child", body: "", parentId: parent.id });
   assert.equal(child.parentId, parent.id);
 });
+test("two stale saves from different bases leave two conflict copies", async () => {
+  const { fs, repo } = setup();
+  const loaded = await editedOutside(fs, repo);
+  await assert.rejects(repo.save({ ...loaded, body: "first\n" }, loaded), { name: "ConflictError" });
+  const other = { ...loaded, body: "a later base\n" };
+  await assert.rejects(repo.save({ ...loaded, body: "second\n" }, other), { name: "ConflictError" });
+  const bodies = (await repo.list()).filter((p) => p.id !== "n-1").map((p) => p.body).sort();
+  assert.deepEqual(bodies, ["first\n", "second\n"]);
+});
+
+test("a conflict copy carries the saved title; a retry with another title writes its own copy", async () => {
+  const { fs, repo } = setup();
+  const loaded = await editedOutside(fs, repo);
+  await assert.rejects(repo.save({ ...loaded, title: "Results", body: "mine\n" }, loaded), { name: "ConflictError" });
+  await assert.rejects(repo.save({ ...loaded, title: "Findings", body: "mine\n" }, loaded), { name: "ConflictError" });
+  const titles = (await repo.list()).filter((p) => p.id !== "n-1").map((p) => p.title).sort();
+  assert.equal(titles.length, 2);
+  assert.match(titles[0] ?? "", /^Findings \(conflict copy /);
+  assert.match(titles[1] ?? "", /^Results \(conflict copy /);
+});
+
+test("two quick saves, each based on the one before, both go through", async () => {
+  const { repo } = setup();
+  await repo.save(page());
+  const loaded = (await repo.getById("n-1"))!;
+  const first = { ...loaded, body: "one\n" };
+  await repo.save(first, loaded);
+  await repo.save({ ...first, body: "two\n" }, first);
+  assert.equal((await repo.getById("n-1"))?.body, "two\n");
+  assert.equal((await repo.list()).length, 1);
+});
+
+test("save: a file changed between read and write keeps both, mine in a conflict copy", async () => {
+  const { fs, repo } = setup();
+  await repo.save(page());
+  const loaded = (await repo.getById("n-1"))!;
+  const [path] = await files(fs);
+  const real = fs.writeTextIf.bind(fs);
+  let raced = false;
+  fs.writeTextIf = async (p, text, expected) => {
+    if (!raced && p === path) {
+      raced = true;
+      await fs.writeFile(p, (await fs.readText(p)).replace("We measure things.", "They edited this."));
+    }
+    return real(p, text, expected);
+  };
+  await assert.rejects(repo.save({ ...loaded, body: "mine\n" }, loaded), { name: "ConflictError" });
+  assert.match((await repo.getById("n-1"))!.body, /They edited this/);
+  const copies = (await repo.list()).filter((p) => p.id !== "n-1");
+  assert.deepEqual(copies.map((p) => p.body), ["mine\n"]);
+});

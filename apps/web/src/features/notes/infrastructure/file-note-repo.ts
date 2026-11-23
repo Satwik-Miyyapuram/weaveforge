@@ -100,8 +100,8 @@ function byOrder(a: { sortOrder: number; title: string }, b: { sortOrder: number
 export class FileNoteRepository implements IVaultPageRepository, IVaultPageManager {
   /** Per id, the file text this repo last read or wrote: `save` expects the file to still hold that page. */
   private readonly loaded = new Map<string, string>();
-  /** Per page id, the conflict copy this repo last wrote for it and that copy's file text: a retry reuses it. */
-  private readonly copies = new Map<string, { id: string; text: string }>();
+  /** Per page id, the conflict copy this repo last wrote for it, its base and its file text: a retry from that base reuses it. */
+  private readonly copies = new Map<string, { id: string; base: string; text: string }>();
 
   constructor(
     private readonly fs: IWorkspaceFs,
@@ -175,34 +175,43 @@ export class FileNoteRepository implements IVaultPageRepository, IVaultPageManag
    */
   async save(page: VaultPage, seen?: VaultPage): Promise<void> {
     const loadedText = this.loaded.get(page.id);
+    // A copy is reused only by a retry from the same base with the same title.
+    const base = `${seen === undefined ? (loadedText ?? "") : owned(seen)}\n${page.title}`;
     const all = await this.readAll();
     const found = all.find((f) => f.page.id === page.id);
-    if (found && changedSince(found, seen, loadedText)) {
-      await this.keepConflictCopy(all, page);
+    const conflict = async (path: string): Promise<never> => {
+      await this.keepConflictCopy(await this.readAll(), page, base);
       if (loadedText !== undefined) this.loaded.set(page.id, loadedText);
-      throw new ConflictError(`${found.path} changed on disk; your version was kept as a conflict copy. Reload before saving.`);
+      throw new ConflictError(`${path} changed on disk; your version was kept as a conflict copy. Reload before saving.`);
+    };
+    if (found && changedSince(found, seen, loadedText)) return conflict(found.path);
+    try {
+      await this.put(all, page);
+    } catch (error) {
+      // Another writer got in between the read and the write: their edit stays, this page goes to a copy.
+      if (found && error instanceof ChangedOnDiskError) return conflict(found.path);
+      throw error;
     }
-    await this.put(all, page);
     this.copies.delete(page.id);
   }
 
   /**
-   * Keeps `page` in its conflict copy: the one this repo wrote last for that page, when the file still holds
-   * what was written (the same body is not written again), else a new copy. A copy edited or removed since
-   * is left alone.
+   * Keeps `page` in its conflict copy: the one this repo wrote last for that page, when it came from the same
+   * `base` and the file still holds what was written (the same body is not written again), else a new copy.
+   * A copy edited or removed since, or from another base, is left alone.
    */
-  private async keepConflictCopy(all: readonly Found[], page: VaultPage): Promise<void> {
+  private async keepConflictCopy(all: readonly Found[], page: VaultPage, base: string): Promise<void> {
     const last = this.copies.get(page.id);
-    const held = last && all.find((f) => f.page.id === last.id);
+    const held = last && last.base === base && all.find((f) => f.page.id === last.id);
     if (last && held && held.text === last.text) {
       const body = lf(page.body);
       if (held.page.body !== body) await this.put(all, { ...held.page, body, updatedAt: this.now() });
-      this.copies.set(page.id, { id: last.id, text: this.loaded.get(last.id) ?? held.text });
+      this.copies.set(page.id, { id: last.id, base, text: this.loaded.get(last.id) ?? held.text });
       return;
     }
     const id = await this.conflictCopy(all, page);
     const text = this.loaded.get(id);
-    if (text !== undefined) this.copies.set(page.id, { id, text });
+    if (text !== undefined) this.copies.set(page.id, { id, base, text });
   }
 
   async add(input: NewVaultPageInput): Promise<VaultPage> {

@@ -98,8 +98,8 @@ export class FileReadingListRepository implements IReadingListRepository {
    * Writes the list's own fields under the list's id (a caller-supplied id is kept, and
    * a new one makes a new file). Membership is on the members, so a save never touches it.
    */
-  async save(list: ReadingList): Promise<void> {
-    await this.store.save(plainList(list as ListRow));
+  async save(list: ReadingList, seen?: ReadingList): Promise<void> {
+    await this.store.save(plainList(list as ListRow), seen && plainList(seen as ListRow));
   }
 
   delete(id: string): Promise<void> {
