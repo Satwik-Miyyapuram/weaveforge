@@ -1,4 +1,5 @@
 import { rustRepository } from "@/backend/providers/postgrest/rust-repository";
+import { PersonalWritesBlockedError, personalWritesBlocked } from "@/backend/light-write-guard";
 import { relayUrl } from "@/lib/parts";
 import { typedCore } from "@/lib/rust-core";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -106,6 +107,8 @@ export class RouteSecretsStore implements SecretsStore {
   }
 
   async save(secrets: Secrets): Promise<void> {
+    // Secrets are personal: refused in the same read-only folder states as the settings repo.
+    if (await personalWritesBlocked()) throw new PersonalWritesBlockedError();
     const res = await fetch(relayUrl(CREDENTIALS_ROUTE), {
       method: "POST",
       headers: { "Content-Type": "application/json", ...(await this.authHeader()) },
