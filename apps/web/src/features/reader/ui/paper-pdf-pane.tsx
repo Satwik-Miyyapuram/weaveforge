@@ -37,6 +37,7 @@ import { relayUrl } from "@/lib/parts";
 import { PaperHtmlView } from "./paper-html-view";
 import { Button } from "@/components/button";
 import { paperGuard } from "./paper-guard";
+import { routePdfHit, safeHostname } from "./pdf-hit-route";
 import { fetchPendingPdf } from "./pending-pdf-fetch";
 
 async function keptHtmlPage(paperId: string): Promise<PaperHtmlPage | null> {
@@ -214,7 +215,19 @@ export function PaperPdfPane({
           if (!cancelled) setQuotationTypes(new Map());
         }
         if (cancelled) return;
-        if (resolution.ok && isLocalMode() && !readyCore().isStoredPdfUrl(resolution.hit.url)) {
+        // Route the hit: a web article's guessed GitHub path is not a PDF, so the
+        // page itself is shown (the `else` below). Only an absolute https PDF not on
+        // this computer is offered as a download.
+        const route = resolution.ok
+          ? routePdfHit({
+              url: resolution.hit.url,
+              resolverId: resolution.resolverId,
+              localMode: isLocalMode(),
+              stored: readyCore().isStoredPdfUrl(resolution.hit.url),
+              webArticle: !!openAccessIds.current && readyCore().isWebArticle(openAccessIds.current),
+            })
+          : null;
+        if (resolution.ok && route === "download") {
           // The no-account copy fetches into its own store, on request, and
           // then opens from there — so the paper is on disk for next time and
           // nothing is fetched behind the person's back.
@@ -225,7 +238,7 @@ export function PaperPdfPane({
           } else {
             setPendingDownload(resolution.hit.url);
           }
-        } else if (resolution.ok) {
+        } else if (resolution.ok && route === "open") {
           setPdfUrl(resolution.hit.url);
           if ("revokeUrl" in resolution && resolution.revokeUrl) {
             revokeOnCancel = resolution.revokeUrl;
@@ -371,7 +384,7 @@ export function PaperPdfPane({
       // are kept even when another paper is open by now; the view is not touched.
       await linkPdfSource((id, link) => getContainer().papers.updatePaper.setPdfSource(id, link), paperId, url);
       if (!stillOpen()) return;
-      activityRef.current?.("reader", `Fetched the PDF from ${new URL(url).hostname} and linked it to this paper.`);
+      activityRef.current?.("reader", `Fetched the PDF from ${safeHostname(url)} and linked it to this paper.`);
       setTypedUrl("");
       setError(null);
       setCacheSkippedFor(null);
@@ -401,7 +414,7 @@ export function PaperPdfPane({
       const { findFreeCopyInBrowser } = await import("../application/parts-2");
       const outcome = await findFreeCopyInBrowser(paperId, openAccessIds.current);
       if (outcome.kind === "pdf") {
-        const host = new URL(outcome.candidate.url).hostname;
+        const host = safeHostname(outcome.candidate.url);
         await linkPdfSource(
           (id, link) => getContainer().papers.updatePaper.setPdfSource(id, link),
           paperId,
@@ -423,8 +436,8 @@ export function PaperPdfPane({
         activityRef.current?.(
           "reader",
           outcome.candidate.source === "paper"
-            ? `Opened the page on ${new URL(outcome.page.url).hostname}; kept with this paper.`
-            : `No free PDF, but the full text is on ${new URL(outcome.page.url).hostname}; kept as a web page.`,
+            ? `Opened the page on ${safeHostname(outcome.page.url)}; kept with this paper.`
+            : `No free PDF, but the full text is on ${safeHostname(outcome.page.url)}; kept as a web page.`,
         );
         setFreeStatus(null);
         setError(null);
@@ -544,7 +557,7 @@ export function PaperPdfPane({
         <div className="card empty-state">
           <h2>PDF not on this computer</h2>
           <p>
-            Fetch it from {new URL(pendingDownload).hostname}? It is kept here afterwards, so
+            Fetch it from {safeHostname(pendingDownload)}? It is kept here afterwards, so
             the paper opens offline from then on.
           </p>
           <div className="empty-actions">
