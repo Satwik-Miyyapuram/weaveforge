@@ -847,10 +847,13 @@ fn rename_with(
     dest: &Path,
     rename: impl Fn(&Path, &Path) -> io::Result<()>,
 ) -> io::Result<()> {
-    fs::OpenOptions::new()
-        .write(true)
-        .create_new(true)
-        .open(dest)?;
+    // The probe handle is dropped here, before the rename.
+    drop(
+        fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(dest)?,
+    );
     rename(src, dest).inspect_err(|_| {
         if fs::metadata(dest).is_ok_and(|m| m.len() == 0) {
             let _ = fs::remove_file(dest);
@@ -995,8 +998,7 @@ mod proofs {
 #[cfg(test)]
 mod move_tests {
     use super::{
-        is_no_hard_link, move_without_replace, rename_with, rename_without_replace,
-        trash_with_link,
+        is_no_hard_link, move_without_replace, rename_with, rename_without_replace, trash_with_link,
     };
     use std::fs;
     use std::io;
@@ -1046,7 +1048,7 @@ mod move_tests {
         let src = dir.join("missing.md");
         let dest = dir.join("dest.md");
 
-        rename_without_replace(&src, &dest).expect_err("source is missing");
+        let _ = rename_without_replace(&src, &dest).expect_err("source is missing");
         assert!(!dest.exists());
         let _ = fs::remove_dir_all(&dir);
     }
