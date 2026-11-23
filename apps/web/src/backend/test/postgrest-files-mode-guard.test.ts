@@ -44,7 +44,7 @@ const personalCalls: [string, (b: Wired) => Promise<unknown>][] = [
   ["projectBibliographyCollection.setCollection", (b) => call(b.projectBibliographyCollection.setCollection, "p-1", "Lib")],
   ["screeningRepository.listForItems", (b) => call(b.screeningRepository.listForItems, ["i-1"])],
   ["sharedReader.read", (b) => call(b.sharedReader.read, "paper", ["i-1"], ["owner"])],
-  ["releaseNoticesRepository.unseen", (b) => call(b.releaseNoticesRepository.unseen)],
+  ["releaseNoticesRepository.latest", (b) => call(b.releaseNoticesRepository.latest)],
 ];
 
 for (const [name, run] of personalCalls) {
