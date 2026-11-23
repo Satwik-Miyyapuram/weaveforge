@@ -23,13 +23,13 @@ use super::connect::{
 use super::rewrite::kept_backup;
 use super::route::{RouteDeps, route_local_request};
 use super::server::{Handler, bind, serve};
-use super::verified::ModeSource;
 use super::token::{
     MAX_LOCAL_API_TOKENS, hash_local_api_token, make_local_api_token, parse_local_api_tokens,
 };
+use super::verified::ModeSource;
 use super::{
-    BoxFuture, Expected, LocalApiRequest, LocalApiResponse, McpRouter, Permission, SaveArtifact,
-    SdkQuery, SemanticRanker, TokenRecord,
+    BoxFuture, Expected, LocalApiRequest, LocalApiResponse, McpRouter, Permission, SemanticRanker,
+    TokenRecord,
 };
 use crate::host::{Opener, PrefAccess, SecretAccess, WindowEvents};
 use crate::prefs::PrefValue;
@@ -173,10 +173,6 @@ pub struct LocalApiDeps {
     pub secrets: Arc<dyn SecretAccess>,
     /// Opens a client's install link or the .mcpb file.
     pub opener: Arc<dyn Opener>,
-    /// The local database for `/api/sdk/`.
-    pub query: Option<Arc<dyn SdkQuery>>,
-    /// Saves SDK artifact uploads.
-    pub save_artifact: Option<Arc<dyn SaveArtifact>>,
     /// Answers `/mcp`.
     pub mcp: Option<Arc<dyn McpRouter>>,
     /// Takes the window's semantic rank answers.
@@ -210,8 +206,6 @@ struct State {
 struct Serving {
     vault: VaultState,
     mode: ModeSource,
-    query: Option<Arc<dyn SdkQuery>>,
-    save_artifact: Option<Arc<dyn SaveArtifact>>,
     mcp: Option<Arc<dyn McpRouter>>,
     grants: Arc<Mutex<Vec<TokenRecord>>>,
 }
@@ -222,8 +216,6 @@ impl Serving {
         let deps = RouteDeps {
             vault: &self.vault,
             mode: &self.mode,
-            query: self.query.as_deref(),
-            save_artifact: self.save_artifact.as_deref(),
             mcp: self.mcp.as_deref(),
         };
         let response =
@@ -358,8 +350,6 @@ impl LocalApiControl {
         let serving = Arc::new(Serving {
             vault: self.deps.vault.clone(),
             mode: self.deps.mode.clone(),
-            query: self.deps.query.clone(),
-            save_artifact: self.deps.save_artifact.clone(),
             mcp: self.deps.mcp.clone(),
             grants: Arc::clone(&self.grants),
         });
@@ -901,8 +891,6 @@ mod tests {
             prefs: Arc::new(FakePrefs::default()),
             secrets: secrets.clone(),
             opener: opener.clone(),
-            query: None,
-            save_artifact: None,
             mcp: None,
             ranker,
             paths,

@@ -24,7 +24,6 @@ pub mod paper_tags;
 pub mod papers;
 pub mod plan_feed_links;
 pub mod project_columns;
-pub mod project_integrations;
 pub mod projects_repo;
 pub mod reader_annotations;
 pub mod reading_list_items;

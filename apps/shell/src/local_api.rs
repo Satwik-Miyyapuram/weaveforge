@@ -1,4 +1,4 @@
-//! What the Rust local API needs from the app: an opener, the database, the artifacts folder, the log.
+//! What the Rust local API needs from the app: an opener, the MCP folder, the log.
 
 use std::path::{Path, PathBuf};
 use tauri::Manager as _;
@@ -7,8 +7,6 @@ use tauri_plugin_opener::OpenerExt as _;
 use crate::app_log::{AppLog, LogLevel};
 use crate::host::Opener;
 use crate::launch::without_verbatim_prefix;
-use crate::local_artifacts::write_local_artifact;
-use crate::local_http::{BoxFuture, SaveArtifact};
 
 /// The folder whose `.mcpb` files `open.path` may open: `<home>/.weaveforge/mcp`, or `mcp-<variant>` for a dev build.
 #[must_use]
@@ -40,20 +38,6 @@ impl Opener for TauriOpener {
             .opener()
             .open_path(text, None::<&str>)
             .map_err(|e| e.to_string())
-    }
-}
-
-/// Saves SDK artifacts under the app's local artifacts folder.
-pub struct AppArtifacts(pub PathBuf);
-
-impl SaveArtifact for AppArtifacts {
-    fn save<'a>(
-        &'a self,
-        experiment_id: &'a str,
-        name: &'a str,
-        bytes: Vec<u8>,
-    ) -> BoxFuture<'a, Result<String, String>> {
-        Box::pin(async move { write_local_artifact(&self.0, experiment_id, name, &bytes) })
     }
 }
 

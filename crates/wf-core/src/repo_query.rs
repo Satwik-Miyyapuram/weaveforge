@@ -539,7 +539,6 @@ pub fn repo_step(repo: &str, method: &str, call: &RepoCall) -> RepoStep {
         "dashboardLayout" | "graphSettings" => {
             crate::repos::project_columns::step(repo, method, call)
         }
-        "project_integrations" => crate::repos::project_integrations::step(method, call),
         "projects" => crate::repos::projects_repo::step(method, call),
         "shared_items" => crate::repos::shared_items::step(method, call),
         "account" => crate::repos::account::step(method, call),
@@ -759,7 +758,6 @@ mod tests {
         "plan_feed_links",
         "dashboardLayout",
         "graphSettings",
-        "project_integrations",
         "projects",
         "shared_items",
         "account",

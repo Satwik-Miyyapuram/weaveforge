@@ -87,18 +87,6 @@ impl LocalApiResponse {
     }
 }
 
-/// Runs SQL against the local database. `Err` carries a message for the log.
-///
-/// TS: `SdkQuery` in local-sdk-api.ts. Params are JSON scalars (string, number, bool, null).
-pub trait SdkQuery: Send + Sync {
-    /// Runs one SQL statement with JSON params.
-    fn query<'a>(
-        &'a self,
-        sql: &'a str,
-        params: Vec<Value>,
-    ) -> BoxFuture<'a, Result<Vec<Value>, String>>;
-}
-
 /// Ranks candidate paths for a query in the page, or `None` when no ranker answered.
 ///
 /// TS: `SemanticRanker` in local-mcp.ts.
@@ -109,19 +97,6 @@ pub trait SemanticRanker: Send + Sync {
         query: &'a str,
         candidates: Vec<String>,
     ) -> BoxFuture<'a, Option<Vec<String>>>;
-}
-
-/// Saves an experiment artifact and returns its `app://artifacts/...` URL.
-///
-/// TS: `SaveArtifact` in local-artifacts.ts.
-pub trait SaveArtifact: Send + Sync {
-    /// Stores the artifact bytes for the experiment.
-    fn save<'a>(
-        &'a self,
-        experiment_id: &'a str,
-        name: &'a str,
-        bytes: Vec<u8>,
-    ) -> BoxFuture<'a, Result<String, String>>;
 }
 
 /// Answers one parsed JSON-RPC message from POST `/mcp`; `None` for a notification (202).

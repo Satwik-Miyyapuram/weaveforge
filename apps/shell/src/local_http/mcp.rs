@@ -16,7 +16,7 @@ use super::mcp_read::PROTOCOL_VERSION;
 use super::mcp_tools::{TrackingSetup, tools, tracking_setup, tracking_tool};
 use super::sdk_files;
 use super::verified::{Mode, ModeSource, folder_mode};
-use super::{BoxFuture, McpHome, McpRouter, SdkQuery, SemanticRanker};
+use super::{BoxFuture, McpHome, McpRouter, SemanticRanker};
 use crate::vault::VaultState;
 
 /// The tracking tool's name, as `tracking_tool()` lists it.
@@ -26,57 +26,41 @@ const TRACKING_TOOL_NAME: &str = "experiment_tracking_setup";
 pub struct LocalMcp {
     vault: VaultState,
     mode: ModeSource,
-    query: Option<Arc<dyn SdkQuery>>,
     ranker: Option<Arc<dyn SemanticRanker>>,
     home: Option<McpHome>,
 }
 
 impl LocalMcp {
-    /// `mode` picks the storage path; `query` lists projects; `ranker` orders search hits;
+    /// `mode` picks the storage path; `ranker` orders search hits;
     /// `home` is where Connect left the token.
     #[must_use]
     pub fn new(
         vault: VaultState,
         mode: ModeSource,
-        query: Option<Arc<dyn SdkQuery>>,
         ranker: Option<Arc<dyn SemanticRanker>>,
         home: Option<McpHome>,
     ) -> Self {
         Self {
             vault,
             mode,
-            query,
             ranker,
             home,
         }
     }
 
-    /// The app's projects. A verified folder names its one project from `workspace.json`
-    /// and sends no SQL; otherwise the database, or none when there is none or the query
-    /// failed (TS `projectsFrom`).
+    /// The app's projects. A verified folder names its one project from `workspace.json`;
+    /// any other folder lists none, since 0.9.8 has no local database (TS `projectsFrom`).
     async fn project_rows(&self) -> Vec<WorkspaceProject> {
-        if folder_mode(&self.vault, &self.mode) == Mode::Files {
-            return match sdk_files::workspace_project(&self.vault).await {
-                Ok(Some(project)) => vec![WorkspaceProject {
-                    id: js_string(&project["id"]),
-                    name: js_string(&project["name"]),
-                }],
-                _ => Vec::new(),
-            };
-        }
-        let Some(query) = &self.query else {
+        if folder_mode(&self.vault, &self.mode) != Mode::Files {
             return Vec::new();
-        };
-        query
-            .query("select id, name from projects order by name", Vec::new())
-            .await
-            .unwrap_or_default()
-            .iter()
-            .map(|row| WorkspaceProject {
-                id: js_string(&row["id"]),
-                name: js_string(&row["name"]),
-            })
-            .collect()
+        }
+        match sdk_files::workspace_project(&self.vault).await {
+            Ok(Some(project)) => vec![WorkspaceProject {
+                id: js_string(&project["id"]),
+                name: js_string(&project["name"]),
+            }],
+            _ => Vec::new(),
+        }
     }
 
     /// Tracking help when the token may log runs and Connect has run (TS `trackingFor`).
@@ -270,7 +254,6 @@ mod tests {
     use std::future::Future;
     use std::path::PathBuf;
     use std::sync::Mutex;
-    use std::sync::atomic::{AtomicUsize, Ordering};
 
     use super::*;
 
@@ -313,34 +296,20 @@ mod tests {
         }
     }
 
-    /// Answers project queries with one fixed project.
-    struct OneProject;
-
-    impl SdkQuery for OneProject {
-        fn query<'a>(
-            &'a self,
-            _sql: &'a str,
-            _params: Vec<Value>,
-        ) -> BoxFuture<'a, Result<Vec<Value>, String>> {
-            Box::pin(async { Ok(vec![json!({ "id": "p1", "name": "Tea" })]) })
-        }
-    }
-
-    /// Counts project queries; a verified folder must never send one.
-    #[derive(Default)]
-    struct CountingDb {
-        asked: AtomicUsize,
-    }
-
-    impl SdkQuery for CountingDb {
-        fn query<'a>(
-            &'a self,
-            _sql: &'a str,
-            _params: Vec<Value>,
-        ) -> BoxFuture<'a, Result<Vec<Value>, String>> {
-            let _ = self.asked.fetch_add(1, Ordering::SeqCst);
-            Box::pin(async { Ok(Vec::new()) })
-        }
+    /// Marks the folder verified and names its one project in `workspace.json`.
+    fn verified_with_project(fx: &Fixture, name: &str) {
+        let meta = fx.root.join(".weaveforge");
+        let dir = meta.join("migration-0.9.7");
+        fs::create_dir_all(&dir).expect("migration dir");
+        let report = json!({
+            "version": 1,
+            "state": "verified",
+            "runs": [{ "deviceId": "device-a", "state": "verified", "finishedAt": "2026-11-01T00:00:00Z" }],
+        })
+        .to_string();
+        fs::write(dir.join("report.json"), report).expect("report");
+        let project = json!({ "id": "proj-1", "name": name }).to_string();
+        fs::write(meta.join("workspace.json"), project).expect("workspace");
     }
 
     /// Reverses the candidates and records what it was asked.
@@ -398,7 +367,7 @@ mod tests {
     #[test]
     fn initialize_ping_and_notifications() {
         let fx = Fixture::new("init");
-        let mcp = LocalMcp::new(fx.vault.clone(), fx.mode.clone(), None, None, None);
+        let mcp = LocalMcp::new(fx.vault.clone(), fx.mode.clone(), None, None);
         let init = route(
             &mcp,
             json!({ "jsonrpc": "2.0", "id": 1, "method": "initialize" }),
@@ -430,7 +399,7 @@ mod tests {
     #[test]
     fn unknown_method_errors_only_for_requests() {
         let fx = Fixture::new("unknown");
-        let mcp = LocalMcp::new(fx.vault.clone(), fx.mode.clone(), None, None, None);
+        let mcp = LocalMcp::new(fx.vault.clone(), fx.mode.clone(), None, None);
         let answer =
             route(&mcp, json!({ "id": 2, "method": "nope" }), true, false).expect("answer");
         assert_eq!(
@@ -443,7 +412,7 @@ mod tests {
     #[test]
     fn tools_list_hides_suggest_for_read_only_tokens() {
         let fx = Fixture::new("list");
-        let mcp = LocalMcp::new(fx.vault.clone(), fx.mode.clone(), None, None, None);
+        let mcp = LocalMcp::new(fx.vault.clone(), fx.mode.clone(), None, None);
         let all = names(
             &route(
                 &mcp,
@@ -469,25 +438,23 @@ mod tests {
     }
 
     #[test]
-    fn a_verified_folder_lists_projects_from_workspace_json_with_no_sql() {
+    fn a_verified_folder_lists_projects_from_workspace_json() {
         let fx = Fixture::new("files-projects");
-        let meta = fx.root.join(".weaveforge");
-        let dir = meta.join("migration-0.9.7");
-        fs::create_dir_all(&dir).expect("migration dir");
-        let report = json!({
-            "version": 1,
-            "state": "verified",
-            "runs": [{ "deviceId": "device-a", "state": "verified", "finishedAt": "2026-11-01T00:00:00Z" }],
-        })
-        .to_string();
-        fs::write(dir.join("report.json"), report).expect("report");
-        let project = json!({ "id": "proj-1", "name": "Lab" }).to_string();
-        fs::write(meta.join("workspace.json"), project).expect("workspace");
-        let db = Arc::new(CountingDb::default());
-        let mcp = LocalMcp::new(fx.vault.clone(), fx.mode.clone(), Some(db.clone()), None, None);
+        verified_with_project(&fx, "Lab");
+        let mcp = LocalMcp::new(fx.vault.clone(), fx.mode.clone(), None, None);
         let answer = call(&mcp, "list_projects", json!({}), false, false);
         assert!(answer.to_string().contains("Lab"), "{answer}");
-        assert_eq!(db.asked.load(Ordering::SeqCst), 0);
+    }
+
+    #[test]
+    fn an_unverified_folder_lists_no_projects() {
+        let fx = Fixture::new("db-projects");
+        let meta = fx.root.join(".weaveforge");
+        let project = json!({ "id": "proj-1", "name": "Lab" }).to_string();
+        fs::write(meta.join("workspace.json"), project).expect("workspace");
+        let mcp = LocalMcp::new(fx.vault.clone(), fx.mode.clone(), None, None);
+        let answer = call(&mcp, "list_projects", json!({}), false, false);
+        assert!(!answer.to_string().contains("Lab"), "{answer}");
     }
 
     #[test]
@@ -497,7 +464,7 @@ mod tests {
         fs::create_dir_all(&dir).expect("migration dir");
         let report = json!({ "version": 1, "state": "verified" }).to_string();
         fs::write(dir.join("report.json"), report).expect("write report");
-        let files = LocalMcp::new(fx.vault.clone(), fx.mode.clone(), None, None, Some(home()));
+        let files = LocalMcp::new(fx.vault.clone(), fx.mode.clone(), None, Some(home()));
         let list = json!({ "id": 1, "method": "tools/list" });
         assert!(
             names(&route(&files, list, true, true).expect("list"))
@@ -510,14 +477,9 @@ mod tests {
     #[test]
     fn tracking_tool_needs_permission_and_home() {
         let fx = Fixture::new("tracking");
-        let bare = LocalMcp::new(fx.vault.clone(), fx.mode.clone(), None, None, None);
-        let full = LocalMcp::new(
-            fx.vault.clone(),
-            fx.mode.clone(),
-            Some(Arc::new(OneProject)),
-            None,
-            Some(home()),
-        );
+        verified_with_project(&fx, "Tea");
+        let bare = LocalMcp::new(fx.vault.clone(), fx.mode.clone(), None, None);
+        let full = LocalMcp::new(fx.vault.clone(), fx.mode.clone(), None, Some(home()));
         let list = json!({ "id": 1, "method": "tools/list" });
         assert!(
             !names(&route(&bare, list.clone(), true, true).expect("bare"))
@@ -551,7 +513,7 @@ mod tests {
     #[test]
     fn read_only_tokens_cannot_suggest() {
         let fx = Fixture::new("readonly");
-        let mcp = LocalMcp::new(fx.vault.clone(), fx.mode.clone(), None, None, None);
+        let mcp = LocalMcp::new(fx.vault.clone(), fx.mode.clone(), None, None);
         let answer = call(
             &mcp,
             "suggest_note_create",
@@ -569,7 +531,7 @@ mod tests {
     #[test]
     fn unknown_tool_is_a_tool_error() {
         let fx = Fixture::new("unknowntool");
-        let mcp = LocalMcp::new(fx.vault.clone(), fx.mode.clone(), None, None, None);
+        let mcp = LocalMcp::new(fx.vault.clone(), fx.mode.clone(), None, None);
         let answer = call(&mcp, "no_such_tool", json!({}), true, false);
         assert_eq!(answer["isError"], json!(true));
         assert_eq!(
@@ -582,7 +544,12 @@ mod tests {
     fn search_asks_the_ranker_without_holding_the_lock() {
         let fx = Fixture::new("search");
         let ranker = Arc::new(Reverse::default());
-        let mcp = LocalMcp::new(fx.vault.clone(), fx.mode.clone(), None, Some(ranker.clone()), None);
+        let mcp = LocalMcp::new(
+            fx.vault.clone(),
+            fx.mode.clone(),
+            Some(ranker.clone()),
+            None,
+        );
         let answer = call(
             &mcp,
             "search_workspace",

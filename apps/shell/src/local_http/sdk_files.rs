@@ -26,11 +26,12 @@ const TASK_FAILED: &str = "The metrics could not be written.";
 /// Said by every SDK route when the folder's migration status cannot be trusted.
 pub(super) const UNAVAILABLE: &str = "folder status unavailable";
 /// Said by a read-only database folder for a write on an SDK route.
-pub(super) const READ_ONLY: &str = "read-only: this folder's database takes no writes in its migration state";
+pub(super) const READ_ONLY: &str =
+    "read-only: this folder's database takes no writes in its migration state";
 /// Said by a files-mode folder for experiments and artifacts, which return in 0.9.8.
 pub(super) const EXPERIMENTS_LATER: &str =
     "experiment tracking is unavailable in files mode in 0.9.7; it returns in 0.9.8";
-/// Said by a files-mode folder for an SDK route that is not file-backed yet. Never SQL.
+/// Said by a files-mode folder for an SDK route that is not file-backed yet.
 pub(super) const NOT_FILED: &str = "not available in files mode yet";
 
 /// Whether local metrics go to files (`WF_METRICS_FILES=1`); read on every call.
@@ -39,11 +40,11 @@ pub fn enabled() -> bool {
     std::env::var("WF_METRICS_FILES").is_ok_and(|value| value == "1")
 }
 
-/// Answers SDK requests by the folder's storage mode. `None` leaves the request to the
-/// database routes, which only `Database` and `DatabaseReadOnly` reach (reads only in read-only).
+/// Answers SDK requests by the folder's storage mode. `None` means the files do not answer
+/// it; the router then says 404, since 0.9.8 has no local database routes.
 ///
-/// - `Database`: metrics may go to files when `WF_METRICS_FILES=1`; the rest is the database's.
-/// - `DatabaseReadOnly`: every non-GET is refused 423; GET goes to the database.
+/// - `Database`: metrics may go to files when `WF_METRICS_FILES=1`; the rest is `None`.
+/// - `DatabaseReadOnly`: every non-GET is refused 423; GET is `None`.
 /// - `Files`: `GET projects` from `workspace.json`, `GET whoami` locally, metrics as chunks.
 ///   Experiments and artifacts say they return in 0.9.8; any other route is 503. Never SQL.
 /// - `Unavailable`: every SDK route is 503. Never SQL.
@@ -213,7 +214,8 @@ mod tests {
                 report["removingDeviceId"] = json!(DEVICE);
             }
             if state == "removed" {
-                report["removals"][DEVICE] = json!({ "state": "removed", "removedAt": "2026-11-02T00:00:00Z" });
+                report["removals"][DEVICE] =
+                    json!({ "state": "removed", "removedAt": "2026-11-02T00:00:00Z" });
             }
             self.write_report(&report)
         }
@@ -271,7 +273,13 @@ mod tests {
             .enable_all()
             .build()
             .expect("runtime")
-            .block_on(route(mode_of(fixture), &fixture.vault, &request, "/api/sdk/metrics", ""))
+            .block_on(route(
+                mode_of(fixture),
+                &fixture.vault,
+                &request,
+                "/api/sdk/metrics",
+                "",
+            ))
     }
 
     fn route_get(fixture: &Fixture, path: &str, search: &str) -> Option<LocalApiResponse> {
@@ -285,7 +293,13 @@ mod tests {
             .enable_all()
             .build()
             .expect("runtime")
-            .block_on(route(mode_of(fixture), &fixture.vault, &request, path, search))
+            .block_on(route(
+                mode_of(fixture),
+                &fixture.vault,
+                &request,
+                path,
+                search,
+            ))
     }
 
     #[test]
