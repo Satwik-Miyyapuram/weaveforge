@@ -200,9 +200,13 @@ async fn the_write_guard_matches_the_exact_values_read() {
     // A plaintext key written between the read and the write (an old client) must not be
     // overwritten by the sealed copy of the older value.
     let up = serve(vec![(SETTINGS, legacy_turns())]).await;
-    seal_legacy_credentials(&config(&up), &reqwest::Client::new(), Some(KEY), false)
+    let report = seal_legacy_credentials(&config(&up), &reqwest::Client::new(), Some(KEY), false)
         .await
         .expect("run");
+    assert_eq!(
+        (report.found, report.converted, report.left_plaintext),
+        (1, 1, 0)
+    );
     let sent = &patches(&up)[0];
     assert_eq!(query_value(sent, "user_id").as_deref(), Some("eq.user-1"));
     assert_eq!(
@@ -245,9 +249,13 @@ async fn the_write_guard_carries_awkward_values_unchanged() {
         ],
     )])
     .await;
-    seal_legacy_credentials(&config(&up), &reqwest::Client::new(), Some(KEY), false)
+    let report = seal_legacy_credentials(&config(&up), &reqwest::Client::new(), Some(KEY), false)
         .await
         .expect("run");
+    assert_eq!(
+        (report.found, report.converted, report.left_plaintext),
+        (1, 1, 0)
+    );
     let sent = &patches(&up)[0];
     assert_eq!(
         query_value(sent, "zotero_api_key"),
@@ -502,9 +510,13 @@ async fn get_refuses_a_legacy_row_without_the_key() {
 #[tokio::test]
 async fn a_write_guard_requires_a_row_that_still_holds_legacy_plaintext() {
     let up = serve(vec![(SETTINGS, legacy_turns())]).await;
-    seal_legacy_credentials(&config(&up), &reqwest::Client::new(), Some(KEY), false)
+    let report = seal_legacy_credentials(&config(&up), &reqwest::Client::new(), Some(KEY), false)
         .await
         .expect("run");
+    assert_eq!(
+        (report.found, report.converted, report.left_plaintext),
+        (1, 1, 0)
+    );
     let sent = patches(&up);
     assert!(sent[0].target.contains("zotero_api_key.not.is.null"));
     assert!(sent[0].target.contains("semantic_scholar_key.not.is.null"));
