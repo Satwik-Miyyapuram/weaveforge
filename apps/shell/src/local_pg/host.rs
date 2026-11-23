@@ -734,10 +734,8 @@ impl<E: Engine> PgHost<E> {
         if inner.closed {
             return;
         }
-        if backup {
-            if let Err(e) = self.backup_locked(&mut inner, SystemTime::now()).await {
-                self.log_line(&format!("[local-db] backup on quit failed: {}", e.message));
-            }
+        if backup && let Err(e) = self.backup_locked(&mut inner, SystemTime::now()).await {
+            self.log_line(&format!("[local-db] backup on quit failed: {}", e.message));
         }
         inner.closed = true;
         inner.user = None;

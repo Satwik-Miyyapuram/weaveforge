@@ -155,6 +155,7 @@ fn is_valid(id: &str) -> bool {
 /// The one shape check for a device id used inside a file name (`report-<id>.json`,
 /// `secrets-moved-<id>.json`): non-empty, at most 128 characters, ASCII letters, digits or '-'.
 /// Every id this device mints passes it; a path separator, `.` or `_` does not.
+#[must_use]
 pub fn is_file_name_id(id: &str) -> bool {
     !id.is_empty() && id.len() <= 128 && id.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-')
 }
