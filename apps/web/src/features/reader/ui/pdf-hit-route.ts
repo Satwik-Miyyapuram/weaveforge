@@ -42,9 +42,10 @@ export function routePdfHit(input: PdfHitInput): PdfHitRoute {
 export async function fetchServedPdf(
   url: string,
   fetchFn: (url: string, init?: RequestInit) => Promise<Response> = fetch,
+  signal?: AbortSignal,
 ): Promise<Blob | null> {
   try {
-    const res = await fetchFn(url, { method: "GET" });
+    const res = await fetchFn(url, { method: "GET", signal });
     if (res.status !== 200) return null;
     return await res.blob();
   } catch {

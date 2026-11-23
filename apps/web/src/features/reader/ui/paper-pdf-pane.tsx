@@ -158,6 +158,8 @@ export function PaperPdfPane({
       return;
     }
     let cancelled = false;
+    // Aborted with `cancelled`: a GitHub-guess probe for a paper no longer shown is dropped.
+    const probe = new AbortController();
     let revokeOnCancel: string | null = null;
     setLoading(true);
     setPdfUrl(null);
@@ -227,7 +229,7 @@ export function PaperPdfPane({
         const webArticle = !!openAccessIds.current && readyCore().isWebArticle(openAccessIds.current);
         const probeGuess = resolution.ok && resolution.resolverId === "github-repo" && !webArticle;
         // One GET: the bytes it returns are opened below, not downloaded a second time.
-        const servedBytes = probeGuess ? await fetchServedPdf(resolution.hit.url) : null;
+        const servedBytes = probeGuess ? await fetchServedPdf(resolution.hit.url, undefined, probe.signal) : null;
         if (cancelled) return;
         const guessFound = probeGuess ? servedBytes !== null : undefined;
         const route = resolution.ok
@@ -292,6 +294,7 @@ export function PaperPdfPane({
       });
     return () => {
       cancelled = true;
+      probe.abort();
       if (revokeOnCancel) URL.revokeObjectURL(revokeOnCancel);
     };
   }, [paperId, pdfFromParam, cacheSkippedFor, generation]);
@@ -421,6 +424,8 @@ export function PaperPdfPane({
    */
   async function findFree(paperTitle: string | null = title) {
     if (!paperId || !openAccessIds.current) return;
+    // A new search starts a new fetch: the card is not "ended" until this one ends.
+    setWebFetchEnded(false);
     setFreeBusy(true);
     setFreeStatus({
       text: readyCore().isWebArticle(openAccessIds.current) ? "Fetching the page…" : "Asking the open-access indexes…",
