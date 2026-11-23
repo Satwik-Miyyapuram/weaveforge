@@ -29,8 +29,10 @@ import { AnnotationSidebar } from "./annotation-sidebar";
 import { readyCore } from "@/lib/rust-core";
 import { relayUrl } from "@/lib/parts";
 import { PaperHtmlView } from "./paper-html-view";
+import { fetchServedPdf, routePdfHit, safeHostname } from "./pdf-hit-route";
 import { Button } from "@/components/button";
 import { paperGuard } from "./paper-guard";
+import { planWebArticle } from "./web-article-preview";
 
 async function keptHtmlPage(paperId: string): Promise<PaperHtmlPage | null> {
   const { paperHtmlStore } = await import("../infrastructure/paper-html-store");
@@ -102,6 +104,8 @@ export function PaperPdfPane({
   const openAccessIds = useRef<OpenAccessIds | null>(null);
   const [freeBusy, setFreeBusy] = useState(false);
   const [freeStatus, setFreeStatus] = useState<{ text: string; error: boolean } | null>(null);
+  /** The web-page fetch for this paper has run to its end (found a page or not). */
+  const [webFetchEnded, setWebFetchEnded] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const activityRef = useRef(onActivity);
   activityRef.current = onActivity;
@@ -120,6 +124,7 @@ export function PaperPdfPane({
     setTitle(null);
     setHtmlPage(null);
     setFreeStatus(null);
+    setWebFetchEnded(false);
     openAccessIds.current = null;
     // Drop the previous paper's annotations before loading the next one.
     // Without this they stay mounted over the new PDF at the old paper's
@@ -133,6 +138,8 @@ export function PaperPdfPane({
       return;
     }
     let cancelled = false;
+    // Aborted with `cancelled`: a GitHub-guess probe for a paper no longer shown is dropped.
+    const probe = new AbortController();
     let revokeOnCancel: string | null = null;
     setLoading(true);
     setPdfUrl(null);
@@ -194,14 +201,38 @@ export function PaperPdfPane({
           if (!cancelled) setQuotationTypes(new Map());
         }
         if (cancelled) return;
-        if (resolution.ok) {
-          setPdfUrl(resolution.hit.url);
-          if ("revokeUrl" in resolution && resolution.revokeUrl) {
-            revokeOnCancel = resolution.revokeUrl;
-            setPdfRevokeUrl(resolution.revokeUrl);
-          } else {
-            setPdfRevokeUrl(null);
-          }
+        // A web article's guessed GitHub path is not a PDF: leave it to the page
+        // branch below. Every other hit opens here (this build has no download prompt).
+        // A GitHub-repo guess is only a path: probe it before opening it in pdf.js, so
+        // a file the repo does not hold falls through to the else branch below.
+        const webArticle = !!openAccessIds.current && readyCore().isWebArticle(openAccessIds.current);
+        const probeGuess = resolution.ok && resolution.resolverId === "github-repo" && !webArticle;
+        // One GET: the bytes it returns are opened below, not downloaded a second time.
+        const servedBytes = probeGuess ? await fetchServedPdf(resolution.hit.url, undefined, probe.signal) : null;
+        if (cancelled) return;
+        const guessFound = probeGuess ? servedBytes !== null : undefined;
+        const route = resolution.ok
+          ? routePdfHit({
+              url: resolution.hit.url,
+              resolverId: resolution.resolverId,
+              localMode: false,
+              stored: true,
+              webArticle,
+              guessFound,
+            })
+          : null;
+        if (resolution.ok && route === "open") {
+          // Bytes already fetched for a GitHub guess open from a blob URL; it is
+          // revoked on cancel, on the next paper, or on unmount (pdfRevokeUrl).
+          const ownUrl =
+            servedBytes !== null
+              ? URL.createObjectURL(servedBytes)
+              : "revokeUrl" in resolution && resolution.revokeUrl
+                ? resolution.revokeUrl
+                : null;
+          setPdfUrl(servedBytes !== null && ownUrl ? ownUrl : resolution.hit.url);
+          revokeOnCancel = ownUrl;
+          setPdfRevokeUrl(ownUrl);
         } else {
           // No PDF: a full-text page kept earlier is the paper's text.
           let kept: PaperHtmlPage | null = null;
@@ -214,9 +245,9 @@ export function PaperPdfPane({
           if (kept) {
             setHtmlPage(kept);
           } else if (openAccessIds.current && readyCore().isWebArticle(openAccessIds.current)) {
-            // A blog post or an essay: its own page is the paper, so open it
-            // rather than wait for a button press to go and get it.
-            setError("This paper is a web page and has no PDF.");
+            // A blog post or an essay: its own page is the paper, so fetch and keep
+            // it now. A failed fetch leaves the live-page fallback in the render
+            // (planWebArticle), never a PDF prompt or an error card.
             void findFreeRef.current(paper.title);
           } else {
             setError("This paper has no PDF the reader can open yet.");
@@ -231,6 +262,7 @@ export function PaperPdfPane({
       });
     return () => {
       cancelled = true;
+      probe.abort();
       if (revokeOnCancel) URL.revokeObjectURL(revokeOnCancel);
     };
   }, [paperId, pdfFromParam, cacheSkippedFor, generation]);
@@ -311,7 +343,7 @@ export function PaperPdfPane({
       // are kept even when another paper is open by now; the view is not touched.
       await linkPdfSource((id, link) => getContainer().papers.updatePaper.setPdfSource(id, link), paperId, url);
       if (!stillOpen()) return;
-      activityRef.current?.("reader", `Fetched the PDF from ${new URL(url).hostname} and linked it to this paper.`);
+      activityRef.current?.("reader", `Fetched the PDF from ${safeHostname(url)} and linked it to this paper.`);
       setTypedUrl("");
       setError(null);
       setCacheSkippedFor(null);
@@ -331,6 +363,8 @@ export function PaperPdfPane({
    */
   async function findFree(paperTitle: string | null = title) {
     if (!paperId || !openAccessIds.current) return;
+    // A new search starts a new fetch: the card is not "ended" until this one ends.
+    setWebFetchEnded(false);
     setFreeBusy(true);
     setFreeStatus({
       text: readyCore().isWebArticle(openAccessIds.current) ? "Fetching the page…" : "Asking the open-access indexes…",
@@ -341,7 +375,7 @@ export function PaperPdfPane({
       const { findFreeCopyInBrowser } = await import("../application/parts-2");
       const outcome = await findFreeCopyInBrowser(paperId, openAccessIds.current);
       if (outcome.kind === "pdf") {
-        const host = new URL(outcome.candidate.url).hostname;
+        const host = safeHostname(outcome.candidate.url);
         await linkPdfSource(
           (id, link) => getContainer().papers.updatePaper.setPdfSource(id, link),
           paperId,
@@ -363,8 +397,8 @@ export function PaperPdfPane({
         activityRef.current?.(
           "reader",
           outcome.candidate.source === "paper"
-            ? `Opened the page on ${new URL(outcome.page.url).hostname}; kept with this paper.`
-            : `No free PDF, but the full text is on ${new URL(outcome.page.url).hostname}; kept as a web page.`,
+            ? `Opened the page on ${safeHostname(outcome.page.url)}; kept with this paper.`
+            : `No free PDF, but the full text is on ${safeHostname(outcome.page.url)}; kept as a web page.`,
         );
         setFreeStatus(null);
         setError(null);
@@ -379,6 +413,8 @@ export function PaperPdfPane({
       if (stillOpen()) setFreeStatus({ text: `The search for a free copy failed: ${formatError(err)}`, error: true });
     } finally {
       setFreeBusy(false);
+      // Ended with or without a page: the "Fetching the page…" card must not outlive it.
+      if (stillOpen()) setWebFetchEnded(true);
     }
   }
 
@@ -407,10 +443,20 @@ export function PaperPdfPane({
   }
 
   const canLoad = allowLoad && Boolean(paperId);
+  const articleIs = !!openAccessIds.current && readyCore().isWebArticle(openAccessIds.current);
+  const articlePlan =
+    articleIs && !pdfUrl
+      ? planWebArticle({
+          kept: htmlPage !== null,
+          pageUrl: openAccessIds.current?.pageUrl,
+          // A fetch that has ended without a page is a failed fetch: live page or none.
+          fetchFailed: freeStatus?.error === true || webFetchEnded,
+        })
+      : null;
   const freeCopy = canLoad ? (
     <div className="paper-free-copy">
       <Button variant="primary" size="sm" disabled={freeBusy} onClick={() => void findFree()}>
-        {freeBusy ? "Searching…" : openAccessIds.current && readyCore().isWebArticle(openAccessIds.current) ? "Open the page" : "Find a free copy"}
+        {freeBusy ? "Searching…" : articleIs ? "Find another copy" : "Find a free copy"}
       </Button>
       {freeStatus && (
         <p className="paper-free-copy-status" role={freeStatus.error ? "alert" : "status"}>
@@ -485,7 +531,32 @@ export function PaperPdfPane({
           {loadButton}
         </div>
       )}
-      {!loading && !error && !pdfUrl && !htmlPage && (
+      {!loading && !error && articlePlan?.kind === "fetch" && (
+        <div className="card empty-state">
+          <h2>Fetching the page…</h2>
+          <p>{freeStatus?.text ?? "The paper is a web page, so its text is fetched and kept here."}</p>
+        </div>
+      )}
+      {!loading && !error && articlePlan?.kind === "live" && (
+        <div className="card empty-state">
+          <h2>The page did not load here</h2>
+          <p>{freeStatus?.text}</p>
+          <p>
+            <a href={articlePlan.url} target="_blank" rel="noopener noreferrer">
+              Open the page on {articlePlan.host}
+            </a>
+          </p>
+          {freeCopy}
+        </div>
+      )}
+      {!loading && !error && articlePlan?.kind === "none" && (
+        <div className="card empty-state">
+          <h2>No page to show</h2>
+          <p>This article has no page address on record.</p>
+          {freeCopy}
+        </div>
+      )}
+      {!loading && !error && !pdfUrl && !htmlPage && !articlePlan && (
         <div className="card empty-state">
           <h2>Nothing to show</h2>
           <p>No PDF was provided for this locus.</p>
