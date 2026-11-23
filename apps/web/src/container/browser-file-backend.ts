@@ -13,14 +13,17 @@ import { guardOrgDb } from "./org-db-guard";
 import { readOnlyDb } from "./read-only-repositories";
 import { overlayFileRepositories } from "./with-file-repositories";
 
-/** A backend whose personal data lives in files: `filesMode` is always true here. */
-export type BrowserFileBackend = WiredBackend & { filesMode: true };
+/** A backend wired in files mode: its personal repositories are file repositories, marked so callers can tell. */
+export type BrowserFileBackend = WiredBackend & { readonly filesMode: true };
 
-export type BrowserFileWiring = (
+export type BrowserFileWiring = ((
   config: BackendConfig,
   projectContext: { projectId: string | null },
   pid: () => string | null,
-) => BrowserFileBackend;
+) => BrowserFileBackend) & {
+  /** Releases what the wiring opened. The OPFS handle needs no release, so this is a no-op today. */
+  close(): Promise<void>;
+};
 
 /**
  * The browser and Android personal-data backend: PostgREST with every personal repository
@@ -29,26 +32,31 @@ export type BrowserFileWiring = (
  */
 export async function wireBrowserFiles(fs: IWorkspaceFs): Promise<BrowserFileWiring> {
   const settings = await openFileSettingsSection(fs, "");
-  return (config, projectContext, pid) => {
-    // readOnlyDb refuses writes outside the org write tables, as on desktop and no-account.
+  const build: (
+    config: BackendConfig,
+    projectContext: { projectId: string | null },
+    pid: () => string | null,
+  ) => BrowserFileBackend = (config, projectContext, pid) => {
+    // Files mode guards `db` and every repository the wiring builds on the server client, so personal
+    // tables and rpcs throw before any request. Org and share tables stay reachable. readOnlyDb
+    // refuses writes outside the org write tables, as on desktop and no-account.
     const postgrest = wirePostgrestBackend(config, projectContext, pid, undefined, { filesMode: true }, readOnlyDb);
     const files = wireFileBackend({ fs, settings, secrets: new RefusingSecretsStore() });
-    // The container reaches the server only through `db`, so the guard sits there: personal
-    // tables and rpcs throw before any request. Org and share tables stay reachable.
     // manageSettings is built inside wirePostgrestBackend over the server settings repo. Rebuild it
     // over the file repo, so settings saves and the credential readers never reach PostgREST.
     const manageSettings = new ManageSettingsUseCase({ repository: files.settingsRepository, clock: systemClock });
     return {
       ...overlayFileRepositories(postgrest, files),
+      filesMode: true,
       manageSettings,
       // Personal blobs (images, experiment files) go to the OPFS file blob store. Only the share
       // path's `uploadShared` reaches the server blob store. Row scoping of shared images to the
       // signed-in user is not checked here.
       rawBlobStore: new FileModeBlobStore(new FileBlobStore(fs), postgrest.rawBlobStore),
       db: guardOrgDb(postgrest.db),
-      filesMode: true,
     };
   };
+  return Object.assign(build, { close: async () => {} });
 }
 
 export const BROWSER_STORAGE_MESSAGE =

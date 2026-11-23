@@ -30,17 +30,38 @@ function idOf(target: LinkTarget): string {
   return "paperId" in target ? target.paperId : target.vaultPageId;
 }
 
+function sameTarget(a: LinkTarget, b: LinkTarget): boolean {
+  return "paperId" in a === "paperId" in b && idOf(a) === idOf(b);
+}
+
+/** A file the scan could not read, and why. */
+export interface Unreadable {
+  path: string;
+  reason: string;
+}
+
 /** One scan of the folders; every lookup on it is free. */
 export class Links {
-  constructor(private readonly entries: readonly Entry[]) {}
+  constructor(
+    private readonly entries: readonly Entry[],
+    /** Files the scan could not read. Their links and memberships are missing from this snapshot. */
+    readonly unreadable: readonly Unreadable[] = [],
+  ) {}
 
   /** The paper or note `link` points at, or null when none or several do. */
   resolve(link: string): LinkTarget | null {
-    const key = readyCore().listItemKey(link);
+    const core = readyCore();
+    const key = core.listItemKey(link);
     if (key === undefined) return null;
-    const hits = this.entries.filter(
-      (e) => e.pathKey === key || e.pathKey.endsWith(`/${key}`) || key.endsWith(`/${e.pathKey}`),
-    );
+    const matches = (pathKey: string) =>
+      pathKey === key || pathKey.endsWith(`/${key}`) || key.endsWith(`/${pathKey}`);
+    // An unreadable file that could match means the link may name it: no guess among the readable ones.
+    const hidden = this.unreadable.some((u) => {
+      const pathKey = core.listItemKey(`[[${u.path.replace(/\.md$/, "")}]]`);
+      return pathKey !== undefined && matches(pathKey);
+    });
+    if (hidden) return null;
+    const hits = this.entries.filter((e) => matches(e.pathKey));
     return hits.length === 1 ? hits[0]!.target : null;
   }
 
@@ -59,8 +80,15 @@ export class Links {
   linkFor(target: LinkTarget): string | null {
     const hit = this.find(target);
     if (!hit) return null;
-    const shared = this.entries.some((e) => e !== hit && e.key === hit.key);
-    return `[[${shared ? hit.path : hit.path.slice(hit.path.lastIndexOf("/") + 1)}]]`;
+    // An unreadable file with the same name makes the bare link ambiguous to resolve(): write the folder link.
+    const core = readyCore();
+    const shared =
+      this.entries.some((e) => e !== hit && e.key === hit.key) ||
+      this.unreadable.some((u) => core.listItemKey(`[[${u.path.slice(u.path.lastIndexOf("/") + 1).replace(/\.md$/, "")}]]`) === hit.key);
+    const link = `[[${shared ? hit.path : hit.path.slice(hit.path.lastIndexOf("/") + 1)}]]`;
+    // Never write a link that would not read back to this target (an unreadable file can hide even the folder link).
+    const back = this.resolve(link);
+    return back && sameTarget(back, hit.target) ? link : null;
   }
 
   private find(target: LinkTarget): Entry | undefined {
@@ -71,6 +99,9 @@ export class Links {
 }
 
 export class LinkIndex {
+  /** The unreadable files (path and reason) already logged; see `snapshot`. */
+  private warned = new Set<string>();
+
   constructor(
     private readonly fs: IWorkspaceFs,
     private readonly root: ProjectRoot,
@@ -78,7 +109,18 @@ export class LinkIndex {
 
   /** Scans the folders once; use it for several lookups in one call. */
   async snapshot(): Promise<Links> {
-    return new Links([...(await this.scan("paper", ".paper.md")), ...(await this.scan("vault_page", ".note.md"))]);
+    const paper = await this.scan("paper", ".paper.md");
+    const vault = await this.scan("vault_page", ".note.md");
+    const unreadable = [...paper.unreadable, ...vault.unreadable];
+    // Lookups keep the files they could read; each unreadable one is logged, never dropped silently.
+    // Logged once while it stays unreadable for the same reason, so repeated lookups do not repeat it.
+    // Two snapshots running at once may both log it; that only repeats a warning.
+    const now = new Set(unreadable.map((u) => `${u.path}\0${u.reason}`));
+    for (const u of unreadable) {
+      if (!this.warned.has(`${u.path}\0${u.reason}`)) console.warn(`Skipped ${u.path}: could not read it.`, u.reason);
+    }
+    this.warned = now;
+    return new Links([...paper.entries, ...vault.entries], unreadable);
   }
 
   /** One lookup; see `Links.resolve`. */
@@ -91,23 +133,35 @@ export class LinkIndex {
     return (await this.snapshot()).linkFor(target);
   }
 
-  private async scan(kind: "paper" | "vault_page", suffix: string): Promise<Entry[]> {
+  private async scan(
+    kind: "paper" | "vault_page",
+    suffix: string,
+  ): Promise<{ entries: Entry[]; unreadable: Unreadable[] }> {
     const core = readyCore();
     const dir = core.entityDir(kind, this.root());
     const out: Entry[] = [];
-    if (!(await this.fs.stat(dir))) return out;
+    const unreadable: Unreadable[] = [];
+    if (!(await this.fs.stat(dir))) return { entries: out, unreadable };
     for await (const entry of this.fs.walk(dir)) {
       if (entry.kind !== "file" || !entry.path.endsWith(suffix)) continue;
       let id: string | undefined;
+      let text: string;
       try {
-        const text = await this.fs.readText(entry.path);
+        text = await this.fs.readText(entry.path);
+      } catch (error) {
+        unreadable.push({ path: entry.path, reason: error instanceof Error ? error.message : String(error) });
+        continue;
+      }
+      try {
         if (kind === "paper") {
           const raw: unknown = core.paperRowFromFile(text).id;
           id = typeof raw === "string" && raw ? raw : entry.path;
         } else {
           id = core.frontmatterString(core.readFrontmatter(text).frontmatter, "weaveforge-id") ?? undefined;
         }
-      } catch {
+      } catch (error) {
+        // A file whose frontmatter cannot be parsed may still be a member or a link target: report it.
+        unreadable.push({ path: entry.path, reason: error instanceof Error ? error.message : String(error) });
         continue;
       }
       if (!id) continue;
@@ -117,6 +171,6 @@ export class LinkIndex {
       if (key === undefined || pathKey === undefined) continue;
       out.push({ target: kind === "paper" ? { paperId: id } : { vaultPageId: id }, key, pathKey, path });
     }
-    return out;
+    return { entries: out, unreadable };
   }
 }

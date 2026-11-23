@@ -41,9 +41,12 @@ const personalCalls: [string, (b: Wired) => Promise<unknown>][] = [
     "integrationsStore.save",
     (b) => call(b.integrationsStore.save, "p-1", { provider: "github", enabled: true, branch: "main", repo: "a/b" }),
   ],
-  ["projectBibliographyCollection.setCollection", (b) => call(b.projectBibliographyCollection.setCollection, "p-1", "Lib")],
+  // paper_tags is not in ORG_SERVER_TABLES, so both probes below must be refused in files mode.
+  ["paperTagRepository.listAll", (b) => call(b.paperTagRepository.listAll)],
+  ["paperTagRepository.listForTag", (b) => call(b.paperTagRepository.listForTag, "t-1")],
+  ["paperTagRepository.link", (b) => call(b.paperTagRepository.link, { paperId: "p-1", tagId: "t-1", source: "manual" })],
   ["screeningRepository.listForItems", (b) => call(b.screeningRepository.listForItems, ["i-1"])],
-  ["releaseNoticesRepository.unseen", (b) => call(b.releaseNoticesRepository.unseen)],
+  ["releaseNoticesRepository.latest", (b) => call(b.releaseNoticesRepository.latest)],
   // 0.9.8: the personal repos wired over the client itself are guarded too, not just the five above.
   ["projectRepository.list", (b) => call(b.projectRepository.list)],
   ["paperRepository.getById", (b) => call(b.paperRepository.getById, "i-1")],

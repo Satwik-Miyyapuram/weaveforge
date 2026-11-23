@@ -135,7 +135,10 @@ export class FilePaperFieldRepository implements IPaperFieldRepository {
   }
 }
 
-/** Paper ids as `[[links]]`; an id with no file is kept as it is. */
+/**
+ * Paper ids as `[[links]]`; an id with no file, or whose link an unreadable file blocks, is kept as the bare id.
+ * paperIds reads a bare id back unchanged, and the next write upgrades it to a link once the file is fixed.
+ */
 function linksFor(links: Links, ids: readonly string[]): string[] {
   return ids.map((id) => links.linkFor({ paperId: id }) ?? id);
 }

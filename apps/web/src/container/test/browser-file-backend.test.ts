@@ -170,3 +170,20 @@ test("a browser storage open failure throws a clear message instead of a raw err
   };
   await assert.rejects(openBrowserFileWiring(failing), (e: Error) => e.message.startsWith(BROWSER_STORAGE_MESSAGE) && /OPFS denied/.test(e.message));
 });
+
+test("a repository built inside the wiring cannot write a personal table to the server", async () => {
+  const fs = new MemoryWorkspaceFs();
+  const wire = await wireBrowserFiles(fs);
+  const backend = wire(config, { projectId: null }, () => null);
+  const spy = spyNetwork();
+  try {
+    // paper_tags is personal and not on the org allowlist: the guarded client refuses it before any request.
+    // (`projects` is on the allowlist for 1.0.x, so it is not a personal-table probe any more.)
+    assert.throws(() => backend.db.from("paper_tags"), /not allowed on the org server/);
+    assert.throws(() => backend.db.rpc("personal_probe_rpc"), /not allowed on the org server/);
+    assert.deepEqual(spy.urls, []);
+  } finally {
+    spy.restore();
+    backend.dispose();
+  }
+});

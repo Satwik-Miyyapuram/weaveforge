@@ -70,6 +70,31 @@ test("listItems derives each id as <list>:<target>, orders by file path, and kee
   assert.deepEqual(await items.listItems("nope"), []);
 });
 
+test("two lists with the same name keep separate files, links and members", async () => {
+  const { fs, lists, items } = await setup();
+  const a = list({ name: "Review" });
+  const b = list({ name: "Review" });
+  await lists.save(a);
+  await lists.save(b);
+  assert.equal((await listFiles(fs)).length, 2, "one file per list");
+  const [La, Lb] = [await linkOf(fs, a.id), await linkOf(fs, b.id)];
+  assert.notEqual(La, Lb, "each list has its own link");
+  await items.add({ id: "x", listId: a.id, paperId: "p1", sortOrder: 0, note: "for a" });
+  await items.add({ id: "y", listId: b.id, paperId: "p2", sortOrder: 0 });
+  await items.add({ id: "z", listId: b.id, vaultPageId: "n1", sortOrder: 0 });
+  assert.deepEqual(await items.listItems(a.id), [{ id: `${a.id}:p1`, listId: a.id, paperId: "p1", sortOrder: 0, note: "for a" }]);
+  assert.deepEqual(
+    (await items.listItems(b.id)).map((i) => i.id).sort(),
+    [`${b.id}:n1`, `${b.id}:p2`].sort(),
+  );
+  assert.deepEqual((await items.listsForPaper("p1")).map((i) => i.listId), [a.id]);
+  assert.deepEqual((await items.listsForNote("n1")).map((i) => i.listId), [b.id]);
+  await items.remove(`${b.id}:p2`);
+  assert.deepEqual((await items.listItems(b.id)).map((i) => i.id), [`${b.id}:n1`]);
+  assert.equal((await items.listItems(a.id)).length, 1, "removing from b leaves a alone");
+  assert.equal((await lists.list()).filter((l) => l.name === "Review").length, 2);
+});
+
 test("add twice keeps one membership and takes the newer note", async () => {
   const { fs, lists, items } = await setup();
   const l = list();
@@ -179,6 +204,26 @@ test("one paper with an unreadable lists value is skipped and reported; the othe
   assert.deepEqual((await items.listItems(l.id)).map((i) => i.id), [`${l.id}:n1`, `${l.id}:p2`]);
   assert.deepEqual(await items.unreadablePaths(), [P1]);
   assert.equal(await fs.readText(P1), broken);
+});
+
+test("a member file the link scan cannot read is reported, not dropped silently", async () => {
+  const { fs, lists, items } = await setup();
+  const l = list();
+  await lists.save(l);
+  await items.add({ id: "a", listId: l.id, paperId: "p2", sortOrder: 0 });
+  const realRead = fs.readText.bind(fs);
+  fs.readText = async (path: string) => {
+    if (path === P1) throw new Error("EIO: read failed");
+    return realRead(path);
+  };
+  const realWarn = console.warn;
+  console.warn = () => {};
+  try {
+    assert.deepEqual((await items.listItems(l.id)).map((i) => i.id), [`${l.id}:p2`]);
+    assert.deepEqual(await items.unreadablePaths(), [P1]);
+  } finally {
+    console.warn = realWarn;
+  }
 });
 
 test("deleting a list hides its members; the list file goes to the trash", async () => {

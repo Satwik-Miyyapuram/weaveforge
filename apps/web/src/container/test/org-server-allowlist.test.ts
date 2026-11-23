@@ -12,7 +12,7 @@ const ARCHIVED = ["papers", "notes", "tags", "metrics", "relations", "pins", "re
  * Personal tables that stay live for reads (0165 keeps them) but are never writable over the org server:
  * readOnlyDb refuses insert, update and upsert on each of them.
  */
-const PERSONAL = [...ARCHIVED, "projects", "user_settings", "milestones", "experiments"];
+const PERSONAL = [...ARCHIVED, "paper_tags", "projects", "user_settings", "milestones", "experiments"];
 
 /**
  * Personal tables 0165 keeps live but 0.9.8 no longer reads over the org server: files are the

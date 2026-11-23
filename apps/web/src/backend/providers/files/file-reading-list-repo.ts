@@ -208,7 +208,8 @@ export class FileReadingListItemRepository implements IReadingListItemRepository
     const listIdByLink = new Map(files.map((f) => [listLinkFor(f.path), f.row.id]));
     const snapshot = await this.links.snapshot();
     const byList = new Map<string, ReadingListItem[]>();
-    const unreadable: string[] = [];
+    // A file the link scan could not read may hold memberships too: report it, never drop it silently.
+    const unreadable: string[] = snapshot.unreadable.map((u) => u.path);
     for (const { target, path } of snapshot.all().sort(byPath)) {
       let fields: MemberFields;
       try {
