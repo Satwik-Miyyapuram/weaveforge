@@ -179,6 +179,8 @@ test("with no stored session it offers to connect and makes no request", async (
 test("the cookie note says where the cookie is kept: the server, or the keychain", async () => {
   const hosted = await mount(harness(projectsOk));
   assert.ok(text(hosted).includes("stored encrypted on the server"));
+  // SESSION_LIFETIME in apps/relay/server/src/overleaf_workshop.rs; session_delete drops the row.
+  assert.ok(text(hosted).includes("works for 24 hours, and is removed when you sign out"));
   await act(async () => hosted.unmount());
   const shell = await mount(harness(projectsOk), { inShell: true });
   assert.ok(text(shell).includes("encrypted in this device's keychain"));

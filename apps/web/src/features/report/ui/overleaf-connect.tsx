@@ -53,7 +53,7 @@ export function OverleafConnect({ session, hasSignInWindow, inShell, canEditAsFi
         Copy the <code>overleaf_session2</code> cookie from overleaf.com.{" "}
         {inShell
           ? "It is kept encrypted in this device's keychain, is never shown again, and is removed when you sign out."
-          : "It is stored encrypted on the server and never shown again."}
+          : "It is stored encrypted on the server, is never shown again, works for 24 hours, and is removed when you sign out."}
       </p>
       <div className="linked-overleaf-form__actions">
         <Button variant="primary" type="submit" disabled={session.busy || !cookies.trim()}>
