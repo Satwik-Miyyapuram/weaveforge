@@ -445,14 +445,16 @@ fn fake_postmaster() -> std::process::Child {
 fn postmaster_pid_left_after_stop_keeps_the_cluster() {
     let f = Fixture::new("pid-left", Some("verified"), Some(good_dump().as_slice()));
     // A live process whose image is postgres.exe stands in for a running postmaster.
-    let _fake = fake_postmaster();
+    let mut fake = fake_postmaster();
     fs::write(
         f.pg_root.join("data/postmaster.pid"),
-        format!("{}\n", _fake.id()),
+        format!("{}\n", fake.id()),
     )
     .unwrap();
     let mut stop = || Ok(());
     let err = f.run(&mut stop).expect_err("a live postmaster must refuse the delete");
+    let _ = fake.kill();
+    let _ = fake.wait();
     assert!(err.contains("postmaster.pid"), "{err}");
     f.assert_untouched();
 }
