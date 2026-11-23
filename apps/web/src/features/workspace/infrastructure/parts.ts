@@ -236,12 +236,32 @@ export class BrowserWorkspaceFs implements IWorkspaceFs {
     return dir ? { path: safeWorkspacePath(path), size: 0, modifiedAt: "", kind: "dir" } : null;
   }
 
+  /**
+   * No native move in the File System Access API: copy, read the copy back, then delete the source.
+   * Like the desktop move, a file at `to` is replaced (temp-file saves rely on it). Web Locks on both
+   * paths, taken in name order so two renames cannot deadlock, keep a checked save of either path
+   * out of the window between the copy and the delete. A rename onto itself does nothing.
+   */
   async rename(from: string, to: string): Promise<void> {
-    // No native move in the File System Access API; copy then delete.
-    const bytes = await this.readFile(from);
-    await this.writeFile(to, bytes);
-    await this.remove(from);
+    const [src, dest] = [safeWorkspacePath(from), safeWorkspacePath(to)];
+    if (src === dest) return;
+    const run = async () => {
+      const bytes = await this.readFile(src);
+      await this.writeFile(dest, bytes);
+      if (!sameBytes(await this.readFile(dest), bytes)) {
+        throw new Error(`${dest}: the copy did not read back the same; ${src} kept.`);
+      }
+      await this.remove(src);
+    };
+    const locks = globalThis.navigator?.locks;
+    if (!locks) return run();
+    const [first, second] = [src, dest].sort().map((path) => `weaveforge:workspace-file:${path}`);
+    return locks.request(first!, () => locks.request(second!, run));
   }
+}
+
+function sameBytes(a: Uint8Array, b: Uint8Array): boolean {
+  return a.byteLength === b.byteLength && a.every((byte, i) => byte === b[i]);
 }
 
 // --- desktop-workspace-fs ---
