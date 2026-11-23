@@ -3,10 +3,10 @@ import type { BackendConfig } from "@/backend/parts";
 import { wireFileBackend } from "@/backend/providers/files/wire-file-backend";
 import { NoAccountWorkspaceFs } from "@/backend/providers/files/no-account-fs";
 import { DeviceSecretsStore } from "@/backend/device-secrets-store";
-import { wirePostgrestBackend, type WiredPostgrestBackend } from "@/backend/providers/postgrest/wire-postgrest-backend";
+import { wirePostgrestBackend } from "@/backend/providers/postgrest/wire-postgrest-backend";
 import { workspaceSettings } from "@/features/settings/application/workspace-settings";
 import { systemClock } from "@/lib/parts";
-import { overlayFileRepositories } from "./with-file-repositories";
+import { overlayFileRepositories, type PersonalBackend } from "./with-file-repositories";
 import { readOnlyDb } from "./read-only-repositories";
 import { guardOrgDb } from "./org-db-guard";
 import { FileBlobStore } from "@/backend/providers/files/file-blob-store";
@@ -21,7 +21,7 @@ export function wireNoAccountBackend(
   config: BackendConfig,
   projectContext: { projectId: string | null },
   pid: () => string | null,
-): WiredPostgrestBackend {
+): PersonalBackend {
   const postgrest = wirePostgrestBackend(config, projectContext, pid, undefined, { filesMode: true }, readOnlyDb);
   const fs = new NoAccountWorkspaceFs();
   const files = wireFileBackend({ fs, settings: workspaceSettings, secrets: new DeviceSecretsStore() });

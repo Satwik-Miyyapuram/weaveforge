@@ -37,10 +37,6 @@ const signedIn = { session: { getCurrentUserId: async () => "u-1" } } as never;
 
 /** Personal writes and reads: in files mode every one is refused before any request. */
 const personalCalls: [string, (b: Wired) => Promise<unknown>][] = [
-  [
-    "integrationsStore.save",
-    (b) => call(b.integrationsStore.save, "p-1", { provider: "github", enabled: true, branch: "main", repo: "a/b" }),
-  ],
   ["projectBibliographyCollection.setCollection", (b) => call(b.projectBibliographyCollection.setCollection, "p-1", "Lib")],
   ["screeningRepository.listForItems", (b) => call(b.screeningRepository.listForItems, ["i-1"])],
   ["releaseNoticesRepository.unseen", (b) => call(b.releaseNoticesRepository.unseen)],

@@ -41,7 +41,7 @@ import type { OpenAlexWork, ResourceType } from "@weaveforge/wasm";
 import { type BackendConfig, readBackendConfig } from "../backend/parts";
 import { wireNoAccountBackend } from "./no-account-file-backend";
 import { isLocalMode } from "@/features/auth/infrastructure/no-account-mode";
-import type { WiredPostgrestBackend } from "../backend/providers/postgrest/wire-postgrest-backend";
+import type { PersonalBackend } from "./with-file-repositories";
 import type { InkChunkStore } from "../features/ink/application/parts-1";
 import type {
   ReferenceLookupCache,
@@ -348,7 +348,7 @@ export class WebCryptoShareLinkTokenHasher implements IShareLinkTokenHasher {
 
 // --- wire-backend ---
 /** The wiring result. `filesMode` is true only when personal data is served from the folder's files. */
-export type WiredBackend = WiredPostgrestBackend & { filesMode: boolean };
+export type WiredBackend = PersonalBackend & { filesMode: boolean };
 
 /**
  * The personal-data file backend: the desktop folder over the vault bridge, or the
@@ -358,7 +358,7 @@ export type PersonalFileWiring = (
   config: BackendConfig,
   projectContext: { projectId: string | null },
   pid: () => string | null,
-) => WiredPostgrestBackend;
+) => PersonalBackend;
 
 export const NO_FILE_BACKEND_MESSAGE =
   "No workspace folder is wired: personal data is kept only in the folder's files, never on the server.";

@@ -24,7 +24,6 @@ import {
   type IReleaseNoticesRepository,
   type SettingsWrites,
 } from "@/features/settings/infrastructure/parts";
-import type { IIntegrationsStore } from "@/features/sync/domain/parts";
 import { cacheRepo } from "@/lib/cache/parts-1";
 import type { ProjectContext } from "@/lib/parts-2";
 import { readyCore, typedCore } from "@/lib/rust-core";
@@ -132,10 +131,6 @@ export function cachePaperRepository<R extends IPaperRepository>(inner: R, pid: 
 }
 
 // --- rust-backed stores ---
-/** `project_integrations` per (project, provider), through the Rust step engine. */
-export function rustIntegrationsStore(db: SupabaseClient): IIntegrationsStore {
-  return rustRepository<IIntegrationsStore>(db, "project_integrations", ["get", "save"]);
-}
 
 /** `projects` through the Rust step engine; `save` stamps the signed-in user. */
 function rustProjectRepository(db: SupabaseClient, session: ICurrentUserProvider): IProjectRepository & IProjectManager {
@@ -207,7 +202,6 @@ export interface WiredPostgrestBackend {
   readonly projectRepository: IProjectRepository & IProjectManager;
   readonly dashboardLayoutRepository: IDashboardLayoutRepository;
   readonly graphSettingsRepository: IGraphSettingsRepository;
-  readonly integrationsStore: IIntegrationsStore;
   readonly aiProposalStore: IAiProposalStore;
   readonly aiAuditStore: IAiAuditStore & { countAccepted(): Promise<number> };
   readonly paperRepository: IPaperRepository;
@@ -333,7 +327,6 @@ export function wirePostgrestBackend(
     pid,
     { resourceType: "graph_settings" },
   );
-  const integrationsStore: IIntegrationsStore = rustIntegrationsStore(db);
   // AI tables are not on the org allowlist: in files mode these calls throw (the file repos replace them).
   const ai = rustAiStores(db, projectContext, session);
   const paperRepository = cachePaperRepository(rustPaperRepository(db, projectContext), pid);
@@ -620,7 +613,6 @@ export function wirePostgrestBackend(
     projectRepository,
     dashboardLayoutRepository,
     graphSettingsRepository,
-    integrationsStore,
     aiProposalStore: ai.proposals,
     aiAuditStore: ai.audit,
     paperRepository,

@@ -1,15 +1,13 @@
-// contract-repos: ai_audit, ai_proposals, project_integrations
+// contract-repos: ai_audit, ai_proposals
 import assert from "node:assert/strict";
 import test from "node:test";
 import type { AiWriteProposal, AiAuditRecord } from "@weaveforge/core";
 import { rustAiStores } from "@/backend/providers/postgrest/rust-repository";
-import { rustIntegrationsStore } from "@/backend/providers/postgrest/wire-postgrest-backend";
-import type { Integration } from "@/features/sync/domain/parts";
 import { testDb } from "../pg-test-db";
 import { clientFor, projectFor, seedProject, sessionFor, type Db } from "./harness";
 
 /**
- * The `ai_audit`, `ai_proposals` and `project_integrations` contracts, end to end:
+ * The `ai_audit` and `ai_proposals` contracts, end to end:
  * Rust plans each query, the TS sender runs it against PGlite with the real
  * migrations and RLS. No old TS suite exists; these cases are written from the
  * Rust `step` matches and record mappings.
@@ -150,69 +148,4 @@ test("a stranger cannot read or claim another user's proposals", async () => {
   assert.equal(await stranger.proposals.getById(p.id), null);
   assert.deepEqual(await stranger.proposals.listPending(), []);
   assert.equal(await stranger.proposals.claimPending(p.id), false);
-});
-
-test("saving an integration then reading it back returns every field", async () => {
-  const db = await testDb();
-  const userId = await db.createUser();
-  const projectId = await seedProject(db, userId);
-  const store = rustIntegrationsStore(clientFor(db, userId));
-  const integration: Integration = {
-    provider: "github",
-    enabled: true,
-    token: "ghp_test",
-    repo: "owner/name",
-    branch: "dev",
-    options: { label: "x" },
-  };
-  await store.save(projectId, integration);
-  const got = await store.get(projectId, "github");
-  assert.equal(got.provider, "github");
-  assert.equal(got.enabled, true);
-  assert.equal(got.repo, "owner/name");
-  assert.equal(got.branch, "dev");
-  assert.deepEqual(got.options, { label: "x" });
-  assert.equal(got.token, "ghp_test");
-});
-
-test("saving an integration again overwrites the previous row", async () => {
-  const db = await testDb();
-  const userId = await db.createUser();
-  const projectId = await seedProject(db, userId);
-  const store = rustIntegrationsStore(clientFor(db, userId));
-  await store.save(projectId, { provider: "github", enabled: true, repo: "a/one", branch: "main" });
-  await store.save(projectId, { provider: "github", enabled: false, repo: "a/two", branch: "dev" });
-  const got = await store.get(projectId, "github");
-  assert.equal(got.enabled, false);
-  assert.equal(got.repo, "a/two");
-  assert.equal(got.branch, "dev");
-});
-
-test("integrations are scoped to the project (another project's row absent)", async () => {
-  const db = await testDb();
-  const userId = await db.createUser();
-  const mine = await seedProject(db, userId);
-  const other = await seedProject(db, userId);
-  const store = rustIntegrationsStore(clientFor(db, userId));
-  await store.save(other, { provider: "gitlab", enabled: true, repo: "g/p", branch: "main" });
-  const got = await store.get(mine, "gitlab");
-  assert.equal(got.enabled, false);
-  assert.equal(got.repo, undefined);
-});
-
-test("a stranger cannot read another user's integration row", async () => {
-  const db = await testDb();
-  const ownerId = await db.createUser();
-  const projectId = await seedProject(db, ownerId);
-  await rustIntegrationsStore(clientFor(db, ownerId)).save(projectId, {
-    provider: "github",
-    enabled: true,
-    token: "ghp_secret",
-    repo: "o/r",
-    branch: "main",
-  });
-  const strangerId = await db.createUser();
-  const got = await rustIntegrationsStore(clientFor(db, strangerId)).get(projectId, "github");
-  assert.equal(got.repo, undefined);
-  assert.equal(got.token, undefined);
 });
