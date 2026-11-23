@@ -277,3 +277,72 @@ test("listTrashed on a table without deleted_at makes no request and returns not
   assert.deepEqual(await sourceWith(fetch).listTrashed("metrics"), []);
   assert.equal(calls.length, 0);
 });
+
+// comments has no user_id column (its owner is author_id) and screening_decisions keys on reviewer_id: a
+// user_id filter there is a PostgREST 400, so the kind would read as failed and the run never verifies.
+test("comments filter on author_id and keep only the personal resource types 0165 archives", async () => {
+  const { fetch, calls } = fakeFetch((call) =>
+    call.method === "HEAD" ? new Response(null, { headers: { "content-range": "0-0/2" } }) : Response.json([]),
+  );
+  const source = sourceWith(fetch);
+  await source.listRows("comments");
+  assert.equal(await source.countRows("comments"), 2);
+  const scope = `author_id=eq.${USER}&resource_type=in.(report_section,reading_list,paper,vault_page,log_entry,milestone)`;
+  assert.equal(calls[0]?.url, `${BASE}/comments?${scope}&order=id.asc&limit=1000&offset=0`);
+  assert.ok(calls.some((c) => c.method === "HEAD" && c.url === `${BASE}/comments?${scope}`));
+  const commentCalls = calls.filter((c) => c.url.startsWith(`${BASE}/comments?`));
+  assert.equal(commentCalls.some((c) => c.url.includes("user_id=")), false);
+});
+
+// 0165 archives every personal comment, so a collaborator's comment on my note or paper must reach my sidecar too:
+// the author's own export cannot place it next to an item only I have.
+test("comments others wrote on my items are listed and counted with mine", async () => {
+  const papers = Array.from({ length: 120 }, (_, i) => `p-${String(i).padStart(3, "0")}`);
+  const OTHER = "99999999-0000-4000-8000-000000000009";
+  const { fetch, calls } = fakeFetch((call) => {
+    const url = new URL(call.url);
+    const table = url.pathname.split("/").pop();
+    const offset = Number(url.searchParams.get("offset") ?? 0);
+    if (table !== "comments") {
+      assert.equal(url.searchParams.get("select"), "id");
+      assert.equal(url.searchParams.get("user_id"), `eq.${USER}`);
+      if (offset > 0) return Response.json([]);
+      if (table === "vault_pages") return Response.json([{ id: "n-1" }]);
+      if (table === "papers") return Response.json(papers.map((id) => ({ id })));
+      return Response.json([]);
+    }
+    if (url.searchParams.get("author_id") === `eq.${USER}`) {
+      if (call.method === "HEAD") return new Response(null, { headers: { "content-range": "0-0/1" } });
+      return Response.json(offset > 0 ? [] : [{ id: "c-mine", author_id: USER, resource_type: "paper", resource_id: "p-000" }]);
+    }
+    assert.equal(url.searchParams.get("author_id"), `neq.${USER}`);
+    const type = url.searchParams.get("resource_type");
+    const ids = (url.searchParams.get("resource_id") ?? "").replace(/^in\.\(|\)$/g, "").split(",");
+    const found =
+      type === "eq.vault_page" && ids.includes("n-1") ? [{ id: "c-other-note", author_id: OTHER, resource_type: "vault_page", resource_id: "n-1" }]
+      : type === "eq.paper" && ids.includes("p-119") ? [{ id: "c-other-paper", author_id: OTHER, resource_type: "paper", resource_id: "p-119" }]
+      : [];
+    if (call.method === "HEAD") return new Response(null, { headers: { "content-range": `*/${found.length}` } });
+    return Response.json(offset > 0 ? [] : found);
+  });
+  const source = sourceWith(fetch);
+  const rows = await source.listRows("comments");
+  assert.deepEqual(rows.map((r) => r.id).sort(), ["c-mine", "c-other-note", "c-other-paper"]);
+  assert.equal(rows.find((r) => r.id === "c-other-note")?.authorId, OTHER, "camel-cased like the author's own rows");
+  assert.equal(await source.countRows("comments"), 3);
+  // 120 paper ids go in more than one request, so no URL grows past what a proxy accepts.
+  const paperQueries = calls.filter((c) => c.method === "GET" && c.url.includes("resource_type=eq.paper"));
+  assert.ok(paperQueries.length >= 2, `${paperQueries.length} paper comment queries`);
+  assert.ok(calls.every((c) => c.url.length < 4000), "every URL stays short");
+  // A type with no items of mine sends no comment query.
+  assert.equal(calls.some((c) => c.url.includes("resource_type=eq.milestone")), false);
+});
+
+test("screening decisions filter on reviewer_id, the table's owner column", async () => {
+  const { fetch, calls } = fakeFetch(() => Response.json([]));
+  await sourceWith(fetch).listRows("screening");
+  assert.equal(
+    calls[0]?.url,
+    `${BASE}/screening_decisions?reviewer_id=eq.${USER}&deleted_at=is.null&order=id.asc&limit=1000&offset=0`,
+  );
+});

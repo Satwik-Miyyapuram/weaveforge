@@ -39,6 +39,33 @@ const SOFT_DELETE_TABLES: ReadonlySet<string> = new Set([
   "reader_annotations", "annotation_pins", "library_pins", "vault_pages", "screening_decisions", "paper_tags",
 ]);
 
+/** Tables whose owner is not user_id. A user_id filter on them is a PostgREST 400. */
+const OWNER_COLUMN: Readonly<Record<string, string>> = {
+  comments: "author_id",
+  screening_decisions: "reviewer_id",
+};
+
+/**
+ * Extra filters that keep a table to the user's personal rows: comments on the five types 0165 archives
+ * (the ones 0168 counts) and on milestones, which 0167 archives. Comments on experiments and lab check-ins
+ * stay live on the server, so they are not exported.
+ */
+const ROW_SCOPE: Readonly<Record<string, string>> = {
+  comments: "&resource_type=in.(report_section,reading_list,paper,vault_page,log_entry,milestone)",
+};
+
+/** The ROW_SCOPE comment resource types and the user's table of each, for comments others wrote on the user's items. */
+const COMMENT_ITEM_TABLES: Readonly<Record<string, string>> = {
+  report_section: "report_sections",
+  reading_list: "reading_lists",
+  paper: "papers",
+  vault_page: "vault_pages",
+  log_entry: "log_entries",
+  milestone: "milestones",
+};
+
+/** Item ids per comment query, so the URL stays well under proxy limits (50 uuids is about 1.9 KB). */
+const IDS_PER_QUERY = 50;
 
 export interface PostgrestSourceOptions {
   baseUrl: string;
@@ -88,7 +115,8 @@ export class PostgrestSource implements ServerSource {
   }
 
   private filter(table: string, trashed = false): string {
-    const base = `${this.opts.baseUrl}/${table}?user_id=eq.${this.opts.userId}`;
+    const owner = OWNER_COLUMN[table] ?? "user_id";
+    const base = `${this.opts.baseUrl}/${table}?${owner}=eq.${this.opts.userId}${ROW_SCOPE[table] ?? ""}`;
     if (!SOFT_DELETE_TABLES.has(table)) return base;
     return `${base}&deleted_at=${trashed ? "not.is.null" : "is.null"}`;
   }
@@ -107,14 +135,36 @@ export class PostgrestSource implements ServerSource {
     return res;
   }
 
+  /** Every row of `base` (a filtered table URL), paged and in id order. */
+  private async listAll(base: string, table: string): Promise<Row[]> {
+    return listAllPages<Row>(async (offset, limit) => {
+      const res = await this.request(`${base}&order=id.asc&limit=${limit}&offset=${offset}`, { method: "GET" }, table);
+      return (await res.json()) as Row[];
+    }, PAGE_SIZE);
+  }
+
+  /**
+   * Comment queries for what others wrote on the user's items (live or trashed): RLS lets the owner read them,
+   * and 0165 archives them with the user's own, so they go in the user's sidecars too.
+   */
+  private async othersCommentQueries(): Promise<string[]> {
+    const uid = this.opts.userId;
+    const queries: string[] = [];
+    for (const [type, table] of Object.entries(COMMENT_ITEM_TABLES)) {
+      const ids = (await this.listAll(`${this.opts.baseUrl}/${table}?select=id&user_id=eq.${uid}`, table)).map((r) => String(r.id));
+      for (let i = 0; i < ids.length; i += IDS_PER_QUERY) {
+        const chunk = ids.slice(i, i + IDS_PER_QUERY).join(",");
+        queries.push(`${this.opts.baseUrl}/comments?author_id=neq.${uid}&resource_type=eq.${type}&resource_id=in.(${chunk})`);
+      }
+    }
+    return queries;
+  }
+
   async listRows(kind: string): Promise<Row[]> {
     if (FILE_ONLY_KINDS.includes(kind)) return [];
     const table = tableFor(kind);
-    const rows = await listAllPages<Row>(async (offset, limit) => {
-      const url = `${this.filter(table)}&order=id.asc&limit=${limit}&offset=${offset}`;
-      const res = await this.request(url, { method: "GET" }, table);
-      return (await res.json()) as Row[];
-    }, PAGE_SIZE);
+    const rows = await this.listAll(this.filter(table), table);
+    if (kind === "comments") for (const q of await this.othersCommentQueries()) rows.push(...(await this.listAll(q, table)));
     return rows.map(toCamelRow);
   }
 
@@ -134,12 +184,11 @@ export class PostgrestSource implements ServerSource {
   async countRows(kind: string): Promise<number> {
     if (FILE_ONLY_KINDS.includes(kind)) return 0;
     const table = tableFor(kind);
-    const res = await this.request(
-      this.filter(table),
-      { method: "HEAD", extra: { Prefer: "count=exact" } },
-      table,
-    );
-    return totalOf(res, table);
+    const count = async (url: string): Promise<number> =>
+      totalOf(await this.request(url, { method: "HEAD", extra: { Prefer: "count=exact" } }, table), table);
+    let total = await count(this.filter(table));
+    if (kind === "comments") for (const q of await this.othersCommentQueries()) total += await count(q);
+    return total;
   }
 
   /**

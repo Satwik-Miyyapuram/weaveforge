@@ -247,7 +247,11 @@ test("add-keys guard: a CAS on a user's file that edits the body is refused and 
   const edited = USER_NOTE.replace("Body.", "Body changed by the export.");
   await assert.rejects(guarded.writeIf(PAPER, edited, USER_NOTE), /^ConflictError: conflict: .*changed on disk, not add-keys-only/, "a body edit on a user file is refused as a conflict");
   assert.equal(await sink.readText(PAPER), USER_NOTE, "the user's file is untouched");
-  assert.equal(await sink.readText(conflictCopyPath(PAPER, 1)), edited, "the refused text is kept in a conflict copy");
+  assert.equal(
+    await sink.readText(conflictCopyPath(PAPER, 1)),
+    edited.replace(/^weaveforge-id:/m, "conflictOf:"),
+    "the refused text is kept in a conflict copy, under conflictOf",
+  );
   assert.deepEqual(store.conflicts, [conflictCopyPath(PAPER, 1)]);
 });
 
@@ -258,7 +262,7 @@ test("add-keys guard: a CAS on a user's file that changes an existing key is ref
   const retitled = USER_NOTE.replace('title: "A"', 'title: "B"');
   await assert.rejects(guardedSink(sink, store).writeIf(PAPER, retitled, USER_NOTE), /^ConflictError: conflict: /, "an existing key is not rewritten");
   assert.equal(await sink.readText(PAPER), USER_NOTE);
-  assert.equal(await sink.readText(conflictCopyPath(PAPER, 1)), retitled);
+  assert.equal(await sink.readText(conflictCopyPath(PAPER, 1)), retitled.replace(/^weaveforge-id:/m, "conflictOf:"));
 });
 
 test("add-keys guard: a CAS on a user's file that only adds a frontmatter key is allowed", async () => {
