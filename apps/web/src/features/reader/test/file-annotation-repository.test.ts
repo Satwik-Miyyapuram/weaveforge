@@ -145,6 +145,18 @@ class RacingFs extends MemoryWorkspaceFs {
   }
 }
 
+test("a sidecar trashed between the read and the write is not recreated", async () => {
+  const fs = new RacingFs();
+  const repo = new FileReaderAnnotationRepository(fs, ROOT, paperFileOf);
+  await repo.create("p-1", draft({ id: "a1" }));
+  fs.race = async () => {
+    await fs.mkdirp(".weaveforge/trash");
+    await fs.rename(FILE, ".weaveforge/trash/Attention.annotations.json");
+  };
+  await assert.rejects(repo.create("p-1", draft({ id: "a2" })), ConflictError);
+  assert.equal(await fs.stat(FILE), null, "the trashed sidecar stays trashed");
+});
+
 // ---- Laws (fast-check) ----
 
 const ids = fc.uniqueArray(fc.stringMatching(/^[a-f0-9]{1,6}$/), { minLength: 1, maxLength: 6 });

@@ -8,7 +8,7 @@ import type {
 } from "@weaveforge/core";
 import { ConflictError, isSafeWorkspacePath } from "@weaveforge/core";
 import { typedCore } from "@/lib/rust-core";
-import { ConflictCopies } from "@/lib/guarded-save";
+import { ConflictCopies, retryGuarded } from "@/lib/guarded-save";
 import { moveToTrash } from "@/lib/workspace-trash";
 
 /** A paper file's `relations` (outgoing, `to` a `[[link]]` or id) and custom `fields`. */
@@ -258,17 +258,16 @@ export class FilePaperRepository implements IPaperRepository {
     rowFor: (current: Paper | null, read: PaperFileRead | null) => Record<string, unknown> | null,
     create: boolean,
   ): Promise<void> {
-    for (let attempt = 0; attempt < WRITE_ATTEMPTS; attempt += 1) {
-      const read = await this.findById(id);
-      if (!read && !create) return;
+    // A file read on an earlier attempt and gone now was trashed or moved mid-save: never recreated.
+    await retryGuarded(`Paper ${id}`, WRITE_ATTEMPTS, () => this.findById(id), async (read) => {
+      if (!read && !create) return { value: undefined };
       const row = rowFor(read?.paper ?? null, read);
-      if (!row) return;
+      if (!row) return { value: undefined };
       if (!read && !this.writeIds) delete row.id;
       const text = typedCore().writePaperRow(read?.text ?? null, stripUndefined(row));
       const path = read?.path ?? (await this.newPath(String(row.title ?? "")));
-      if (await this.writeIf(path, text, read?.text ?? null)) return;
-    }
-    throw new ConflictError(`Paper ${id} kept changing on disk; not saved.`);
+      return (await this.writeIf(path, text, read?.text ?? null)) ? { value: undefined } : null;
+    });
   }
 
   /** `<papers>/<title slug>.paper.md`, or the first free `-n` name. */

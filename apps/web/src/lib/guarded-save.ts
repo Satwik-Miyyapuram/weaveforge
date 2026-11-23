@@ -55,3 +55,33 @@ export class ConflictCopies {
     throw new ConflictError(`${path} changed on disk and no conflict copy name was free; not saved.`);
   }
 }
+
+/** One attempt of a guarded change: done with `value` (written, or nothing to write), or null when it lost a race. */
+export type GuardedAttempt<T> = { value: T } | null;
+
+/** The refusal for a file this save saw before and that is gone now: trashed or moved, so never recreated. */
+export function removedOnDisk(what: string): ConflictError {
+  return new ConflictError(`${what} was removed on disk; not saved.`);
+}
+
+/**
+ * Reads, changes and conditionally writes until one attempt is done, at most `attempts` times (then
+ * ConflictError). `read` gives null for a missing file. A file read on an earlier attempt and missing now was
+ * trashed or moved mid-change: ConflictError, never written again, as that would recreate it as an orphan.
+ */
+export async function retryGuarded<R, T>(
+  what: string,
+  attempts: number,
+  read: () => Promise<R | null>,
+  attempt: (current: R | null) => Promise<GuardedAttempt<T>>,
+): Promise<T> {
+  let seen = false;
+  for (let n = 0; n < attempts; n += 1) {
+    const current = await read();
+    if (current === null && seen) throw removedOnDisk(what);
+    seen = current !== null;
+    const done = await attempt(current);
+    if (done) return done.value;
+  }
+  throw new ConflictError(`${what} kept changing on disk; not saved.`);
+}
