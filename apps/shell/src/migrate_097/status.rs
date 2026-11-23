@@ -14,10 +14,11 @@ pub struct MigrationStatus {
     /// exists but has no run from this device, so the export is offered), `unavailable`, or `none`
     /// when no report or export exists.
     pub state: String,
-    /// When old data was removed (report.json `removedAt`).
+    /// When this device's old data was removed (its `removals[device].removedAt` entry).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub removed_at: Option<String>,
-    /// When the TS verify last passed (report.json `verifiedAt`); removal needs it at most 10 min old.
+    /// When this device's own verified run finished (its `finishedAt`); removal needs it at most
+    /// 10 min old.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub verified_at: Option<String>,
     /// Folder named by `<pg_root>/exported-to.json`.
@@ -53,10 +54,15 @@ pub struct MigrationStatus {
 /// state comes from its own file, else the legacy report.json. An unreadable report is `removed` when
 /// the removed marker exists, `none` when this device has no report and nothing was exported, and
 /// `unavailable` otherwise.
-#[allow(clippy::too_many_lines, reason = "one ordered status decision; removed in 0.9.8")]
+#[allow(
+    clippy::too_many_lines,
+    reason = "one ordered status decision; removed in 0.9.8"
+)]
 pub fn migration_status(folder: &Path, pg_root: &Path, device_id: &str) -> MigrationStatus {
     let exported = exported_to(pg_root);
-    let exported_here = exported.as_deref().is_some_and(|name| same_folder(name, folder));
+    let exported_here = exported
+        .as_deref()
+        .is_some_and(|name| same_folder(name, folder));
     let removed = super::remove::old_db_removed(pg_root);
     let (reports, problem) = match super::remove::read_reports(folder, device_id) {
         Ok(reports) => (reports, None),
@@ -103,14 +109,18 @@ pub fn migration_status(folder: &Path, pg_root: &Path, device_id: &str) -> Migra
         report["state"].as_str(),
         Some("verified" | "incomplete" | "removing" | "removed")
     );
-    // Gate first: a top-level state outside the known set is unavailable for every device.
+    // This device's own removal comes first: its entry, or the removed marker under a top-level
+    // state outside the known set (as with no report), means its old data is gone; its own entry
+    // in progress means `removing`, so a crashed removal resumes.
+    let marker_removed = !own_removed && !top_known && removed;
+    // Then the gate: a top-level state outside the known set is unavailable for every device.
     // No writer sets an "exporting" top-level state; known states are read per device below.
-    let state = if !top_known {
-        "unavailable".to_owned()
-    } else if own_removed {
+    let state = if own_removed || marker_removed {
         "removed".to_owned()
     } else if own_removing {
         "removing".to_owned()
+    } else if !top_known {
+        "unavailable".to_owned()
     } else {
         match own_state {
             Some(known @ ("verified" | "incomplete")) => known.to_owned(),
@@ -144,7 +154,12 @@ pub fn migration_status(folder: &Path, pg_root: &Path, device_id: &str) -> Migra
             .map(|path| path.to_string_lossy().into_owned()),
         missing: (!kinds.is_empty()).then_some(kinds),
         device_id: device_id.to_owned(),
-        removing_device_id: report["removingDeviceId"].as_str().map(str::to_owned),
+        // Removed by the marker: name this device so the wiring rule may switch it to files.
+        removing_device_id: if marker_removed {
+            Some(device_id.to_owned())
+        } else {
+            report["removingDeviceId"].as_str().map(str::to_owned)
+        },
         exported_here,
         own_run_verified,
         reason: None,
@@ -172,12 +187,17 @@ mod tests {
 
     #[test]
     fn an_unreadable_conflict_copy_makes_the_status_unavailable() {
-        let base = std::env::temp_dir().join(format!("wf-m097-status-conflict-{}", std::process::id()));
+        let base =
+            std::env::temp_dir().join(format!("wf-m097-status-conflict-{}", std::process::id()));
         let _ = fs::remove_dir_all(&base);
         let folder = base.join("vault");
         let dir = folder.join(super::super::remove::MIGRATION_DIR);
         fs::create_dir_all(&dir).unwrap();
-        fs::write(dir.join("report-dev-a.json"), r#"{"version":1,"state":"verified","runs":[]}"#).unwrap();
+        fs::write(
+            dir.join("report-dev-a.json"),
+            r#"{"version":1,"state":"verified","runs":[]}"#,
+        )
+        .unwrap();
         fs::write(dir.join("report-dev-a (1).json"), "{ not json").unwrap();
         let status = migration_status(&folder, &base.join("local-pg"), "dev-a");
         let _ = fs::remove_dir_all(&base);
@@ -186,12 +206,16 @@ mod tests {
             status.reason.as_deref(),
             Some("migration report report-dev-a (1).json is unreadable")
         );
-        assert_eq!(status.step.as_deref(), Some("delete the conflict copy report-dev-a (1).json"));
+        assert_eq!(
+            status.step.as_deref(),
+            Some("delete the conflict copy report-dev-a (1).json")
+        );
     }
 
     #[test]
     fn another_devices_report_is_never_shown_as_this_devices_run() {
-        let base = std::env::temp_dir().join(format!("wf-m097-status-other-{}", std::process::id()));
+        let base =
+            std::env::temp_dir().join(format!("wf-m097-status-other-{}", std::process::id()));
         let _ = fs::remove_dir_all(&base);
         let folder = base.join("vault");
         let dir = folder.join(super::super::remove::MIGRATION_DIR);
@@ -210,7 +234,8 @@ mod tests {
 
     #[test]
     fn an_unreadable_legacy_report_makes_the_status_unavailable_with_a_restore_step() {
-        let base = std::env::temp_dir().join(format!("wf-m097-status-legacy-{}", std::process::id()));
+        let base =
+            std::env::temp_dir().join(format!("wf-m097-status-legacy-{}", std::process::id()));
         let _ = fs::remove_dir_all(&base);
         let folder = base.join("vault");
         let dir = folder.join(super::super::remove::MIGRATION_DIR);

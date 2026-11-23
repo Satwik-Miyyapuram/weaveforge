@@ -60,6 +60,8 @@ export const commands = {
 	 *  No folder chosen, or the workspace cannot be listed.
 	 */
 	sdkInboxDrain: (rows: unknown[]) => typedError<InboxDrainReply, ShellError_Serialize>(__TAURI_INVOKE("sdk_inbox_drain", { rows })),
+	/**  Tauri command: this machine's id, created on first use in the app data folder. */
+	deviceId: () => typedError<string, string>(__TAURI_INVOKE("device_id")),
 	/**
 	 *  Reads this machine's settings (JSON object text).
 	 * 
@@ -1267,9 +1269,12 @@ export type MigrationStatus_Deserialize = {
 	 *  when no report or export exists.
 	 */
 	state: string,
-	/**  When old data was removed (report.json `removedAt`). */
+	/**  When this device's old data was removed (its `removals[device].removedAt` entry). */
 	removedAt?: string | null,
-	/**  When the TS verify last passed (report.json `verifiedAt`); removal needs it at most 10 min old. */
+	/**
+	 *  When this device's own verified run finished (its `finishedAt`); removal needs it at most
+	 *  10 min old.
+	 */
 	verifiedAt?: string | null,
 	/**  Folder named by `<pg_root>/exported-to.json`. */
 	exportedTo?: string | null,
@@ -1302,9 +1307,12 @@ export type MigrationStatus_Serialize = {
 	 *  when no report or export exists.
 	 */
 	state: string,
-	/**  When old data was removed (report.json `removedAt`). */
+	/**  When this device's old data was removed (its `removals[device].removedAt` entry). */
 	removedAt?: string,
-	/**  When the TS verify last passed (report.json `verifiedAt`); removal needs it at most 10 min old. */
+	/**
+	 *  When this device's own verified run finished (its `finishedAt`); removal needs it at most
+	 *  10 min old.
+	 */
 	verifiedAt?: string,
 	/**  Folder named by `<pg_root>/exported-to.json`. */
 	exportedTo?: string,
@@ -1428,7 +1436,12 @@ export type Phase =
 /**  The installer is running; the app is about to close and reopen. */
 "installing" | 
 /**  The last check or install failed; `error` says so and a retry is allowed. */
-"failed";
+"failed" | 
+/**
+ *  The release is offered but refused until local data is exported and verified. Not a
+ *  failure: `error` names the rule, and a retry would be refused again.
+ */
+"held";
 
 /**  The plan widget, as `DesktopPlanWidget` in apps/web/src/lib/desktop/desktop-bridge.ts. */
 export type PlanWidgetStatePayload = {
