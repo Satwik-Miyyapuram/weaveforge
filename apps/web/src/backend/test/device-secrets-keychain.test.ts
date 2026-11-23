@@ -10,7 +10,6 @@ import {
   desktopKeychain,
   KEYCHAIN_HELP,
   InvalidSecretNameError,
-  KeychainFieldCorruptError,
   KeychainIndexCorruptError,
   KeychainUnavailableError,
   keychainHelp,
@@ -339,6 +338,78 @@ describe("a field the index lists but the keychain lacks", () => {
   });
 });
 
+describe("the keys a load skipped", () => {
+  it("names every missing and unreadable field, so the UI can ask for them again", async () => {
+    const { keychain } = fakeKeychain({
+      "_index": indexOf(["zoteroApiKey", "integrations.p1", "integrations.p2"]),
+      "integrations.p1": "{broken",
+      "integrations.p2": '{"token":"t"}',
+    });
+    let result: unknown;
+    await warnings(async () => (result = await new DeviceSecretsStore(keychain).loadWithSkipped()));
+    assert.deepEqual(result, {
+      secrets: { integrations: { p2: { token: "t" } } },
+      skipped: ["zoteroApiKey", "integrations.p1"],
+    });
+  });
+
+  it("names nothing when every listed field loads", async () => {
+    const { keychain } = fakeKeychain({ "_index": indexOf(["a"]), a: "1" });
+    assert.deepEqual(await new DeviceSecretsStore(keychain).loadWithSkipped(), { secrets: { a: "1" }, skipped: [] });
+  });
+});
+
+describe("a keychain call that never answers", () => {
+  const hung = () => new Promise<never>(() => undefined);
+
+  it("rejects that call after the timeout, and the next queued save on the same keychain still runs", async () => {
+    const { entries, keychain } = fakeKeychain({});
+    let hang = true;
+    const slow: DeviceKeychain = {
+      ...keychain,
+      write: (key, text) => (hang ? hung() : keychain.write(key, text)),
+    };
+    const store = new DeviceSecretsStore(slow, 20);
+    const first = store.save(flat({ a: "1" }));
+    const second = store.save(flat({ b: "2" }));
+    await assert.rejects(first, /did not answer/);
+    hang = false;
+    await second;
+    assert.equal(entries.get("b"), "2");
+    assert.equal(entries.get("_index"), indexOf(["b"]));
+  });
+
+  it("rejects a load whose read never answers, and a later load runs", async () => {
+    const { keychain } = fakeKeychain({ "_index": indexOf(["a"]), a: "1" });
+    let hang = true;
+    const slow: DeviceKeychain = { ...keychain, read: (key) => (hang ? hung() : keychain.read(key)) };
+    const store = new DeviceSecretsStore(slow, 20);
+    await assert.rejects(store.load(), /did not answer/);
+    hang = false;
+    assert.deepEqual(await store.load(), { a: "1" });
+  });
+});
+
+describe("a save that rejects", () => {
+  it("is followed by a queued save on the same keychain, and that save still runs", async () => {
+    const { entries, keychain } = fakeKeychain({});
+    const failing: DeviceKeychain = {
+      ...keychain,
+      write: async (key, text) => {
+        if (key === "bad") throw new Error("keychain write refused");
+        return keychain.write(key, text);
+      },
+    };
+    const one = new DeviceSecretsStore(failing);
+    const two = new DeviceSecretsStore(failing);
+    const first = one.save(flat({ bad: "x" }));
+    const second = two.save(flat({ good: "y" }));
+    await assert.rejects(first, /keychain write refused/);
+    await second;
+    assert.equal(entries.get("good"), "y");
+  });
+});
+
 describe("a save that stops part way through", () => {
   it("writes the new index before clearing dropped fields, so a crash after the first clear still loads", async () => {
     const { entries, keychain } = fakeKeychain({ "_index": indexOf(["a", "b", "c"]), a: "old", b: "x", c: "y" });
@@ -607,14 +678,18 @@ describe("the save queue, mid-save failure and the index", () => {
     assert.deepEqual(loaded, { b: "new" });
   });
 
-  it("names only the key when a listed field is not the JSON the store wrote", async () => {
-    const { keychain } = fakeKeychain({ "_index": indexOf(["integrations.p1"]), "integrations.p1": "{secret-value" });
-    await assert.rejects(() => new DeviceSecretsStore(keychain).load(), (err: unknown) => {
-      assert.ok(err instanceof KeychainFieldCorruptError);
-      assert.equal(err.key, "integrations.p1");
-      assert.doesNotMatch(err.message, /secret-value/);
-      return true;
+  it("skips a listed field that is not the JSON the store wrote, warning its key name only, and loads the rest", async () => {
+    const { keychain } = fakeKeychain({
+      "_index": indexOf(["integrations.p1", "integrations.p2"]),
+      "integrations.p1": "{secret-value",
+      "integrations.p2": '{"token":"t"}',
     });
+    let loaded: unknown;
+    const warned = await warnings(async () => (loaded = await new DeviceSecretsStore(keychain).load()));
+    assert.deepEqual(loaded, { integrations: { p2: { token: "t" } } });
+    assert.equal(warned.length, 1);
+    assert.match(warned.join(), /integrations\.p1/);
+    assert.doesNotMatch(warned.join(), /secret-value/);
   });
 
   it("refuses prototype names on save and treats them in the index as corrupt", async () => {

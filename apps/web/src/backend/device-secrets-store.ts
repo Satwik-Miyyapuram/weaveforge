@@ -206,13 +206,31 @@ function toFields(secrets: Secrets): Map<string, string> {
   return fields;
 }
 
-/** Thrown when a listed field holds text that is not the JSON the store wrote. Only the key name is in the message. */
-export class KeychainFieldCorruptError extends Error {
-  readonly code = "keychain-field-corrupt";
-  constructor(readonly key: string) {
-    super(`The saved credential ${key} in the keychain cannot be read. Nothing was loaded.`);
-    this.name = "KeychainFieldCorruptError";
+/** How long one keychain call may take before it is given up, so a hung shell never blocks the queue. */
+export const KEYCHAIN_CALL_TIMEOUT_MS = 60_000;
+
+/** Thrown when one keychain call gets no answer in time. Only the key name is in the message. */
+export class KeychainTimeoutError extends Error {
+  readonly code = "keychain-timeout";
+  constructor(readonly key: string, ms: number) {
+    super(`The keychain did not answer for ${key} within ${Math.round(ms / 1000)} s. Try again.`);
+    this.name = "KeychainTimeoutError";
   }
+}
+
+/** Rejects with `KeychainTimeoutError` after `ms`; the call itself is not cancelled and may still land. */
+function timed<T>(work: Promise<T>, key: string, ms: number): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new KeychainTimeoutError(key, ms)), ms);
+  });
+  return Promise.race([work, timeout]).finally(() => clearTimeout(timer));
+}
+
+/** What a load read, and the listed keys it skipped because they were missing or not readable. */
+export interface DeviceSecretsLoad {
+  secrets: Secrets;
+  skipped: string[];
 }
 
 /** The tail of each keychain's save/load queue, shared by every store on that keychain. */
@@ -220,14 +238,31 @@ const queues = new WeakMap<DeviceKeychain, Promise<unknown>>();
 
 /** The device credentials, kept in the OS keychain only. */
 export class DeviceSecretsStore implements SecretsStore {
-  constructor(private readonly keychain: DeviceKeychain = desktopKeychain()) {}
+  /** The keychain with each call bounded by the timeout. `keychain` itself keys the shared queue. */
+  private readonly calls: DeviceKeychain;
+
+  constructor(
+    private readonly keychain: DeviceKeychain = desktopKeychain(),
+    timeoutMs: number = KEYCHAIN_CALL_TIMEOUT_MS,
+  ) {
+    this.calls = {
+      read: (key) => timed(keychain.read(key), key, timeoutMs),
+      write: (key, text) => timed(keychain.write(key, text), key, timeoutMs),
+      clear: (key) => timed(keychain.clear(key), key, timeoutMs),
+    };
+  }
 
   /** The keychain's credentials when its `_index` exists; otherwise nothing. A failed read throws. */
-  load(): Promise<Secrets> {
+  async load(): Promise<Secrets> {
+    return (await this.loadWithSkipped()).secrets;
+  }
+
+  /** Like `load`, and also names the listed keys that were missing or not readable, so the UI can ask for them again. */
+  loadWithSkipped(): Promise<DeviceSecretsLoad> {
     // Queued behind any running save, so a load never sees half a save.
     return this.serial(async () => {
       const keys = await this.readIndex();
-      if (keys === null) return {};
+      if (keys === null) return { secrets: {}, skipped: [] };
       return this.fromKeychain(keys);
     });
   }
@@ -258,7 +293,7 @@ export class DeviceSecretsStore implements SecretsStore {
         throw new Error(`${key} is ${bytes} bytes; the keychain holds at most ${KEYCHAIN_FIELD_LIMIT} per entry. Nothing was saved.`);
       }
     }
-    const indexText = await this.keychain.read(INDEX_KEY);
+    const indexText = await this.calls.read(INDEX_KEY);
     const previous = indexText === null ? [] : parseIndex(indexText);
     // Write-only entries are the shell's to keep: this save never reads them, never clears them
     // and never rolls them back.
@@ -266,7 +301,7 @@ export class DeviceSecretsStore implements SecretsStore {
     // Snapshot every entry this save may touch (the index too), so a failure part way can put them back.
     const touched = [...new Set([...fields.keys(), ...listed])].filter((key) => !isWriteOnlyKey(key));
     const before = new Map<string, string | null>([[INDEX_KEY, indexText]]);
-    for (const key of touched) before.set(key, await this.keychain.read(key));
+    for (const key of touched) before.set(key, await this.calls.read(key));
     // A key goes in `changed` before its write, so an entry a failed write may have half-written is restored too.
     const changed: string[] = [];
     // Write-only entries written before a failure keep the new value (never rolled back), so the error names them.
@@ -278,7 +313,7 @@ export class DeviceSecretsStore implements SecretsStore {
         current = key;
         const writeOnly = isWriteOnlyKey(key);
         if (!writeOnly) changed.push(key);
-        await this.keychain.write(key, text);
+        await this.calls.write(key, text);
         if (writeOnly) kept.push(key);
         done++;
       }
@@ -287,13 +322,13 @@ export class DeviceSecretsStore implements SecretsStore {
       // harmless orphan.
       current = INDEX_KEY;
       changed.push(INDEX_KEY);
-      await this.keychain.write(INDEX_KEY, indexJson);
+      await this.calls.write(INDEX_KEY, indexJson);
       done++;
       for (const key of listed) {
         if (fields.has(key)) continue;
         current = key;
         changed.push(key);
-        await this.keychain.clear(key);
+        await this.calls.clear(key);
       }
     } catch (err) {
       const stuck: string[] = [];
@@ -317,13 +352,13 @@ export class DeviceSecretsStore implements SecretsStore {
   /** Puts one entry back to its snapshot: cleared when it did not exist before. */
   private async restore(key: string, before: Map<string, string | null>): Promise<void> {
     const old = before.get(key) ?? null;
-    if (old === null) await this.keychain.clear(key);
-    else await this.keychain.write(key, old);
+    if (old === null) await this.calls.clear(key);
+    else await this.calls.write(key, old);
   }
 
   /** The keys listed by `_index`, or `null` when there is no index. An unparseable index throws `KeychainIndexCorruptError`. */
   private async readIndex(): Promise<string[] | null> {
-    const text = await this.keychain.read(INDEX_KEY);
+    const text = await this.calls.read(INDEX_KEY);
     if (text === null) return null;
     return parseIndex(text);
   }
@@ -334,21 +369,22 @@ export class DeviceSecretsStore implements SecretsStore {
    */
   resetCorruptIndex(): Promise<boolean> {
     return this.serial(async () => {
-      const text = await this.keychain.read(INDEX_KEY);
+      const text = await this.calls.read(INDEX_KEY);
       if (text === null) return false;
       try {
         parseIndex(text);
         return false;
       } catch {
-        await this.keychain.clear(INDEX_KEY);
+        await this.calls.clear(INDEX_KEY);
         return true;
       }
     });
   }
 
-  /** Rebuilds the credentials from the listed fields. A listed field the keychain lacks is skipped, logging only its key. */
-  private async fromKeychain(keys: string[]): Promise<Secrets> {
+  /** Rebuilds the credentials from the listed fields. A listed field that is missing or not readable is skipped, logging only its key. */
+  private async fromKeychain(keys: string[]): Promise<DeviceSecretsLoad> {
     const out: Record<string, unknown> = {};
+    const skipped: string[] = [];
     for (const key of keys) {
       if (isWriteOnlyKey(key)) continue;
       const dot = key.indexOf(".");
@@ -362,26 +398,32 @@ export class DeviceSecretsStore implements SecretsStore {
       // A name listed both as text and as fields is not one this store wrote.
       const has = Object.hasOwn(out, name);
       if (has && (dot < 0 || typeof out[name] !== "object")) throw new KeychainIndexCorruptError();
-      const text = await this.keychain.read(key);
+      const text = await this.calls.read(key);
       if (text === null) {
         // A save that stopped part way (or an entry removed outside the app) leaves a listed field
         // missing. Skipping it keeps every other credential loadable; the next save drops it from
         // the index. Only the key name is logged, never a value.
         console.warn(`Saved credential ${key} is listed in the keychain index but missing; skipped.`);
+        skipped.push(key);
         continue;
       }
       if (dot < 0) {
         out[name] = text;
         continue;
       }
-      const parent = (has ? out[name] : {}) as Record<string, unknown>;
+      let value: unknown;
       try {
-        parent[sub] = JSON.parse(text);
+        value = JSON.parse(text);
       } catch {
-        throw new KeychainFieldCorruptError(key);
+        // Not the JSON this store wrote: skipped like a missing field, so the other credentials still load.
+        console.warn(`Saved credential ${key} in the keychain cannot be read; skipped.`);
+        skipped.push(key);
+        continue;
       }
+      const parent = (has ? out[name] : {}) as Record<string, unknown>;
+      parent[sub] = value;
       out[name] = parent;
     }
-    return out as Secrets;
+    return { secrets: out as Secrets, skipped };
   }
 }
