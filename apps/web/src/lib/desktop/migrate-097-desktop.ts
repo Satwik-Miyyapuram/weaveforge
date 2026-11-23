@@ -23,7 +23,8 @@ export type DesktopExportShell = Pick<
   | "migrate097Read"
   | "migrate097MarkExported"
   | "migrate097Counts"
->;
+> &
+  Partial<Pick<DesktopBridge, "queryLocalDb">>;
 
 /**
  * The sink writes into the open vault and the shell marks `folder`, so they must be the same folder. Checked
@@ -57,13 +58,68 @@ export type DesktopExportDeps = {
 };
 
 /**
- * Unfolded CRDT edits past each snapshot. The export reads rows only and production never folds the tail, so
- * any tail would be lost: it counts as pending, and the run refuses until the app has compacted it.
+ * The CRDT kinds, their table, the column the editor's saver writes the note's text to, and its save time.
+ * log_entries has no updated_at, so every log edit after creation is folded and compared.
+ */
+const TAIL_KINDS = [
+  ["vault_page", "vault_pages", "body", "updated_at"],
+  ["report_section", "report_sections", "notes", "updated_at"],
+  ["log_entry", "log_entries", "body", "created_at"],
+] as const;
+
+/** One note with CRDT edits past its snapshot: its saved text, when it was saved, and its whole log. */
+export type TailNote = { text: string | null; savedAt: string; lastEditAt: string; updates: readonly string[] };
+
+/** A base64 log entry; older clients stored each update as JSON `{"$bytes": base64}` inside the bytea. */
+function decodeUpdate(b64: string): Uint8Array {
+  const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+  if (bytes[0] !== 0x7b) return bytes;
+  return decodeUpdate((JSON.parse(new TextDecoder().decode(bytes)) as { $bytes: string }).$bytes);
+}
+
+/**
+ * How many notes hold CRDT edits their saved text lacks: the log is newer than the save and folds to other text.
+ * A log older than the save is covered by it, since the saver writes the editor's whole text. A payload that
+ * does not decode throws, so the run stops rather than drop an edit.
+ */
+export async function unsavedNotes(notes: readonly TailNote[]): Promise<number> {
+  const Y = await import("yjs");
+  let unsaved = 0;
+  for (const note of notes) {
+    if (Date.parse(note.lastEditAt) <= Date.parse(note.savedAt)) continue;
+    const doc = new Y.Doc();
+    for (const u of note.updates) Y.applyUpdate(doc, decodeUpdate(u));
+    if (doc.store.pendingStructs) throw new Error("CRDT log has a gap");
+    if (doc.getText("body").toString() !== (note.text ?? "")) unsaved++;
+  }
+  return unsaved;
+}
+
+/**
+ * Unfolded CRDT edits past each snapshot. The export reads row text only, so a tail edit the text lacks would
+ * be lost: it counts as pending and the run refuses. Without a query call each tail entry counts (fail closed).
  */
 async function crdtTail(shell: DesktopExportShell): Promise<number> {
   if (!shell.migrate097Counts) throw new Error("migrate097Counts not wired");
   const { crdtTail: tail } = await shell.migrate097Counts();
-  return Object.values(tail).reduce((sum, n) => sum + n, 0);
+  const total = Object.values(tail).reduce((sum, n) => sum + n, 0);
+  if (total === 0 || !shell.queryLocalDb) return total;
+  let unsaved = 0;
+  for (const [kind, table, column, savedAt] of TAIL_KINDS) {
+    const rows = (await shell.queryLocalDb(
+      `select e.${column} as text, e.${savedAt} as saved_at,
+              (select max(u.created_at) from crdt_updates u where u.resource_type = '${kind}' and u.resource_id = e.id) as last_edit_at,
+              (select coalesce(json_agg(encode(u.payload, 'base64') order by u.id), '[]'::json)
+                 from crdt_updates u where u.resource_type = '${kind}' and u.resource_id = e.id) as ups
+         from ${table} e
+        where exists (select 1 from crdt_updates u
+                       where u.resource_type = '${kind}' and u.resource_id = e.id and u.id > coalesce(e.snapshot_upto, 0))`,
+    )) as { text: string | null; saved_at: string; last_edit_at: string; ups: string[] }[];
+    unsaved += await unsavedNotes(
+      rows.map((r) => ({ text: r.text, savedAt: r.saved_at, lastEditAt: r.last_edit_at, updates: r.ups })),
+    );
+  }
+  return unsaved;
 }
 
 /**

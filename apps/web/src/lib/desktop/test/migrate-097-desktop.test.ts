@@ -6,7 +6,8 @@ import { MIGRATION_KINDS } from "@/features/migration-097/domain/report";
 import { FIXTURE, KINDS, SUPPORTED, fakeCodec } from "@/features/migration-097/test/web-export/helpers";
 import { onlyReportPath } from "@/features/migration-097/test/own-report";
 import type { DesktopBridge } from "../desktop-bridge";
-import { desktopDeps, makeDesktopRunner, sameFolder, type DesktopExportShell } from "../migrate-097-desktop";
+import * as Y from "yjs";
+import { desktopDeps, makeDesktopRunner, sameFolder, unsavedNotes, type DesktopExportShell } from "../migrate-097-desktop";
 
 const NOW = "2026-11-23T00:00:00.000Z";
 const FOLDER = "C:/ws";
@@ -21,7 +22,26 @@ type ShellOpts = {
   vault?: string | null;
   /** The open vault once the backup has run (another folder opened mid-run). */
   vaultAfterBackup?: string;
+  /** The notes the tail query returns; with this set the shell has queryLocalDb. */
+  tailNotes?: TailRow[];
 };
+
+type TailRow = { saved_at: string; last_edit_at: string; text: string | null; ups: string[] };
+
+/** A Yjs log that types `text` into the "body" text, as base64 updates; `wrapped` stores each as {"$bytes": …}. */
+function logOf(text: string, wrapped = false): string[] {
+  const doc = new Y.Doc();
+  const ups: string[] = [];
+  doc.on("update", (u: Uint8Array) => {
+    const b64 = Buffer.from(u).toString("base64");
+    ups.push(wrapped ? Buffer.from(JSON.stringify({ $bytes: b64 })).toString("base64") : b64);
+  });
+  for (const ch of text) doc.getText("body").insert(doc.getText("body").length, ch);
+  return ups;
+}
+
+const SAVED = "2026-11-19T20:07:24.000Z";
+const LATER = "2026-11-23T14:07:50.000Z";
 
 /**
  * A shell over FIXTURE, in snake_case like the local table. Each call is logged in order. The mark refuses as
@@ -64,6 +84,12 @@ function fakeShell(sink: MemorySink, opts: ShellOpts = {}) {
     migrate097Counts: opts.noCounts
       ? undefined
       : async () => ({ counts: {}, crdtTail: { vault_pages: opts.tail ?? 0, log_entries: 0 } }),
+    queryLocalDb: opts.tailNotes
+      ? async (sql) => {
+          calls.push("query");
+          return sql.includes("'vault_page'") ? opts.tailNotes! : [];
+        }
+      : undefined,
   };
   return { shell, calls };
 }
@@ -119,6 +145,66 @@ test("desktop runner: an unfolded CRDT tail refuses as pending sync, with no mar
   assert.equal(reply.pendingSync, true);
   assert.ok(!calls.some((c) => c.startsWith("mark:")));
   assert.ok(!calls.includes("move-secrets"));
+});
+
+test("desktop runner: a tail whose edits are all in the saved text does not block the export", async () => {
+  const { calls, runner } = setup({
+    tail: 3,
+    tailNotes: [
+      // Log newer than the save, same text: the body saver already wrote it.
+      { saved_at: SAVED, last_edit_at: LATER, text: "hello", ups: logOf("hello") },
+      // Log older than the save, different text: the row was edited after.
+      { saved_at: LATER, last_edit_at: SAVED, text: "hello world", ups: logOf("hello", true) },
+    ],
+  });
+  const reply = await runner(FOLDER, () => {});
+  assert.equal(reply.state, "verified");
+  assert.equal(reply.pendingSync, false);
+  assert.ok(calls.includes("query"));
+});
+
+test("desktop runner: the tail query reads each table's save time; log_entries has no updated_at", async () => {
+  const sink = new MemorySink();
+  const { shell } = fakeShell(sink, { tail: 1, tailNotes: [] });
+  const sqls: string[] = [];
+  const query = shell.queryLocalDb!;
+  shell.queryLocalDb = async (sql, params) => (sqls.push(sql), query(sql, params));
+  await makeDesktopRunner(shell, deps(sink), undefined, () => NOW)(FOLDER, () => {});
+  const of = (table: string) => sqls.find((s) => s.includes(`from ${table} e`)) ?? "";
+  assert.match(of("vault_pages"), /e\.updated_at as saved_at/);
+  assert.match(of("report_sections"), /e\.notes as text, e\.updated_at as saved_at/);
+  assert.match(of("log_entries"), /e\.created_at as saved_at/);
+  assert.doesNotMatch(of("log_entries"), /updated_at/);
+});
+
+test("desktop runner: a tail newer than the save with different text refuses as pending sync", async () => {
+  const { calls, runner } = setup({
+    tail: 1,
+    tailNotes: [{ saved_at: SAVED, last_edit_at: LATER, text: "hell", ups: logOf("hello") }],
+  });
+  const reply = await runner(FOLDER, () => {});
+  assert.notEqual(reply.state, "verified");
+  assert.equal(reply.pendingSync, true);
+  assert.ok(!calls.some((c) => c.startsWith("mark:")));
+});
+
+test("desktop runner: an undecodable tail payload refuses (outbox unreadable)", async () => {
+  const { calls, runner } = setup({
+    tail: 1,
+    tailNotes: [{ saved_at: SAVED, last_edit_at: LATER, text: "x", ups: ["AAAA"] }],
+  });
+  const reply = await runner(FOLDER, () => {});
+  assert.notEqual(reply.state, "verified");
+  assert.ok(!calls.some((c) => c.startsWith("mark:")));
+});
+
+test("unsavedNotes: equal text, older log or newer differing log", async () => {
+  const at = (saved: string, edit: string, text: string | null, ups: string[]) => ({ savedAt: saved, lastEditAt: edit, text, updates: ups });
+  assert.equal(await unsavedNotes([at(SAVED, LATER, "ab", logOf("ab"))]), 0);
+  assert.equal(await unsavedNotes([at(LATER, SAVED, "zz", logOf("ab"))]), 0);
+  assert.equal(await unsavedNotes([at(SAVED, LATER, "a", logOf("ab"))]), 1);
+  // A null row text is the empty note.
+  assert.equal(await unsavedNotes([at(SAVED, LATER, null, logOf(""))]), 0);
 });
 
 test("desktop runner: no counts call refuses (outbox unreadable), with no mark", async () => {
