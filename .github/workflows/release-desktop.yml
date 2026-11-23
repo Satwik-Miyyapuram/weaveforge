@@ -3,7 +3,7 @@ name: Release desktop
 # Builds the signed Windows installers for a desktop tag (vX.Y.Z), writes the
 # updater manifest, and publishes them as a GitHub pre-release. Promotion to
 # Latest stays manual (docs/building/release.md), because the in-app updater
-# reads latest.json from the Latest release only.
+# reads latest-v2.json from the Latest release only.
 
 on:
   push:
@@ -25,8 +25,22 @@ env:
   TAG: ${{ github.event.inputs.tag || github.ref_name }}
 
 jobs:
+  # Runs before any build, so a release candidate or any other non-vX.Y.Z tag
+  # (for example v0.9.7-rc1) never reaches the installers or the manifest.
+  validate:
+    name: validate tag
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Reject tags that are not vX.Y.Z
+        run: |
+          if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Tag $TAG is not vX.Y.Z. Release candidates are not built here."
+            exit 1
+          fi
   build:
     name: build (${{ matrix.arch }})
+    needs: validate
     strategy:
       fail-fast: true
       matrix:
@@ -140,9 +154,19 @@ jobs:
           path: dist
           merge-multiple: true
 
-      # Fails if a .sig is missing or the tag differs from tauri.conf.json.
-      - name: Write latest.json
-        run: node apps/shell/scripts/write-latest-json.mjs "$TAG" dist
+      # Later releases keep latest.json at the 0.9.7 bridge; fetch it from v0.9.7.
+      - name: Fetch the 0.9.7 bridge manifest
+        if: env.TAG != 'v0.9.7'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release download v0.9.7 --pattern latest.json --dir bridge
+
+      # The writer fails on a non-canonical tag, a missing .sig, a tauri.conf.json version other than the tag, or a bridge that is not the 0.9.7 latest.json. The bridge is fetched from v0.9.7, so the byte check holds.
+      - name: Write latest-v2.json and latest.json
+        run: |
+          bridge=""
+          if [ "$TAG" != "v0.9.7" ]; then bridge="bridge/latest.json"; fi
+          node apps/shell/scripts/write-latest-json.mjs "$TAG" dist $bridge
 
       - name: Release notes from CHANGELOG
         run: |
@@ -150,7 +174,20 @@ jobs:
           awk -v head="## [$version]" 'index($0, head) == 1 { on = 1; next } on && /^## \[/ { exit } on' CHANGELOG.md > notes.md
           if [ ! -s notes.md ]; then echo "no CHANGELOG entry for $version" >&2; exit 1; fi
 
-      - name: Create pre-release
+      # Created as a draft so nothing is public until the gate passes.
+      - name: Create draft pre-release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$TAG" --verify-tag --prerelease --title "WeaveForge $TAG" --notes-file notes.md dist/*
+        run: gh release create "$TAG" --verify-tag --draft --prerelease --title "WeaveForge $TAG" --notes-file notes.md dist/*
+
+      # Reads the draft back (the check finds drafts by tag); the job fails if an installer, a .sig or a manifest is wrong.
+      - name: Check the draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node apps/shell/scripts/check-release-assets.mjs "$TAG"
+
+      # Publishes the pre-release only after the check passed. Latest stays a manual promotion.
+      - name: Publish pre-release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release edit "$TAG" --draft=false

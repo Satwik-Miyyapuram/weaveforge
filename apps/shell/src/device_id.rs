@@ -20,6 +20,12 @@ pub fn read_existing(dir: &Path) -> io::Result<Option<String>> {
     }
 }
 
+/// The stored id if the file holds a valid one, else `None`. Never writes: a missing, empty or
+/// corrupt file gives `None`, so the update hold stays closed instead of creating an id.
+pub fn get_existing(dir: &Path) -> Option<String> {
+    read_existing(dir).ok().flatten()
+}
+
 fn parse_id(path: &Path, id: &str) -> io::Result<String> {
     if is_valid(id) {
         Ok(id.to_owned())
@@ -53,6 +59,7 @@ mod tests {
         assert_eq!(read_existing(&dir).unwrap().as_deref(), Some(id.as_str()));
         std::fs::write(&path, "not-an-id").unwrap();
         assert!(read_existing(&dir).is_err(), "corrupt id is an error");
+        assert_eq!(super::get_existing(&dir), None, "corrupt id gives no id");
         let _ = std::fs::remove_dir_all(&dir);
         assert_eq!(read_existing(&dir).unwrap(), None, "missing folder");
     }
