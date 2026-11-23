@@ -475,3 +475,22 @@ test("setPinned on an unreadable paper file returns false and leaves the file un
   assert.equal(await readText(badPath), original);
   assert.doesNotMatch(original, /pinned: true/);
 });
+
+test("files() lists each paper's id with its file, in one scan", async () => {
+  const { fs, repo } = setup();
+  await repo.save(paper({ id: "p-1", title: "One" }));
+  await repo.save(paper({ id: "p-2", title: "Two" }));
+  const expected = [
+    { paperId: "p-1", path: (await repo.pathOf("p-1"))! },
+    { paperId: "p-2", path: (await repo.pathOf("p-2"))! },
+  ];
+  let reads = 0;
+  const readText = fs.readText.bind(fs);
+  fs.readText = async (path: string) => {
+    reads += 1;
+    return readText(path);
+  };
+  const files = (await repo.files()).sort((a, b) => a.paperId.localeCompare(b.paperId));
+  assert.deepEqual(files, expected);
+  assert.equal(reads, 2);
+});

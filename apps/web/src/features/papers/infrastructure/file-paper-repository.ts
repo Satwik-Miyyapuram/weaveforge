@@ -122,6 +122,11 @@ export class FilePaperRepository implements IPaperRepository {
     return (await this.findById(id))?.path ?? null;
   }
 
+  /** Each paper's id with the file that holds it, from one scan of the papers folder. */
+  async files(): Promise<{ paperId: string; path: string }[]> {
+    return (await this.readAll()).map((read) => ({ paperId: read.paper.id, path: read.path }));
+  }
+
   /** Every `.paper.md` file that could not be read as a paper, with the reason. */
   async failures(): Promise<PaperFileFailure[]> {
     return (await this.scan()).failures;
