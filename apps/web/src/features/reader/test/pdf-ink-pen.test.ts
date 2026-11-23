@@ -11,6 +11,7 @@ import {
 import type { RustCore } from "@/lib/rust-core";
 import { loadTestCore } from "@/lib/test/load-test-core";
 import { readFileSync } from "node:fs";
+import { HIGHLIGHTER_ALPHA } from "@/features/ink/render/canvas-renderer";
 import {
   PEN_UNITS_PER_PT,
   WetInkClear,
@@ -277,4 +278,13 @@ test("Ctrl+Z is not bound by the pen, so the reader's undo owns it", () => {
     const src = readFileSync(new URL(f, import.meta.url), "utf8");
     assert.doesNotMatch(src, /keydown|onKeyDown/, f);
   }
+});
+
+test("a PDF highlighter lets through what a notes' highlighter does, on screen and in print", () => {
+  const css = readFileSync(new URL("../../../app/styles/reader.css", import.meta.url), "utf8");
+  const rule = /\.pdf-reader-ink--highlighter\s*\{([^}]*)\}/.exec(css)?.[1] ?? "";
+  assert.equal(Number(/opacity:\s*([\d.]+)/.exec(rule)?.[1]), HIGHLIGHTER_ALPHA);
+  const print = readFileSync(new URL("../ui/pdf-reader/use-reader-print.ts", import.meta.url), "utf8");
+  assert.match(print, /import \{ HIGHLIGHTER_ALPHA \} from "@\/features\/ink\/render\/canvas-renderer"/);
+  assert.doesNotMatch(print, /const HIGHLIGHTER_ALPHA/);
 });

@@ -5,6 +5,7 @@ import type { ReaderAnnotation } from "@weaveforge/core";
 import type { ReaderPrintNote, ReaderPrintPage } from "@weaveforge/wasm";
 
 import { readyCore } from "@/lib/rust-core";
+import { HIGHLIGHTER_ALPHA } from "@/features/ink/render/canvas-renderer";
 import { layoutMarginNotes } from "../../application/parts-2";
 import type { PdfDocument } from "./types";
 
@@ -15,9 +16,8 @@ import type { PdfDocument } from "./types";
 const PRINT_SCALE = 2;
 /** A card's assumed height at print size, for stacking; the sheet fits the rest. */
 const PRINT_CARD_HEIGHT = 150;
-/** What a highlight box and a highlighter stroke let through, as on screen. */
+/** What a highlight box lets through, as on screen; a highlighter stroke is the notes' (HIGHLIGHTER_ALPHA). */
 const HIGHLIGHT_ALPHA = 0.35;
-const HIGHLIGHTER_ALPHA = 0.45;
 
 export interface ReaderPrintDeps {
   pdf: PdfDocument | null;
