@@ -75,7 +75,9 @@ test("run: a backup or outbox error message with a path never reaches report.jso
     },
     debugLog: (line) => debug.push(line),
   });
-  const backupReport = await backupSink.readText(await onlyReportPath(backupSink));
+  // A desktop refusal before the dump has no device id, so no report file is written (fail closed); the run carries the code.
+  assert.deepEqual(await backupSink.list(), [], "no report without a device id");
+  const backupReport = JSON.stringify(backedUp.run);
   assert.equal(backedUp.state, "incomplete");
   assert.ok(backupReport.includes("backup-failed"));
   assert.ok(!backupReport.includes("/secret/path"));

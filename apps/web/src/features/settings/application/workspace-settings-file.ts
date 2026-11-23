@@ -24,6 +24,21 @@ export type SettingsState = "missing" | "ready" | "locked";
 const isPlainObject = (v: unknown): v is Record<string, unknown> =>
   typeof v === "object" && v !== null && !Array.isArray(v);
 
+/** Timer for settings writes. Ref'd on purpose: a pending save must finish before the process exits. */
+export function defaultSchedule(fn: () => void, ms: number): unknown {
+  return setTimeout(fn, ms);
+}
+
+/**
+ * Timer for the no-folder reminder. It saves nothing, so in Node it is unref'd and cannot hold
+ * the process open. Browsers return a number with no unref, so they keep the plain timer.
+ */
+export function defaultReminderSchedule(fn: () => void, ms: number): unknown {
+  const handle = setTimeout(fn, ms) as unknown as { unref?: () => void };
+  handle.unref?.();
+  return handle;
+}
+
 export function parseSettings(
   text: string,
 ): { ok: true; doc: SettingsDoc } | { ok: false; reason: "corrupt" | "newer" } {
@@ -114,6 +129,7 @@ export class WorkspaceSettingsFile {
   private readonly deps: SettingsDeps;
   private readonly delayMs: number;
   private readonly schedule: (fn: () => void, ms: number) => unknown;
+  private readonly reminderSchedule: (fn: () => void, ms: number) => unknown;
   private readonly cancel: (handle: unknown) => void;
   private warnedNoFolder = false;
   /** Repeats the no-folder warning while an edit waits; armed only with no folder open. */
@@ -124,7 +140,8 @@ export class WorkspaceSettingsFile {
   constructor(deps: SettingsDeps) {
     this.deps = deps;
     this.delayMs = deps.delayMs ?? SETTINGS_WRITE_DELAY_MS;
-    this.schedule = deps.schedule ?? ((fn, ms) => setTimeout(fn, ms));
+    this.schedule = deps.schedule ?? defaultSchedule;
+    this.reminderSchedule = deps.schedule ?? defaultReminderSchedule;
     this.cancel = deps.cancel ?? ((h) => clearTimeout(h as ReturnType<typeof setTimeout>));
   }
 
@@ -226,7 +243,7 @@ export class WorkspaceSettingsFile {
 
   private remindNoFolder(): void {
     if (this.reminder !== null) return;
-    this.reminder = this.schedule(() => {
+    this.reminder = this.reminderSchedule(() => {
       this.reminder = null;
       if (this.deps.fs() || !this.dirty()) return;
       this.deps.warn(`settings still not saved, no workspace folder open: ${this.unsavedKeys()}. Open a workspace to save them.`);
