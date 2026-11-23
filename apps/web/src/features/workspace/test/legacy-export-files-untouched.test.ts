@@ -42,9 +42,9 @@ test("no production file names restore-pending.json", () => {
   assert.deepEqual(hits, []);
 });
 
-test(".weaveforge/tables is named only by the test-only sync-tables helper and a mirror comment", () => {
+test(".weaveforge/tables is named only in a mirror comment", () => {
   const hits = files.filter((f) => /weaveforge\/tables/.test(f.text)).map((f) => f.rel).sort();
-  assert.deepEqual(hits, ["features/workspace/application/parts-2.ts", "features/workspace/application/sync-tables.ts"]);
+  assert.deepEqual(hits, ["features/workspace/application/parts-2.ts"]);
   const mirror = files.find((f) => f.rel === "features/workspace/application/parts-2.ts")!.text;
   for (const line of mirror.split("\n").filter((l) => /weaveforge\/tables/.test(l))) {
     assert.match(line.trim(), /^\*/, `parts-2.ts names the folder only in a comment: ${line.trim()}`);

@@ -1,8 +1,18 @@
+import { FILES_MODE_CRDT_TYPES } from "@/features/collab/infrastructure/files-mode-crdt-limit";
 import { ORG_SERVER_BUCKETS, ORG_SERVER_READ_TABLES, ORG_SERVER_RPCS } from "./org-server-allowlist";
 
 const TABLES = new Set<string>(ORG_SERVER_READ_TABLES);
 const BUCKETS = new Set<string>(ORG_SERVER_BUCKETS);
 const RPCS = new Set<string>(ORG_SERVER_RPCS);
+/** compact_crdt_log deletes crdt rows, so it runs only for a live-share type (the files-mode set). */
+const LIVE_SHARE_CRDT_TYPES = new Set<string>(FILES_MODE_CRDT_TYPES);
+
+function rpcAllowed(name: string, body: unknown): boolean {
+  if (!RPCS.has(name)) return false;
+  if (name !== "compact_crdt_log") return true;
+  const type = (body as { p_resource_type?: unknown } | undefined)?.p_resource_type;
+  return typeof type === "string" && LIVE_SHARE_CRDT_TYPES.has(type);
+}
 
 /** The part of the PostgREST client the guard checks. Every other member passes through unchanged. */
 interface OrgDbLike {
@@ -58,7 +68,7 @@ export function guardOrgDb<Db extends OrgDbLike>(db: Db): Db {
       }
       if (key === "rpc") {
         return (name: string, body?: unknown) => {
-          if (!RPCS.has(name)) throw new Error(`Rpc not allowed on the org server: ${name}`);
+          if (!rpcAllowed(name, body)) throw new Error(`Rpc not allowed on the org server: ${name}`);
           return target.rpc(name, body);
         };
       }
@@ -67,6 +77,8 @@ export function guardOrgDb<Db extends OrgDbLike>(db: Db): Db {
         const storage: unknown = Reflect.get(target, key, receiver);
         return storage && typeof storage === "object" ? orgBucketsOnly(storage as StorageLike) : storage;
       }
+      // The raw PostgREST client behind a Supabase client would skip the allowlist.
+      if (key === "rest") throw new Error("rest not allowed on the org server");
       if (key === "schema" && "schema" in target) {
         return (name: string) => guardOrgDb((target as unknown as SchemaDbLike).schema(name) as OrgDbLike);
       }

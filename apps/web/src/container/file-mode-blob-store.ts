@@ -1,4 +1,4 @@
-import type { IBlobFetcher, IBlobStore } from "@weaveforge/core";
+import { BlobNotFoundError, type IBlobFetcher, type IBlobStore } from "@weaveforge/core";
 
 /**
  * Files mode blob store. `upload` writes a personal blob to the device (the file store).
@@ -36,14 +36,17 @@ export class FileModeBlobStore implements IBlobFetcher {
     return this.personal.fetchBlob(bucket, path, fallbackContentType);
   }
 
-  /** A missing or unreadable file is left out of the map, as FetchingBlobStore does: one bad image does not fail the batch. */
+  /**
+   * A missing or unreadable file is left out of the map, as FetchingBlobStore does: one bad image does not fail the batch.
+   * A missing file is skipped quietly; any other error (a checksum mismatch, a refused read) is logged.
+   */
   async fetchBlobs(bucket: string, paths: readonly string[], fallbackContentType?: string): Promise<Map<string, Blob>> {
     const out = new Map<string, Blob>();
     for (const path of paths) {
       try {
         out.set(path, await this.personal.fetchBlob(bucket, path, fallbackContentType));
-      } catch {
-        // skipped, like a broken asset on the signed-url path
+      } catch (error) {
+        if (!(error instanceof BlobNotFoundError)) console.warn(`blob ${bucket}/${path} could not be read`, error);
       }
     }
     return out;

@@ -169,3 +169,16 @@ test("the gate asks only the browser port: no signed-in or server reader is wire
   assert.doesNotMatch(src, /signed-in-port|supabase-reads|install-097-web-port/);
   assert.match(src, /install-097-browser-port/);
 });
+
+test("a sibling report listed but gone when read (list/read race) counts as absent, not as unreadable", async () => {
+  const gone = Object.assign(new Error("gone"), { name: "NotFoundError" });
+  const sibling = `${REPORT_DIR}/report-${OTHER}.json`;
+  assert.deepEqual((await verdict({ [INSTALL_ID_PATH]: ID, [sibling]: gone })).verdict, {
+    kind: "unverified",
+    action: "web-export",
+  });
+  assert.deepEqual(
+    (await verdict({ [INSTALL_ID_PATH]: ID, [sibling]: gone, [LEGACY_REPORT_PATH]: verified })).verdict,
+    { kind: "open" },
+  );
+});
