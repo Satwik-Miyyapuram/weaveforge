@@ -15,7 +15,8 @@ function fakeBridge(over: Partial<LocalOnlyBridge> & { state?: string; picks?: b
     },
     migrate097Status: async (folder: string) => {
       calls.push(`status:${folder}`);
-      return { state: over.state ?? "none" };
+      // A folder counts as verified only with its own run's proof (ownRunVerified), as migrate-097.ts reads it.
+      return over.state === "verified" ? { state: "verified", ownRunVerified: true } : { state: over.state ?? "none" };
     },
     migrate097Run: over.migrate097Run,
     queryLocalDb: async () => {
