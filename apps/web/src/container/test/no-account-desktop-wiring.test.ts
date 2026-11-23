@@ -5,7 +5,7 @@
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import { loadCore } from "@/lib/rust-core";
-import { setLocalMode } from "@/features/auth/infrastructure/no-account-mode";
+import { setLocalMode } from "@/backend/providers/files/no-account-mode";
 import { wireBackend } from "@/container/parts";
 import { NoAccountWorkspaceFs } from "@/backend/providers/files/no-account-fs";
 

@@ -10,7 +10,7 @@ import { fileURLToPath } from "node:url";
 
 const src = (rel: string) => readFileSync(fileURLToPath(new URL(`../../${rel}`, import.meta.url)), "utf8");
 
-const NO_ACCOUNT_IMPORT = /import \{ isLocalMode \} from "@\/features\/auth\/infrastructure\/no-account-mode";/;
+const NO_ACCOUNT_IMPORT = /import \{ isLocalMode \} from "@\/backend\/providers\/files\/no-account-mode";/;
 
 test("workspace folder sync and import never read or restore account tables on the server (0.9.8)", () => {
   // Files are the only personal store: the mirror writes no .weaveforge/tables files read from

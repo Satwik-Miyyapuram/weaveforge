@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { getContainer } from "@/bootstrap";
-import { isLocalMode } from "@/features/auth/infrastructure/no-account-mode";
+import { isLocalMode } from "@/backend/providers/files/no-account-mode";
 import { listWorkshopProjects } from "@/features/overleaf/infrastructure/workshop-session-client";
 import { isTauriShell } from "@/features/experiments/infrastructure/parts";
 import { useProject } from "@/features/projects";

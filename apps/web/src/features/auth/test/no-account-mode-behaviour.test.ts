@@ -6,7 +6,7 @@
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import { loadCore, readyCore } from "@/lib/rust-core";
-import { isLocalMode, setLocalMode } from "@/features/auth/infrastructure/no-account-mode";
+import { isLocalMode, setLocalMode } from "@/backend/providers/files/no-account-mode";
 
 const host = globalThis as { localStorage?: Storage };
 const previous = host.localStorage;

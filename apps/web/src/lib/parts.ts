@@ -1,5 +1,5 @@
 import { readBackendConfig } from "@/backend/parts";
-import { isLocalMode } from "@/features/auth/infrastructure/no-account-mode";
+import { isLocalMode } from "@/backend/providers/files/no-account-mode";
 import { createDataClient } from "@/backend/providers/postgrest/parts-1";
 import type { CitationFormat } from "@/features/overleaf/application/parts";
 import { hasScreenCacheData, screenCacheKey } from "@/lib/cache/parts-2";
