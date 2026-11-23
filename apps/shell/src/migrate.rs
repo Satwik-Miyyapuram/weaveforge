@@ -126,7 +126,8 @@ fn is_link(meta: &fs::Metadata) -> bool {
 
 /// True when any old local database (native Postgres or PGlite) may be on disk under `app_data`.
 /// Dumps in `local-db-backups` are left out: 0.9.7 cannot migrate from them. A missing or unplugged
-/// workspace counts as old data: its database may be there.
+/// workspace alone is not old data: a fresh install whose remembered folder is gone must not be
+/// locked out. With other old data (`local-pg`, `local-db`, or an Electron dir) the gate still runs.
 pub fn legacy_db_in(app_data: &Path) -> Result<bool, ShellError> {
     let db_err = |e: std::io::Error| {
         legacy_unreadable("legacy_db_unreadable", "an old local database folder", &e)
@@ -139,9 +140,6 @@ pub fn legacy_db_in(app_data: &Path) -> Result<bool, ShellError> {
     }
     if let Some(root) = configured_root(app_data) {
         if dir_has_entries(&root.join(WORKSPACE_META_DIR).join("db")).map_err(db_err)? {
-            return Ok(true);
-        }
-        if !root.is_dir() {
             return Ok(true);
         }
     }
@@ -384,10 +382,12 @@ pub fn secrets_marker_path(workspace: &Path, device_id: &str) -> PathBuf {
 
 /// Whether this device may run 0.9.8 without the "install 0.9.7 first" gate. One rule: the gate
 /// shows only when old local-database data is on this device AND no configured workspace holds both
-/// this device's verified 0.9.7 export and its secrets-moved marker. A check that cannot tell (old
-/// data unreadable, no app-data path, device id unreadable, workspace folder missing, report
-/// unreadable while the marker exists) passes, so the gate never blocks on a guess. A fresh install
-/// never reads the device id.
+/// this device's verified 0.9.7 export and its secrets-moved marker. A missing workspace folder is
+/// not old data by itself, so a fresh install whose remembered folder is gone passes. With other old
+/// data, a check that cannot tell (old data unreadable, no app-data path, device id unreadable,
+/// workspace folder missing while the device id is known, report unreadable while the marker exists)
+/// passes, so the gate never blocks on a guess; old data with no device id at all is gated. A fresh
+/// install never reads the device id.
 #[must_use]
 pub fn install_gate_passes(
     app_data: Option<&Path>,
@@ -942,11 +942,18 @@ mod tests {
     }
 
     #[test]
-    fn a_missing_workspace_counts_as_legacy_data() {
+    fn a_missing_workspace_alone_is_not_legacy_data() {
         let (data, _) = temp("legacy-ws-missing");
         let root = data.parent().unwrap().join("unplugged-legacy");
         let prefs = serde_json::json!({ "vault-root": root.to_string_lossy() });
         let _ = fs::write(data.join("preferences.json"), prefs.to_string());
+        assert_eq!(legacy_db_in(&data), Ok(false));
+    }
+
+    #[test]
+    fn a_missing_workspace_with_an_app_db_is_legacy_data() {
+        let (data, ws) = data_with("legacy-ws-missing-app-db", true, false);
+        fs::remove_dir(&ws).unwrap();
         assert_eq!(legacy_db_in(&data), Ok(true));
     }
 
@@ -1378,6 +1385,36 @@ mod tests {
         fs::remove_dir(&ews).unwrap();
         let (data, _) = temp("gate-app-bare-2");
         assert!(!gate_both(Some(&data), Some(&electron)));
+    }
+
+    /// The gate for a device that never ran 0.9.7, so it has no device id.
+    fn gate_no_device(app: &Path) -> bool {
+        !install_gate_passes(Some(app), None, |_| Ok(None))
+    }
+
+    #[test]
+    fn a_fresh_install_with_prefs_to_a_missing_folder_passes() {
+        let (data, _) = temp("gate-fresh-ws-gone");
+        let root = data.parent().unwrap().join("never-made");
+        let prefs = serde_json::json!({ "vault-root": root.to_string_lossy() });
+        fs::write(data.join("preferences.json"), prefs.to_string()).unwrap();
+        assert!(!gate_no_device(&data));
+    }
+
+    #[test]
+    fn a_missing_folder_with_an_app_db_and_no_device_id_is_gated() {
+        let (data, ws) = data_with("gate-ws-gone-app-db", true, false);
+        fs::remove_dir(&ws).unwrap();
+        assert!(gate_no_device(&data));
+    }
+
+    #[test]
+    fn a_missing_folder_with_local_pg_and_no_device_id_is_gated() {
+        let (data, ws) = data_with("gate-ws-gone-local-pg", false, false);
+        fs::remove_dir(&ws).unwrap();
+        fs::create_dir_all(legacy_pg_dir(&data).join("data")).unwrap();
+        fs::write(legacy_pg_dir(&data).join("data").join("PG_VERSION"), "18").unwrap();
+        assert!(gate_no_device(&data));
     }
 
     #[test]

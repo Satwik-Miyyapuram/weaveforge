@@ -76,6 +76,14 @@ test("desktop reads the shell's true and false answers", async () => {
   });
 });
 
+test("a fresh install whose remembered folder is missing opens (shell answers false)", async () => {
+  // migrate.rs: a missing folder alone is not old data, so the shell's verdict is "not required".
+  await withDesktop({ installGateRequired: () => Promise.resolve(false) }, async () => {
+    const tree = await mount(askInstallGate);
+    assert.equal(tree.toJSON(), null);
+  });
+});
+
 test("a rejected shell check on desktop shows the gate", async () => {
   await withDesktop(
     { installGateRequired: () => Promise.reject(new Error("device id unreadable")) },
