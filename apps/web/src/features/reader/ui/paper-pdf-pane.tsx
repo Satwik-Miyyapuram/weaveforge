@@ -40,7 +40,7 @@ import { Button } from "@/components/button";
 import { paperGuard } from "./paper-guard";
 import { fetchServedPdf, routePdfHit, safeHostname } from "./pdf-hit-route";
 import { type AccountState, planWebArticle, resolveAccount } from "./web-article-preview";
-import { useAuth } from "@/features/auth/ui/auth-provider";
+import { useAuth } from "@/features/auth";
 import { getLightContainer } from "@/light-bootstrap";
 import { authRedirectTo } from "@/lib/desktop/desktop-auth";
 import { fetchPendingPdf } from "./pending-pdf-fetch";

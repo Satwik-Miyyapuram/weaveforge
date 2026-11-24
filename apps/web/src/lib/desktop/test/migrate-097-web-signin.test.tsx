@@ -26,7 +26,9 @@ test("a user who signs in after first paint gets exactly one web runner", async 
     React.createElement(
       AuthContext.Provider,
       { value: authValue(user) },
-      React.createElement(Migrate097Web, { load, children: React.createElement("span", null, "app") }),
+      <Migrate097Web load={load}>
+        <span>app</span>
+      </Migrate097Web>,
     );
 
   let renderer: ReturnType<typeof create> | undefined;

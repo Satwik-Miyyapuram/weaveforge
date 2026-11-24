@@ -27,8 +27,8 @@ import { readyCore } from "@/lib/rust-core";
 import type { InkWorkerEvent } from "@/features/ink/application/capture-protocol";
 import { inkWetDpr, readInkTuning } from "@/features/ink/application/ink-tuning";
 import { backingRatio, type InkPalette } from "@/features/ink/render/parts-1";
-import { useInkPen } from "@/features/ink/ui/use-ink-pen";
-import { cachedRect } from "@/features/ink/ui/rect-cache";
+import { useInkPen } from "@/features/ink";
+import { cachedRect } from "@/features/ink";
 import { WetInkClear, clientToPenUnits, penPointsToPdfPath, penViewportScale } from "../../application/pdf-ink-pen";
 
 export interface PdfInkPenProps {

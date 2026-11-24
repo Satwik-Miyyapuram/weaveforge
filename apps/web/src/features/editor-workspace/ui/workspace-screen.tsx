@@ -7,24 +7,16 @@ import type { EditorHandleRef } from "@/components/editor-handle";
 import { formatError } from "@/lib/format-error";
 import type { CiteCompletion } from "@/lib/hooks/use-cite-links";
 import { readyCore } from "@/lib/rust-core";
-import { requestShortcuts } from "@/lib/parts-2";
 
 import { useProject } from "@/features/projects";
 import { useWikilinkCreateMode } from "@/lib/wikilink-create-preference";
 import {
-  commandForChord,
   type Document,
-  isTypingTarget,
   loadWorkspace,
   EditorBases,
   NoteSaves,
-  EXPLORER_WIDTH_DEFAULT,
-  readExplorerWidth,
-  readHidden,
   readLayout,
   type WorkspaceData,
-  writeExplorerWidth,
-  writeHidden,
   writeLayout,
 } from "../application/parts";
 import { breadcrumbs, creationKindFor, creationTarget, type Draft, draftMakes, duplicatePlan, hasInkView } from "@weaveforge/wasm";
@@ -35,7 +27,9 @@ import { DocumentHost, isCanvasDocument, type DocumentMetrics } from "./document
 import { CanvasDocument } from "./canvas-document";
 import { ExplorerPanel } from "./explorer-panel";
 import { ExplorerResizer } from "./explorer-resizer";
+import { useExplorerPane } from "./use-explorer-pane";
 import { useFocusMode } from "./use-focus-mode";
+import { useWorkspaceChords } from "./use-workspace-chords";
 import { CLOSED_TABS_KEPT, closeWouldLoseWork, keepOpen, store } from "./workspace-screen-support";
 import { getInkSaveStatus } from "@/features/ink/application/parts";
 import { hasPendingBodySave } from "@/features/collab";
@@ -50,12 +44,12 @@ import { holdOpenNotes } from "@/features/workspace/application/parts-3";
 import type { RenamedVaultPage } from "@/features/vault/application/rename-updates-links";
 import { toastLinkRewriteFailed } from "@/features/vault/application/rename-link-toast";
 import { useInkSaveStatus } from "./use-ink-save-status";
-import { handBackRenamedBody } from "./rename-hand-back";
+import { handBackRenamedBody } from "../application/rename-hand-back";
 import { PaneView, openTabs } from "./pane-view";
 import { QuickOpenDialog } from "./quick-open-dialog";
 import { StatusBar, saveState, type SegmentKey } from "./status-bar";
 import { FormError } from "@/components/form-error";
-import { DESKTOP_BREAKPOINT_PX, isMacPlatform } from "@/lib/parts";
+import { isMacPlatform } from "@/lib/parts";
 import { ScreenLoader } from "@/components/weaveforge-loader";
 import { IconButton } from "@/components/button";
 
@@ -93,7 +87,6 @@ export function WorkspaceScreen() {
   // The explorer's draft row: what it will make and where. Owned here so the
   // `⌘N` chord and the panel's own buttons start the same thing.
   const [draft, setDraft] = useState<Draft | null>(null);
-  const [explorerHidden, setExplorerHidden] = useState(false);
   const { focus, toggleFocus } = useFocusMode();
   const onScreen = useScreenActive();
   useScreenShown("workspace", documents != null);
@@ -103,40 +96,12 @@ export function WorkspaceScreen() {
   // a ref rather than closing over a stale one.
   const activeDocRef = useRef<Document | undefined>(undefined);
   const folderIdsRef = useRef<ReadonlySet<string>>(new Set());
-  useEffect(() => setExplorerHidden(readHidden(store())), []);
-  // The explorer's dragged width, per device like `hidden`.
-  const [explorerWidth, setExplorerWidth] = useState(EXPLORER_WIDTH_DEFAULT);
-  useEffect(() => setExplorerWidth(readExplorerWidth(store())), []);
-  const keepExplorerWidth = useCallback((width: number) => writeExplorerWidth(store(), width), []);
-  // On a phone there is no room for the explorer beside a document: at 375px
-  // the two shared the width, the tree's labels truncated to a letter and the
-  // PDF's own toolbar sat over the page. There the explorer is a drawer over
-  // the document, closed once something is opened from it, and its state is
-  // not written back — a phone closing it must not hide it on the desktop.
-  const [phone, setPhone] = useState(false);
-  useEffect(() => {
-    const query = window.matchMedia(`(max-width: ${DESKTOP_BREAKPOINT_PX - 1}px)`);
-    const sync = () => setPhone(query.matches);
-    sync();
-    query.addEventListener("change", sync);
-    return () => query.removeEventListener("change", sync);
-  }, []);
   const hasOpenTab = openTabs(layout).length > 0;
+  const { phone, explorerHidden, setExplorerHidden, toggleExplorer, explorerWidth, setExplorerWidth, keepExplorerWidth } =
+    useExplorerPane(hasOpenTab);
   // A note open here can hold typing not yet saved; an outside edit to it waits for review.
   const openNoteIds = openTabs(layout).flatMap((tab) => (hasInkView(tab.kind) ? [tab.id] : [])).join(" ");
   useEffect(() => (openNoteIds ? holdOpenNotes(openNoteIds.split(" ")) : undefined), [openNoteIds]);
-  useEffect(() => {
-    if (phone && hasOpenTab) setExplorerHidden(true);
-    // Only when the width crosses, or the first document arrives: the drawer
-    // stays where the person put it after that.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [phone, hasOpenTab]);
-  const toggleExplorer = useCallback(() => {
-    setExplorerHidden((current) => {
-      if (!phone) writeHidden(store(), !current);
-      return !current;
-    });
-  }, [phone]);
   const createMode = useWikilinkCreateMode();
   // One handle per open document, so the pane's image button reaches the
   // editor in the tab it sits over. The boxes outlive their editors: a handle
@@ -607,6 +572,8 @@ export function WorkspaceScreen() {
         />
       );
     },
+    // `reseeds` is a trigger: editorBases mutates in place, so a reseed must rebuild this callback.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [byKey, documents, openDoc, links, completions, tags, openLink, save, createMode, createFromLink, handleFor, hydrate, unavailable, retryBody, previewOf, metrics, overleafPending, editorBases, reseeds],
   );
 
@@ -684,48 +651,19 @@ export function WorkspaceScreen() {
     }
   }, [apply, byKey]);
 
-  // On the window, not the shell: CodeMirror stops propagation of many keys,
-  // and a shortcut must still work with focus inside it.
-  useEffect(() => {
-    // Hidden behind another screen (`workspace-host.tsx`): its chords are not ours.
-    if (!onScreen) return;
-    const onKeyDown = (event: KeyboardEvent) => {
-      // Only a chord this screen acts on is claimed: a ⌘-number with no tab
-      // behind it falls through to the browser, which switches its own tabs.
-      const command = commandForChord(event, readyCore().focusedTabCount(layoutRef.current));
-      if (!command) return;
-      if (isTypingTarget(event.target as HTMLElement | null)) return;
-      // A key the document already handled (`⌘/` comment, `⌘B` bold, `⌘\`
-      // clear) is the document's; elsewhere the workspace meaning applies.
-      if (event.defaultPrevented) return;
-      // The palette and the app sidebar own these and listen for them unhandled.
-      if (command === "command-palette" || command === "workspace-search" || command === "toggle-sidebar") return;
-      event.preventDefault();
-
-      if (command === "quick-open") return setPaletteOpen(true);
-      if (command === "duplicate-note") return void duplicateActive().catch((e) => setError(formatError(e)));
-      if (command === "rename-doc") return void (setExplorerHidden(false), setRenameRequest((n) => n + 1));
-      if (command === "show-shortcuts") return requestShortcuts("toggle");
-      if (command === "reopen-tab") return reopenTab();
-      if (command === "toggle-explorer") return toggleExplorer();
-      if (command === "toggle-focus") return toggleFocus();
-      if (command === "new-note") {
-        // Into the on-screen note's or section's folder, else the top of Notes;
-        // never Papers. The create table picks the kind, so a root sets its own.
-        const doc = activeDocRef.current;
-        const kind = creationKindFor(doc);
-        setDraft({ kind, ...creationTarget(kind, doc, folderIdsRef.current) });
-        return;
-      }
-
-      // Outside a state updater, so `apply`'s storage write runs once per chord.
-      const next = readyCore().layoutForCommand(layoutRef.current, command);
-      if (next !== layoutRef.current) apply(next);
-    };
-
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [onScreen, apply, duplicateActive, toggleExplorer, toggleFocus, reopenTab]);
+  useWorkspaceChords(onScreen, layoutRef, {
+    quickOpen: () => setPaletteOpen(true),
+    duplicate: () => void duplicateActive().catch((e) => setError(formatError(e))),
+    rename: () => void (setExplorerHidden(false), setRenameRequest((n) => n + 1)),
+    reopenTab, toggleExplorer, toggleFocus, apply,
+    newNote: () => {
+      // Into the on-screen note's or section's folder, else the top of Notes;
+      // never Papers. The create table picks the kind, so a root sets its own.
+      const doc = activeDocRef.current;
+      const kind = creationKindFor(doc);
+      setDraft({ kind, ...creationTarget(kind, doc, folderIdsRef.current) });
+    },
+  });
 
   if (error && !documents) return <FormError>{error}</FormError>;
   if (!documents) return <ScreenLoader status="Loading workspace…" />;

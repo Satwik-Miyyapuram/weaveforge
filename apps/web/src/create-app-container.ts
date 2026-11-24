@@ -14,10 +14,6 @@ import {
   ScreenItemsUseCase,
   ManageSharingUseCase,
   ManageCommentsUseCase,
-  CreateShareLinkUseCase,
-  RedeemShareLinkUseCase,
-  ManageShareLinksUseCase,
-  RevokeShareLinkUseCase,
   PinSharedResourceUseCase,
   DuplicateSharedPaperUseCase,
   MetadataResolver,
@@ -38,10 +34,7 @@ import {
   OpenAlexMetadataSource,
   PrefetchingAddPaperUseCase,
   reportCitationAlertError,
-  RoutedInkChunkStore,
-  inkChunkStoreFor,
   VaultAssetStore,
-  WebCryptoShareLinkTokenHasher,
   wireBackend,
 } from "@/container/parts";
 import { createReferenceActions, ReferenceLookupService } from "@/features/reader/application/parts-2";
@@ -59,7 +52,6 @@ import { PlanFeedLinks } from "@/features/plan/infrastructure/plan-feed-links";
 import { LoadReadingListsScreenUseCase } from "@/features/reading-lists/application/parts";
 import { DuplicateSharedVaultPageUseCase } from "@/features/library/application/duplicate-shared-vault.use-case";
 import { LoadSharedWithMeScreenUseCase } from "@/features/sharing/application/parts";
-import { rustShareLinkRepository } from "@/backend/providers/postgrest/rust-repository";
 import {
   FILES_MODE_CRDT_TYPES,
   limitCrdtSnapshotStore,
@@ -93,27 +85,19 @@ import {
   InkFacade,
   type AppContainer,
 } from "@/container/facades";
-import {
-  BlobInkChunkStore,
-  CopyOnReadInkChunkStore,
-  FolderInkNotes,
-  FsInkChunkStore,
-  UnavailableInkChunkStore,
-} from "@/features/ink/infrastructure/parts";
+import { FolderInkNotes } from "@/features/ink/infrastructure/parts";
 import { folderLock } from "@/features/workspace/application/folder-lock";
 import { trashDeletedNote } from "@/features/workspace/application/trash-note-files";
 import {
   activeWorkspaceFs,
   closeFolder,
-  folderRestored,
-  syncToFolder,
 } from "@/features/workspace/application/workspace-folder";
 import { desktop } from "@/lib/desktop/desktop-bridge";
 import { logToApp } from "@/lib/error-report/app-log";
 import { showToast } from "@/lib/toast/index";
 import { loadCore } from "@/lib/rust-core";
 import type { ProjectContext } from "@/lib/parts-2";
-import { randomBytes, readInkHapticsOn, relayUrl, systemClock, uuidIds } from "@/lib/parts";
+import { readInkHapticsOn, relayUrl, systemClock, uuidIds } from "@/lib/parts";
 import type { ProjectLwwInvalidator } from "@/lib/cache/parts-1";
 import { FetchingBlobStore } from "@/storage/fetching-blob-store";
 import { PaperImageStore } from "@/features/papers/infrastructure/parts-1";
@@ -124,6 +108,8 @@ import { createCredentialReader } from "@/integrations/parts";
 import { WorkspaceSearch } from "@/features/search/application/workspace-search";
 import { clearActiveProvider } from "@/features/ai-assistant/application/parts";
 import { reresolveOnFocus, resolveMigrationChoice } from "@/container/resolve-migration-choice";
+import { wireShareLinks } from "@/container/wire-share-links";
+import { wireInkChunks } from "@/container/wire-ink-chunks";
 import { wireDesktopFileBackend } from "@/container/desktop-file-backend";
 import { workspaceSettings } from "@/features/settings/application/workspace-settings";
 import { isLocalMode, setLocalMode } from "@/backend/providers/local/local-identity";
@@ -231,35 +217,7 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
   // Signs artifact paths on read. Nothing stores a signed URL: SigV4 caps one
   // at seven days, so a stored link is a link with a deadline.
   const experimentArtifactStore = new ExperimentArtifactStore(encryptedBlobStore, backend.session);
-  // Ink chunks follow the page: in the folder beside the note's file
-  // (`foo.note.md` -> `foo.note.ink/`, legacy `foo.ink.md` -> `foo.ink/`) when one is open, the encrypted asset bucket
-  // otherwise (§4.1). Routed per call, since a folder can be chosen or
-  // forgotten while the app is running.
-  const inkNotes = new FolderInkNotes(activeWorkspaceFs, {
-    run: (fn) => folderLock.run(fn),
-    syncFolder: syncToFolder,
-  });
-  const fsInkChunks = new FsInkChunkStore(activeWorkspaceFs, inkNotes, (fn) => folderLock.run(fn));
-  const blobInkChunks = new BlobInkChunkStore(encryptedBlobStore, backend.session);
-  // On the desktop the folder is the only home: the bucket is read once per
-  // page to migrate legacy ink (copy-on-read), and nothing is written to it.
-  // Without a folder the desktop has nowhere for ink. The web is unchanged.
-  const copyOnReadInkChunks = new CopyOnReadInkChunkStore(fsInkChunks, blobInkChunks);
-  const unavailableInkChunks = new UnavailableInkChunkStore();
-  const inkChunkStore = new RoutedInkChunkStore(
-    () => {
-      const onDesktop = desktop() !== null;
-      return inkChunkStoreFor(
-        { folderOpen: Boolean(activeWorkspaceFs()), desktop: onDesktop },
-        {
-          folder: onDesktop ? copyOnReadInkChunks : fsInkChunks,
-          bucket: blobInkChunks,
-          unavailable: unavailableInkChunks,
-        },
-      );
-    },
-    folderRestored,
-  );
+  const inkChunkStore = wireInkChunks(encryptedBlobStore, backend.session);
 
   const manageProject = backend.projectRepository;
 
@@ -401,29 +359,9 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
 
   const manageSharing = new ManageSharingUseCase({ repository: backend.shareRepository });
   const manageComments = new ManageCommentsUseCase({ repository: commentRepository });
-  const shareLinkTokenHasher = new WebCryptoShareLinkTokenHasher();
-  const shareLinkRepository =
-    "db" in backend ? rustShareLinkRepository(backend.db) : null;
-  const createShareLink =
-    shareLinkRepository &&
-    new CreateShareLinkUseCase({
-      shareLinks: shareLinkRepository,
-      tokenHasher: shareLinkTokenHasher,
-      ids: uuidIds,
-      clock: systemClock,
-      randomBytes,
-    });
-  const redeemShareLink =
-    shareLinkRepository &&
-    new RedeemShareLinkUseCase({
-      shareLinks: shareLinkRepository,
-      tokenHasher: shareLinkTokenHasher,
-    });
-  const manageShareLinks =
-    shareLinkRepository && new ManageShareLinksUseCase({ shareLinks: shareLinkRepository });
-  const revokeShareLink =
-    shareLinkRepository &&
-    new RevokeShareLinkUseCase({ shareLinks: shareLinkRepository });
+  const { createShareLink, redeemShareLink, manageShareLinks, revokeShareLink } = wireShareLinks(
+    "db" in backend ? backend.db : null,
+  );
   const pinSharedResource = new PinSharedResourceUseCase({
     pins: backend.libraryPinRepository,
     shares: backend.shareRepository,

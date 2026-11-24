@@ -324,7 +324,11 @@ mod tests {
             "403 Forbidden",
             "451 Unavailable For Legal Reasons",
         ] {
-            assert_eq!(relayed_status(status_line).await, 403, "upstream {status_line}");
+            assert_eq!(
+                relayed_status(status_line).await,
+                403,
+                "upstream {status_line}"
+            );
         }
     }
 

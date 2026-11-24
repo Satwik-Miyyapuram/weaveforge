@@ -281,6 +281,7 @@ export function Migrate097Upgrade({
     // Only a missing runner runs on mount; a real export (web or desktop) waits for Start.
     if (!runExport) void run();
     // Runs once per mount; run reads the latest folder and callbacks on that pass.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [folder]);
 
   async function copyPath() {

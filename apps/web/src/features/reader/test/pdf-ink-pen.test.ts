@@ -276,7 +276,7 @@ test("the PDF pen writes with the notes' module only", () => {
   const sources = ["../ui/pdf-reader/pdf-ink-pen.tsx", "../application/pdf-ink-pen.ts"].map((f) =>
     readFileSync(new URL(f, import.meta.url), "utf8"),
   );
-  const allowed = [/^react$/, /^@weaveforge\/core$/, /^@\/lib\/rust-core$/, /^@\/features\/ink\//, /^\.\.\/\.\.\/application\/pdf-ink-pen$/];
+  const allowed = [/^react$/, /^@weaveforge\/core$/, /^@\/lib\/rust-core$/, /^@\/features\/ink(\/|$)/, /^\.\.\/\.\.\/application\/pdf-ink-pen$/];
   for (const src of sources) {
     for (const m of src.matchAll(/from\s+"([^"]+)"/g)) {
       assert.ok(allowed.some((re) => re.test(m[1]!)), `PDF pen imports ${m[1]}`);

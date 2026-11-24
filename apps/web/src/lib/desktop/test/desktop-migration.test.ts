@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { desktopMigrationFromBridge, type MigrationBridge } from "./desktop-migration";
+import { desktopMigrationFromBridge, type MigrationBridge } from "../desktop-migration";
 
 test("backup passes the folder and maps the shell's dumpPath to a plain dump file name", async () => {
   const calls: string[] = [];

@@ -11,3 +11,5 @@ export * from "./ui/ink-print-preview";
 export * from "./ui/ink-selection-chip";
 export * from "./ui/ink-strokes";
 export * from "./ui/use-tool-colours";
+export * from "./ui/use-ink-pen";
+export { cachedRect } from "./ui/rect-cache";

@@ -432,7 +432,7 @@ body > canvas.hiddenCanvasElement { display: none; }
    is what makes a broad stroke read as a marker over a page image rather than a
    printed block covering the words, and it is the reader's own rule: the note's
    sheet is the app's paper, a PDF page is somebody else's. The alpha is the
-   notes' HIGHLIGHTER_ALPHA (eatures/ink/render/canvas-renderer). */
+   notes' HIGHLIGHTER_ALPHA (features/ink/render/canvas-renderer). */
 .pdf-reader-ink--highlighter {
   mix-blend-mode: multiply;
   opacity: 0.35;

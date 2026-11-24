@@ -28,7 +28,7 @@ import { WORKSPACE_PATH } from "@/lib/hooks/parts";
 import { materializeBlobImagesInBody } from "../../lib/materialize-blob-images";
 import { holdOpenNotes } from "@/features/workspace/application/parts-3";
 import { NoteSaves } from "@/features/editor-workspace/application/parts";
-import { handBackRenamedBody } from "@/features/editor-workspace/ui/rename-hand-back";
+import { handBackRenamedBody } from "@/features/editor-workspace/application/rename-hand-back";
 import { LazyCanvasEditor } from "@/features/canvas";
 import { canvasImages } from "@/features/canvas/application/canvas-images";
 import { resolveCanvasFile } from "@/features/canvas/application/canvas-files";

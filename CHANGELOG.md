@@ -28,7 +28,7 @@ WeaveForge 1.0.0 is the first stable release. Your notes and papers live in your
 - **Changed:** Stable release. Everything in 0.9.8 is included.
 
 ### Server
-- **Not yet:** The server's personal-table removal (`db/held/0167_archive_ported_tables.sql`) is held and is not applied in 1.0.0. Its prerequisites (RELAY-PORT released, 0165 run for a full release cycle, a pg_dump) are not met. Release notes for it are omitted until it is applied.
+- **Not yet:** The server's personal-table removal is held and is not applied in 1.0.0. Its prerequisites (RELAY-PORT released, 0165 run for a full release cycle, a pg_dump) are not met. Release notes for it are omitted until it is applied.
 
 ## [0.9.8] - TBD
 
