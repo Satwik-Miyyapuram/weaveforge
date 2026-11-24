@@ -177,3 +177,21 @@ test("guardedSink forwards the sized listing, and leaves it out when the sink ha
   assert.deepEqual(await guarded.entries?.("a"), [{ path: "a/b.md", size: 2 }]);
   assert.equal(guardedSink(new MemorySink(), await createFileStore(new MemorySink(), {})).entries, undefined);
 });
+test("cacheReads: a file is read from the sink once until this fs writes it or a compare-and-set misses", async () => {
+  const sink = new MemorySink();
+  await sink.write("p.md", "one");
+  let reads = 0;
+  const readText = sink.readText.bind(sink);
+  sink.readText = async (path) => (reads++, readText(path));
+  const fs = sinkAsWorkspaceFs(sink, { compareAndSet: true, cacheReads: true });
+  assert.equal(await fs.readText("p.md"), "one");
+  assert.equal(await fs.readText("p.md"), "one");
+  assert.equal(reads, 1);
+  await fs.writeFile("p.md", "two");
+  assert.equal(await fs.readText("p.md"), "two");
+  await sink.write("p.md", "outside");
+  assert.equal(await fs.writeTextIf!("p.md", "three", "two"), false);
+  assert.equal(await fs.readText("p.md"), "outside");
+  await fs.rename("p.md", "q.md");
+  await assert.rejects(fs.readText("p.md"));
+});

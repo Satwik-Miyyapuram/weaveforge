@@ -27,8 +27,15 @@ function prefixOf(dir: string): string {
  * bytes into the export staging area. The sink is flat: directories exist
  * only as path prefixes, so mkdirp is a no-op.
  */
-export function sinkAsWorkspaceFs(sink: FileSink, options: { compareAndSet?: boolean } = {}): IWorkspaceFs {
+export function sinkAsWorkspaceFs(
+  sink: FileSink,
+  options: { compareAndSet?: boolean; cacheReads?: boolean } = {},
+): IWorkspaceFs {
   const exists = (path: string): Promise<boolean> => sink.exists(norm(path));
+  // cacheReads: repos that scan every paper per call read each file once. Any write, rename or remove through this
+  // fs, and a compare-and-set that misses (an outside edit), drops the cache, so a re-read sees the disk.
+  const texts = new Map<string, string>();
+  const forget = () => texts.clear();
 
   /** Files under `dir`. A sink with a sized listing walks that folder only; others list all and read each file. */
   async function filesUnder(dir: string): Promise<WorkspaceStat[]> {
@@ -65,14 +72,21 @@ export function sinkAsWorkspaceFs(sink: FileSink, options: { compareAndSet?: boo
     },
 
     async readText(path) {
-      return sink.readText(norm(path));
+      const clean = norm(path);
+      const cached = texts.get(clean);
+      if (cached !== undefined) return cached;
+      const text = await sink.readText(clean);
+      if (options.cacheReads) texts.set(clean, text);
+      return text;
     },
 
     async writeFile(path, data) {
+      forget();
       await sink.write(norm(path), data);
     },
 
     async writeTextIf(path, text, expected) {
+      forget();
       const clean = norm(path);
       if (expected === null) {
         // Create-only: a file already at the path is never written over. The call reports true only when the text
@@ -95,6 +109,7 @@ export function sinkAsWorkspaceFs(sink: FileSink, options: { compareAndSet?: boo
     },
 
     async remove(path, options) {
+      forget();
       const clean = norm(path);
       if (await exists(clean)) {
         await sink.remove(clean);
@@ -135,6 +150,7 @@ export function sinkAsWorkspaceFs(sink: FileSink, options: { compareAndSet?: boo
     },
 
     async rename(from, to) {
+      forget();
       await sink.rename(norm(from), norm(to));
     },
   };

@@ -27,7 +27,7 @@ export const ARCHIVE_KINDS: readonly string[] = [
  */
 function fileFormats(sink: FileSink): FormatWrite {
   // Pins and relations edit paper files group (a) wrote this run: a compare-and-set keeps them ours, not conflict copies.
-  const fs = sinkAsWorkspaceFs(sink, { compareAndSet: true });
+  const fs = sinkAsWorkspaceFs(sink, { compareAndSet: true, cacheReads: true });
   const papers = new FilePaperRepository(fs, "");
   const tags = createTagsWriter(sink);
   const fields = createPaperFieldsWriter(sink, new Map());
