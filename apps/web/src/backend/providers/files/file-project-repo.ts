@@ -38,6 +38,12 @@ export class FileProjectRepository implements IProjectRepository, IProjectManage
     return project;
   }
 
+  /** Writes a project that already has an id. A project already in the file wins. */
+  async adopt(project: Project): Promise<void> {
+    if (await this.read()) return;
+    await this.write(project);
+  }
+
   async save(project: Project): Promise<void> {
     const current = await this.read();
     if (!current || current.id !== project.id) throw new NotFoundError(`Project ${project.id} not found.`);

@@ -6,6 +6,8 @@ import { MIGRATION_KINDS } from "@/features/migration-097/domain/report";
 import { wasmFileCodec } from "@/features/migration-097/infrastructure/wasm-codec";
 import { createMigrationWriters } from "@/features/migration-097/infrastructure/migration-writers";
 import { workspaceFileSink } from "@/features/migration-097/infrastructure/workspace-file-sink";
+import { sinkAsWorkspaceFs } from "@/features/migration-097/infrastructure/sink-workspace-fs";
+import { FileProjectRepository } from "@/backend/providers/files/file-project-repo";
 import { DesktopWorkspaceFs } from "@/features/workspace/infrastructure/parts";
 import { loadCore } from "@/lib/rust-core";
 import { warnOnce } from "@/lib/error-report/parts";
@@ -168,6 +170,7 @@ export function desktopExportOptions(
         },
       },
     },
+    writeProject: () => writeProject(shell, folder, deps.sink, now),
     moveSecrets: async () => {
       await assertOpenVault(shell, folder);
       await shell.migrate097MoveSecrets();
@@ -214,4 +217,25 @@ export function makeDesktopRunner(
     const deps = await loadDeps();
     return toReply(await run(desktopExportOptions(shell, folder, deps, clock(), onProgress)));
   };
+}
+
+/** Projects, the one holding the most rows first: files mode holds one project per workspace. */
+const PROJECTS_SQL = `select p.id::text as id, p.name, p.color, p.created_at::text as created_at
+  from projects p
+ order by (select count(*) from log_entries t where t.project_id = p.id)
+        + (select count(*) from report_sections t where t.project_id = p.id)
+        + (select count(*) from reading_lists t where t.project_id = p.id) desc, p.created_at
+ limit 1`;
+
+/** Names the workspace's project after the database's main one, keeping its id, which settings are keyed by. */
+async function writeProject(shell: DesktopExportShell, folder: string, sink: FileSink, now: string): Promise<void> {
+  await assertOpenVault(shell, folder);
+  type Row = { id: string; name: string; color: string | null; created_at: string };
+  const [row] = shell.queryLocalDb ? ((await shell.queryLocalDb(PROJECTS_SQL)) as unknown as Row[]) : [];
+  const folderName = folder.split(/[\\/]/).filter(Boolean).at(-1) ?? "Workspace";
+  await new FileProjectRepository(sinkAsWorkspaceFs(sink)).adopt(
+    row
+      ? { id: row.id, name: row.name, ...(row.color ? { color: row.color } : {}), createdAt: new Date(row.created_at).toISOString() }
+      : { id: crypto.randomUUID(), name: folderName, createdAt: now },
+  );
 }

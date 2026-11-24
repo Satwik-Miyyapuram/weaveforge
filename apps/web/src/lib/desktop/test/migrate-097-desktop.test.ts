@@ -318,3 +318,50 @@ test("desktopDeps: the app's deps export every migration kind through writers ov
   assert.equal(typeof loaded.sink.write, "function");
   assert.ok((loaded.writers?.(loaded.sink).length ?? 0) > 0);
 });
+
+const workspaceJson = async (sink: MemorySink) =>
+  (await sink.exists(".weaveforge/workspace.json"))
+    ? (JSON.parse(new TextDecoder().decode((await sink.readBytes(".weaveforge/workspace.json"))!)) as Record<string, unknown>)
+    : null;
+
+test("desktop runner: a verified run names the workspace after the database's main project", async () => {
+  const { sink, shell, calls, runner } = setup();
+  shell.queryLocalDb = async (sql) => {
+    calls.push("query");
+    return sql.includes("from projects")
+      ? [{ id: "p-1", name: "Thesis", color: "#336699", created_at: "2026-01-02 03:04:05+00" }]
+      : [];
+  };
+  assert.equal((await runner(FOLDER, () => {})).state, "verified");
+  assert.deepEqual(await workspaceJson(sink), {
+    id: "p-1",
+    name: "Thesis",
+    color: "#336699",
+    createdAt: "2026-01-02T03:04:05.000Z",
+  });
+});
+
+test("desktop runner: a project already in the folder is kept", async () => {
+  const { sink, runner } = setup();
+  const own = { id: "mine", name: "Mine", createdAt: NOW };
+  await sink.write(".weaveforge/workspace.json", JSON.stringify(own));
+  assert.equal((await runner(FOLDER, () => {})).state, "verified");
+  assert.deepEqual(await workspaceJson(sink), own);
+});
+
+test("desktop runner: with no project row the workspace is named after its folder", async () => {
+  const { sink, runner } = setup();
+  await runner(FOLDER, () => {});
+  const project = await workspaceJson(sink);
+  assert.equal(project?.name, "ws");
+  assert.match(String(project?.id), /^[0-9a-f-]{36}$/);
+});
+
+test("desktop runner: a failed project query leaves the run incomplete", async () => {
+  const { sink, shell, runner } = setup();
+  shell.queryLocalDb = async () => {
+    throw new Error("db down");
+  };
+  assert.notEqual((await runner(FOLDER, () => {})).state, "verified");
+  assert.equal(await workspaceJson(sink), null);
+});

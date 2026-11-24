@@ -556,3 +556,27 @@ test("readMigrationRuns: the report the web export writes reads back and switche
   assert.deepEqual(await readMigrationRuns(sink), own.runs);
   assert.equal(writesOff({ state: own.state as "verified", target: "opfs" }), true);
 });
+
+test("project: a failed writeProject gives incomplete, no keys moved, no mark", async () => {
+  const calls: string[] = [];
+  const sink = new MemorySink();
+  const { source } = fakeServer({ rows: FIXTURE });
+  const result = await runWebExport({ runDeviceId: "dev-test",
+    kinds: KINDS,
+    codec: fakeCodec(SUPPORTED),
+    source,
+    sink,
+    now: NOW,
+    desktop: { folder: "C:/ws", bridge: fakeDesktop(calls) },
+    writeProject: async () => {
+      throw new Error("disk full");
+    },
+    moveSecrets: async () => {
+      calls.push("move-secrets");
+    },
+  });
+  assert.equal(result.state, "incomplete");
+  assert.match(JSON.stringify(result), /project: write failed/);
+  assert.doesNotMatch(JSON.stringify(result), /disk full/);
+  assert.equal(calls.some((c) => c === "move-secrets" || c.includes("mark")), false);
+});

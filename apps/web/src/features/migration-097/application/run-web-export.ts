@@ -49,6 +49,8 @@ export type ExportOptions = {
   projectFolders?: ReadonlyMap<string, string>;
   /** Desktop only: the backup runs before anything else, and a failure aborts the export. */
   desktop?: { folder: string; bridge: DesktopMigration };
+  /** Names the project in the files. Runs after a verified run, before the keys; a throw leaves the run incomplete. */
+  writeProject?: () => Promise<void>;
   /** KEYS hook: runs only after a verified run, before the markers. A throw leaves the run incomplete. */
   moveSecrets?: () => Promise<void>;
   /** Web only: the stable per-browser id (OPFS settings). Desktop takes its id from the backup. */
@@ -250,7 +252,7 @@ async function priorOutputs(sink: FileSink, deviceId: string | undefined): Promi
 }
 
 export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
-  const { kinds, codec, source, sink, now, onProgress, desktop, writers: givenWriters, projectFolders, moveSecrets, runDeviceId, debugLog } = opts;
+  const { kinds, codec, source, sink, now, onProgress, desktop, writers: givenWriters, projectFolders, writeProject, moveSecrets, runDeviceId, debugLog } = opts;
   if (projectFolders) checkProjectFolders(projectFolders);
   const target: MigrationTarget = desktop ? "folder" : "opfs";
 
@@ -601,6 +603,15 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
     await writeReport(sink, report);
     return run;
   };
+
+  if (state === "verified" && writeProject) {
+    try {
+      await writeProject();
+    } catch {
+      state = "incomplete";
+      missing.push({ kind: "project", id: "*", reason: "project: write failed" });
+    }
+  }
 
   // KEYS runs after verify and before any marker; a failure keeps the run incomplete.
   if (state === "verified" && moveSecrets) {

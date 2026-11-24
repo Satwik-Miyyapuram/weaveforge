@@ -16,7 +16,7 @@ test("create then getById and list return the same project", async () => {
   const { repo } = setup();
   const created = await repo.create({ name: "Thesis", color: "#336699" });
   assert.deepEqual(await repo.getById(created.id), created);
-  assert.deepEqual(await repo.list(), [created]);
+  assert.deepEqual((await repo.list()).map((p) => p.id), [created.id]);
 });
 
 test("getById of another id is null; empty workspace lists nothing", async () => {
@@ -79,4 +79,21 @@ test("a blank name is rejected with ProjectValidationError", async () => {
   const { repo } = setup();
   await assert.rejects(repo.create({ name: "   " }), ProjectValidationError);
   assert.deepEqual(await repo.list(), []);
+});
+
+test("adopt writes the given id, color and createdAt and keeps other keys", async () => {
+  const { fs, repo } = setup();
+  await fs.mkdirp(".weaveforge");
+  await fs.writeFile(".weaveforge/workspace.json", JSON.stringify({ layout: 2 }));
+  const project = { id: "p-1", name: "Thesis", color: "#336699", createdAt: "2026-01-02T03:04:05.000Z" };
+  await repo.adopt(project);
+  assert.deepEqual(await repo.list(), [project]);
+  assert.equal((JSON.parse(await fs.readText(".weaveforge/workspace.json")) as { layout?: number }).layout, 2);
+});
+
+test("adopt never replaces the project already there", async () => {
+  const { repo } = setup();
+  const created = await repo.create({ name: "Mine" });
+  await repo.adopt({ id: "p-1", name: "Thesis", createdAt: "2026-01-02T03:04:05.000Z" });
+  assert.deepEqual((await repo.list()).map((p) => p.id), [created.id]);
 });
