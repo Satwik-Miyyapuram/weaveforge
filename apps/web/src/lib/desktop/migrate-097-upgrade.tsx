@@ -166,7 +166,7 @@ export function Migrate097UpgradeBody({
   if (phase === "running") {
     return (
       <div>
-        <p>Your data is moving from the local database to files. Keep WeaveForge open until this finishes.</p>
+        <p>Your data is moving from the local database to files. Keep WeaveForge open until this finishes. After the last item the files are checked, which can take a few minutes.</p>
         {kinds.length > 0 ? (
           <ul aria-label="Upgrade progress">
             {kinds.map(([kind, p]) => (

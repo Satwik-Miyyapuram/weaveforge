@@ -18,7 +18,7 @@ import { sanitizeBlobRefs } from "../domain/asset-path";
 
 import { toConflictCopyText } from "../domain/conflict-copy";
 import { createPaperFieldsWriter } from "../infrastructure/kind-writer-paper-fields";
-import { sameRows, verifyExport, type Verdict } from "./verify-export";
+import { dirOf, sameRows, verifyExport, type Verdict } from "./verify-export";
 import { ID_SHAPE } from "../domain/install-id-shape";
 import { createFileStore, guardedSink, type FileStore, type Outputs } from "./file-store";
 import { tempPathFor } from "@/lib/temp-path";
@@ -359,6 +359,7 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
   });
 
   const store = await createFileStore(sink, prior);
+  const codecDirs = new Set<string>();
   // Every kind writer writes through the one guarded sink, so no kind can overwrite a differing file.
   const guarded = guardedSink(sink, store);
   // writerFor takes the first claimant: the folder-aware paper-fields writer goes first, so the root archive
@@ -451,6 +452,7 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
             const file = codec.toFile(kind, row);
             // A conflict copy of this row holds the same data under conflictOf, never a second id.
             const copyText = toConflictCopyText(file.text, String(row.id));
+            codecDirs.add(dirOf(file.path));
             await store.store(file.path, file.text, await sha256Hex(file.text), { data: copyText, hash: await sha256Hex(copyText) });
             written[kind]++;
           } catch (err) {
@@ -533,7 +535,15 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
   const codecKinds = kinds.filter((k) => !writerFor(k));
   let verdict: Verdict;
   try {
-    verdict = await verifyExport({ kinds: codecKinds, codec, source, sink, ignore: new Set(orphans), copies: new Set(store.conflicts) });
+    verdict = await verifyExport({
+      kinds: codecKinds,
+      codec,
+      source,
+      sink,
+      ignore: new Set(orphans),
+      copies: new Set(store.conflicts),
+      dirs: codecDirs,
+    });
   } catch (err) {
     verdict = { state: "incomplete", kinds: {}, blobs: { db: 0, verified: 0 }, errors: [] };
     debugLog?.(`verify: ${(err as Error).message}`);

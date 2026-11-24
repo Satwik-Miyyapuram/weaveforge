@@ -385,3 +385,39 @@ test("per-row failure: one bad row is listed missing, the other rows are exporte
   assert.ok(await sink.readText("experiments/e2.json").then(() => true, () => false));
   assert.equal(calls.some((c) => c.startsWith("mark:")), false);
 });
+
+test("verify reads only this run's files: another project's mirror folder is neither counted nor read", async () => {
+  const { source } = fakeServer({ rows: FIXTURE });
+  // The mirror row decodes as an experiment, as a real `<project>/experiments/*.experiment.md` does.
+  const base = fakeCodec(SUPPORTED);
+  const codec: FileCodec = { ...base, toRow: (kind, path, text) => base.toRow(kind, path.replace(/^proj--a1b2c3\//, ""), text) };
+  class CountingSink extends MemorySink {
+    reads: string[] = [];
+    override async readText(path: string) {
+      this.reads.push(path);
+      return super.readText(path);
+    }
+  }
+  const sink = new CountingSink();
+  const mirror = "proj--a1b2c3/experiments/old.json";
+  await sink.write(mirror, JSON.stringify({ id: "old", name: "Old" }));
+  const result = await runWebExport({ runDeviceId: "dev-test", kinds: KINDS, codec, source, sink, now: NOW });
+
+  assert.deepEqual(result.run.missing, []);
+  assert.equal(result.state, "verified");
+  assert.equal(result.run.kinds.experiments?.files, 1);
+  assert.equal(sink.reads.includes(mirror), false);
+});
+
+test("verify still fails on a row file this run wrote that no longer holds its row", async () => {
+  const { source } = fakeServer({ rows: FIXTURE });
+  class LossySink extends MemorySink {
+    override async write(path: string, data: string | Uint8Array) {
+      await super.write(path, path === "experiments/e1.json" ? JSON.stringify({ id: "e1", name: "Changed" }) : data);
+    }
+  }
+  const result = await runWebExport({
+    runDeviceId: "dev-test", kinds: KINDS, codec: fakeCodec(SUPPORTED), source, sink: new LossySink(), now: NOW,
+  });
+  assert.equal(result.state, "incomplete");
+});

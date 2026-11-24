@@ -72,7 +72,12 @@ export type VerifyInput = {
   ignore?: ReadonlySet<string>;
   /** Conflict copies this run wrote or reused: the only copies decoded (through conflictOf). */
   copies?: ReadonlySet<string>;
+  /** Folders the rows were written into: only files directly in them are decoded. Absent: every file. */
+  dirs?: ReadonlySet<string>;
 };
+
+/** The folder part of `path`, "" at the root. */
+export const dirOf = (path: string): string => path.slice(0, Math.max(0, path.lastIndexOf("/")));
 
 export type Verdict = {
   state: MigrationState;
@@ -110,18 +115,19 @@ function firstDifference(kind: string, expected: Row[], decoded: Row[]): string 
 }
 
 /**
- * Strict gate. Reads the server rows again and decodes every file in the sink.
+ * Strict gate. Reads the server rows again and decodes every file in `dirs` (older per-project mirror folders are not rows of this export).
  * Verified only when, for every kind, the decoded files equal the server rows,
  * and every blob's bytes and sidecar match the server sha256.
  * Any read error is recorded and makes the state incomplete.
  */
 export async function verifyExport(input: VerifyInput): Promise<Verdict> {
-  const { kinds, codec, source, sink, ignore } = input;
+  const { kinds, codec, source, sink, ignore, dirs } = input;
   const copies = input.copies ?? new Set<string>();
   const errors: string[] = [];
   const out: Verdict = { state: "incomplete", kinds: {}, blobs: { db: 0, verified: 0 }, errors };
 
   const files = await sink.list();
+  const rowFiles = dirs ? files.filter((path) => dirs.has(dirOf(path))) : files;
   // Only this run's copies count: an original is skipped when one of them holds its DB version.
   const copied = new Set([...copies].map(conflictBasePath).filter((base): base is string => base !== null));
   for (const kind of kinds) {
@@ -132,7 +138,7 @@ export async function verifyExport(input: VerifyInput): Promise<Verdict> {
         continue;
       }
       const decoded: Row[] = [];
-      for (const path of files) {
+      for (const path of rowFiles) {
         if (ignore?.has(path)) continue;
         if (copies.has(path)) {
           // This run's copy: its conflictOf is mapped back to the id before decoding.
