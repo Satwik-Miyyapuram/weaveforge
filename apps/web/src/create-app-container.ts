@@ -515,6 +515,7 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
     // project-wide read that carries the paper and page on each row.
     readerAnnotations: { list: () => backend.readerAnnotationRepository.listForProject() },
     projectId: pid,
+    filesMode,
   });
 
   // Registered once `workspace` exists: it closes over the facade, and

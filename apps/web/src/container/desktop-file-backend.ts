@@ -1,6 +1,6 @@
 import type { BackendConfig } from "@/backend/parts";
 import { FileBlobStore } from "@/backend/providers/files/file-blob-store";
-import { wireFileBackend } from "@/backend/providers/files/wire-file-backend";
+import { wireProjectFileBackend } from "@/backend/providers/files/project-file-repositories";
 import type { SettingsSection } from "@/backend/providers/files/file-tag-repo";
 import type { SecretsStore } from "@/features/settings/infrastructure/parts";
 import { DeviceSecretsStore } from "@/backend/providers/local/parts";
@@ -29,6 +29,6 @@ export function wireDesktopFileBackend(
     const fs = new DesktopWorkspaceFs(bridge);
     // The shared files-mode overlay (same as the browser): guarded db, file repositories, and
     // personal blobs in the vault's assets folder instead of the server blob store.
-    return wireFilesMode(config, projectContext, pid, wireFileBackend({ fs, settings, secrets }), new FileBlobStore(fs), offline);
+    return wireFilesMode(config, projectContext, pid, wireProjectFileBackend({ fs, settings, secrets }, pid), new FileBlobStore(fs), offline);
   };
 }

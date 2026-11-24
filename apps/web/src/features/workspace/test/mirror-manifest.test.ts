@@ -340,3 +340,12 @@ test("following a rename leaves two candidate folders alone", async () => {
   assert.equal(await fs.readText(`one${suffix}/a.md`), "1");
   assert.equal(await fs.readText(`two${suffix}/a.md`), "2");
 });
+
+test("a folder that is a files-mode project is not carried by the mirror", async () => {
+  const fs = new MemoryWorkspaceFs();
+  const suffix = ROOT.slice(ROOT.lastIndexOf("--"));
+  const file = `${typedCore().projectMetaDir(`old${suffix}`)}/project.json`;
+  await fs.writeFile(file, "{}");
+  assert.equal(await followProjectRename(fs, PROJECT), null);
+  assert.equal(await fs.readText(file), "{}");
+});

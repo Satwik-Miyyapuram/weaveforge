@@ -47,7 +47,7 @@ import {
   writeMirrorManifest,
 } from "./parts-3";
 import { activeProject, activeProjectOrNull, isNoActiveProject, watchForLoss } from "./parts";
-import { mirrorWorkspace } from "./parts-2";
+import { mirrorWorkspace, type WebMirrorResult } from "./parts-2";
 import { recordSessionSeen, sessionGeneration, sessionSeen } from "./folder-session-seen";
 import type { FolderPreview } from "./workspace-folder-preview";
 import type { SyncOutcome } from "./workspace-folder-sync-report";
@@ -334,10 +334,30 @@ export async function applyReviewedImport(
   return applyReviewedFolderImport(diff, picks, seams ?? (await liveImportSeams()));
 }
 
+/** In files mode the folder is the data itself, so it is neither mirrored into nor imported from. */
+function inFilesMode(): boolean {
+  try {
+    return getContainer().workspace.filesMode;
+  } catch {
+    return false;
+  }
+}
+
+const NOTHING_MIRRORED: WebMirrorResult = {
+  written: [],
+  removed: [],
+  unchanged: 0,
+  mirrored: {},
+  heldBack: [],
+  bases: {},
+  served: {},
+};
+
 async function runSyncToFolder(): Promise<SyncOutcome> {
   // Read before the first await: a DB replace at any point during this run makes it stale.
   const startedAt = sessionGeneration();
   if (!activeFs) throw new Error("No folder is connected.");
+  if (inFilesMode()) return commitFolder(NOTHING_MIRRORED);
   if (folderWriteBlockedByLostDb(await desktop()?.localDbState())) throw new Error(LOST_DB_SYNC_MESSAGE);
   const fs = activeFs;
   const container = getContainer();
@@ -394,7 +414,10 @@ async function runSyncToFolder(): Promise<SyncOutcome> {
     for (const path of mirror.heldBack) external.add(path);
     announceExternal();
   }
+  return commitFolder(mirror);
+}
 
+async function commitFolder(mirror: WebMirrorResult): Promise<SyncOutcome> {
   let commit: WorkspaceCommit | null = null;
   let commitError: string | undefined;
   const shell = folderSession()?.kind === "desktop" ? desktop() : null;
@@ -702,7 +725,7 @@ function reportFolderChanges(paths: readonly string[]): void {
 
   if (external.size !== before) announceExternal();
   if (drafts) for (const listener of [...draftListeners]) listener();
-  if (candidates.length === 0) return;
+  if (candidates.length === 0 || inFilesMode()) return;
 
   void (async () => {
     // A mirror run writes its files before its manifest, and a pull puts this
@@ -778,7 +801,7 @@ export async function previewFolderImport(only?: ReadonlySet<string>): Promise<F
   const fs = activeFs;
   if (!fs) throw new Error("No folder is connected.");
   const { previewConnectedFolder } = await import("./workspace-folder-preview");
-  return previewConnectedFolder(fs, only);
+  return previewConnectedFolder(fs, only, inFilesMode());
 }
 
 /** Diff a workspace archive against the workspace. Preview only. */

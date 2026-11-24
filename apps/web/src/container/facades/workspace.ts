@@ -42,8 +42,14 @@ export class WorkspaceFacade {
       readerAnnotations: { list(): Promise<WorkspaceAnnotation[]> };
       /** Which project the baseline belongs to; a change invalidates it. */
       projectId(): string | null;
+      /** The folder's files are the data: nothing to mirror out of it or import into it. */
+      filesMode?: boolean;
     },
   ) {}
+
+  get filesMode(): boolean {
+    return this.deps.filesMode ?? false;
+  }
 
   /**
    * The last snapshot, as the baseline for the next delta read.

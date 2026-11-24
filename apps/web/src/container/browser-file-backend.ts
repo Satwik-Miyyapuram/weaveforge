@@ -3,7 +3,7 @@ import type { BackendConfig } from "@/backend/parts";
 import { RefusingSecretsStore } from "@/backend/providers/files/refusing-secrets-store";
 import { FileBlobStore } from "@/backend/providers/files/file-blob-store";
 import { openFileSettingsSection } from "@/backend/providers/files/file-settings-section";
-import { wireFileBackend } from "@/backend/providers/files/wire-file-backend";
+import { wireProjectFileBackend } from "@/backend/providers/files/project-file-repositories";
 import { BrowserWorkspaceFs } from "@/features/workspace/infrastructure/parts";
 import { browserReportVerified } from "@/features/migration-097/domain/report";
 import { reportFolderSink } from "@/features/migration-097/infrastructure/report-folder-sink";
@@ -34,7 +34,7 @@ export async function wireBrowserFiles(fs: IWorkspaceFs): Promise<BrowserFileWir
       config,
       projectContext,
       pid,
-      wireFileBackend({ fs, settings, secrets: new RefusingSecretsStore() }),
+      wireProjectFileBackend({ fs, settings, secrets: new RefusingSecretsStore() }, pid),
       new FileBlobStore(fs),
     );
 }
