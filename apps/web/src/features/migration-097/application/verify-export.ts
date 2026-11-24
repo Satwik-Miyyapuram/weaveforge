@@ -31,7 +31,9 @@ function withoutServerOnly(kind: string, row: Row): Row {
 }
 
 /** Kinds whose files store a null column as an absent key, so null and absent compare equal. */
-const NULL_IS_ABSENT: ReadonlySet<string> = new Set(["notes", "papers", "comments"]);
+const NULL_IS_ABSENT: ReadonlySet<string> = new Set([
+  "notes", "papers", "comments", "logEntries", "experiments", "reportSections", "readingLists",
+]);
 
 /** Compared form of a row: a null blob contentType and octet-stream are the same "unknown" type. */
 function comparable(kind: string, row: Row): Row {

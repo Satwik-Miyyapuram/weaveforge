@@ -549,7 +549,10 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
     debugLog?.(`verify: ${(err as Error).message}`);
     missing.push({ kind: "verify", id: "*", reason: "verify-failed" });
   }
-  for (const raw of verdict.errors) missing.push({ kind: "verify", id: "*", reason: verifyReasonCode(raw) });
+  for (const raw of verdict.errors) {
+    debugLog?.(`verify: ${raw}`);
+    missing.push({ kind: "verify", id: "*", reason: verifyReasonCode(raw) });
+  }
 
   const kindCounts: Record<string, KindCount> = {};
   for (const kind of kinds) {
