@@ -90,3 +90,32 @@ test("conflict copies: a codec markdown copy carries conflictOf, never a second 
   assert.match(copy, /^conflictOf: x1$/m);
   assert.match(copy, /^v: DB$/m);
 });
+
+test("verify: a file that is not text (a PDF the blob step wrote) does not fail the kind", async () => {
+  const sink = new MemorySink();
+  await sink.write("papers/x.pdf", new Uint8Array([0x25, 0x50, 0x44, 0x46, 0xff, 0xfe]));
+  const readText = sink.readText.bind(sink);
+  sink.readText = async (path: string) => {
+    if (path.endsWith(".pdf")) throw new Error("stream did not contain valid UTF-8");
+    return readText(path);
+  };
+
+  const result = await runWebExport({ kinds: ["logEntries"], codec, source: server(), sink, now: NOW, runDeviceId: "dev-alpha" });
+
+  assert.deepEqual(result.run.missing, [], "the PDF is skipped, the log entry verifies");
+  assert.equal(result.state, "verified");
+});
+
+test("verify: a codec file that cannot be read still fails verify (its row is missing)", async () => {
+  const sink = new MemorySink();
+  const readText = sink.readText.bind(sink);
+  sink.readText = async (path: string) => {
+    if (path === ORIGINAL) throw new Error("unreadable");
+    return readText(path);
+  };
+
+  const result = await runWebExport({ kinds: ["logEntries"], codec, source: server(), sink, now: NOW, runDeviceId: "dev-alpha" });
+
+  assert.notEqual(result.state, "verified");
+  assert.ok(result.run.missing.some((m) => m.kind === "verify"), JSON.stringify(result.run.missing));
+});

@@ -184,12 +184,27 @@ export function createGroupAWriter(sink: FileSink, codec?: FileCodec): KindWrite
     sidecars.set(path, item);
   };
 
+  /** Canvas file -> its row. A canvas page is its JSON Canvas body in `notes/<title>.canvas`, as the app saves one. */
+  const canvases = new Map<string, Row>();
+  const writeCanvas = async (row: Row): Promise<void> => {
+    const path = `notes/${String(row.title).replace(/[\\/:*?"<>|]/g, "-")}.canvas`;
+    const body = String(row.body ?? "");
+    // Create-only: the same body already there is a re-run; another file there is never overwritten.
+    const have = await sink.readText(path).catch(() => null);
+    if (have !== null && have !== body) {
+      throw new ConflictError(`${path}: a different file is there; canvas ${String(row.id)} not written.`);
+    }
+    if (have === null) await sink.write(path, body);
+    canvases.set(path, row);
+  };
+
   return {
     kinds: [...KIND_NAMES],
     write: async (kind, row) => {
       checkKind(kind);
       if (kind !== "comments") itemFiles.clear();
-      if (kind === "notes") await notes.save(toPage(row));
+      if (kind === "notes" && row.kind === "canvas") await writeCanvas(row);
+      else if (kind === "notes") await notes.save(toPage(row));
       else if (kind === "papers") await papers.save(fileFields("papers", row) as unknown as Paper);
       else await writeComment(row);
       written[kind]!.add(String(row.id));
@@ -197,7 +212,13 @@ export function createGroupAWriter(sink: FileSink, codec?: FileCodec): KindWrite
     readBack: async (kind) => {
       checkKind(kind);
       const ids = written[kind]!;
-      if (kind === "notes") return (await notes.list()).filter((p) => ids.has(p.id)).map((p) => ({ ...p }));
+      if (kind === "notes") {
+        const pages: Row[] = (await notes.list()).filter((p) => ids.has(p.id)).map((p) => ({ ...p }));
+        for (const [path, row] of canvases) {
+          if ((await sink.readText(path).catch(() => null)) === row.body) pages.push(row);
+        }
+        return pages;
+      }
       if (kind === "papers") return (await papers.list()).filter((p) => ids.has(p.id)).map((p) => ({ ...p }));
       const out: Row[] = [];
       for (const [path, item] of sidecars) {

@@ -230,16 +230,30 @@ test("a note row with kind \"note\" or a null kind (pre-0157 rows) reads back as
   assert.ok(sameRows("notes", [NOTE_ROW, legacy], await writer.readBack("notes")));
 });
 
-test("a canvas row is not saved as a markdown note and fails the run honestly", async () => {
+test("a canvas row is not saved as a markdown note", async () => {
   const sink = new MemorySink();
   const writer = createGroupAWriter(sink);
   const canvas = { ...NOTE_ROW, id: "aaaaaaaa-0000-4000-8000-0000000000c1", title: "Board", kind: "canvas", body: '{"nodes":[],"edges":[]}' };
-  await assert.rejects(writer.write("notes", canvas), /canvas/i);
-  assert.ok(!(await sink.list()).some((p) => p.toLowerCase().includes("board")), "no file was written for the canvas");
-  assert.ok(!sameRows("notes", [canvas], await writer.readBack("notes")), "the run cannot verify a canvas it did not write");
+  await writer.write("notes", canvas);
+  assert.deepEqual((await sink.list()).filter((p) => p.toLowerCase().includes("board")), ["notes/Board.canvas"]);
 });
 
 test("an unknown kind is refused", async () => {
   const writer = createGroupAWriter(new MemorySink());
   await assert.rejects(writer.write("tags", { id: "x" }), /unknown kind/);
+});
+
+test("a canvas page lands as notes/<title>.canvas with its body and reads back as its row", async () => {
+  const sink = new MemorySink();
+  const writer = createGroupAWriter(sink);
+  const canvas: Row = { ...NOTE_ROW, id: "canvas-1", title: "test", kind: "canvas", body: '{"nodes":[],"edges":[]}' };
+  await writer.write("notes", NOTE_ROW);
+  await writer.write("notes", canvas);
+  assert.equal(await sink.readText("notes/test.canvas"), canvas.body);
+  assert.ok(sameRows("notes", [NOTE_ROW, canvas], await writer.readBack("notes")));
+  // A re-run over the same file is a no-op; a differing user file is never overwritten.
+  await createGroupAWriter(sink).write("notes", canvas);
+  await sink.write("notes/test.canvas", "{}");
+  await assert.rejects(createGroupAWriter(sink).write("notes", canvas));
+  assert.equal(await sink.readText("notes/test.canvas"), "{}");
 });

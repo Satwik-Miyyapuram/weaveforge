@@ -142,7 +142,14 @@ export async function verifyExport(input: VerifyInput): Promise<Verdict> {
         }
         // Copies from earlier runs or other devices are listed, never decoded; an original with a copy of this run is the user's edit.
         if (conflictBasePath(path) !== null || copied.has(path)) continue;
-        const row = codec.toRow(kind, path, await sink.readText(path));
+        // A file that does not read or decode as text (a PDF, a metrics chunk) is no row of this kind. A codec file
+        // that fails here still fails verify: its row is missing from `decoded`.
+        let row: Row | null;
+        try {
+          row = codec.toRow(kind, path, await sink.readText(path));
+        } catch {
+          continue;
+        }
         if (row) decoded.push(row);
       }
       out.kinds[kind] = { db: expected.length, files: decoded.length };

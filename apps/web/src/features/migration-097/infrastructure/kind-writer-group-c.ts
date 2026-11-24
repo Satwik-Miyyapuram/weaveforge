@@ -31,7 +31,9 @@ function sameAnnotation(existing: object, row: Record<string, unknown>): boolean
 }
 
 export function createGroupCWriter(sink: FileSink, projectRoot: string): KindWriter {
-  const fs = sinkAsWorkspaceFs(sink);
+  // A sidecar and the pins file take one row per write: compare-and-set, so the guarded sink sees this run's own
+  // file and not a differing user file (a plain write of the second row would become a conflict copy).
+  const fs = sinkAsWorkspaceFs(sink, { compareAndSet: true });
 
   // Gap: `paperFile` (the paper's workspace path) is not a PostgREST column; the exporter must supply it.
   const paperFiles = new Map<string, string>();

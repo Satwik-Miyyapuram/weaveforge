@@ -358,3 +358,20 @@ test("annotations: a row without paperFile throws instead of writing a sidecar a
     /paperFile/,
   );
 });
+
+test("annotations and pins: many rows into one file through the run's guarded sink are all written, no conflict copy", async () => {
+  const { guardedSink, createFileStore } = await import("../application/file-store");
+  const base = new MemorySink();
+  const sink = guardedSink(base, await createFileStore(base, {}));
+  const writer = createGroupCWriter(sink, "proj");
+  const ann = (id: string, text: string) => ({
+    id, paperId: "p1", paperFile: "proj/papers/x.paper.md", type: "highlight", color: "#ff0000",
+    text, comment: "", tags: [], anchor: { pageIndex: 0 }, sortIndex: `000${id}`, pageIndex: 0,
+  });
+  for (const id of ["a1", "a2", "a3"]) await writer.write("annotations", ann(id, `t-${id}`));
+  for (const key of ["k1", "k2"]) await writer.write("annotationPins", { paperId: "p1", annotationKey: key, reportSectionId: "s1" });
+
+  assert.equal((await writer.readBack("annotations")).length, 3);
+  assert.equal((await writer.readBack("annotationPins")).length, 2);
+  assert.deepEqual((await base.list()).filter((p) => p.includes("(conflict")), []);
+});
