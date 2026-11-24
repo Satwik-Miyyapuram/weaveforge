@@ -3,6 +3,7 @@ import type {
 } from "@/features/papers/infrastructure/parts-2";
 import { zoteroHeaders, zoteroLibraryUrl } from "@/features/papers/infrastructure/parts-3";
 import { loadCore, typedCore } from "@/lib/rust-core";
+import { findProjectFile } from "./project-file-lookup";
 import type {
   IPdfByteCache,
   IWorkspaceFs,
@@ -36,8 +37,8 @@ export class WorkspacePdfStore implements IPdfByteCache {
   async get(key: string): Promise<ArrayBuffer | null> {
     const fs = this.fs();
     if (!fs) return null;
-    const path = typedCore().paperPdfPath(key, await this.projectRoot());
-    if (!(await fs.stat(path))) return null;
+    const path = await this.find(fs, key);
+    if (!path) return null;
     const bytes = await fs.readFile(path);
     return bytes.buffer.slice(
       bytes.byteOffset,
@@ -48,8 +49,11 @@ export class WorkspacePdfStore implements IPdfByteCache {
   async has(key: string): Promise<boolean> {
     const fs = this.fs();
     if (!fs) return false;
-    const stat = await fs.stat(typedCore().paperPdfPath(key, await this.projectRoot()));
-    return (stat?.size ?? 0) > 0;
+    return (await this.find(fs, key)) !== null;
+  }
+
+  private async find(fs: IWorkspaceFs, key: string): Promise<string | null> {
+    return findProjectFile(fs, await this.projectRoot(), (root) => typedCore().paperPdfPath(key, root));
   }
 
   async set(key: string, bytes: ArrayBuffer): Promise<void> {

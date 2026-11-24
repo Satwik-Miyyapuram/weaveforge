@@ -106,3 +106,33 @@ test("evict drops the entry from a browser-side cache", async () => {
   await cache.evict("p1");
   assert.equal(await cache.get("p1"), null);
 });
+
+// 0.9.7 keeps every project's papers at the workspace root; their PDFs stay in the old project folders.
+test("a PDF held only in another project's folder is still found", async () => {
+  const fs = new MemoryWorkspaceFs();
+  const other = typedCore().projectDir({ id: "2347f5b4-0000-4000-8000-000000000000", name: "Old project" });
+  await new WorkspacePdfStore(() => fs, async () => other).set("p1", bytes(7, 8));
+  const store = new WorkspacePdfStore(() => fs, root);
+  assert.equal(await store.has("p1"), true);
+  assert.deepEqual(new Uint8Array((await store.get("p1"))!), new Uint8Array([7, 8]));
+});
+
+test("the active project's copy wins, and removing it leaves the other folder's file", async () => {
+  const fs = new MemoryWorkspaceFs();
+  const other = new WorkspacePdfStore(() => fs, async () => "old--2347f5");
+  await other.set("p1", bytes(1));
+  const store = new WorkspacePdfStore(() => fs, root);
+  await store.set("p1", bytes(2));
+  assert.deepEqual(new Uint8Array((await store.get("p1"))!), new Uint8Array([2]));
+  await store.remove("p1");
+  await store.clear();
+  assert.ok(await fs.stat(typedCore().paperPdfPath("p1", "old--2347f5")));
+});
+
+test("a folder that is not a project's is never searched", async () => {
+  const fs = new MemoryWorkspaceFs();
+  await new WorkspacePdfStore(() => fs, async () => "Backups").set("p1", bytes(1));
+  const store = new WorkspacePdfStore(() => fs, root);
+  assert.equal(await store.has("p1"), false);
+  assert.equal(await store.get("p1"), null);
+});
