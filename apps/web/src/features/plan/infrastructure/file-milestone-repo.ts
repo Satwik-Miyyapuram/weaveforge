@@ -52,8 +52,18 @@ export function hasBadDate(milestone: Milestone): boolean {
   return milestone.targetDate !== undefined && !readyCore().isIsoDay(milestone.targetDate);
 }
 
+/** The frontmatter codec keeps list items as text, so each object comes back as JSON. */
 function asList<T>(value: unknown): T[] {
-  return Array.isArray(value) ? (value as T[]) : [];
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((item): T[] => {
+    if (typeof item !== "string") return [item as T];
+    try {
+      const parsed: unknown = JSON.parse(item);
+      return parsed !== null && typeof parsed === "object" ? [parsed as T] : [];
+    } catch {
+      return [];
+    }
+  });
 }
 
 function parse(path: string, text: string): Found | null {

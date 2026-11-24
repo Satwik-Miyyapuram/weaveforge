@@ -44,6 +44,20 @@ test("a saved milestone reads back unchanged", async () => {
   assert.deepEqual(await repo.list(), [saved]);
 });
 
+test("dependencies and compute survive a save, and an unreadable item is dropped", async () => {
+  const { fs, repo } = setup();
+  const saved = milestone({
+    dependencies: [{ kind: "milestone", label: 'Say "hi", then go' }, { kind: "paper", refId: "p-1" }],
+    compute: [{ resource: "A100", count: 2, hours: 80, notes: "sweep β ∈ {1,2}" }],
+  });
+  await repo.save(saved);
+  assert.deepEqual(await repo.getById("ms-1"), saved);
+  const [path] = await files(fs);
+  const text = await fs.readText(path!);
+  await fs.writeFile(path!, text.replace("compute: [", 'compute: ["not json", '));
+  assert.deepEqual((await repo.getById("ms-1"))?.compute, saved.compute);
+});
+
 test("milestone_change_publishes_feed: every save and delete publishes the whole feed", async () => {
   const { repo, published } = setup();
   await repo.save(milestone());

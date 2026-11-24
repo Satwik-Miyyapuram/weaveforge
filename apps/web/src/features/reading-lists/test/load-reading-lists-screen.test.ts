@@ -84,3 +84,19 @@ test("an empty merge still produces the owned tree", async () => {
   const { tree } = await load([list("a"), list("b")], []);
   assert.deepEqual(tree.map((node) => node.list.id).sort(), ["a", "b"]);
 });
+
+test("a failed shares read keeps the owned lists and grants nothing", async () => {
+  const merged = await loadPinnedScreenData<ReadingList, ReadingList>(
+    {
+      pins: { listForProject: async () => [] },
+      shares: {
+        listSharedWithMe: async () => {
+          throw new Error("no account");
+        },
+      },
+    },
+    { resourceType: "reading_list", owned: [list("a")], loadById: async () => null },
+  );
+  assert.deepEqual(merged.items.map((item) => item.id), ["a"]);
+  assert.equal(merged.canEdit.size + merged.canComment.size, 0);
+});

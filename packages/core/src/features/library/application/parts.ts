@@ -150,7 +150,8 @@ export async function loadPinnedScreenData<
 ): Promise<PinnedScreenMerge<TSummary>> {
   const [pins, shares] = await Promise.all([
     sources.pins?.listForProject() ?? Promise.resolve([]),
-    sources.shares?.listSharedWithMe(input.resourceType) ?? Promise.resolve([]),
+    // Shares live on the server: offline, or with no account, the owner's own list still loads.
+    sources.shares?.listSharedWithMe(input.resourceType).catch(() => []) ?? Promise.resolve([]),
   ]);
 
   return mergePinnedScreenData({ ...input, pins, shares });
