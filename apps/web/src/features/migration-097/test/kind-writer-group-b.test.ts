@@ -377,3 +377,15 @@ test("sameExceptStamp: two different Sets differ, equal Sets match whatever thei
   assert.equal(sameExceptStamp(stored, reordered), true);
   assert.equal(sameExceptStamp(stored, differs), false);
 });
+
+test("metrics: the experiment is looked up once, not once per point", async () => {
+  const sink = new MemorySink();
+  const writer = createGroupBWriter(sink, ROOTS);
+  await writer.write("experiments", EXPERIMENT_ROW);
+  await writer.write("metrics", { ...METRIC_ROW, step: 0 });
+  let lists = 0;
+  const list = sink.list.bind(sink);
+  sink.list = async () => (lists++, list());
+  for (let i = 1; i <= 20; i++) await writer.write("metrics", { ...METRIC_ROW, step: i });
+  assert.equal(lists, 0);
+});

@@ -79,7 +79,9 @@ function buildRepos(fs: ReturnType<typeof sinkAsWorkspaceFs>, projectRoot: strin
   const logs = new FileLogEntryRepository(fs, root);
   const milestones = new FileMilestoneRepository(fs, projectRoot);
   const experiments = new FileExperimentRepository(fs, root);
-  const metrics = new FileMetricRepository(fs, root);
+  const metrics = new FileMetricRepository(fs, root, new Map());
+  // Experiments already found, so each metric point does not re-read every experiment file.
+  const knownExperiments = new Set<string>();
   const sections = new FileReportSectionRepository(fs, root);
   const proposals = new FileAiProposalStore(fs);
 
@@ -102,8 +104,11 @@ function buildRepos(fs: ReturnType<typeof sinkAsWorkspaceFs>, projectRoot: strin
       write: async (row) => {
         const experimentId = row.experimentId as string;
         // Named here so an orphan point is reported with its own metric and step.
-        if (!(await experiments.getById(experimentId))) {
-          throw new Error(`metrics: orphan point ${row.metric as string} step ${row.step as number} has no experiment ${experimentId}`);
+        if (!knownExperiments.has(experimentId)) {
+          if (!(await experiments.getById(experimentId))) {
+            throw new Error(`metrics: orphan point ${row.metric as string} step ${row.step as number} has no experiment ${experimentId}`);
+          }
+          knownExperiments.add(experimentId);
         }
         await metrics.append([
           {

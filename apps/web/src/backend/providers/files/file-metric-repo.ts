@@ -44,6 +44,8 @@ export class FileMetricRepository implements IMetricRepository {
   constructor(
     private readonly fs: IWorkspaceFs,
     root: ProjectRoot,
+    /** Optional id → metrics folder cache, for a caller whose experiments do not move meanwhile (the upgrade export). */
+    private readonly dirs?: Map<string, string>,
   ) {
     this.experiments = new FileEntityStore<Experiment>(fs, root, "experiment");
   }
@@ -100,8 +102,12 @@ export class FileMetricRepository implements IMetricRepository {
 
   /** The experiment's `metrics` folder, or null when the experiment does not exist. */
   private async metricsDir(id: string): Promise<string | null> {
+    const cached = this.dirs?.get(id);
+    if (cached) return cached;
     const found = await this.experiments.find(id);
-    return found ? `${found.path.replace(/\.md$/, "")}/metrics` : null;
+    const dir = found ? `${found.path.replace(/\.md$/, "")}/metrics` : null;
+    if (dir) this.dirs?.set(id, dir);
+    return dir;
   }
 
   private async rows(experimentId: string, metric: string | undefined, maxPoints: number): Promise<Row[]> {
