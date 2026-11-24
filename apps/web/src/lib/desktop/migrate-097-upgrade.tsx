@@ -140,7 +140,7 @@ export function Migrate097UpgradeBody({
   if (phase === "idle") {
     return (
       <div>
-        <p>Your data will move from the local database to files in this browser. Keep this tab open until it finishes.</p>
+        <p>Your data will move from the local database to files in your workspace. Keep WeaveForge open until it finishes.</p>
         <ModalActions>
           <Button variant="primary" onClick={onStart}>
             Start
