@@ -409,6 +409,18 @@ test("verify reads only this run's files: another project's mirror folder is nei
   assert.equal(sink.reads.includes(mirror), false);
 });
 
+test("verify ignores a file already in a row folder whose id is no exported row", async () => {
+  const { source } = fakeServer({ rows: FIXTURE });
+  const sink = new MemorySink();
+  // A file the workspace already had before the upgrade, in the same folder the rows go to.
+  await sink.write("experiments/old.json", JSON.stringify({ id: "old", name: "Old" }));
+  const result = await runWebExport({ runDeviceId: "dev-test", kinds: KINDS, codec: fakeCodec(SUPPORTED), source, sink, now: NOW });
+
+  assert.deepEqual(result.run.missing, []);
+  assert.equal(result.state, "verified");
+  assert.equal(result.run.kinds.experiments?.files, 1);
+});
+
 test("verify still fails on a row file this run wrote that no longer holds its row", async () => {
   const { source } = fakeServer({ rows: FIXTURE });
   class LossySink extends MemorySink {

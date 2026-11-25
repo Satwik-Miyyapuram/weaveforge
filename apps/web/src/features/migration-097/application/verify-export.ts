@@ -139,6 +139,7 @@ export async function verifyExport(input: VerifyInput): Promise<Verdict> {
         out.kinds[kind] = { db: expected.length, files: 0 };
         continue;
       }
+      const ids = new Set(expected.map((row) => String(row.id)));
       const decoded: Row[] = [];
       for (const path of rowFiles) {
         if (ignore?.has(path)) continue;
@@ -158,7 +159,8 @@ export async function verifyExport(input: VerifyInput): Promise<Verdict> {
         } catch {
           continue;
         }
-        if (row) decoded.push(row);
+        // A file the workspace already had, holding no exported id, is no row of this export.
+        if (row && ids.has(String(row.id))) decoded.push(row);
       }
       out.kinds[kind] = { db: expected.length, files: decoded.length };
       const want = expected.map((row) => canon(comparable(kind, row))).sort();
