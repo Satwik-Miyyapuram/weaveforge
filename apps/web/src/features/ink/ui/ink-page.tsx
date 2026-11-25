@@ -34,6 +34,7 @@ import type { InkPageProps } from "./ink-page-props";
 import { inkSheetRuleStyle } from "./ink-sheet-underlay";
 import { cachedRect } from "./rect-cache";
 import { readyCore, typedCore } from "@/lib/rust-core";
+import { FingerPan } from "@/lib/finger-pan";
 
 export type { InkPageProps } from "./ink-page-props";
 
@@ -129,8 +130,14 @@ export function InkPage({
     });
   }, []);
 
+  /** One finger's pan: follows the finger, and a flick glides on after it lifts. */
+  const onPanRef = useRef(onPan);
+  onPanRef.current = onPan;
+  const [fling] = useState(() => new FingerPan((dx, dy) => onPanRef.current?.(-dx, -dy)));
+
   const touchDown = useCallback(
     (event: React.PointerEvent<HTMLCanvasElement>): boolean => {
+      fling.stop();
       const map = touches.current;
       map.set(event.pointerId, { x: event.clientX, y: event.clientY });
       if (map.size >= 2) {
@@ -151,7 +158,7 @@ export function InkPage({
       gesture.current = "none";
       return false;
     },
-    [fingerPans, penHandlers],
+    [fingerPans, fling, penHandlers],
   );
 
   const touchMove = useCallback(
@@ -181,12 +188,12 @@ export function InkPage({
       if (gesture.current === "pan") {
         map.set(event.pointerId, now);
         event.preventDefault();
-        onPan?.(now.x - was.x, now.y - was.y);
+        fling.move(now.x - was.x, now.y - was.y);
         return true;
       }
       return false;
     },
-    [onPan, onPinch],
+    [fling, onPan, onPinch],
   );
 
   const touchUp = useCallback(
@@ -195,6 +202,8 @@ export function InkPage({
       if (!map.has(event.pointerId)) return false;
       map.delete(event.pointerId);
       const handled = gesture.current !== "none";
+      // The last finger off a pan: the page glides on at the flick's speed.
+      if (map.size === 0 && gesture.current === "pan") fling.release();
       if (map.size === 0) gesture.current = "none";
       // A pinch that loses a finger becomes a pan rather than a stroke: the
       // remaining finger was never a pen.
@@ -202,7 +211,7 @@ export function InkPage({
       if (handled) releasePointer(event);
       return handled;
     },
-    [],
+    [fling],
   );
 
   /** Each pointer's route from down to up; shared with the reader. */
