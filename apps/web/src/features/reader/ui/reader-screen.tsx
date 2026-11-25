@@ -9,6 +9,7 @@ import { readyCore } from "@/lib/rust-core";
 import { getContainer } from "@/bootstrap";
 import { logToApp } from "@/lib/error-report/app-log";
 import { PaperPdfPane } from "./paper-pdf-pane";
+import { backToPaper } from "./back-to-paper";
 import { PaneErrorBoundary } from "./pane-error-boundary";
 import {
   appendActivityLog,
@@ -135,7 +136,7 @@ export function ReaderScreen() {
           The page count, zoom and find sit in the reader's own bar below. */}
       <div className="reader-screen-bar">
         {paperId && (
-          <BackButton label="Paper" href={`/papers?paper=${encodeURIComponent(paperId)}`} />
+          <BackButton label="Paper" onClick={() => backToPaper(router, paperId)} />
         )}
         <h1 className="reader-screen-title">{title ?? "Reader"}</h1>
         <div className="reader-screen-actions">
