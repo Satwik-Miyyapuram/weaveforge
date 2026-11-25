@@ -1,7 +1,7 @@
 import type { FileSink } from "../domain/ports";
 import { sha256Hex } from "../domain/hash";
 import { conflictCopyPath } from "../domain/conflict-path";
-import { addsKeysOnly } from "../domain/add-keys-only";
+import { addsKeysOnly, mergeAddedKeys } from "../domain/add-keys-only";
 import { toAppConflictCopy } from "../domain/conflict-copy";
 import { isTempPath } from "@/lib/temp-path";
 import { ConflictError } from "@weaveforge/core";
@@ -111,8 +111,16 @@ export async function createFileStore(sink: FileSink, prior: Outputs): Promise<F
           // compare-and-set for bytes (writeIf is text only), and only files this device wrote, unchanged, get here.
           const current = await sha256Hex(state.bytes);
           if (current !== out.hash) {
-            // A file this device wrote and left unchanged takes the new version; anything else is kept.
-            if (prior[candidate] !== current) continue;
+            // A file this device wrote and left unchanged takes the new version. A file the DB version agrees with
+            // (same body, same values) takes only the keys the DB adds; its own lines stay. Anything else is kept.
+            if (prior[candidate] !== current) {
+              const text = n === 0 && typeof data === "string" ? exactUtf8(state.bytes) : null;
+              const merged = text === null ? null : mergeAddedKeys(text, data as string);
+              if (text === null || merged === null) continue;
+              if (merged !== text && !(await sink.writeIf(candidate, merged, text))) continue;
+              outputs[candidate] = await sha256Hex(merged);
+              return candidate;
+            }
             // An edit since the read above keeps its file: this version goes on to a conflict copy.
             if (!(await replaceIfUnchanged(candidate, state.bytes, current, out.data))) continue;
           }
