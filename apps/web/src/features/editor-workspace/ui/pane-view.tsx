@@ -55,7 +55,7 @@ export function tabMenuItems(
 ): MenuItem[] {
   const groups = leaf ? groupMenuItems(leaf, index, run) : [];
   return [
-    { id: "close", label: "Close", accelerator: readyCore().keyLabel("Mod-w", isMacPlatform()), onSelect: () => run("close") },
+    { id: "close", label: "Close", accelerator: readyCore().shortcutLabel("⌘W", isMacPlatform()), onSelect: () => run("close") },
     { id: "close-others", label: "Close others", disabled: count < 2, onSelect: () => run("close-others") },
     {
       id: "close-right",
@@ -98,6 +98,20 @@ export interface PaneViewProps extends PaneActions {
  * preserve.
  */
 const TAB_DRAG_TYPE = "application/x-weaveforge-tab";
+
+/**
+ * Drags a copy of the tab, held where the pointer grabbed it. The browser's own picture is the screen area
+ * under the tab, so a banner over it would be dragged along.
+ */
+export function setTabDragImage(tab: HTMLElement, data: DataTransfer, clientX: number, clientY: number): void {
+  const copy = tab.cloneNode(true) as HTMLElement;
+  Object.assign(copy.style, { position: "absolute", top: "-1000px", left: "-1000px", pointerEvents: "none" });
+  tab.parentElement?.appendChild(copy);
+  const box = tab.getBoundingClientRect();
+  data.setDragImage(copy, clientX - box.left, clientY - box.top);
+  // The browser takes its picture as the drag starts, so the copy can go on the next tick.
+  setTimeout(() => copy.remove(), 0);
+}
 
 /** The tab being dragged, written as `paneId|index` when the drag started. */
 function draggedTab(data: DataTransfer): { paneId: string; index: number } | null {
@@ -228,9 +242,10 @@ function PaneLeafView({
                 data-tag-tone={group?.color}
                 hidden={run.hidden}
                 draggable
-                onDragStart={(event) =>
-                  event.dataTransfer.setData(TAB_DRAG_TYPE, `${leaf.id}|${index}`)
-                }
+                onDragStart={(event) => {
+                  event.dataTransfer.setData(TAB_DRAG_TYPE, `${leaf.id}|${index}`);
+                  setTabDragImage(event.currentTarget, event.dataTransfer, event.clientX, event.clientY);
+                }}
                 onDrop={(event) => {
                   const from = draggedTab(event.dataTransfer);
                   if (!from) return;
