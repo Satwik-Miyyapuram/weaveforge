@@ -66,6 +66,21 @@ pub const ALLOWLIST: &[Source] = &[
         table: "reading_lists",
         key: &["id"],
     },
+    Source {
+        kind: "readingListItems",
+        table: "reading_list_items",
+        key: &["id"],
+    },
+    Source {
+        kind: "quotationTypes",
+        table: "annotation_quotation_types",
+        key: &["id"],
+    },
+    Source {
+        kind: "citationAlerts",
+        table: "citation_alert_tracks",
+        key: &["id"],
+    },
     // db/migrations/0120_screening_decisions.sql:13
     Source {
         kind: "screening",
@@ -248,6 +263,9 @@ mod tests {
         "paperFieldValues",
         "relations",
         "readingLists",
+        "readingListItems",
+        "quotationTypes",
+        "citationAlerts",
         "screening",
         "logEntries",
         "milestones",
