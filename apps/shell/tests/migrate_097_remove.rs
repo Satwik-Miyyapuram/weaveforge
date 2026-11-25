@@ -1276,6 +1276,23 @@ fn status_absent_report_with_exported_to_is_unavailable_not_none() {
 }
 
 #[test]
+fn status_absent_report_exported_to_another_folder_opens_as_files() {
+    // This device's old data went to another folder, so this one has nothing to move.
+    let f = Fixture::new("absent-elsewhere", None, None);
+    let other = f.base.join("elsewhere");
+    fs::create_dir_all(&other).unwrap();
+    f.write_exported_to(&other);
+    let status = migration_status(&f.folder, &f.pg_root, DEVICE);
+    assert_eq!(status.state, "removed");
+    assert_eq!(status.removing_device_id.as_deref(), Some(DEVICE));
+    assert!(!status.exported_here);
+    assert_eq!(
+        weaveforge_shell_lib::local_http::verified::mode_for_status(&status),
+        weaveforge_shell_lib::local_http::verified::Mode::Files
+    );
+}
+
+#[test]
 fn a_removal_is_recorded_under_this_devices_removals_entry() {
     let f = Fixture::new(
         "removals-entry",

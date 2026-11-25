@@ -38,6 +38,12 @@ test("both login surfaces hand the folder entry the shell's exporter, so a folde
   }
 });
 
+test("while the local-only folder opens, the login screen says so and the sign-in button does not claim to sign in", () => {
+  const source = readFileSync(new URL("../ui/login-screen.tsx", import.meta.url), "utf8");
+  assert.equal(source.includes("Opening folder…"), true, "the local-only button must show it is opening the folder");
+  assert.equal(source.includes("busy && !opening ?"), true, "the sign-in label must not read Signing in… while a folder opens");
+});
+
 test("the gate's offline button answers an unavailable outcome with its own message, not the login copy", () => {
   const gate = readFileSync(new URL("../ui/privacy-disclaimer-gate.tsx", import.meta.url), "utf8");
   assert.equal(gate.includes('outcome === "unavailable"'), true, "the gate must handle the unavailable outcome");

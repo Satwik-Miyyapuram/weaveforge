@@ -25,6 +25,8 @@ export function LoginScreen() {
   const [otpSent, setOtpSent] = useState(false);
   const [otp, setOtp] = useState("");
   const [busy, setBusy] = useState(false);
+  // The local-only entry is picking or opening a folder, not signing in.
+  const [opening, setOpening] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // Only the desktop app has a database of its own to work in, and only it can
   // answer this before there is a session. A browser never sees the offer.
@@ -207,7 +209,7 @@ export function LoginScreen() {
                   />
                 </div>
                 <Button type="submit" variant="primary" disabled={busy}>
-                  {busy ? (isSignUp ? "Creating account…" : "Signing in…") : (isSignUp ? "Create account" : "Sign in")}
+                  {busy && !opening ? (isSignUp ? "Creating account…" : "Signing in…") : (isSignUp ? "Create account" : "Sign in")}
                 </Button>
               </form>
 
@@ -251,14 +253,20 @@ export function LoginScreen() {
                     // run this device's export for it if needed; the window reloads onto it.
                     const shell = desktop();
                     if (!shell) return;
+                    setOpening(true);
                     void run(async () => {
-                      const outcome = await enterLocalOnly(shell, desktopRunExport(shell));
-                      if (outcome === "reload") window.location.reload();
-                      if (outcome === "unavailable") throw new Error("This app could not open that workspace folder for local-only use. Try again after restarting the app.");
+                      try {
+                        const outcome = await enterLocalOnly(shell, desktopRunExport(shell));
+                        if (outcome === "reload") window.location.reload();
+                        if (outcome === "unavailable") throw new Error("This app could not open that workspace folder for local-only use. Try again after restarting the app.");
+                      } finally {
+                        setOpening(false);
+                      }
                     });
                   }}
+                  disabled={busy}
                 >
-                  Use without an account, local only
+                  {opening ? "Opening folder…" : "Use without an account, local only"}
                 </Button>
               )}
 

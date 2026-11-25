@@ -53,8 +53,8 @@ pub struct MigrationStatus {
 /// failed listing makes the status unavailable, with `reason` and `step` set. Otherwise this device's
 /// state comes from its own file, else the legacy report.json. An unreadable report is `removed` when
 /// the removed marker exists, also `removed` when this device has no report, nothing was exported and
-/// it never had an old database (no cluster, no backups), `none` when it has no report and nothing
-/// was exported, and `unavailable` otherwise.
+/// it never had an old database (no cluster, no backups) or its export went to another folder, `none`
+/// when it has no report and nothing was exported, and `unavailable` otherwise.
 #[allow(
     clippy::too_many_lines,
     reason = "one ordered status decision; removed in 0.9.8"
@@ -73,8 +73,11 @@ pub fn migration_status(folder: &Path, pg_root: &Path, device_id: &str) -> Migra
         // No report from this device (another device's file does not count) and none unreadable.
         let absent = problem.is_none();
         // A device that never had an old database has nothing to export: it is on files, as if removed.
-        let gone =
-            removed || (absent && exported.is_none() && super::remove::no_old_database(pg_root));
+        // So is a folder when this device's old data went to another folder: nothing here to move.
+        // Exported here with no report stays unavailable: the report may be lost.
+        let gone = removed
+            || (absent && exported.is_none() && super::remove::no_old_database(pg_root))
+            || (absent && exported.is_some() && !exported_here);
         let state = if gone {
             "removed"
         } else if absent && exported.is_none() {
