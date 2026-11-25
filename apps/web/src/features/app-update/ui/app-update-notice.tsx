@@ -14,10 +14,13 @@ import { useAppUpdate } from "./use-app-update";
 export function AppUpdateNotice() {
   const { status, install } = useAppUpdate();
   const [laterVersion, setLaterVersion] = useState<string | null>(null);
+  // The status an error was dismissed on; the shell's next status shows again.
+  const [dismissed, setDismissed] = useState<typeof status>(null);
   if (!status) return null;
   const view = appUpdateView(status);
   if (!view.notice && !view.error) return null;
   if (status.phase === "available" && laterVersion === status.version) return null;
+  if (status === dismissed) return null;
 
   return (
     <div className="release-notice-banner" role={view.error ? "alert" : "status"}>
@@ -31,6 +34,11 @@ export function AppUpdateNotice() {
       {status.phase === "available" ? (
         <Button size="sm" onClick={() => setLaterVersion(status.version)}>
           Later
+        </Button>
+      ) : null}
+      {view.error ? (
+        <Button size="sm" onClick={() => setDismissed(status)}>
+          Dismiss
         </Button>
       ) : null}
     </div>

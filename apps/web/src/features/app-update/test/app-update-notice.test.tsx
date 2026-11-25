@@ -121,6 +121,19 @@ test("an unreachable shell is a retryable failure, never a stalled checking stat
   await act(async () => tree.unmount());
 });
 
+test("a failed check can be dismissed, and a later failure shows again", async () => {
+  const failed = status({ phase: "failed", error: "Could not check for an update." });
+  const { push } = stubWindow(failed);
+  const tree = await mount();
+  assert.equal(findBanner(tree).length, 1, "the failed check shows a banner");
+  await act(async () => buttonLabelled(tree, "Dismiss").props.onClick());
+  assert.equal(findBanner(tree).length, 0, "Dismiss hides it");
+  await act(async () => push(status({ phase: "checking" })));
+  await act(async () => push({ ...failed }));
+  assert.equal(findBanner(tree).length, 1, "a new failure after another check shows again");
+  await act(async () => tree.unmount());
+});
+
 test("an up-to-date shell shows nothing in the banner", async () => {
   stubWindow(status({ phase: "upToDate" }));
   const tree = await mount();
