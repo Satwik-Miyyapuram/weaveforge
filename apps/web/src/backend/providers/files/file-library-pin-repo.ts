@@ -1,62 +1,78 @@
 /**
- * Library pins from files (0.9.7). A pin is the paper's `pinned: true`
- * frontmatter property, so it follows the paper through renames and needs no ids.
- * Only papers can be pinned here; other shareable types are refused until they
- * have their own file form.
+ * Library pins from files. A paper in the folder is pinned by its `pinned: true`
+ * frontmatter property, so the pin follows the paper through renames. Every other
+ * pin is one row of `.weaveforge/library-pins.json`.
  */
-import {
-  LibraryPinError,
-  NotFoundError,
-  type ILibraryPinRepository,
-  type LibraryPin,
-  type NewLibraryPinInput,
-  type ShareableType,
-} from "@weaveforge/core";
+import type { ILibraryPinRepository, IWorkspaceFs, LibraryPin, NewLibraryPinInput, ShareableType } from "@weaveforge/core";
 import type { FilePaperRepository } from "@/features/papers/infrastructure/file-paper-repository";
+import { changeJsonRows, readJsonRows, type JsonRow } from "@/lib/json-rows-file";
 
 /** The slice of `FilePaperRepository` this needs. */
 export type PinnablePapers = Pick<FilePaperRepository, "listPinnedIds" | "setPinned">;
 
-/** Files mode has one local user and one workspace-project, so these stay empty. */
+export const LIBRARY_PINS_PATH = ".weaveforge/library-pins.json";
+
+/** Files mode has one local user and one project per folder, so these stay empty. */
 const LOCAL = "";
 
-export class FileLibraryPinRepository implements ILibraryPinRepository {
-  constructor(private readonly papers: PinnablePapers) {}
+const isPin = (row: JsonRow, type: string, id: string) => row.resourceType === type && row.resourceId === id;
 
-  async pin(input: NewLibraryPinInput): Promise<LibraryPin> {
-    assertPaper(input.resourceType);
-    const { ownerId, resourceId } = input;
-    if (!(await this.papers.setPinned(resourceId, true))) {
-      throw new NotFoundError(`Paper ${resourceId} not found; not pinned.`);
+export class FileLibraryPinRepository implements ILibraryPinRepository {
+  constructor(
+    private readonly papers: PinnablePapers,
+    private readonly fs: IWorkspaceFs,
+  ) {}
+
+  async pin(input: NewLibraryPinInput & { id?: string; createdAt?: string }): Promise<LibraryPin> {
+    const { ownerId, resourceId, resourceType } = input;
+    if (resourceType === "paper" && (await this.papers.setPinned(resourceId, true))) {
+      return { id: resourceId, userId: LOCAL, projectId: LOCAL, resourceType, resourceId, ownerId, createdAt: "" };
     }
-    return { id: resourceId, userId: LOCAL, projectId: LOCAL, resourceType: "paper", resourceId, ownerId, createdAt: "" };
+    let saved = null as LibraryPin | null;
+    await changeJsonRows(this.fs, LIBRARY_PINS_PATH, (rows) => {
+      const previous = rows.find((row) => isPin(row, resourceType, resourceId));
+      const row = previous ?? {
+        id: input.id ?? `library-pin-${crypto.randomUUID()}`,
+        resourceType,
+        resourceId,
+        ownerId,
+        createdAt: input.createdAt ?? new Date().toISOString(),
+      };
+      saved = toPin(row);
+      return previous ? rows : [...rows, row];
+    });
+    return saved!;
   }
 
   async unpin(resourceType: ShareableType, resourceId: string): Promise<void> {
-    assertPaper(resourceType);
-    await this.papers.setPinned(resourceId, false);
+    if (resourceType === "paper") await this.papers.setPinned(resourceId, false);
+    const { rows } = await readJsonRows(this.fs, LIBRARY_PINS_PATH);
+    if (!rows.some((row) => isPin(row, resourceType, resourceId))) return;
+    await changeJsonRows(this.fs, LIBRARY_PINS_PATH, (all) =>
+      all.filter((row) => !isPin(row, resourceType, resourceId)),
+    );
   }
 
   async listForProject(): Promise<LibraryPin[]> {
-    return (await this.papers.listPinnedIds()).map((id) => ({
-      id,
-      userId: LOCAL,
-      projectId: LOCAL,
-      resourceType: "paper",
-      resourceId: id,
-      ownerId: LOCAL,
-      createdAt: "",
-    }));
+    const own = (await this.papers.listPinnedIds()).map((id) => toPin({ id, resourceType: "paper", resourceId: id }));
+    const { rows } = await readJsonRows(this.fs, LIBRARY_PINS_PATH);
+    const ownIds = new Set(own.map((pin) => pin.resourceId));
+    return [...own, ...rows.map(toPin).filter((p) => p.resourceType !== "paper" || !ownIds.has(p.resourceId))];
   }
 
   async isPinned(resourceType: ShareableType, resourceId: string): Promise<boolean> {
-    if (resourceType !== "paper") return false;
-    return (await this.papers.listPinnedIds()).includes(resourceId);
+    return (await this.listForProject()).some((p) => p.resourceType === resourceType && p.resourceId === resourceId);
   }
 }
 
-function assertPaper(resourceType: ShareableType): void {
-  if (resourceType !== "paper") {
-    throw new LibraryPinError(`Only papers can be pinned in files mode, not ${resourceType}.`);
-  }
+function toPin(row: JsonRow): LibraryPin {
+  return {
+    id: String(row.id),
+    userId: LOCAL,
+    projectId: LOCAL,
+    resourceType: row.resourceType as ShareableType,
+    resourceId: String(row.resourceId),
+    ownerId: typeof row.ownerId === "string" ? row.ownerId : LOCAL,
+    createdAt: typeof row.createdAt === "string" ? row.createdAt : "",
+  };
 }

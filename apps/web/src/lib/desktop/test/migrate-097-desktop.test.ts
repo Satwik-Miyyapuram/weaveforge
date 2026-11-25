@@ -7,7 +7,8 @@ import { FIXTURE, KINDS, SUPPORTED, fakeCodec } from "@/features/migration-097/t
 import { onlyReportPath } from "@/features/migration-097/test/own-report";
 import type { DesktopBridge } from "../desktop-bridge";
 import * as Y from "yjs";
-import { desktopDeps, makeDesktopRunner, sameFolder, unsavedNotes, type DesktopExportShell } from "../migrate-097-desktop";
+import { sinkAsWorkspaceFs } from "@/features/migration-097/infrastructure/sink-workspace-fs";
+import { desktopDeps, exportedProjects, makeDesktopRunner, sameFolder, unsavedNotes, type DesktopExportShell, type ExportedProject } from "../migrate-097-desktop";
 
 const NOW = "2026-11-23T00:00:00.000Z";
 const FOLDER = "C:/ws";
@@ -94,12 +95,17 @@ function fakeShell(sink: MemorySink, opts: ShellOpts = {}) {
   return { shell, calls };
 }
 
-const deps = (sink: MemorySink) => async () => ({ codec: fakeCodec(SUPPORTED), sink, kinds: KINDS });
+const deps = (sink: MemorySink, projects?: readonly ExportedProject[]) => async () => ({
+  codec: fakeCodec(SUPPORTED),
+  sink,
+  kinds: KINDS,
+  projects,
+});
 
-function setup(opts: ShellOpts = {}) {
+function setup(opts: ShellOpts = {}, projects?: readonly ExportedProject[]) {
   const sink = new MemorySink();
   const { shell, calls } = fakeShell(sink, opts);
-  return { sink, shell, calls, runner: makeDesktopRunner(shell, deps(sink), undefined, () => NOW) };
+  return { sink, shell, calls, runner: makeDesktopRunner(shell, deps(sink, projects), undefined, () => NOW) };
 }
 
 test("desktop runner: backup, then reads, then secrets, then mark; the shell sees a verified run and ends verified", async () => {
@@ -311,7 +317,10 @@ test("desktop runner: the reply carries archivedOnly, reconnectProviders and und
 });
 
 test("desktopDeps: the app's deps export every migration kind through writers over the vault sink", async () => {
-  const bridge = { vaultRoot: async () => ({ path: FOLDER, state: "existing" }) } as unknown as DesktopBridge;
+  const bridge = {
+    vaultRoot: async () => ({ path: FOLDER, state: "existing" }),
+    listVaultFiles: async () => [],
+  } as unknown as DesktopBridge;
   const loaded = await desktopDeps(bridge)();
   assert.deepEqual(loaded.kinds, MIGRATION_KINDS);
   assert.equal(typeof loaded.codec.toFile, "function");
@@ -319,49 +328,72 @@ test("desktopDeps: the app's deps export every migration kind through writers ov
   assert.ok((loaded.writers?.(loaded.sink).length ?? 0) > 0);
 });
 
-const workspaceJson = async (sink: MemorySink) =>
-  (await sink.exists(".weaveforge/workspace.json"))
-    ? (JSON.parse(new TextDecoder().decode((await sink.readBytes(".weaveforge/workspace.json"))!)) as Record<string, unknown>)
-    : null;
+const projectJson = async (sink: MemorySink, folder: string) => {
+  const path = folder ? `${folder}/.weaveforge/project.json` : ".weaveforge/workspace.json";
+  return (await sink.exists(path)) ? (JSON.parse(await sink.readText(path)) as Record<string, unknown>) : null;
+};
 
-test("desktop runner: a verified run names the workspace after the database's main project", async () => {
-  const { sink, shell, calls, runner } = setup();
-  shell.queryLocalDb = async (sql) => {
-    calls.push("query");
-    return sql.includes("from projects")
-      ? [{ id: "p-1", name: "Thesis", color: "#336699", created_at: "2026-01-02 03:04:05+00" }]
-      : [];
-  };
+const THESIS = { id: "aaaaaaaa-0000-0000-0000-000000000001", name: "Thesis", color: "#336699", createdAt: "2026-01-02T03:04:05.000Z" };
+const SIDE = { id: "bbbbbbbb-0000-0000-0000-000000000002", name: "Side", createdAt: "2026-01-03T00:00:00.000Z" };
+
+test("desktop runner: a verified run gives each exported folder its project file", async () => {
+  const projects = [
+    { project: THESIS, folder: "thesis--aaaaaa" },
+    { project: SIDE, folder: "side--bbbbbb" },
+  ];
+  const { sink, runner } = setup({}, projects);
   assert.equal((await runner(FOLDER, () => {})).state, "verified");
-  assert.deepEqual(await workspaceJson(sink), {
-    id: "p-1",
-    name: "Thesis",
-    color: "#336699",
-    createdAt: "2026-01-02T03:04:05.000Z",
-  });
+  assert.deepEqual(await projectJson(sink, "thesis--aaaaaa"), THESIS);
+  assert.deepEqual(await projectJson(sink, "side--bbbbbb"), SIDE);
 });
 
 test("desktop runner: a project already in the folder is kept", async () => {
-  const { sink, runner } = setup();
   const own = { id: "mine", name: "Mine", createdAt: NOW };
+  const { sink, runner } = setup({}, [{ project: { ...own, name: "Renamed" }, folder: "" }]);
   await sink.write(".weaveforge/workspace.json", JSON.stringify(own));
   assert.equal((await runner(FOLDER, () => {})).state, "verified");
-  assert.deepEqual(await workspaceJson(sink), own);
+  assert.deepEqual(await projectJson(sink, ""), own);
 });
 
-test("desktop runner: with no project row the workspace is named after its folder", async () => {
-  const { sink, runner } = setup();
-  await runner(FOLDER, () => {});
-  const project = await workspaceJson(sink);
-  assert.equal(project?.name, "ws");
-  assert.match(String(project?.id), /^[0-9a-f-]{36}$/);
+const projectShell = (rows: unknown[] | Error) => ({
+  vaultRoot: async () => ({ path: "C:\\data\\ws", state: "existing" as const }),
+  queryLocalDb: async (sql: string) => {
+    assert.match(sql, /from projects/);
+    if (rows instanceof Error) throw rows;
+    return rows as Record<string, unknown>[];
+  },
 });
 
-test("desktop runner: a failed project query leaves the run incomplete", async () => {
-  const { sink, shell, runner } = setup();
-  shell.queryLocalDb = async () => {
-    throw new Error("db down");
-  };
-  assert.notEqual((await runner(FOLDER, () => {})).state, "verified");
-  assert.equal(await workspaceJson(sink), null);
+test("exportedProjects: every database project, main first, each in its own slug--id6 folder", async () => {
+  const rows = [
+    { id: "aaaaaaaa-0000-0000-0000-000000111111", name: "Thesis", color: "#336699", created_at: "2026-01-02 03:04:05+00" },
+    { id: "bbbbbbbb-0000-0000-0000-000000222222", name: "Side", color: null, created_at: "2026-01-03 00:00:00+00" },
+  ];
+  const got = await exportedProjects(projectShell(rows) as never, sinkAsWorkspaceFs(new MemorySink()));
+  assert.deepEqual(got.map((p) => p.project), [
+    { id: rows[0]!.id, name: "Thesis", color: "#336699", createdAt: "2026-01-02T03:04:05.000Z" },
+    { id: rows[1]!.id, name: "Side", createdAt: "2026-01-03T00:00:00.000Z" },
+  ]);
+  assert.deepEqual(got.map((p) => p.folder), ["thesis--aaaaaa", "side--bbbbbb"]);
+});
+
+test("exportedProjects: a project already in the workspace keeps its folder", async () => {
+  const sink = new MemorySink();
+  const id = "aaaaaaaa-0000-0000-0000-000000111111";
+  await sink.write("My Thesis/.weaveforge/project.json", JSON.stringify({ id, name: "Thesis", createdAt: NOW }));
+  const rows = [{ id, name: "Thesis", color: null, created_at: "2026-01-02 03:04:05+00" }];
+  const got = await exportedProjects(projectShell(rows) as never, sinkAsWorkspaceFs(sink));
+  assert.deepEqual(got.map((p) => p.folder), ["My Thesis"]);
+});
+
+test("exportedProjects: with no project row one project named after the folder holds every row", async () => {
+  const got = await exportedProjects(projectShell([]) as never, sinkAsWorkspaceFs(new MemorySink()), NOW);
+  assert.equal(got.length, 1);
+  assert.equal(got[0]!.project.name, "ws");
+  assert.match(got[0]!.project.id, /^[0-9a-f-]{36}$/);
+  assert.equal(got[0]!.folder, `ws--${got[0]!.project.id.slice(0, 6)}`);
+});
+
+test("exportedProjects: a failed project query fails, so no run starts with rows nowhere to go", async () => {
+  await assert.rejects(exportedProjects(projectShell(new Error("db down")) as never, sinkAsWorkspaceFs(new MemorySink())), /db down/);
 });

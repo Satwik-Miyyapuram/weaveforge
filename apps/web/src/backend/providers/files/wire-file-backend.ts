@@ -85,7 +85,7 @@ export function wireFileBackend(parts: FileBackendParts): FileRepositories {
   const papers = new FilePaperRepository(fs, top);
   return {
     paperRepository: papers,
-    libraryPinRepository: new FileLibraryPinRepository(papers),
+    libraryPinRepository: new FileLibraryPinRepository(papers, fs),
     citationAlertTrackRepository: new FileCitationAlertTrackRepository(settings),
     annotationPinRepository: new FileAnnotationPinRepository(fs, top),
     tagRepository: new FileTagRepository(papers, settings),

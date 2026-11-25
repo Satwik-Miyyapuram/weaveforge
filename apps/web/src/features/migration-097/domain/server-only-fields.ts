@@ -15,7 +15,7 @@ const SYNC_COLUMNS = ["serverSeq", "rowVersion", "snapshotUpto"] as const;
 export const SETTINGS_SECRET_COLUMNS = ["zoteroApiKey", "semanticScholarKey", "credentialsEnc", "integrations"] as const;
 
 export const SERVER_ONLY_FIELDS: Readonly<Record<string, readonly string[]>> = {
-  settings: [...OWNER_COLUMNS, ...SETTINGS_SECRET_COLUMNS],
+  settings: [...OWNER_COLUMNS, ...SETTINGS_SECRET_COLUMNS, "updatedAt"],
   logEntries: [...OWNER_COLUMNS, ...STAMP_COLUMNS, ...SYNC_COLUMNS],
   milestones: [...OWNER_COLUMNS, ...STAMP_COLUMNS],
   experiments: [...OWNER_COLUMNS, ...STAMP_COLUMNS, ...SYNC_COLUMNS],
@@ -36,4 +36,13 @@ export const SERVER_ONLY_FIELDS: Readonly<Record<string, readonly string[]>> = {
   papers: [...OWNER_COLUMNS, "doiBidx", "arxivBidx", "serverSeq", "rowVersion", "deletedAt"],
   // A value's file id is `<paper id>:<field id>`, not the server row id, so `id` is not compared either.
   paperFieldValues: ["id", ...OWNER_COLUMNS],
+  // A relation is a link in a paper file, keyed by its two papers and its name.
+  relations: ["id", ...OWNER_COLUMNS, ...STAMP_COLUMNS, ...SYNC_COLUMNS, "createdAt"],
+  screening: [...OWNER_COLUMNS, "deletedAt", ...SYNC_COLUMNS],
+  // A pinned paper is `pinned: true` in its own file, which has no pin id, owner or date.
+  libraryPins: ["id", "ownerId", "createdAt", ...OWNER_COLUMNS, "deletedAt", ...SYNC_COLUMNS],
+  // Membership is a link in the member's file: its id is `<list>:<member>` and its order is the list's.
+  readingListItems: ["id", "sortOrder", "inheritedFromListId", "duplicateOfItemId", "deletedAt", ...SYNC_COLUMNS],
+  quotationTypes: ["id", ...OWNER_COLUMNS],
+  citationAlerts: OWNER_COLUMNS,
 };

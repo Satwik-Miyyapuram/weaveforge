@@ -9,8 +9,28 @@ export function archivePath(kind: string): string {
   return `.weaveforge/migration-0.9.7/archive/${kind}.json`;
 }
 
-/** Writes a row to its files-first home. Best effort: the archive, not this, is what verify reads back. */
-export type FormatWrite = (kind: string, row: Row) => Promise<void>;
+/** A kind's app files: `readBack` returns every row those files hold. */
+export type AppFormat = {
+  write(kind: string, row: Row): Promise<void>;
+  readBack(kind: string): Promise<Row[]>;
+};
+
+/** What names a row in its app file, for kinds whose file does not keep the server id. */
+const KEY_COLUMNS: Record<string, readonly string[]> = {
+  libraryPins: ["resourceType", "resourceId"],
+  relations: ["fromPaper", "toPaper", "relation"],
+  paperFieldValues: ["fieldId", "paperId"],
+  metrics: ["experimentId"],
+  quotationTypes: ["paperId", "annotationKey"],
+  annotationPins: ["paperId", "annotationKey"],
+  citationAlerts: ["paperId"],
+  settings: [],
+};
+
+function keyOf(kind: string, row: Row): string {
+  if (kind === "readingListItems") return `${row.listId}\n${row.paperId ?? row.vaultPageId}`;
+  return (KEY_COLUMNS[kind] ?? ["id"]).map((c) => String(row[c])).join("\n");
+}
 
 /**
  * Columns that never reach disk: settings secrets stay on the server (they are sealed separately). The whole
@@ -32,19 +52,20 @@ export function rowLabel(row: Row): string {
 }
 
 /**
- * Lossless writer for kinds with no file home, or only a partial one. Every row is kept, in server order, and
- * readBack writes them to archivePath(kind) and reads that file back, so verify counts and compares every row.
- * `format` also writes each row to its files-first home; its failure (an orphan, a name clash) is passed to
- * `onFormatError` and never blocks the run, because the archive already holds the row.
+ * Writer for kinds kept in app files through `format`, with a backup of every row in archivePath(kind).
+ * readBack answers from the app files; only a row whose app write failed (an orphan, a name clash) is
+ * answered from the backup. Such a row is listed in archivedOnly and never blocks the run.
+ * Without `format` the backup is the only copy.
  */
 export function createArchiveWriter(
   sink: FileSink,
   kinds: readonly string[],
-  format?: FormatWrite,
+  format?: AppFormat,
   onFormatError?: (kind: string, row: Row, err: unknown) => void,
 ): KindWriter {
   const rows = new Map<string, Row[]>();
   const failed: ArchivedOnly[] = [];
+  const failedRows = new Set<Row>();
   const check = (kind: string): void => {
     if (!kinds.includes(kind)) throw new Error(`kind-writer-archive: unknown kind "${kind}"`);
   };
@@ -56,9 +77,10 @@ export function createArchiveWriter(
       (rows.get(kind) ?? rows.set(kind, []).get(kind)!).push(kept);
       try {
         // The stripped copy, so a format handler can never put a settings secret on disk.
-        await format?.(kind, { ...kept });
+        await format?.write(kind, { ...kept });
       } catch (err) {
         // Fixed codes only: error text can carry paths or secret-like text, so it never reaches report.json.
+        failedRows.add(kept);
         failed.push({ kind, id: rowLabel(row), reason: err instanceof ConflictError ? "conflict" : "write failed" });
         // The stripped copy here too, so a logging handler never sees a settings secret.
         onFormatError?.(kind, { ...kept }, err);
@@ -69,7 +91,12 @@ export function createArchiveWriter(
       check(kind);
       const path = archivePath(kind);
       await sink.write(path, `${JSON.stringify(rows.get(kind) ?? [], null, 2)}\n`);
-      return JSON.parse(await sink.readText(path)) as Row[];
+      const archived = JSON.parse(await sink.readText(path)) as Row[];
+      if (!format) return archived;
+      const all = rows.get(kind) ?? [];
+      const written = new Set(all.filter((row) => !failedRows.has(row)).map((row) => keyOf(kind, row)));
+      const inApp = (await format.readBack(kind)).filter((row) => written.has(keyOf(kind, row)));
+      return [...inApp, ...archived.filter((_, i) => failedRows.has(all[i]!))];
     },
   };
 }

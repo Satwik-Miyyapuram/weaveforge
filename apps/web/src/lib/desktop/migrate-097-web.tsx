@@ -107,7 +107,7 @@ export async function loadWebInputs(sources: WebInputSources = defaultWebInputSo
     // Notes, papers and comments go through the FILES repos; the wasm codec has no codec for them. The codec
     // finds the log entry, report section or reading list file a comment sits next to. Every other kind without
     // a codec is archived losslessly under .weaveforge/migration-0.9.7/archive/ (and written to its file home).
-    writers: (sink) => createMigrationWriters(sink, codec, (kind, _row, err) =>
+    writers: (sink) => createMigrationWriters(sink, codec, undefined, (kind, _row, err) =>
       warnOnce("migrate-097-web", `a ${kind} row stayed in the archive only`, err),
     ),
     pendingOutbox: webPendingOutbox,

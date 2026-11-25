@@ -19,14 +19,14 @@ const ENTITY_KIND: Record<string, string> = {
  * FileCodec backed by the wf-wasm entity codecs, so the exporter writes the
  * same bytes the app writes. Kinds without a codec report `supports() === false`.
  */
-export function wasmFileCodec(core: EntityCore, projectRoot = ""): FileCodec {
+export function wasmFileCodec(core: EntityCore, projectRoot: string | ((kind: string, row: Row) => string) = ""): FileCodec {
   return {
     supports: (kind) => kind in ENTITY_KIND,
     toFile(kind, row) {
       const entity = ENTITY_KIND[kind];
       if (!entity) throw new Error(`no wf-wasm codec for ${kind}`);
       return {
-        path: core.entityPath(entity, row, projectRoot),
+        path: core.entityPath(entity, row, typeof projectRoot === "string" ? projectRoot : projectRoot(kind, row)),
         text: core.entityFileFromRow(entity, undefined, row),
       };
     },

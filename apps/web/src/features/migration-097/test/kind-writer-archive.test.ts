@@ -2,11 +2,23 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { ConflictError } from "@weaveforge/core";
 import { MemorySink } from "../infrastructure/memory-sink";
-import { archivePath, createArchiveWriter, rowLabel } from "../infrastructure/kind-writer-archive";
+import { archivePath, createArchiveWriter, rowLabel, type AppFormat } from "../infrastructure/kind-writer-archive";
 import { sameRows } from "../application/verify-export";
 import type { FileCodec, Row, ServerSource } from "../domain/ports";
 import { runWebExport } from "../application/run-web-export";
 import { onlyReportPath } from "./own-report";
+
+/** An app format that keeps what `write` accepted, so readBack answers from the "app files". */
+function appFormat(write: (kind: string, row: Row) => Promise<void>): AppFormat {
+  const kept = new Map<string, Row[]>();
+  return {
+    async write(kind, row) {
+      await write(kind, row);
+      (kept.get(kind) ?? kept.set(kind, []).get(kind)!).push(row);
+    },
+    readBack: async (kind) => kept.get(kind) ?? [],
+  };
+}
 
 const SCREENING: Row[] = [
   { id: "s2", paperId: "p1", decision: "include", note: null, reviewerId: "u1" },
@@ -54,10 +66,10 @@ test("the format write gets each row; its error is reported, not thrown, and the
   const writer = createArchiveWriter(
     sink,
     ["tags"],
-    async (kind, row) => {
+    appFormat(async (kind, row) => {
       seen.push(`${kind}:${String(row.id)}`);
       if (row.id === "t2") throw new ConflictError("conflict: tag differs");
-    },
+    }),
     (kind, row, err) => failed.push(`${kind}:${String(row.id)}:${err instanceof ConflictError}`),
   );
   await writer.write("tags", { id: "t1", name: "a" });
@@ -100,10 +112,10 @@ test("a credential under a neutral key never reaches the archive, at any depth",
 });
 
 test("a failed format write is listed in archivedOnly with a fixed reason, never the error text", async () => {
-  const writer = createArchiveWriter(new MemorySink(), ["tags", "settings"], async (_kind, row) => {
+  const writer = createArchiveWriter(new MemorySink(), ["tags", "settings"], appFormat(async (_kind, row) => {
     if (row.id === "t2") throw new ConflictError("conflict: tag differs at tags/secret-path");
     if (row.userId === "u1") throw new Error("disk full sk-live-leak");
-  });
+  }));
   await writer.write("tags", { id: "t1", name: "a" });
   await writer.write("tags", { id: "t2", name: "b" });
   await writer.write("settings", { userId: "u1", zoteroLibrary: "users/1" });
@@ -119,9 +131,9 @@ test("a failed settings write hands onFormatError the stripped row, and an id-le
   const writer = createArchiveWriter(
     sink,
     ["settings", "tags"],
-    async () => {
+    appFormat(async () => {
       throw new Error("disk full");
-    },
+    }),
     (_kind, row) => seen.push(row),
   );
   await writer.write("settings", { userId: "u1", zoteroApiKey: "zk9", integrations: { zotero: { apiKey: "ak9", collection: "C" }, gh: "tok9" } });
@@ -161,9 +173,9 @@ test("archivedOnly reaches the run report and the export result, and does not bl
     sink,
     now: "2026-11-23T00:00:00.000Z",
     writers: (s) => [
-      createArchiveWriter(s, ["tags"], async (_kind, row) => {
+      createArchiveWriter(s, ["tags"], appFormat(async (_kind, row) => {
         if (row.id === "t2") throw new ConflictError("conflict: tag differs");
-      }),
+      })),
     ],
   });
   assert.equal(result.state, "verified");
@@ -175,9 +187,9 @@ test("archivedOnly reaches the run report and the export result, and does not bl
 
 test("the format write never sees a settings secret", async () => {
   const given: Row[] = [];
-  const writer = createArchiveWriter(new MemorySink(), ["settings"], async (_kind, row) => {
+  const writer = createArchiveWriter(new MemorySink(), ["settings"], appFormat(async (_kind, row) => {
     given.push(row);
-  });
+  }));
   await writer.write("settings", { userId: "u1", zoteroApiKey: "zk", credentialsEnc: "enc", integrations: {}, zoteroLibrary: "users/1" });
   assert.deepEqual(given, [{ userId: "u1", zoteroLibrary: "users/1" }]);
 });

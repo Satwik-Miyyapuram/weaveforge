@@ -1,11 +1,10 @@
 import { before, test } from "node:test";
 import assert from "node:assert/strict";
-import { LibraryPinError, NotFoundError } from "@weaveforge/core";
 import { MemoryWorkspaceFs } from "@core-test/memory-workspace-fs";
 import { FilePaperRepository } from "@/features/papers/infrastructure/file-paper-repository";
 import { typedCore } from "@/lib/rust-core";
 import { loadTestCore } from "@/lib/test/load-test-core";
-import { FileLibraryPinRepository } from "../file-library-pin-repo";
+import { FileLibraryPinRepository, LIBRARY_PINS_PATH } from "../file-library-pin-repo";
 
 before(loadTestCore);
 
@@ -19,7 +18,7 @@ async function setup() {
   await fs.writeFile(A, core.writePaperRow(null, { id: "a", title: "A" }) + "Body.\n");
   await fs.writeFile(B, core.writePaperRow(null, { id: "b", title: "B" }));
   const papers = new FilePaperRepository(fs, ROOT);
-  return { fs, papers, pins: new FileLibraryPinRepository(papers) };
+  return { fs, papers, pins: new FileLibraryPinRepository(papers, fs) };
 }
 
 test("pin writes pinned: true into the paper and isPinned sees it", async () => {
@@ -61,12 +60,17 @@ test("pin and unpin keep an unknown property in the paper", async () => {
   assert.match(await fs.readText(A), /^my-note: keep$/m);
 });
 
-test("only papers can be pinned in files mode", async () => {
-  const { pins } = await setup();
-  await assert.rejects(pins.pin({ resourceType: "experiment", resourceId: "e1", ownerId: "me" }), LibraryPinError);
-});
-
-test("pinning a paper that does not exist throws NotFoundError", async () => {
-  const { pins } = await setup();
-  await assert.rejects(pins.pin({ resourceType: "paper", resourceId: "nope", ownerId: "me" }), NotFoundError);
+test("a pin that is not a paper in this folder is a row of library-pins.json", async () => {
+  const { fs, pins } = await setup();
+  await pins.pin({ resourceType: "experiment", resourceId: "e1", ownerId: "me", id: "p1", createdAt: "2026-01-01" });
+  await pins.pin({ resourceType: "paper", resourceId: "elsewhere", ownerId: "them" });
+  await pins.pin({ resourceType: "experiment", resourceId: "e1", ownerId: "me" });
+  assert.deepEqual(
+    (await pins.listForProject()).map((p) => [p.resourceType, p.resourceId, p.ownerId]),
+    [["experiment", "e1", "me"], ["paper", "elsewhere", "them"]],
+  );
+  assert.match(await fs.readText(LIBRARY_PINS_PATH), /"p1"[^}]*"2026-01-01"|"2026-01-01"[^}]*"p1"/);
+  await pins.unpin("experiment", "e1");
+  await pins.unpin("paper", "elsewhere");
+  assert.deepEqual(await pins.listForProject(), []);
 });

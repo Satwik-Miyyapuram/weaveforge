@@ -11,6 +11,9 @@ export const TABLE_BY_KIND = {
   paperFieldValues: "paper_field_values",
   relations: "paper_relations",
   readingLists: "reading_lists",
+  readingListItems: "reading_list_items",
+  quotationTypes: "annotation_quotation_types",
+  citationAlerts: "citation_alert_tracks",
   screening: "screening_decisions",
   logEntries: "log_entries",
   milestones: "milestones",
@@ -43,6 +46,7 @@ export const SOFT_DELETE_TABLES: ReadonlySet<string> = new Set([
 const OWNER_COLUMN: Readonly<Record<string, string>> = {
   comments: "author_id",
   screening_decisions: "reviewer_id",
+  reading_list_items: "reading_lists.user_id",
 };
 
 /**
@@ -52,6 +56,8 @@ const OWNER_COLUMN: Readonly<Record<string, string>> = {
  */
 const ROW_SCOPE: Readonly<Record<string, string>> = {
   comments: "&resource_type=in.(report_section,reading_list,paper,vault_page,log_entry,milestone)",
+  // The list owns the row; the empty embed joins it without adding a column.
+  reading_list_items: "&select=*,reading_lists!list_id!inner()",
 };
 
 /** The ROW_SCOPE comment resource types and the user's table of each, for comments others wrote on the user's items. */

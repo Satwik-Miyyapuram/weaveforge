@@ -5,9 +5,11 @@ import { LocalPgSource } from "@/features/migration-097/infrastructure/local-pg-
 import { MIGRATION_KINDS } from "@/features/migration-097/domain/report";
 import { wasmFileCodec } from "@/features/migration-097/infrastructure/wasm-codec";
 import { createMigrationWriters } from "@/features/migration-097/infrastructure/migration-writers";
+import { createProjectRouter } from "@/features/migration-097/infrastructure/project-router";
 import { workspaceFileSink } from "@/features/migration-097/infrastructure/workspace-file-sink";
 import { sinkAsWorkspaceFs } from "@/features/migration-097/infrastructure/sink-workspace-fs";
 import { FileProjectRepository } from "@/backend/providers/files/file-project-repo";
+import type { IWorkspaceFs, Project } from "@weaveforge/core";
 import { DesktopWorkspaceFs } from "@/features/workspace/infrastructure/parts";
 import { loadCore } from "@/lib/rust-core";
 import { warnOnce } from "@/lib/error-report/parts";
@@ -57,7 +59,12 @@ export type DesktopExportDeps = {
   sink: FileSink;
   kinds: readonly string[];
   writers?: (sink: FileSink) => readonly KindWriter[];
+  /** The projects the rows go to, each with its folder; a verified run gives each folder its project file. */
+  projects?: readonly ExportedProject[];
 };
+
+/** A database project and the workspace folder its rows are written to. */
+export type ExportedProject = { project: Project; folder: string };
 
 /**
  * The CRDT kinds, their table, the column the editor's saver writes the note's text to, and its save time.
@@ -170,7 +177,7 @@ export function desktopExportOptions(
         },
       },
     },
-    writeProject: () => writeProject(shell, folder, deps.sink, now),
+    writeProject: () => writeProjects(shell, folder, deps.sink, deps.projects ?? []),
     moveSecrets: async () => {
       await assertOpenVault(shell, folder);
       await shell.migrate097MoveSecrets();
@@ -188,18 +195,27 @@ function toReply(result: ExportResult): ExportReply {
   };
 }
 
-/** The app's deps: the wasm codec, and a sink over the open vault (the folder the gate upgrades). */
+/**
+ * The app's deps: the wasm codec, a sink over the open vault (the folder the gate upgrades), and every
+ * database project with its folder. Each row is written into its project's folder; a row with no project
+ * goes to the main one's.
+ */
 export function desktopDeps(shell: DesktopBridge): () => Promise<DesktopExportDeps> {
   return async () => {
-    const codec = wasmFileCodec(await loadCore(), "");
+    const core = await loadCore();
+    const fs = new DesktopWorkspaceFs(shell);
+    const projects = await exportedProjects(shell, fs);
+    const router = createProjectRouter(projects.map((p) => ({ id: p.project.id, folder: p.folder })));
+    const codec = wasmFileCodec(core, (kind, row) => router.folderOf(kind, row));
     return {
       codec,
-      sink: workspaceFileSink(new DesktopWorkspaceFs(shell)),
+      sink: workspaceFileSink(fs),
       kinds: MIGRATION_KINDS,
       // As on the web: kinds without a codec are archived losslessly and written to their file home.
-      writers: (sink) => createMigrationWriters(sink, codec, (kind, _row, err) =>
+      writers: (sink) => createMigrationWriters(sink, codec, router, (kind, _row, err) =>
         warnOnce("migrate-097-desktop", `a ${kind} row stayed in the archive only`, err),
       ),
+      projects,
     };
   };
 }
@@ -219,23 +235,43 @@ export function makeDesktopRunner(
   };
 }
 
-/** Projects, the one holding the most rows first: files mode holds one project per workspace. */
+/** Projects, the one holding the most rows first: rows with no project go to that main one. */
 const PROJECTS_SQL = `select p.id::text as id, p.name, p.color, p.created_at::text as created_at
   from projects p
  order by (select count(*) from log_entries t where t.project_id = p.id)
         + (select count(*) from report_sections t where t.project_id = p.id)
-        + (select count(*) from reading_lists t where t.project_id = p.id) desc, p.created_at
- limit 1`;
+        + (select count(*) from reading_lists t where t.project_id = p.id) desc, p.created_at`;
 
-/** Names the workspace's project after the database's main one, keeping its id, which settings are keyed by. */
-async function writeProject(shell: DesktopExportShell, folder: string, sink: FileSink, now: string): Promise<void> {
-  await assertOpenVault(shell, folder);
+/**
+ * Every database project, main first, in the folder that already holds it or `<slug>--<id6>`. With none, one
+ * project named after the workspace folder holds every row.
+ */
+export async function exportedProjects(
+  shell: Pick<DesktopBridge, "vaultRoot"> & Partial<Pick<DesktopBridge, "queryLocalDb">>,
+  fs: IWorkspaceFs,
+  now = new Date().toISOString(),
+): Promise<ExportedProject[]> {
   type Row = { id: string; name: string; color: string | null; created_at: string };
-  const [row] = shell.queryLocalDb ? ((await shell.queryLocalDb(PROJECTS_SQL)) as unknown as Row[]) : [];
-  const folderName = folder.split(/[\\/]/).filter(Boolean).at(-1) ?? "Workspace";
-  await new FileProjectRepository(sinkAsWorkspaceFs(sink)).adopt(
-    row
-      ? { id: row.id, name: row.name, ...(row.color ? { color: row.color } : {}), createdAt: new Date(row.created_at).toISOString() }
-      : { id: crypto.randomUUID(), name: folderName, createdAt: now },
-  );
+  const rows = shell.queryLocalDb ? ((await shell.queryLocalDb(PROJECTS_SQL)) as unknown as Row[]) : [];
+  const projects: Project[] = rows.map((row) => ({
+    id: row.id,
+    name: row.name,
+    ...(row.color ? { color: row.color } : {}),
+    createdAt: new Date(row.created_at).toISOString(),
+  }));
+  if (projects.length === 0) {
+    const open = (await shell.vaultRoot())?.path ?? "";
+    const name = open.split(/[\\/]/).filter(Boolean).at(-1) ?? "Workspace";
+    projects.push({ id: crypto.randomUUID(), name, createdAt: now });
+  }
+  const repo = new FileProjectRepository(fs);
+  const core = await loadCore();
+  return Promise.all(projects.map(async (project) => ({ project, folder: (await repo.folderOf(project.id)) ?? core.projectDir(project) })));
+}
+
+/** Gives each exported folder its project file, keeping a project already there. */
+async function writeProjects(shell: DesktopExportShell, folder: string, sink: FileSink, projects: readonly ExportedProject[]): Promise<void> {
+  await assertOpenVault(shell, folder);
+  const repo = new FileProjectRepository(sinkAsWorkspaceFs(sink));
+  for (const { project } of projects) await repo.adopt(project);
 }
