@@ -94,8 +94,9 @@ test("readingLists: a user's file in a subfolder of the lists folder takes the r
 });
 
 test("papers: a paper kept in the user's differing file still counts in files, so db equals files", async () => {
+  const debug: string[] = [];
   const run = (s: MemorySink) =>
-    runWebExport({ kinds: ["papers"], codec, source: server("papers", PAPER_ROW), sink: s, now: "2026-11-26T00:00:00.000Z", runDeviceId: "dev-alpha", writers: (g) => [createGroupAWriter(g)] });
+    runWebExport({ kinds: ["papers"], codec, source: server("papers", PAPER_ROW), sink: s, now: "2026-11-26T00:00:00.000Z", runDeviceId: "dev-alpha", writers: (g) => [createGroupAWriter(g)], debugLog: (line) => debug.push(line) });
   const first = new MemorySink();
   assert.deepEqual((await run(first)).run.missing, []);
   const file = (await first.list()).find((p) => p.endsWith(".paper.md"))!;
@@ -109,4 +110,6 @@ test("papers: a paper kept in the user's differing file still counts in files, s
   assert.deepEqual(papers.kept, [PAPER_ROW.id]);
   assert.equal(papers.files, papers.db, "a kept paper is in files");
   assert.match(await sink.readText(file), /aliases: \["AIAYN"\]/, "the user's key stays");
+  assert.ok(!debug.some((l) => l.includes("conflict copy")), "a kept merge is not logged as a conflict copy");
+  assert.ok(debug.some((l) => l.includes("kept in place")), "it is logged as kept");
 });

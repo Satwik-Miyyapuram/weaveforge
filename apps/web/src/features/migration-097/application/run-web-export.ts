@@ -449,15 +449,16 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
               written[kind]++;
             } catch (err) {
               const message = (err as Error).message;
-              debugLog?.(`write ${kind} ${String(row.id)}: ${message}`);
               const conflict = isConflict(err);
               // A file layer that reads the file back unchanged calls the store's in-place keep a conflict; no copy was made.
               if (conflict && store.kept.length > keptBefore && store.conflicts.length === copiesBefore) {
+                debugLog?.(`write ${kind} ${String(row.id)}: kept in place (merged into the user's file)`);
                 keptIds.add(String(row.id));
                 written[kind]++;
                 onProgress?.({ kind, done: written[kind] ?? 0, total: rows.length });
                 continue;
               }
+              debugLog?.(`write ${kind} ${String(row.id)}: ${message}`);
               if (conflict) (conflicts[kind] ??= []).push(String(row.id));
               // Only paper field kinds carry their DB value into report.json; every other kind (secrets included) is an allowlist miss.
               const conflictValue = (err as { conflictValue?: unknown }).conflictValue;

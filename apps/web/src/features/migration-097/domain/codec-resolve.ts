@@ -17,7 +17,7 @@ function bodyOf(text: string): string {
 /**
  * For a user's file the text merge could not take (another layout, e.g. a 0.9.5 experiment with `## Hypothesis`
  * sections), the file with the DB row written over it, or null. It is written only when nothing is lost: the
- * codec reads every value the file holds equal to the DB row's, and every body line of the file is still in the
+ * codec reads every value the file holds, and every value of the result, equal to the DB row's, and every body line of the file is still in the
  * result or in one of those values. The file's own keys stay (the codec keeps keys it does not own).
  */
 export function codecResolver(codec: FileCodec, kind: string, path: string, row: Row): ((fileText: string) => string | null) | undefined {
@@ -36,6 +36,10 @@ export function codecResolver(codec: FileCodec, kind: string, path: string, row:
     if (!nextRow) return null;
     for (const [key, value] of Object.entries(fileRow)) {
       if (canonical(value) !== canonical(nextRow[key])) return null;
+    }
+    // The DB version must land too: a value the file keeps over the row's (a body, say) is a conflict, not a merge.
+    for (const [key, value] of Object.entries(nextRow)) {
+      if (key in row && canonical(value) !== canonical(row[key])) return null;
     }
     const values = Object.values(fileRow).filter((v): v is string => typeof v === "string");
     for (const line of bodyOf(fileText).split("\n")) {
