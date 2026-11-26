@@ -8,11 +8,63 @@
  * drag has it.
  */
 
-import { useEffect, useMemo, type RefObject } from "react";
+import { useEffect, useMemo, useRef, type RefObject } from "react";
 import type { InkStroke } from "@weaveforge/core";
 
 import type { InkWorkerMessage } from "../application/capture-protocol";
 import type { InkSheetInk } from "./use-ink-worker-rpc";
+
+function sameNumbers(a: readonly number[], b: readonly number[]): boolean {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+  return true;
+}
+
+function sameStroke(a: InkStroke, b: InkStroke): boolean {
+  return (
+    a.t0 === b.t0 &&
+    a.width === b.width &&
+    a.tool === b.tool &&
+    a.colour === b.colour &&
+    a.shape === b.shape &&
+    a.lineIndex === b.lineIndex &&
+    sameNumbers(a.points, b.points) &&
+    sameNumbers(a.pressures, b.pressures)
+  );
+}
+
+/**
+ * The worker's list with each unchanged stroke swapped for the object already
+ * drawn. The worker's copies are new arrays, and outlines are cached per
+ * `points` array, so without this every stroke's outline is rebuilt each time
+ * the worker answers. The prior list itself comes back when nothing changed.
+ */
+export function reuseStrokes(
+  next: readonly InkStroke[],
+  prior: readonly InkStroke[] | undefined,
+): readonly InkStroke[] {
+  if (!prior || prior.length === 0) return next;
+  const byStart = new Map<string, InkStroke[]>();
+  for (const stroke of prior) {
+    const key = `${stroke.t0}|${stroke.points.length}`;
+    const list = byStart.get(key);
+    if (list) list.push(stroke);
+    else byStart.set(key, [stroke]);
+  }
+  let all = next.length === prior.length;
+  const out = next.map((stroke, at) => {
+    const list = byStart.get(`${stroke.t0}|${stroke.points.length}`);
+    const found = list?.findIndex((old) => sameStroke(old, stroke)) ?? -1;
+    if (found < 0 || !list) {
+      all = false;
+      return stroke;
+    }
+    const [old] = list.splice(found, 1);
+    if (old !== prior[at]) all = false;
+    return old;
+  });
+  return all ? prior : out;
+}
 
 export function useLiveSheetInk({
   sheetInk,
@@ -29,7 +81,16 @@ export function useLiveSheetInk({
   sendRef: RefObject<((message: InkWorkerMessage) => void) | null>;
 }) {
   const liveInk = sheetInk?.pageIndex === pageIndex ? sheetInk : null;
-  const strokes = liveInk ? liveInk.strokes : saved;
+  // What this page drew last, so the worker's next list reuses its strokes.
+  const shown = useRef<{ pageIndex: number; strokes: readonly InkStroke[] | undefined } | null>(null);
+  const strokes = useMemo(() => {
+    if (!liveInk) return saved;
+    const prior = shown.current?.pageIndex === pageIndex ? shown.current.strokes : saved;
+    return reuseStrokes(liveInk.strokes, prior ?? saved);
+  }, [liveInk, saved, pageIndex]);
+  useEffect(() => {
+    shown.current = { pageIndex, strokes };
+  }, [pageIndex, strokes]);
   const hidden = useMemo(() => {
     if (!liveInk || selection.length === 0) return undefined;
     const held = new Set(selection);
