@@ -179,6 +179,14 @@ export function isCanvasDocument(doc: Pick<Document, "kind" | "path">): boolean 
   return doc.kind === "vault_page" && doc.path.endsWith(".canvas");
 }
 
+/** The suffix a tab shows: the file's own for a canvas or a legacy `.ink.md` note, else the kind's. */
+export function documentSuffix(doc: Pick<Document, "kind" | "path"> | undefined, kindSuffix: string | null): string | null {
+  if (!doc) return kindSuffix;
+  if (isCanvasDocument(doc)) return ".canvas";
+  if (doc.path.endsWith(".ink.md")) return ".ink.md";
+  return kindSuffix;
+}
+
 /**
  * How each kind stores a pasted or dropped image, and the markdown it writes.
  *

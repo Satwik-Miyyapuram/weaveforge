@@ -328,7 +328,12 @@ export function PageEditor({
             onChange={(e) => setTitle(e.target.value)}
             onBlur={() => void saveTitle()}
             onKeyDown={(e) => {
-              if (e.key === "Enter") e.currentTarget.blur();
+              // Enter saves the title and carries on into the body, as in a new document.
+              if (e.key === "Enter") {
+                e.preventDefault();
+                e.currentTarget.blur();
+                editorHandle.current?.focus();
+              }
               if (e.key === "Escape") setTitle(page.title);
             }}
             aria-label="Note title"

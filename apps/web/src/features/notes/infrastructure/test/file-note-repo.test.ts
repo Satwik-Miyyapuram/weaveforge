@@ -539,8 +539,10 @@ test("a legacy ink-only .ink.md note is listed, opened and saved in place as ink
   assert.equal(core().readInkNoteBody(body).text, "<!-- page 2 -->\n");
   assert.equal(await repo.pathOf("n-ink"), INK);
   await repo.update("n-ink", { title: "Distillation" });
-  assert.deepEqual(await files(fs), [INK], "no .note.md written beside it");
-  const text = await fs.readText(INK);
+  // Renamed to the new title, still the one legacy .ink.md.
+  const renamed = `${INK.slice(0, INK.lastIndexOf("/"))}/distillation.ink.md`;
+  assert.deepEqual(await files(fs), [renamed], "no .note.md written beside it");
+  const text = await fs.readText(renamed);
   assert.match(text, /weaveforge-type: ink_page/);
   assert.match(text, /ink-pages: 2/);
   assert.match(text, /title: Distillation/);
@@ -581,4 +583,58 @@ test("other files are still ignored: a .note.md of another type and an .ink.md o
   await fs.writeFile("thesis/notes/a.note.md", "---\nweaveforge-id: a\nweaveforge-type: ink_page\ntitle: A\n---\n");
   await fs.writeFile("thesis/notes/b.ink.md", "---\nweaveforge-id: b\nweaveforge-type: paper\ntitle: B\n---\n");
   assert.deepEqual(await repo.list(), []);
+});
+
+test("a new note's file is named by its title alone; a taken name gets the id suffix", async () => {
+  const { fs, repo } = setup();
+  const first = await repo.add({ title: "Results" });
+  assert.deepEqual(await files(fs), ["thesis/notes/results.note.md"]);
+  // Another file already holds the name (here an .ink.md stem's strokes folder) or the slug alone.
+  await fs.writeFile("thesis/notes/methods.note.ink/page-1.inkb", "x");
+  const second = await repo.add({ title: "Methods" });
+  assert.match((await repo.pathOf(second.id)) ?? "", /^thesis\/notes\/methods--[0-9a-f]{6}\.note\.md$/);
+  assert.equal((await repo.getById(first.id))?.title, "Results");
+});
+
+test("a rename moves the note file and its strokes folder; nothing is left at the old name", async () => {
+  const { fs, repo } = setup();
+  const note = await repo.add({ title: "Draft", body: "b\n" });
+  await fs.writeFile("thesis/notes/draft.note.ink/page-1.inkb", "ink");
+  const renamed = await repo.update(note.id, { title: "Final Chapter" });
+  assert.equal(renamed.title, "Final Chapter");
+  assert.deepEqual(await files(fs), [
+    "thesis/notes/final-chapter.note.ink/page-1.inkb",
+    "thesis/notes/final-chapter.note.md",
+  ]);
+  assert.equal(await fs.readText("thesis/notes/final-chapter.note.ink/page-1.inkb"), "ink");
+  assert.equal((await repo.getById(note.id))?.body, "b\n");
+  assert.equal(await repo.pathOf(note.id), "thesis/notes/final-chapter.note.md");
+});
+
+test("a rename onto a taken file name gets the id suffix; a legacy .ink.md keeps its suffix", async () => {
+  const { fs, repo } = setup();
+  await fs.writeFile("thesis/notes/final.note.md", "not a note of ours\n");
+  const note = await repo.add({ title: "Draft" });
+  await repo.update(note.id, { title: "Final" });
+  assert.match((await repo.pathOf(note.id)) ?? "", /^thesis\/notes\/final--[0-9a-f]{6}\.note\.md$/);
+  await fs.writeFile(
+    "thesis/notes/sketch--abc123.ink.md",
+    "---\nweaveforge-id: ink-1\nweaveforge-type: ink_page\ntitle: Sketch\n---\n",
+  );
+  await repo.update("ink-1", { title: "Board" });
+  assert.equal(await repo.pathOf("ink-1"), "thesis/notes/board.ink.md");
+});
+
+test("a rename with the same file name, a case-only rename and a save keep the path", async () => {
+  const { fs, repo } = setup();
+  const note = await repo.add({ title: "draft" });
+  await repo.update(note.id, { title: "Draft" });
+  await repo.update(note.id, { title: "Draft!" });
+  assert.equal(await repo.pathOf(note.id), "thesis/notes/draft.note.md");
+  const kept = "thesis/notes/old--q.note.md";
+  await fs.writeFile(kept, "---\nweaveforge-id: n-1\nweaveforge-type: vault_page\ntitle: Old\n---\nold\n");
+  await repo.update("n-1", { title: "Old", body: "edited\n" });
+  assert.equal(await repo.pathOf("n-1"), kept, "an id-suffixed name of the same title stays");
+  await repo.save(page({ title: "Renamed by save" }));
+  assert.equal(await repo.pathOf("n-1"), kept);
 });

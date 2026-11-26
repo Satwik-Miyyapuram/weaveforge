@@ -1,6 +1,6 @@
 /**
  * Notes as workspace files (0.9.5 files-first, L3): one
- * `<root>/notes/<slug>--<id-suffix>.note.md` per note, frontmatter `title`,
+ * `<root>/notes/<slug>.note.md` per note (`<slug>--<id-suffix>` when that name is taken), frontmatter `title`,
  * `parent`, `order`, `pinned`, `folder`, `created-at`, `updated-at`; the body
  * is the markdown.
  *
@@ -11,6 +11,7 @@
  * - A save that would make a note its own ancestor is refused and writes nothing.
  * - A save keeps the path and every field it does not own.
  * - A save never overwrites a file changed since it was read; a stale `save` puts the page in a conflict copy.
+ * - An `update` that changes the title renames the file, and its strokes folder, to the new title's name.
  * - `add` and `update` refuse a blank title or another note's title, as the Rust repo does.
  * - A guarded `update` (one with `baseBody`) never drops an outside edit: the
  *   file's text is kept as a conflict copy, then the caller's text is written.
@@ -32,6 +33,8 @@ import {
   type VaultPageSummary,
   type VaultPageTreeNode,
 } from "@weaveforge/core";
+import { warnOnce } from "@/lib/error-report/parts";
+import { moveInkStrokes } from "@/lib/move-ink-strokes";
 import { readyCore } from "@/lib/rust-core";
 import { moveToTrash } from "@/lib/workspace-trash";
 
@@ -304,6 +307,7 @@ export class FileNoteRepository implements IVaultPageRepository, IVaultPageManag
       next.updatedAt = this.now();
       try {
         await this.put(all, next);
+        if (next.title !== old.title) await this.renameFile(all, id, next.title);
         return withCopies(next, copies);
       } catch (error) {
         // Unguarded, a changed file is refused as `save` refuses it. Guarded,
@@ -337,7 +341,10 @@ export class FileNoteRepository implements IVaultPageRepository, IVaultPageManag
       throw new Error(`Moving "${page.title}" there would make a parent cycle.`);
     }
     const found = all.find((f) => f.page.id === page.id);
-    const path = found?.path ?? core.flatPath(TYPE, page.id, page.title, this.root);
+    const path =
+      found?.path ??
+      (await this.freePath(all, page.id, page.title, this.dir, SUFFIX)) ??
+      core.flatPath(TYPE, page.id, page.title, this.root);
     const old = found ? core.readFrontmatter(found.text).frontmatter : {};
     // A legacy .ink.md stores its ink meta as frontmatter keys and only the text as its body.
     const ink = path.endsWith(INK_SUFFIX) && core.isInkNoteBody(page.body) ? core.readInkNoteBody(page.body) : null;
@@ -372,6 +379,56 @@ export class FileNoteRepository implements IVaultPageRepository, IVaultPageManag
     if (!this.fs.writeTextIf) throw new Error(`${path}: this workspace cannot save without overwriting outside edits.`);
     if (!(await this.fs.writeTextIf(path, text, expected))) {
       throw new ChangedOnDiskError(`${path} changed on disk; reload before saving.`);
+    }
+  }
+
+  /**
+   * `<dir>/<slug><suffix>`, else `<slug>--<id-suffix><suffix>`, whichever no other file,
+   * note or strokes folder holds; null when both are taken.
+   */
+  private async freePath(all: readonly Found[], id: string, title: string, dir: string, suffix: string): Promise<string | null> {
+    const core = readyCore();
+    const flat = core.flatPath(TYPE, id, title, this.root);
+    const names = [`${core.slugFor(title, "untitled")}${SUFFIX}`, flat.slice(flat.lastIndexOf("/") + 1)];
+    for (const name of names) {
+      const path = `${dir}/${name.slice(0, -SUFFIX.length)}${suffix}`;
+      const key = path.toLowerCase();
+      if (all.some((f) => f.page.id !== id && f.path.toLowerCase() === key)) continue;
+      const own = all.find((f) => f.page.id === id)?.path.toLowerCase() === key;
+      if (!own && (await this.fs.stat(path))) continue;
+      if (!own && (await this.fs.stat(core.inkStrokesDir(path)))) continue;
+      return path;
+    }
+    return null;
+  }
+
+  /**
+   * Renames a retitled note's file to the new title's name, in its folder and with its suffix,
+   * and moves its strokes folder with it. A name already the title's (`slug` or `slug--id`)
+   * stays. The title is already saved, so a failed move leaves the old name and says so.
+   */
+  private async renameFile(all: readonly Found[], id: string, title: string): Promise<void> {
+    const from = all.find((f) => f.page.id === id)?.path;
+    if (!from) return;
+    const slash = from.lastIndexOf("/");
+    const name = from.slice(slash + 1);
+    const suffix = name.endsWith(INK_SUFFIX) ? INK_SUFFIX : SUFFIX;
+    const stem = name.slice(0, -suffix.length);
+    const slug = readyCore().slugFor(title, "untitled");
+    if (stem === slug || stem.startsWith(`${slug}--`)) return;
+    const to = await this.freePath(all, id, title, from.slice(0, slash), suffix);
+    if (!to || to.toLowerCase() === from.toLowerCase()) return;
+    try {
+      // Strokes first: they are copied and checked, so a failed file move can take them back.
+      await moveInkStrokes(this.fs, from, to);
+      try {
+        await this.fs.rename(from, to);
+      } catch (error) {
+        await moveInkStrokes(this.fs, to, from);
+        throw error;
+      }
+    } catch (error) {
+      warnOnce("notes", `Renamed "${title}" but its file kept the name ${name}.`, error);
     }
   }
 }
