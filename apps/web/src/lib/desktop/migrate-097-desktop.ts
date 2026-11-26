@@ -283,8 +283,7 @@ export async function exportedProjects(
     projects.push({ id: crypto.randomUUID(), name, createdAt: now });
   }
   const repo = new FileProjectRepository(fs);
-  const core = await loadCore();
-  return Promise.all(projects.map(async (project) => ({ project, folder: (await repo.folderOf(project.id)) ?? core.projectDir(project) })));
+  return Promise.all(projects.map(async (project) => ({ project, folder: await repo.folderFor(project) })));
 }
 
 /** Gives each exported folder its project file, keeping a project already there. */

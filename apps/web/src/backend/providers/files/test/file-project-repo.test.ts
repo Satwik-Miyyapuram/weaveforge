@@ -96,6 +96,19 @@ test("adopt prefers the folder with the project's own name over a stale copy", a
   assert.equal(await repo.adopt(TRIAL), "offline-trial-windows--407c37");
 });
 
+test("folderFor finds the folder the project had under an older name and writes nothing", async () => {
+  const { fs, repo } = setup();
+  await put(fs, "offline-trial--407c37/notes/a.note.md", "# a");
+  const before = fs.toRecord();
+  assert.equal(await repo.folderFor(TRIAL), "offline-trial--407c37");
+  assert.deepEqual(fs.toRecord(), before);
+});
+
+test("folderFor gives a new project its own slug--id6 folder", async () => {
+  const { repo } = setup();
+  assert.equal(await repo.folderFor(TRIAL), "offline-trial-windows--407c37");
+});
+
 test("adopt keeps a project that is already listed", async () => {
   const { repo } = setup();
   await repo.adopt(HNVAE);

@@ -401,6 +401,15 @@ test("exportedProjects: a project already in the workspace keeps its folder", as
   assert.deepEqual(got.map((p) => p.folder), ["My Thesis"]);
 });
 
+test("exportedProjects: a project whose folder lacks project.json reuses its slug--id6 folder under an older name", async () => {
+  const sink = new MemorySink();
+  const id = "407c3746-13be-4230-bdfa-47c065d7c189";
+  await sink.write("offline-trial--407c37/.weaveforge/manifest.json", "{}");
+  const rows = [{ id, name: "Offline Trial (Windows)", color: null, created_at: "2026-01-02 03:04:05+00" }];
+  const got = await exportedProjects(projectShell(rows) as never, sinkAsWorkspaceFs(sink));
+  assert.deepEqual(got.map((p) => p.folder), ["offline-trial--407c37"]);
+});
+
 test("exportedProjects: with no project row one project named after the folder holds every row", async () => {
   const got = await exportedProjects(projectShell([]) as never, sinkAsWorkspaceFs(new MemorySink()), NOW);
   assert.equal(got.length, 1);

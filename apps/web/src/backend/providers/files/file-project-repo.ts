@@ -72,13 +72,20 @@ export class FileProjectRepository implements IProjectRepository, IProjectManage
     return project;
   }
 
-  /** Gives a project that already has an id its folder, reusing one that is already its own. Returns the folder. */
-  async adopt(project: Project): Promise<string> {
+  /** The folder a project that already has an id belongs in: its listed folder, else one already its own. Writes nothing. */
+  async folderFor(project: Project): Promise<string> {
     const current = await this.find(project.id);
     if (current) return current.folder;
     const core = await loadCore();
     const exact = core.projectDir(project);
-    const folder = core.pickProjectFolder(await this.dirNames(), exact, `--${core.idSuffix(project.id)}`, []) ?? exact;
+    return core.pickProjectFolder(await this.dirNames(), exact, `--${core.idSuffix(project.id)}`, []) ?? exact;
+  }
+
+  /** Gives a project that already has an id its folder, reusing one that is already its own. Returns the folder. */
+  async adopt(project: Project): Promise<string> {
+    const current = await this.find(project.id);
+    if (current) return current.folder;
+    const folder = await this.folderFor(project);
     await this.write(folder, project);
     return folder;
   }
