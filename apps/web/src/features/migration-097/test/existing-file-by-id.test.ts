@@ -8,8 +8,12 @@ import type { FileCodec, ServerSource } from "../domain/ports";
 import { MemorySink } from "../infrastructure/memory-sink";
 import { toCamelRow } from "../infrastructure/postgrest-source";
 import { wasmFileCodec } from "../infrastructure/wasm-codec";
+import { PAPER_ROW } from "./group-a-fixtures";
+import { createGroupAWriter } from "../infrastructure/kind-writer-group-a";
+import { loadTestCore } from "@/lib/test/load-test-core";
 
 let codec: FileCodec;
+before(loadTestCore);
 before(async () => {
   const core = await loadCore(readFileSync(new URL("../../../../../../packages/wf-wasm/pkg/wf_wasm_bg.wasm", import.meta.url)));
   codec = wasmFileCodec(core as unknown as Parameters<typeof wasmFileCodec>[0]);
@@ -72,3 +76,21 @@ for (const c of CASES) {
     assert.match(text, /order: 0/, "the DB's order lands in the user's file");
   });
 }
+
+test("papers: a paper kept in the user's differing file still counts in files, so db equals files", async () => {
+  const run = (s: MemorySink) =>
+    runWebExport({ kinds: ["papers"], codec, source: server("papers", PAPER_ROW), sink: s, now: "2026-11-26T00:00:00.000Z", runDeviceId: "dev-alpha", writers: (g) => [createGroupAWriter(g)] });
+  const first = new MemorySink();
+  assert.deepEqual((await run(first)).run.missing, []);
+  const file = (await first.list()).find((p) => p.endsWith(".paper.md"))!;
+  // The user's own file, from before the run, lacks the DB's rating and has its own aliases: the run merges and keeps it.
+  const sink = new MemorySink();
+  await sink.write(file, (await first.readText(file)).replace("rating: 5\n", 'aliases: ["AIAYN"]\n'));
+
+  const result = await run(sink);
+
+  const papers = result.run.kinds.papers!;
+  assert.deepEqual(papers.kept, [PAPER_ROW.id]);
+  assert.equal(papers.files, papers.db, "a kept paper is in files");
+  assert.match(await sink.readText(file), /aliases: \["AIAYN"\]/, "the user's key stays");
+});

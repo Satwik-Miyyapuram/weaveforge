@@ -203,11 +203,13 @@ export function createGroupAWriter(sink: FileSink, codec?: FileCodec): KindWrite
     write: async (kind, row) => {
       checkKind(kind);
       if (kind !== "comments") itemFiles.clear();
+      // Recorded before the save: a save that throws on a kept user file leaves that file holding the id, and
+      // readBack only counts ids it finds in files, so a failed save adds nothing.
+      written[kind]!.add(String(row.id));
       if (kind === "notes" && row.kind === "canvas") await writeCanvas(row);
       else if (kind === "notes") await notes.save(toPage(row));
       else if (kind === "papers") await papers.save(fileFields("papers", row) as unknown as Paper);
       else await writeComment(row);
-      written[kind]!.add(String(row.id));
     },
     readBack: async (kind) => {
       checkKind(kind);
