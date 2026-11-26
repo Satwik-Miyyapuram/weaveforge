@@ -111,3 +111,31 @@ test("an id with no folder is refused, not written into another project", async 
   active.id = "99999999-0000-4000-8000-000000000000";
   await assert.rejects(repos.paperRepository.list(), /not in the workspace/);
 });
+
+test("an annotation made on another project's paper is updated and removed there", async () => {
+  // The reader opens a paper of another project, makes a mark, then joins the next stroke to it by the mark's id.
+  const { fs, active, repos, other } = await two();
+  active.id = ONE.id;
+  assert.ok(await repos.paperRepository.getById("b"));
+  const draft = { type: "ink", color: "#000000", text: "", anchor: { rects: [], locus: null }, pageIndex: 0 } as never;
+  const made = await repos.readerAnnotationRepository.create("b", { ...(draft as object), id: "m1" } as never);
+  await repos.readerAnnotationRepository.create("b", { ...(draft as object), id: "m2" } as never);
+  const updated = await repos.readerAnnotationRepository.update(made.id, { comment: "joined" });
+  assert.equal(updated.comment, "joined");
+  await repos.readerAnnotationRepository.remove("m2");
+  assert.deepEqual((await repos.readerAnnotationRepository.list("b")).map((a) => [a.id, a.comment]), [["m1", "joined"]]);
+  assert.match(await fs.readText(`${other}/papers/b.annotations.json`), /joined/);
+});
+
+test("an annotation of another project's paper listed after a restart is still updated there", async () => {
+  const { fs, active, repos, other } = await two();
+  active.id = TWO.id;
+  const draft = { type: "ink", color: "#000000", text: "", anchor: { rects: [], locus: null }, pageIndex: 0, id: "m1" } as never;
+  await repos.readerAnnotationRepository.create("b", draft);
+  // A fresh backend (the app restarted) with project One active: the reader opens paper b and lists its marks.
+  const again = wireProjectFileBackend({ fs, settings: new MemorySettings(), secrets: SECRETS }, () => ONE.id);
+  assert.ok(await again.paperRepository.getById("b"));
+  assert.deepEqual((await again.readerAnnotationRepository.list("b")).map((a) => a.id), ["m1"]);
+  await again.readerAnnotationRepository.update("m1", { comment: "after restart" });
+  assert.match(await fs.readText(`${other}/papers/b.annotations.json`), /after restart/);
+});

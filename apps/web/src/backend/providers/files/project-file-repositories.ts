@@ -88,6 +88,13 @@ export function wireProjectFileBackend(parts: FileBackendParts, pid: () => strin
     return homes.get(String(id)) ?? homes.get(String(paperId));
   };
 
+  const rememberHome = (result: unknown, home: string): void => {
+    for (const row of Array.isArray(result) ? result : [result]) {
+      const rowId = typeof row === "object" && row !== null ? (row as { id?: unknown }).id : undefined;
+      if (typeof rowId === "string") homes.set(rowId, home);
+    }
+  };
+
   const findElsewhere = async (key: ProjectKey, id: string, searched: string | null): Promise<unknown> => {
     for (const project of await projects.list()) {
       if (project.id === searched) continue;
@@ -105,8 +112,11 @@ export function wireProjectFileBackend(parts: FileBackendParts, pid: () => strin
         const member: unknown = Reflect.get(target, prop);
         if (typeof prop !== "string" || typeof member !== "function" || prop === "constructor") return member;
         return async (...args: unknown[]) => {
-          const id = homeOf(args[0]) ?? pid();
+          const home = homeOf(args[0]);
+          const id = home ?? pid();
           const result = await methodsOf(await reposFor(id), key)[prop]!(...args);
+          // Rows a call on another project returns (a paper's annotations) are written back there by their own id.
+          if (home !== undefined) rememberHome(result, home);
           if (prop !== "getById" || (result !== null && result !== undefined)) return result;
           return findElsewhere(key, args[0] as string, id);
         };
