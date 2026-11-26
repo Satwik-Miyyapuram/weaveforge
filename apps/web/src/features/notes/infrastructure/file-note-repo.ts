@@ -56,11 +56,26 @@ interface Found {
   path: string;
   text: string;
   page: VaultPage;
+  /** How many `../` the file's own relative image links climb, when it has any. */
+  hops?: number;
+}
+
+/** A relative image link, as files exported before 0.9.7 spell them: `](../../assets/notes/…)`. */
+const RELATIVE_ASSET = /\]\(((?:\.\.\/)*)assets\/(?:notes|papers|report)\//;
+
+/** The body with its relative image links turned into the `vault:` / `paperimg:` refs the app reads. */
+function fromRelativeLinks(body: string): string {
+  const core = readyCore();
+  const refs = core.planAssetReanchor(body, [], []).unresolved;
+  if (!refs.length) return body;
+  return core.fromRelativeBlobLinks(body, Object.fromEntries(refs.map((r) => [r.folderPath, r.storagePath])));
 }
 
 function parse(path: string, text: string): Found | null {
   const core = readyCore();
-  const { frontmatter, body } = core.readFrontmatter(text);
+  const { frontmatter, body: raw } = core.readFrontmatter(text);
+  const relative = RELATIVE_ASSET.exec(raw);
+  const body = relative ? fromRelativeLinks(raw) : raw;
   const field = (key: string) => core.frontmatterString(frontmatter, key);
   const id = field("weaveforge-id");
   const type = field("weaveforge-type");
@@ -78,7 +93,7 @@ function parse(path: string, text: string): Found | null {
   if (parent) page.parentId = parent;
   if (field("pinned") === "true") page.pinned = true;
   if (field("folder") === "true") page.folder = true;
-  return { path, text, page };
+  return relative ? { path, text, page, hops: relative[1]!.length / 3 } : { path, text, page };
 }
 
 /** The fields this repo owns, in a fixed order, so two pages compare by what the file stores. */
@@ -362,7 +377,10 @@ export class FileNoteRepository implements IVaultPageRepository, IVaultPageManag
       "created-at": page.createdAt,
       "updated-at": page.updatedAt,
     };
-    const text = core.writeFrontmatter(fields, lf(ink ? ink.text : page.body));
+    const body = lf(ink ? ink.text : page.body);
+    // A file that linked its images relatively keeps its own `../` spelling, so an unchanged save writes nothing.
+    const linked = found?.hops === undefined ? body : core.toRelativeBlobLinks(body, `${"x/".repeat(found.hops)}f.md`).body;
+    const text = core.writeFrontmatter(fields, linked);
     if (text === found?.text) return;
     await this.write(path, text, found?.text ?? null);
     this.loaded.set(page.id, text);

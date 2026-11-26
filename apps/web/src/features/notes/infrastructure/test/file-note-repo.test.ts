@@ -638,3 +638,50 @@ test("a rename with the same file name, a case-only rename and a save keep the p
   await repo.save(page({ title: "Renamed by save" }));
   assert.equal(await repo.pathOf("n-1"), kept);
 });
+
+// Files exported before 0.9.7 link images relative to the file (`../../assets/notes/…`); the app reads `vault:`.
+const REL = "thesis/notes/figures.note.md";
+// As the upgrade writes it: every field this repo owns is present.
+const OWNED = 'order: 0\ncreated-at: "2026-11-01T00:00:00Z"\nupdated-at: "2026-11-02T00:00:00Z"\n';
+const relFile = (body: string) =>
+  `---\nweaveforge-id: n-rel\nweaveforge-type: vault_page\ntitle: Figures\n${OWNED}---\n${body}`;
+const IMG = "![a](../../assets/notes/u/p/f.webp)\n";
+
+test("a note's relative image links open as vault: refs", async () => {
+  const { fs, repo } = setup();
+  await fs.writeFile(REL, relFile(IMG));
+  assert.equal((await repo.getById("n-rel"))!.body, "![a](vault:u/p/f.webp)\n");
+});
+
+test("a note with relative image links saved unchanged writes nothing, and an edit keeps the relative links", async () => {
+  const { fs, repo } = setup();
+  await fs.writeFile(REL, relFile(IMG));
+  const opened = (await repo.getById("n-rel"))!;
+  const before = await fs.readText(REL);
+  await repo.save(opened);
+  assert.equal(await fs.readText(REL), before, "byte-identical when unchanged");
+  await repo.save({ ...opened, body: `${opened.body}more words\n` });
+  const text = await fs.readText(REL);
+  assert.match(text, /\]\(\.\.\/\.\.\/assets\/notes\/u\/p\/f\.webp\)/);
+  assert.doesNotMatch(text, /vault:/);
+  assert.match(text, /more words/);
+});
+
+test("a legacy .ink.md figure with a relative link opens as a vault: figure", async () => {
+  const { fs, repo } = setup();
+  const fig = "![figure x=1 y=2 w=3 h=4](../../assets/notes/u/p/f.webp)\n";
+  const original = inkFile("n-ink", "Distill").replace("ink-pages: 2\n", `ink-pages: 2\n${OWNED}`);
+  await fs.writeFile(INK, original.replace("<!-- page 2 -->\n", `<!-- page 2 -->\n${fig}`));
+  const body = (await repo.getById("n-ink"))!.body;
+  assert.match(core().readInkNoteBody(body).text, /\(vault:u\/p\/f\.webp\)/);
+  const before = await fs.readText(INK);
+  await repo.save((await repo.getById("n-ink"))!);
+  assert.equal(await fs.readText(INK), before, "byte-identical when unchanged");
+});
+
+test("a note without relative links keeps vault: refs on save", async () => {
+  const { fs, repo } = setup();
+  await repo.save(page({ body: "![a](vault:u/p/f.webp)\n" }));
+  const [path] = await files(fs);
+  assert.match(await fs.readText(path!), /\(vault:u\/p\/f\.webp\)/);
+});

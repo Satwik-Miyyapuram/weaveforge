@@ -118,7 +118,8 @@ export function PageEditor({
   const canvas = page.kind === "canvas";
   const readBody = useMemo(() => readyCore().readableText(page.body), [page.body]);
   const canEditBody = !readOnly;
-  const canEditTitle = canEditBody && !ink && !sharedPage;
+  // An ink note's title is its frontmatter title like any note's; a rename moves its strokes with it.
+  const canEditTitle = canEditBody && !sharedPage;
   const view: NoteMode = canEditBody ? mode : "read";
   const hasBody = !!readBody.trim();
   const inkFocus = useInkFocus(view === "ink");
