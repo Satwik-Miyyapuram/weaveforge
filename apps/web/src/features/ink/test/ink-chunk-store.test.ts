@@ -442,3 +442,38 @@ test("migration: a chunk that lands between the folder check and the copy is not
   assert.equal(folder.writes, 0);
   assert.deepEqual([...(await fs.readFile(path))], [7, 7, 7]);
 });
+
+test("the folder store hands back the same bytes while the file is unchanged, so decoded strokes are reused", async () => {
+  let clock = "2026-01-01T00:00:00.000Z";
+  // Every read comes back as new bytes, as it does over IPC from the desktop folder.
+  class CopyingFs extends MemoryWorkspaceFs {
+    override async readFile(path: string): Promise<Uint8Array> {
+      return new Uint8Array(await super.readFile(path));
+    }
+  }
+  const fs = new CopyingFs(() => clock);
+  await fs.mkdirp("p/notes");
+  await fs.writeFile(NOTE_PATH, `---
+weaveforge-id: ${NOTE}
+weaveforge-type: ink_page
+---
+`);
+  const store = folderStore(fs);
+  const id = typedCore().newInkChunkId();
+  const path = typedCore().inkChunkPath(NOTE_PATH, id);
+  await store.write(NOTE, id, new Uint8Array([1, 2]));
+  const first = await store.read(NOTE, id);
+  assert.equal(await store.read(NOTE, id), first);
+
+  // Our own write, same size and same clock tick: never the old bytes.
+  await store.write(NOTE, id, new Uint8Array([3, 4]));
+  assert.deepEqual([...(await store.read(NOTE, id))!], [3, 4]);
+
+  // Another program rewrites the file (sync, git pull): a new time means a new read.
+  clock = "2026-01-01T00:00:05.000Z";
+  await fs.writeFile(path, new Uint8Array([5, 6]));
+  assert.deepEqual([...(await store.read(NOTE, id))!], [5, 6]);
+
+  await store.remove(NOTE, id);
+  assert.equal(await store.read(NOTE, id), null);
+});

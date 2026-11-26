@@ -453,6 +453,9 @@ export class FolderInkNotes implements InkNoteLocator {
   }
 }
 
+/** How many chunk files' bytes `FsInkChunkStore` keeps between reads. */
+const KEPT_CHUNKS = 64;
+
 /**
  * Chunks in the workspace folder, beside their note: `notes/foo.ink/<ulid>.inkb`.
  *
@@ -471,6 +474,14 @@ export class FolderInkNotes implements InkNoteLocator {
  * strokes by id. A note with no file has no strokes, and writing to it fails.
  */
 export class FsInkChunkStore implements InkChunkStore, InkMigrationMarks {
+  /**
+   * The bytes last read per chunk file, with the size and time they were read at. The
+   * same bytes for an unchanged file let the decoded strokes and their outlines, cached
+   * by those bytes, be reused: a Text/Ink switch then draws at once instead of decoding
+   * every page again.
+   */
+  private readonly kept = new Map<string, { size: number; modifiedAt: string; bytes: Uint8Array }>();
+
   constructor(
     private readonly fs: () => IWorkspaceFs | null,
     private readonly notes: InkNoteLocator,
@@ -480,20 +491,34 @@ export class FsInkChunkStore implements InkChunkStore, InkMigrationMarks {
   async read(noteId: string, chunkId: string): Promise<Uint8Array | null> {
     return this.at(noteId, () => null, async (fs, note) => {
       const path = typedCore().inkChunkPath(note, chunkId);
-      return (await fs.stat(path)) ? fs.readFile(path) : null;
+      const stat = await fs.stat(path);
+      if (!stat) {
+        this.kept.delete(path);
+        return null;
+      }
+      const hit = this.kept.get(path);
+      this.kept.delete(path);
+      const bytes = hit && hit.size === stat.size && hit.modifiedAt === stat.modifiedAt ? hit.bytes : await fs.readFile(path);
+      this.kept.set(path, { size: stat.size, modifiedAt: stat.modifiedAt, bytes });
+      // The oldest goes first, so a long session holds only the pages lately shown.
+      if (this.kept.size > KEPT_CHUNKS) this.kept.delete(this.kept.keys().next().value!);
+      return bytes;
     });
   }
 
   async write(noteId: string, chunkId: string, bytes: Uint8Array): Promise<void> {
     return this.at(noteId, noFile(noteId), async (fs, note) => {
+      const path = typedCore().inkChunkPath(note, chunkId);
+      this.kept.delete(path);
       await fs.mkdirp(typedCore().inkStrokesDir(note));
-      await fs.writeFile(typedCore().inkChunkPath(note, chunkId), bytes);
+      await fs.writeFile(path, bytes);
     }, true);
   }
 
   async remove(noteId: string, chunkId: string): Promise<void> {
     return this.at(noteId, () => undefined, async (fs, note) => {
       const path = typedCore().inkChunkPath(note, chunkId);
+      this.kept.delete(path);
       if (await fs.stat(path)) await fs.remove(path);
     }, true);
   }
