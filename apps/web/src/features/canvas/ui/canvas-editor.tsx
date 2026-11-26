@@ -11,7 +11,6 @@ import {
   type DragEvent,
   type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
-  type ReactNode,
 } from "react";
 import { readyCore } from "@/lib/rust-core";
 import { flushWhenHidden, holdCloseWhile } from "@/lib/desktop/close-flush";
@@ -63,6 +62,7 @@ import { canvasKeyAction, focusesOnPress } from "../application/canvas-keys";
 import { CanvasCard } from "./canvas-nodes";
 import { EdgeLayer } from "./canvas-edges";
 import { InkLayer, type InkDraft } from "./canvas-ink";
+import { Glyph, MODES, type Mode } from "./canvas-tools";
 import { loadNaturalSize, type CanvasImages } from "../application/canvas-images";
 import { exportDrawing, importDrawing } from "../application/excalidraw-transfer";
 
@@ -81,8 +81,6 @@ export interface CanvasEditorProps {
   /** This page's picture store, memoised by the caller per page. */
   images: CanvasImages;
 }
-
-type Mode = "type" | "pen" | "eraser" | "select";
 
 interface Point {
   x: number;
@@ -110,21 +108,6 @@ const DEFAULT_VIEW: PageView = { x: 0, y: 0, zoom: 1 };
 const ERASER_RADIUS = 10;
 const CARD_SIZE: Size = { width: 320, height: 120 };
 const GROUP_SIZE: Size = { width: 320, height: 200 };
-
-function Glyph({ d }: { d: string }) {
-  return (
-    <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false">
-      <path d={d} fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
-const MODES: { mode: Mode; label: string; icon: ReactNode }[] = [
-  { mode: "select", label: "Select", icon: <Glyph d="M5 3l13 8-5.5 1.5L15 19l-2.5 1-2.7-6.4L5 17z" /> },
-  { mode: "type", label: "Type", icon: <Glyph d="M5 6V4h14v2M12 4v16M9 20h6" /> },
-  { mode: "pen", label: "Pen", icon: <Glyph d="M4 20l1.2-4.2L15.8 5.2a2 2 0 0 1 2.8 0l.2.2a2 2 0 0 1 0 2.8L8.2 18.8z" /> },
-  { mode: "eraser", label: "Eraser", icon: <Glyph d="M3 17l8.5-8.5a2 2 0 0 1 2.8 0l4.2 4.2a2 2 0 0 1 0 2.8L14 21H8zM7 12l5 5" /> },
-];
 
 function isImage(file: File): boolean {
   return file.type.startsWith("image/");
