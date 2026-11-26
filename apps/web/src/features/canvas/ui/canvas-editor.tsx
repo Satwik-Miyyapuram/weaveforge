@@ -45,7 +45,15 @@ import {
   type Size,
 } from "../application/freeform-geometry";
 import { encodeStroke, eraseHits, strokeAt, type InkPoint } from "../application/freeform-ink";
-import { CANVAS_PEN_COLOUR_KEY, DEFAULT_PEN_COLOUR, penColourFrom } from "../application/pen-colour";
+import {
+  CANVAS_PEN_COLOUR_KEY,
+  CANVAS_PEN_WIDTH_KEY,
+  DEFAULT_PEN_COLOUR,
+  DEFAULT_PEN_WIDTH,
+  PEN_WIDTHS,
+  penColourFrom,
+  penWidthFrom,
+} from "../application/pen-colour";
 import { workspaceSettings } from "@/features/settings/application/workspace-settings";
 import { canonicalInkColour, resolveInkColour } from "@/features/ink/render/resolve-ink-colour";
 import { useThemeInk } from "@/features/ink/render/use-theme-ink";
@@ -93,11 +101,11 @@ type Gesture =
 const subscribeSettings = (listener: () => void) => workspaceSettings.subscribe(listener);
 const readPenColour = () => penColourFrom(workspaceSettings.get(CANVAS_PEN_COLOUR_KEY));
 const serverPenColour = () => DEFAULT_PEN_COLOUR;
+const readPenWidth = () => penWidthFrom(workspaceSettings.get(CANVAS_PEN_WIDTH_KEY));
+const serverPenWidth = () => DEFAULT_PEN_WIDTH;
 
 const EMPTY_FILE: CanvasFile = { nodes: [], edges: [] };
 const DEFAULT_VIEW: PageView = { x: 0, y: 0, zoom: 1 };
-const PEN_WIDTHS = [2, 4, 8, 16];
-const DEFAULT_WIDTH = 4;
 /** The eraser reaches this many screen pixels, whatever the zoom. */
 const ERASER_RADIUS = 10;
 const CARD_SIZE: Size = { width: 320, height: 120 };
@@ -166,7 +174,8 @@ export default function CanvasEditor({ body, onSave, filePaths, onOpenFile, imag
   const colour = useSyncExternalStore(subscribeSettings, readPenColour, serverPenColour);
   const setColour = useCallback((next: string) => workspaceSettings.set(CANVAS_PEN_COLOUR_KEY, next), []);
   const ink = useThemeInk();
-  const [width, setWidth] = useState(DEFAULT_WIDTH);
+  const width = useSyncExternalStore(subscribeSettings, readPenWidth, serverPenWidth);
+  const setWidth = useCallback((next: number) => workspaceSettings.set(CANVAS_PEN_WIDTH_KEY, next), []);
   const [view, setView] = useState<PageView>(DEFAULT_VIEW);
   const [draft, setDraft] = useState<InkDraft | null>(null);
   const gestureRef = useRef<Gesture | null>(null);

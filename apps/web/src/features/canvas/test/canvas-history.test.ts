@@ -38,16 +38,16 @@ test("recording the same snapshot again is not a change", () => {
   assert.equal(record(h, "a"), h);
 });
 
-test("the history keeps at most 50 earlier snapshots", () => {
-  assert.equal(HISTORY_LIMIT, 50);
+test("the history keeps at most 1000 earlier snapshots, so a page of handwriting undoes back to blank", () => {
+  assert.equal(HISTORY_LIMIT, 1000);
   let h = createHistory(0);
-  for (let i = 1; i <= 80; i++) h = record(h, i);
-  assert.equal(h.past.length, 50);
+  for (let i = 1; i <= 1030; i++) h = record(h, i);
+  assert.equal(h.past.length, 1000);
   let steps = 0;
   while (canUndo(h)) {
     h = undo(h);
     steps += 1;
   }
-  assert.equal(steps, 50);
+  assert.equal(steps, 1000);
   assert.equal(h.present, 30);
 });

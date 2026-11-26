@@ -1598,6 +1598,7 @@ export function PdfReader({
           viewOnly={viewOnly}
           tool={barToolFor(pen.prefs.tool)}
           colour={drawColour}
+          palette={inkPalette}
           width={inkWidth}
           highlighterWidth={markerWidth}
           canUndo={inkUndo.canUndo}
