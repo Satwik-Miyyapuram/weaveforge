@@ -12,6 +12,8 @@ import { fileURLToPath } from "node:url";
 
 import { type NoteFiles, withDeleteTrashesFile } from "../application/delete-trashes-file";
 
+type Pages = { remove(id: string): Promise<void> };
+
 function harness(options: { path?: string | null; trashFails?: boolean; removeFails?: boolean } = {}) {
   const steps: string[] = [];
   const warnings: string[] = [];
@@ -36,24 +38,24 @@ function harness(options: { path?: string | null; trashFails?: boolean; removeFa
   return { repo, steps, warnings };
 }
 
-test("deleting a note removes the row, then trashes its file", async () => {
+test("deleting a note finds its file, removes the note, then trashes the file", async () => {
   const { repo, steps, warnings } = harness();
   await repo.remove("n1");
-  assert.deepEqual(steps, ["remove n1", "find n1", "trash notes/n1.md"]);
+  assert.deepEqual(steps, ["find n1", "remove n1", "trash notes/n1.md"]);
   assert.deepEqual(warnings, []);
 });
 
 test("a note with no file in the folder (or no folder open) is only removed from the database", async () => {
   const { repo, steps, warnings } = harness({ path: null });
   await repo.remove("n1");
-  assert.deepEqual(steps, ["remove n1", "find n1"]);
+  assert.deepEqual(steps, ["find n1", "remove n1"]);
   assert.deepEqual(warnings, []);
 });
 
 test("a failed trash keeps the delete and warns instead of throwing", async () => {
   const { repo, steps, warnings } = harness({ trashFails: true });
   await repo.remove("n1");
-  assert.deepEqual(steps, ["remove n1", "find n1"]);
+  assert.deepEqual(steps, ["find n1", "remove n1"]);
   assert.equal(warnings.length, 1);
   assert.match(warnings[0] ?? "", /disk full/);
 });
@@ -61,7 +63,30 @@ test("a failed trash keeps the delete and warns instead of throwing", async () =
 test("a failed database delete leaves the file alone and throws", async () => {
   const { repo, steps } = harness({ removeFails: true });
   await assert.rejects(repo.remove("n1"), /offline/);
-  assert.deepEqual(steps, []);
+  assert.deepEqual(steps, ["find n1"], "nothing is trashed");
+});
+
+test("a note whose repository trashes its file still has its strokes folder trashed", async () => {
+  // The file repository moves the .md itself, so the path must be found before the delete.
+  let exists = true;
+  const trashed: string[] = [];
+  const pages: Pages = { remove: async () => void (exists = false) };
+  const files: NoteFiles = {
+    pathOf: async () => (exists ? "notes/a.note.md" : null),
+    trash: async (path) => void trashed.push(path),
+  };
+  await withDeleteTrashesFile(pages, files, () => {}).remove("n1");
+  assert.deepEqual(trashed, ["notes/a.note.md"]);
+});
+
+test("a failed file lookup still deletes the note and warns", async () => {
+  const warnings: string[] = [];
+  let removed = false;
+  const files: NoteFiles = { pathOf: async () => Promise.reject(new Error("no folder")), trash: async () => {} };
+  const pages: Pages = { remove: async () => void (removed = true) };
+  await withDeleteTrashesFile(pages, files, (m) => warnings.push(m)).remove("n1");
+  assert.equal(removed, true);
+  assert.match(warnings[0] ?? "", /no folder/);
 });
 
 test("the other repository methods pass through", async () => {

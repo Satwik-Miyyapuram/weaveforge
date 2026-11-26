@@ -12,9 +12,11 @@ export interface NoteFiles {
  *
  * Files are the source of truth (0.9.5): a delete that removed only the row
  * left the `.md` behind, and the next "Check for changes" offered it as a new
- * note. The row goes first; a file that cannot be moved is reported through
- * `warn` and the delete still stands, since the import then reads the file's
- * unchanged manifest base as "deleted in the app".
+ * note. The path is found first, since a file repository's delete moves the
+ * `.md` itself and the strokes folder would then be left behind. A file that
+ * cannot be found or moved is reported through `warn` and the delete still
+ * stands, since the import then reads the file's unchanged manifest base as
+ * "deleted in the app".
  */
 export function withDeleteTrashesFile<T extends { remove(id: string): Promise<void> }>(
   pages: T,
@@ -22,10 +24,16 @@ export function withDeleteTrashesFile<T extends { remove(id: string): Promise<vo
   warn: (message: string) => void,
 ): T {
   const remove = async (id: string): Promise<void> => {
+    let path: string | null = null;
+    let lookupError: unknown = null;
+    try {
+      path = await files.pathOf(id);
+    } catch (error) {
+      lookupError = error;
+    }
     await pages.remove(id);
     try {
-      // Found after the delete: the file still carries the note's weaveforge-id.
-      const path = await files.pathOf(id);
+      if (lookupError) throw lookupError;
       if (path) await files.trash(path);
     } catch (error) {
       warn(`Note deleted, but its file stays in the workspace folder: ${error instanceof Error ? error.message : String(error)}`);
