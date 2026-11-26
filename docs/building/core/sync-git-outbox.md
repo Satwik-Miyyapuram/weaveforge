@@ -14,7 +14,6 @@ These modules hold the pure parts of git sync, the Mattermost messages, the outb
 | `mattermost_options` | `mattermost_events`, `mattermost_options`, `mattermost_channel_for` | `mattermostEvents`, `mattermostOptions`, `mattermostChannelFor` | `apps/web/src/features/sync/ui/sync-settings.tsx`, `apps/web/src/integrations/manifests/mattermost.ts` |
 | `outbox_rows` | `outbox_entry`, `outbox_entries` | `outboxEntries` | `apps/web/src/features/offline-sync/domain/parts-2.ts` |
 | `outbox_sides` | `edit_sides`, `deleted_remote_sides`, `deleted_local_base` | `editSides`, `deletedRemoteSides`, `deletedLocalBase` | `apps/web/src/features/offline-sync/domain/parts-1.ts` |
-| `postgrest_wire` | `writable`, `error_info` | — | — |
 | `sql_ident` | `quote_ident` | `quoteIdent` | `apps/web/src/features/offline-sync/domain/parts-1.ts`, `apps/web/src/features/offline-sync/domain/parts-2.ts` |
 
 Rules:
@@ -30,6 +29,4 @@ Rules:
 - `outbox_rows`: `JsNumber` reads text the way JS `Number()` does: blank gives 0, `inf` or `nan` gives NaN. `outbox_entries` keeps row order.
 - `outbox_sides`: `edit_sides` takes the base from the first non-delete op and the local side from the last. `None` when only deletes are owed.
 - `outbox_sides`: `deleted_remote_sides` uses the stored row when given, else the last owed payload. `deleted_local_base` reads the first op of any kind, deletes included.
-- `postgrest_wire`: `GENERATED` is `vault_pages: body_preview` and `paper_tags: id`. `writable` strips those columns for their own table only.
-- `postgrest_wire`: `error_info` reads JSON `code` and `message`. Without a JSON `message` it keeps the raw body, truncated to 200 UTF-16 units.
 - `sql_ident`: `quote_ident` wraps the name in double quotes and doubles any embedded quote.

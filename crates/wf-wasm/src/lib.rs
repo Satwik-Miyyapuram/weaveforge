@@ -731,7 +731,6 @@ mod sync_mattermost_messages;
 mod sync_mattermost_post;
 mod sync_panel_labels;
 mod sync_phase;
-mod sync_postgrest_transport;
 mod sync_preview_folder;
 mod vault_import_links;
 mod vault_link_resolve;

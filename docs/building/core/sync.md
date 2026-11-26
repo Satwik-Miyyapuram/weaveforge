@@ -155,7 +155,6 @@ These modules sit beside the ones above. Each rule is pure. TS keeps the I/O.
 | `instant` | `parse_instant`, `format_instant` | native only | — |
 | `integration_fields` | `git_connection_ready`, `mattermost_connection_ready`, `DEFAULT_GIT_BRANCH` | `gitConnection`, `mattermostConnection`, `gitConnectionReady`, `mattermostConnectionReady`, `emptyIntegration` | `apps/web/src/features/sync/infrastructure/parts.ts`, `apps/web/src/features/sync/ui/sync-settings.tsx`, `apps/web/src/features/sync/ui/git-screen.tsx` |
 | `json_entities` | `json_data_path`, `json_kind_of_path`, `parse_json_data`, `diff_json_data`, `is_app_owned_path` | `jsonDataPath`, `parseJsonData`, `diffJsonData`, `countJsonActions`, `addCounts`, `jsonKindOfPath`, `isAppOwnedPath` | `apps/web/src/features/workspace/application/parts-1.ts` |
-| `local_first_route` | `SYNCED_TABLES`, `BOTH_END_RPCS`, `both_ends_merge` | `syncedTables`, `isBothEndsRpc`, `bothEndsMerge` | `apps/web/src/backend/providers/local/local-first.ts` |
 | `markdown_image` | `markdown_image`, `image_alt_from_filename`, `image_extension_for_mime`, `find_image_refs`, `image_paths_in_body`, `normalize_markdown_image_syntax` | `markdownImage`, `imageAltFromFilename`, `imageExtensionForMime`, `findImageRefs`, `imagePathsInBody`, `normalizeMarkdownImageSyntax` | `apps/web/src/lib/editor-image-upload.ts`, `apps/web/src/features/vault/lib/materialize-blob-images.ts`, `apps/web/src/features/logbook/ui/log-image-upload.ts`, `apps/web/src/features/papers/lib/parts.ts` |
 | `memory_fs` | `MemoryWorkspaceFs`, `with_clock` | native only | — |
 | `merge` | `merge_rows`, `same_value` | `mergeRows`, `sameValue` | `sameValue`: `apps/web/src/features/offline-sync/ui/sync-issues-panel.tsx`. `mergeRows`: — |
@@ -176,7 +175,6 @@ Rules:
 - `instant`: a time with no offset is read as UTC.
 - `integration_fields`: the default git branch is `main`. Git is ready when enabled, with a non-blank token and repo. Mattermost is ready when enabled, with a non-blank bot token, server URL and channel id.
 - `json_entities`: the three JSON files are `relations.json`, `tags.json` and `reading-list-items.json`. `parse_json_data` returns None for non-array content, so a parse error never reads as a deletion. App-owned paths are `.git`, `README.md`, `.weaveforge/{db,db-backups,cache}`, `mirror.json`, `manifest.json` and `papers/{pdf,html}`.
-- `local_first_route`: `SYNCED_TABLES` has 18 entries. `BOTH_END_RPCS` is `metric_history` and `latest_metric_activity`. If both ends fail, the result is `ServerError`. `metric_history` gives `PreferLocalRows`. Other RPCs give `ConcatRows`.
 - `markdown_image`: `VAULT_IMAGE_PREFIX` is `vault:`. Scanners are hand-written, with no regex crate. The default alt text is `image`. `image_extension_for_mime` falls back to `png`.
 - `memory_fs`: a map-backed filesystem for tests and the serializer. Listings sort by byte order. `with_clock` sets the clock.
 - `merge`: `RESERVED` columns are `id`, `server_seq`, `row_version` and `created_at`. Missing keys read as null. Conflicts come in order: local keys first, then remote-only keys.
