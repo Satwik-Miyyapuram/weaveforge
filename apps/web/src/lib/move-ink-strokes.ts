@@ -48,6 +48,8 @@ export async function moveInkStrokes(fs: IWorkspaceFs, fromNote: string, toNote:
     // different page already at the new place, keeps it.
     if (sameBytes(await fs.readFile(dest), page)) await fs.remove(entry.path);
   }
+  // Every page moved: the old folder is empty and goes too. Anything left in it keeps it.
+  if (!sameFolderMaybe && (await fs.list(from)).length === 0) await fs.remove(from);
 }
 
 function sameBytes(a: Uint8Array, b: Uint8Array): boolean {

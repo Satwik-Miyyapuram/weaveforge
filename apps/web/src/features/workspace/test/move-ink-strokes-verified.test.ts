@@ -74,3 +74,23 @@ test("a verified copy removes the source page", async () => {
   assert.deepEqual([...(await fs.readFile(dest))], [...PAGE]);
   assert.equal(await fs.stat(src), null);
 });
+
+test("a folder emptied by the move is removed, so no empty strokes folder stays behind", async () => {
+  const { fs, from, to } = await setup();
+
+  await moveInkStrokes(fs, from, to);
+
+  assert.equal(await fs.stat(core.inkStrokesDir(from)), null);
+});
+
+test("a folder that still holds a page or a subfolder stays", async () => {
+  const { fs, from, to, src, dest } = await setup();
+  await fs.mkdirp(`${core.inkStrokesDir(from)}/keep`);
+  await fs.mkdirp(core.inkStrokesDir(to));
+  await fs.writeFile(dest, new Uint8Array([9]));
+
+  await moveInkStrokes(fs, from, to);
+
+  assert.deepEqual([...(await fs.readFile(src))], [...PAGE]);
+  assert.ok(await fs.stat(`${core.inkStrokesDir(from)}/keep`));
+});
