@@ -42,8 +42,9 @@ function itemIdOf(listId: string, target: LinkTarget): string {
   return `${listId}:${targetIdOf(target)}`;
 }
 
+/** A hand-made list file may have no `order`: it sorts as 0. */
 function plainList({ members: _m, memberNotes: _n, ...list }: ListRow): ReadingList {
-  return list;
+  return { ...list, sortOrder: list.sortOrder ?? 0 };
 }
 
 function byOrderThenName(a: ReadingList, b: ReadingList): number {

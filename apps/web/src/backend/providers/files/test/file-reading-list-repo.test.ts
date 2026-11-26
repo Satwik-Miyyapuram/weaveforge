@@ -193,3 +193,15 @@ test("deleting a list hides its members; the list file goes to the trash", async
   for await (const e of fs.walk(".weaveforge/trash")) if (e.kind === "file") trashed += 1;
   assert.equal(trashed, 1);
 });
+
+test("a hand-made list file without order reads as order 0, so list and getTree work", async () => {
+  const { fs, lists } = await setup();
+  await fs.writeFile(
+    `${ROOT}/reading-lists/distillation/distillation.list.md`,
+    '---\nweaveforge-id: "l-hand"\nweaveforge-type: reading_list\ntitle: Distillation\ncreated-at: "2026-10-07T10:56:15.188Z"\n---\n',
+  );
+  await lists.save(list({ id: "l-saved", name: "Alpha", sortOrder: 1 }));
+  assert.deepEqual((await lists.list()).map((l) => [l.id, l.sortOrder]), [["l-hand", 0], ["l-saved", 1]]);
+  assert.deepEqual((await lists.getTree()).map((n) => n.list.id), ["l-hand", "l-saved"]);
+  assert.equal((await lists.getById("l-hand"))?.sortOrder, 0);
+});
