@@ -34,6 +34,7 @@ import { canvasImages } from "@/features/canvas/application/canvas-images";
 import { resolveCanvasFile } from "@/features/canvas/application/canvas-files";
 import { NoteTagEditor } from "./note-tag-editor";
 import { runNoteAction } from "./run-note-action";
+import { refreshOnModeChange } from "./note-mode-refresh";
 import { RowButton } from "@/components/controls";
 import { Button, IconButton, IconLink } from "@/components/button";
 
@@ -89,6 +90,20 @@ export function PageEditor({
   const [mode, setMode] = useState<NoteMode>(() => openMode(page.body));
   const modeRef = useRef<NoteMode>(mode);
   modeRef.current = mode;
+  /** A body was stored since the list last reloaded. */
+  const savedRef = useRef(false);
+  const onChangedRef = useRef(onChanged);
+  onChangedRef.current = onChanged;
+  // A note put away from Text or Ink with a save the list has not seen reloads it on close.
+  useEffect(
+    () => () => {
+      if (savedRef.current) {
+        savedRef.current = false;
+        void onChangedRef.current();
+      }
+    },
+    [page.id],
+  );
   /** The rendered note, which margin comments select from and light up. */
   const noteTextRef = useRef<HTMLDivElement>(null);
   const [busy, setBusy] = useState(false);
@@ -130,7 +145,7 @@ export function PageEditor({
    * Every body write, from any mode — the host saves as it goes, the way it
    * does in the Editor. The list is refreshed from Read only: a new body
    * arriving mid-edit or mid-stroke would shut the surface under the writer,
-   * so Edit and Ink refresh once they are put away (`chooseMode`).
+   * so a saved body reaches the list on Read or when the note closes.
    */
   // The body the store last held: a save names it, so an edit someone else
   // saved since is merged in or kept as a copy. Saves of a note run one at a
@@ -159,6 +174,7 @@ export function PageEditor({
           ...(meta?.sessionDigests ? { sessionDigests: meta.sessionDigests } : {}),
         });
         conflictCopyId = saved.conflictCopyId ?? undefined;
+        savedRef.current = true;
         return saved.body;
       });
       if (conflictCopyId) {
@@ -180,7 +196,10 @@ export function PageEditor({
           vault.uploadAsset(id, blob, ext),
         );
         await storeBody(body, meta);
-        if (modeRef.current === "read") await onChanged();
+        if (modeRef.current === "read") {
+          savedRef.current = false;
+          await onChanged();
+        }
         // The text is saved; a failed upload is still said out loud.
         if (uploadError) throw uploadError;
       } catch (err) {
@@ -267,11 +286,14 @@ export function PageEditor({
     });
   }
 
-  /** The switch in the section head. Leaving Edit or Ink refreshes the list. */
+  /** The switch in the section head. Text and Ink swap at once; Read takes a saved body into the list. */
   function chooseMode(next: NoteMode) {
     if (next === mode) return;
     setSaveError(null);
-    if (mode !== "read") void onChanged();
+    if (refreshOnModeChange(next, savedRef.current)) {
+      savedRef.current = false;
+      void onChanged();
+    }
     setMode(next);
   }
 
