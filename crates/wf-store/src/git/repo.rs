@@ -9,11 +9,13 @@ use git2::{
     Status, StatusOptions,
 };
 
+use crate::checked_write::write_temp;
 use crate::git::policy::{
     CommitAction, FileState, IGNORED_DIRS, IGNORED_EXTENSIONS, IGNORED_FILES, MAX_FILE_BYTES,
     MIRROR_MANIFEST_EXCLUDE, RepoState, STALE_META_EXCLUDE, decide_commit, decide_path,
     describe_changes, is_local_meta, is_mirror_manifest, meta_exclude_lines,
 };
+use crate::vault::temp_beside;
 
 /// A lock this old is not a git still running.
 pub const STALE_LOCK_SECS: u64 = 5 * 60;
@@ -142,7 +144,14 @@ pub(crate) fn write_excludes(repo: &Repository) -> Result<(), RepoError> {
     }
     let io = |e: std::io::Error| RepoError::Git(e.to_string());
     fs::create_dir_all(&info).map_err(io)?;
-    fs::write(&file, text).map_err(io)
+    // Temp file then rename: a crash mid-write never leaves a truncated exclude (F97-P2-8).
+    let temp = temp_beside(&file);
+    write_temp(&temp, text.as_bytes())
+        .and_then(|()| fs::rename(&temp, &file))
+        .map_err(|e| {
+            let _ = fs::remove_file(&temp);
+            io(e)
+        })
 }
 
 /// A folder and its git history.

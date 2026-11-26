@@ -163,7 +163,9 @@ pub struct DrainReport {
 }
 
 /// Stores claimed `sdk_inbox` rows as files: metrics as chunks named
-/// `b<row id>`, artifacts as `<experiment>/artifacts/<run>/a<row id>.json`.
+/// `b<row id>-<digest of its points>`, so two rows that share an id never
+/// replace each other's chunk while a re-fetched row is still one chunk
+/// (F97-P2-10); artifacts as `<experiment>/artifacts/<run>/a<row id>.json`.
 /// `dirs` maps experiment ids to folders (see [`experiment_dirs`]).
 #[must_use]
 pub fn apply_inbox_rows(
@@ -226,16 +228,26 @@ fn store_metrics(
 ) -> Result<Vec<ChunkWrite>, String> {
     let points = payload.get("points").and_then(Value::as_array);
     let points = points.ok_or("payload has no points")?;
-    store_metric_points(vault, &format!("b{id}"), points, dirs)
+    store_grouped(
+        vault,
+        &format!("b{id}-{}", points_digest(points)),
+        Some(&format!("b{id}")),
+        points,
+        dirs,
+    )
 }
 
 /// The batch id for points posted to the local API: a digest of the points,
 /// so the same request sent twice names the same chunk.
 #[must_use]
 pub fn local_batch_id(points: &[Value]) -> String {
+    format!("l{}", points_digest(points))
+}
+
+/// The first 8 bytes of the points' SHA-256, as hex.
+fn points_digest(points: &[Value]) -> String {
     let digest = Sha256::digest(Value::from(points.to_vec()).to_string().as_bytes());
-    let hex: String = digest.iter().take(8).map(|b| format!("{b:02x}")).collect();
-    format!("l{hex}")
+    digest.iter().take(8).map(|b| format!("{b:02x}")).collect()
 }
 
 /// Writes SDK metric points (`{experiment_id, metric, step, value, run?,
@@ -247,6 +259,19 @@ pub fn local_batch_id(points: &[Value]) -> String {
 pub fn store_metric_points(
     vault: &Vault,
     batch_id: &str,
+    points: &[Value],
+    dirs: &HashMap<String, String>,
+) -> Result<Vec<ChunkWrite>, String> {
+    store_grouped(vault, batch_id, None, points, dirs)
+}
+
+/// Like [`store_metric_points`], but a group whose rows already sit in the
+/// legacy chunk `legacy` (the id 0.9.6 used, `b{id}`) byte for byte is not
+/// written again. A different chunk that only shares the id does not count.
+fn store_grouped(
+    vault: &Vault,
+    batch_id: &str,
+    legacy: Option<&str>,
     points: &[Value],
     dirs: &HashMap<String, String>,
 ) -> Result<Vec<ChunkWrite>, String> {
@@ -272,9 +297,26 @@ pub fn store_metric_points(
     // Write every chunk to a temp file first, then publish them all, so a
     // failed write leaves no part of the batch behind.
     let mut staged = Vec::with_capacity(groups.len());
+    let mut skipped = 0;
     for ((dir, run), rows) in &groups {
+        let bytes = encode(rows);
+        if let Some(old) = legacy {
+            let old_path = metrics_chunk_path(dir, run, old);
+            // Compare parsed rows, not bytes: 0.9.6 may have written CRLF, quoted cells or
+            // another number format for the same rows. An unreadable legacy chunk does not
+            // match, so the group is written again: that duplicates the data and never loses it.
+            if vault.read_file(&old_path).is_ok_and(|b| {
+                std::str::from_utf8(&b)
+                    .ok()
+                    .and_then(|text| decode(text).ok())
+                    .is_some_and(|old_rows| old_rows == *rows)
+            }) {
+                skipped += 1;
+                continue;
+            }
+        }
         let path = metrics_chunk_path(dir, run, batch_id);
-        match stage(vault, &path, encode(rows).as_bytes()) {
+        match stage(vault, &path, bytes.as_bytes()) {
             Ok(pair) => staged.push(pair),
             Err(e) => {
                 discard(&staged);
@@ -282,7 +324,9 @@ pub fn store_metric_points(
             }
         }
     }
-    publish(&staged)
+    let mut out = publish(&staged)?;
+    out.extend((0..skipped).map(|_| ChunkWrite::AlreadyPresent));
+    Ok(out)
 }
 
 /// A chunk written to a temp file beside its final path: `(temp, target)`.

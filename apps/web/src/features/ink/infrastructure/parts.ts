@@ -310,14 +310,21 @@ export class FolderInkNotes implements InkNoteLocator {
   private async scan(fs: IWorkspaceFs): Promise<void> {
     const claims = new Map<string, string[]>();
     const unpaired: string[] = [];
+    const notePaths: string[] = [];
     await walkNotes(fs, "", async (entry, kind) => {
-      if (kind === "unpaired") {
-        unpaired.push(entry.path);
-        return;
-      }
-      const id = await idOfNote(fs, entry.path);
-      if (id) claims.set(id, [...(claims.get(id) ?? []), entry.path]);
+      (kind === "unpaired" ? unpaired : notePaths).push(entry.path);
     });
+    // The walk just listed each file, so it is read without a stat, several at once: a big
+    // folder is hundreds of notes, and one call at a time made the first ink page wait seconds.
+    for (let at = 0; at < notePaths.length; at += SCAN_READS_AT_ONCE) {
+      const batch = notePaths.slice(at, at + SCAN_READS_AT_ONCE);
+      const ids = await Promise.all(batch.map((path) => idInFile(fs, path)));
+      batch.forEach((path, i) => {
+        const id = ids[i];
+        if (id) claims.set(id, [...(claims.get(id) ?? []), path]);
+      });
+    }
+    const legacyIds = await legacyInkIds(fs);
     const notes = new Map<string, string>();
     for (const [id, paths] of claims) {
       if (paths.length === 1) {
@@ -330,9 +337,11 @@ export class FolderInkNotes implements InkNoteLocator {
         `ink: ${paths.join(" and ")} all carry weaveforge-id ${id}; their strokes stay closed until each has its own id`,
       );
     }
+    this.closeSharedFolders(notes);
     this.paths.clear();
     for (const [id, path] of notes) this.paths.set(id, path);
     for (const [id, path] of notes) {
+      if (!legacyIds.has(id)) continue; // No `.ink/<id>/`: nothing to copy.
       try {
         await this.migrate(fs, id, path);
       } catch (err) {
@@ -357,12 +366,14 @@ export class FolderInkNotes implements InkNoteLocator {
     const files = (await fs.list(legacy)).filter((entry) => entry.kind === "file").map((entry) => entry.path);
     if (readyCore().inkChunkIdsInListing(files).length === 0) return;
     const target = typedCore().inkStrokesDir(notePath);
+    const ours = new Set(files.map((path) => `${baseName(path)}${PART}`));
     const present = new Set<string>();
     if (await fs.stat(target)) {
       for (const entry of await fs.list(target)) {
         const name = baseName(entry.path);
-        // A `.part` is our own unfinished copy; only a whole page counts as there.
-        if (name.endsWith(PART)) await fs.remove(entry.path);
+        // A `.part` named after a legacy file is our own unfinished copy; only a whole
+        // page counts as there. Any other `.part` is not ours to remove.
+        if (ours.has(name)) await fs.remove(entry.path);
         else present.add(name);
       }
     }
@@ -386,6 +397,33 @@ export class FolderInkNotes implements InkNoteLocator {
     await fs.writeFile(record, `${target}\n`);
     if (copy.length > 0) {
       this.report("info", `ink: copied ${copy.length} file(s) from ${legacy} to ${target}; ${legacy} is left as it was`);
+    }
+  }
+
+  /**
+   * `x/foo.md` and a legacy `x/foo.ink.md` both keep their pages in `x/foo.ink/`.
+   * With both present the folder's pages could be either's, so neither note
+   * gets strokes until one is renamed; the folder itself is left as it is.
+   */
+  private closeSharedFolders(notes: Map<string, string>): void {
+    const byFolder = new Map<string, string[]>();
+    for (const [id, path] of notes) {
+      let dir: string;
+      try {
+        dir = typedCore().inkStrokesDir(path);
+      } catch {
+        continue; // No usable folder: its writes fail on their own.
+      }
+      byFolder.set(dir, [...(byFolder.get(dir) ?? []), id]);
+    }
+    for (const [dir, ids] of byFolder) {
+      if (ids.length < 2) continue;
+      const paths = ids.map((id) => notes.get(id)!);
+      for (const id of ids) notes.delete(id);
+      this.report(
+        "error",
+        `ink: ${paths.join(" and ")} both keep their pages in ${dir}; their strokes stay closed until one is renamed`,
+      );
     }
   }
 
@@ -415,6 +453,9 @@ export class FolderInkNotes implements InkNoteLocator {
   }
 }
 
+/** How many chunk files' bytes `FsInkChunkStore` keeps between reads. */
+const KEPT_CHUNKS = 64;
+
 /**
  * Chunks in the workspace folder, beside their note: `notes/foo.ink/<ulid>.inkb`.
  *
@@ -433,6 +474,14 @@ export class FolderInkNotes implements InkNoteLocator {
  * strokes by id. A note with no file has no strokes, and writing to it fails.
  */
 export class FsInkChunkStore implements InkChunkStore, InkMigrationMarks {
+  /**
+   * The bytes last read per chunk file, with the size and time they were read at. The
+   * same bytes for an unchanged file let the decoded strokes and their outlines, cached
+   * by those bytes, be reused: a Text/Ink switch then draws at once instead of decoding
+   * every page again.
+   */
+  private readonly kept = new Map<string, { size: number; modifiedAt: string; bytes: Uint8Array }>();
+
   constructor(
     private readonly fs: () => IWorkspaceFs | null,
     private readonly notes: InkNoteLocator,
@@ -442,20 +491,34 @@ export class FsInkChunkStore implements InkChunkStore, InkMigrationMarks {
   async read(noteId: string, chunkId: string): Promise<Uint8Array | null> {
     return this.at(noteId, () => null, async (fs, note) => {
       const path = typedCore().inkChunkPath(note, chunkId);
-      return (await fs.stat(path)) ? fs.readFile(path) : null;
+      const stat = await fs.stat(path);
+      if (!stat) {
+        this.kept.delete(path);
+        return null;
+      }
+      const hit = this.kept.get(path);
+      this.kept.delete(path);
+      const bytes = hit && hit.size === stat.size && hit.modifiedAt === stat.modifiedAt ? hit.bytes : await fs.readFile(path);
+      this.kept.set(path, { size: stat.size, modifiedAt: stat.modifiedAt, bytes });
+      // The oldest goes first, so a long session holds only the pages lately shown.
+      if (this.kept.size > KEPT_CHUNKS) this.kept.delete(this.kept.keys().next().value!);
+      return bytes;
     });
   }
 
   async write(noteId: string, chunkId: string, bytes: Uint8Array): Promise<void> {
     return this.at(noteId, noFile(noteId), async (fs, note) => {
+      const path = typedCore().inkChunkPath(note, chunkId);
+      this.kept.delete(path);
       await fs.mkdirp(typedCore().inkStrokesDir(note));
-      await fs.writeFile(typedCore().inkChunkPath(note, chunkId), bytes);
+      await fs.writeFile(path, bytes);
     }, true);
   }
 
   async remove(noteId: string, chunkId: string): Promise<void> {
     return this.at(noteId, () => undefined, async (fs, note) => {
       const path = typedCore().inkChunkPath(note, chunkId);
+      this.kept.delete(path);
       if (await fs.stat(path)) await fs.remove(path);
     }, true);
   }
@@ -533,12 +596,30 @@ function baseName(path: string): string {
 async function idOfNote(fs: IWorkspaceFs, path: string): Promise<string | null> {
   try {
     if (!(await fs.stat(path))) return null;
+  } catch {
+    return null;
+  }
+  return idInFile(fs, path);
+}
+
+/** The note's weaveforge-id; null when the file does not read or has none. */
+async function idInFile(fs: IWorkspaceFs, path: string): Promise<string | null> {
+  try {
     const id = typedCore().readFrontmatter(await fs.readText(path)).frontmatter["weaveforge-id"];
     return typeof id === "string" && id ? id : null;
   } catch {
     return null;
   }
 }
+
+/** Names of the folders under the old `.ink/`; empty when there is none. */
+async function legacyInkIds(fs: IWorkspaceFs): Promise<Set<string>> {
+  if (!(await fs.stat(LEGACY_INK_DIR))) return new Set();
+  return new Set((await fs.list(LEGACY_INK_DIR)).filter((entry) => entry.kind === "dir").map((entry) => baseName(entry.path)));
+}
+
+/** Note files the first scan reads at a time. */
+const SCAN_READS_AT_ONCE = 16;
 
 /**
  * Every `*.md` under `dir` (as "note"; any note can take ink), and every

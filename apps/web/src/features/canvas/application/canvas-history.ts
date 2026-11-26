@@ -3,7 +3,8 @@
  * so the editor decides what one snapshot is (one edit or one drag).
  */
 
-export const HISTORY_LIMIT = 50;
+/** Snapshots share their unchanged parts, so a long history costs little; 50 lost a page's first strokes. */
+export const HISTORY_LIMIT = 1000;
 
 export interface History<T> {
   past: readonly T[];

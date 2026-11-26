@@ -173,7 +173,11 @@ export const WASM_BUDGET_FILES = ["packages/wf-wasm/pkg/wf_wasm_bg.wasm", "packa
 //   splitting a page's ink into one ink page per printout, each with its
 //   placed background. 2688 KB is the ceiling approved for this feature, measured
 //   at the size above.
-export const WASM_GZIP_BUDGET = 2688 * 1024;
+// - Retire the local database (0.9.7 L3): ~2691.0 KB gzipped, Windows build.
+//   ~7.6 KB from the entity file codecs (reading lists, log entries,
+//   experiments, report sections) and the metrics CSV chunks
+//   (metricCsvEncode/History, thinSeries). 2700 KB is this lane's ceiling.
+export const WASM_GZIP_BUDGET = 2700 * 1024;
 
 /**
  * Gzipped byte length of a module, with zlib's default options.

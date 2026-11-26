@@ -220,6 +220,25 @@ test("a thrown fetch is offline, not a refusal", async () => {
   assert.deepEqual(await transport.send(entry()), { status: "offline" });
 });
 
+test("a request with no session is never sent anonymously", async () => {
+  // A stale cycle whose session has gone must not reach the server on the anon key.
+  const sent: string[] = [];
+  const logged: unknown[] = [];
+  const transport = new PostgrestTransport({
+    baseUrl: "https://api.test/rest/v1",
+    apiKey: "anon",
+    accessToken: async () => null,
+    fetchImpl: (async (input: string) => {
+      sent.push(String(input));
+      return { status: 200, text: async () => "[]" };
+    }) as unknown as typeof fetch,
+    onSendError: (err) => void logged.push(err),
+  });
+  assert.deepEqual(await transport.send(entry()), { status: "offline" });
+  assert.deepEqual(sent, [], "no request leaves without a session");
+  assert.deepEqual(logged, [], "no session is the expected stop, not a fault");
+});
+
 test("the feed is read through the RPC and mapped to changes", async () => {
   const { transport, calls } = harness([
     {

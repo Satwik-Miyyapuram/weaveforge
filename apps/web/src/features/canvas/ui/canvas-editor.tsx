@@ -11,9 +11,9 @@ import {
   type DragEvent,
   type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
-  type ReactNode,
 } from "react";
 import { readyCore } from "@/lib/rust-core";
+import { flushWhenHidden, holdCloseWhile } from "@/lib/desktop/close-flush";
 import { formatError } from "@/lib/format-error";
 import { downloadBlob } from "@/lib/parts";
 import { isTextEntry, useSpaceHeld } from "./use-space-held";
@@ -44,7 +44,15 @@ import {
   type Size,
 } from "../application/freeform-geometry";
 import { encodeStroke, eraseHits, strokeAt, type InkPoint } from "../application/freeform-ink";
-import { CANVAS_PEN_COLOUR_KEY, DEFAULT_PEN_COLOUR, penColourFrom } from "../application/pen-colour";
+import {
+  CANVAS_PEN_COLOUR_KEY,
+  CANVAS_PEN_WIDTH_KEY,
+  DEFAULT_PEN_COLOUR,
+  DEFAULT_PEN_WIDTH,
+  PEN_WIDTHS,
+  penColourFrom,
+  penWidthFrom,
+} from "../application/pen-colour";
 import { workspaceSettings } from "@/features/settings/application/workspace-settings";
 import { canonicalInkColour, resolveInkColour } from "@/features/ink/render/resolve-ink-colour";
 import { useThemeInk } from "@/features/ink/render/use-theme-ink";
@@ -54,6 +62,7 @@ import { canvasKeyAction, focusesOnPress } from "../application/canvas-keys";
 import { CanvasCard } from "./canvas-nodes";
 import { EdgeLayer } from "./canvas-edges";
 import { InkLayer, type InkDraft } from "./canvas-ink";
+import { Glyph, MODES, type Mode } from "./canvas-tools";
 import { loadNaturalSize, type CanvasImages } from "../application/canvas-images";
 import { exportDrawing, importDrawing } from "../application/excalidraw-transfer";
 
@@ -73,8 +82,6 @@ export interface CanvasEditorProps {
   images: CanvasImages;
 }
 
-type Mode = "type" | "pen" | "eraser" | "select";
-
 interface Point {
   x: number;
   y: number;
@@ -92,30 +99,15 @@ type Gesture =
 const subscribeSettings = (listener: () => void) => workspaceSettings.subscribe(listener);
 const readPenColour = () => penColourFrom(workspaceSettings.get(CANVAS_PEN_COLOUR_KEY));
 const serverPenColour = () => DEFAULT_PEN_COLOUR;
+const readPenWidth = () => penWidthFrom(workspaceSettings.get(CANVAS_PEN_WIDTH_KEY));
+const serverPenWidth = () => DEFAULT_PEN_WIDTH;
 
 const EMPTY_FILE: CanvasFile = { nodes: [], edges: [] };
 const DEFAULT_VIEW: PageView = { x: 0, y: 0, zoom: 1 };
-const PEN_WIDTHS = [2, 4, 8, 16];
-const DEFAULT_WIDTH = 4;
 /** The eraser reaches this many screen pixels, whatever the zoom. */
 const ERASER_RADIUS = 10;
 const CARD_SIZE: Size = { width: 320, height: 120 };
 const GROUP_SIZE: Size = { width: 320, height: 200 };
-
-function Glyph({ d }: { d: string }) {
-  return (
-    <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false">
-      <path d={d} fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
-const MODES: { mode: Mode; label: string; icon: ReactNode }[] = [
-  { mode: "select", label: "Select", icon: <Glyph d="M5 3l13 8-5.5 1.5L15 19l-2.5 1-2.7-6.4L5 17z" /> },
-  { mode: "type", label: "Type", icon: <Glyph d="M5 6V4h14v2M12 4v16M9 20h6" /> },
-  { mode: "pen", label: "Pen", icon: <Glyph d="M4 20l1.2-4.2L15.8 5.2a2 2 0 0 1 2.8 0l.2.2a2 2 0 0 1 0 2.8L8.2 18.8z" /> },
-  { mode: "eraser", label: "Eraser", icon: <Glyph d="M3 17l8.5-8.5a2 2 0 0 1 2.8 0l4.2 4.2a2 2 0 0 1 0 2.8L14 21H8zM7 12l5 5" /> },
-];
 
 function isImage(file: File): boolean {
   return file.type.startsWith("image/");
@@ -165,7 +157,8 @@ export default function CanvasEditor({ body, onSave, filePaths, onOpenFile, imag
   const colour = useSyncExternalStore(subscribeSettings, readPenColour, serverPenColour);
   const setColour = useCallback((next: string) => workspaceSettings.set(CANVAS_PEN_COLOUR_KEY, next), []);
   const ink = useThemeInk();
-  const [width, setWidth] = useState(DEFAULT_WIDTH);
+  const width = useSyncExternalStore(subscribeSettings, readPenWidth, serverPenWidth);
+  const setWidth = useCallback((next: number) => workspaceSettings.set(CANVAS_PEN_WIDTH_KEY, next), []);
   const [view, setView] = useState<PageView>(DEFAULT_VIEW);
   const [draft, setDraft] = useState<InkDraft | null>(null);
   const gestureRef = useRef<Gesture | null>(null);
@@ -237,7 +230,13 @@ export default function CanvasEditor({ body, onSave, filePaths, onOpenFile, imag
     const save = () => saver.flush(readText);
     window.addEventListener("pagehide", save, { passive: true });
     window.addEventListener("beforeunload", save, { passive: true });
+    // Android can kill a backgrounded app with no pagehide.
+    const stopHidden = flushWhenHidden(save);
+    // The desktop close waits until that write has landed.
+    const stopHold = holdCloseWhile(() => saver.busy());
     return () => {
+      stopHidden();
+      stopHold();
       window.removeEventListener("pagehide", save);
       window.removeEventListener("beforeunload", save);
       // The last change gets one write; no retry or banner outlives the editor.

@@ -231,23 +231,65 @@ impl Vault {
     /// # Errors
     /// Refused paths, escapes, a missing file, or a failed move.
     pub fn delete_to_trash(&self, rel: &str) -> Result<String, VaultError> {
+        self.delete_to_trash_with_hook(rel, &mut |_| {})
+    }
+
+    /// [`Vault::delete_to_trash`] with a hook that runs after a trash name is picked and before
+    /// the move. Tests use it to simulate another process taking that name in between.
+    ///
+    /// # Errors
+    /// Refused paths, escapes, a missing file, or a failed move.
+    #[doc(hidden)]
+    pub fn delete_to_trash_with_hook(
+        &self,
+        rel: &str,
+        after_pick: &mut dyn FnMut(&Path),
+    ) -> Result<String, VaultError> {
         let target = self.resolve(rel)?;
         // `symlink_metadata`, not `exists`: a dangling link is still a file the user can delete.
-        if fs::symlink_metadata(&target).is_err() {
+        let Ok(meta) = fs::symlink_metadata(&target) else {
             return Err(io_err(
                 "delete",
                 rel,
                 io::Error::from(io::ErrorKind::NotFound),
             ));
-        }
+        };
         let base = trash_path(rel, &day_stamp(now_ms()));
-        let dest_rel = self.free_path(&base)?;
-        let dest = self.resolve(&dest_rel)?;
-        if let Some(parent) = dest.parent() {
-            fs::create_dir_all(parent).map_err(|source| io_err("create folder", rel, source))?;
+        // The picked name can be taken by another process before the move (F97-P2-5). A file
+        // moves without replacing; a folder rename never replaces a file or a non-empty folder.
+        // Either way a taken name fails the move, and the next free name is tried.
+        for _ in 0..FREE_NAME_TRIES {
+            let dest_rel = self.free_path(&base)?;
+            let dest = self.resolve(&dest_rel)?;
+            if let Some(parent) = dest.parent() {
+                fs::create_dir_all(parent)
+                    .map_err(|source| io_err("create folder", rel, source))?;
+            }
+            after_pick(&dest);
+            let (moved, name_taken) = if meta.is_file() {
+                // Only the link step reports `AlreadyExists`; a failed removal of the old name
+                // after it must not pick yet another name.
+                let moved = trash_file(&target, &dest);
+                let name_taken = moved
+                    .as_ref()
+                    .is_err_and(|err| err.kind() == io::ErrorKind::AlreadyExists);
+                (moved, name_taken)
+            } else {
+                let moved = fs::rename(&target, &dest);
+                let name_taken = moved.is_err() && taken(&dest);
+                (moved, name_taken)
+            };
+            match moved {
+                Ok(()) => return Ok(dest_rel),
+                Err(_) if name_taken => {}
+                Err(source) => return Err(io_err("delete", rel, source)),
+            }
         }
-        fs::rename(&target, &dest).map_err(|source| io_err("delete", rel, source))?;
-        Ok(dest_rel)
+        Err(io_err(
+            "delete",
+            rel,
+            io::Error::new(io::ErrorKind::AlreadyExists, "no free file name"),
+        ))
     }
 
     /// Move a file to a new path without overwriting: a different file already at `to` is
@@ -609,17 +651,13 @@ fn strip_bom(bytes: &[u8]) -> &[u8] {
     bytes.strip_prefix(b"\xEF\xBB\xBF").unwrap_or(bytes)
 }
 
-/// The file's text as the checked write sees it: BOM stripped, invalid bytes replaced.
-fn decode_text(bytes: &[u8]) -> String {
-    String::from_utf8_lossy(strip_bom(bytes)).into_owned()
-}
-
-/// Digest of text files by canonical text, other files by raw bytes.
+/// Digest of text files by canonical text, other files by raw bytes. A "text" file that is not
+/// valid UTF-8 is hashed by its raw bytes too: a lossy decode would give two different invalid
+/// byte strings the same hash (F97-P2-6).
 fn hash_of(bytes: &[u8], text: bool) -> String {
-    if text {
-        canonical_digest(&decode_text(bytes))
-    } else {
-        bytes_digest(bytes)
+    match text.then(|| std::str::from_utf8(strip_bom(bytes))) {
+        Some(Ok(decoded)) => canonical_digest(decoded),
+        _ => bytes_digest(bytes),
     }
 }
 
@@ -637,8 +675,16 @@ fn read_disk(target: &Path, rel: &str) -> Result<Option<Vec<u8>>, VaultError> {
 fn check_expected(disk: Option<&[u8]>, text: bool, expected: Option<&str>) -> Option<WriteOutcome> {
     let expected = expected?;
     let disk_hash = disk.map_or_else(String::new, |bytes| hash_of(bytes, text));
-    (!may_replace(Some(expected), disk_hash.as_str()))
+    let seen_as_decoded = disk.is_some_and(|bytes| text && expected == lossy_digest(bytes));
+    (!seen_as_decoded && !may_replace(Some(expected), disk_hash.as_str()))
         .then_some(WriteOutcome::Changed { disk_hash })
+}
+
+/// Digest of the lossy text a reader of a non-UTF-8 file sees (`Vault::read_text`). Callers that
+/// only hold that text expect this digest (1.0.0 review P2-1). The race check in `settle_prev`
+/// still hashes raw bytes, so differing invalid bytes are kept (F97-P2-6).
+fn lossy_digest(bytes: &[u8]) -> String {
+    canonical_digest(&String::from_utf8_lossy(strip_bom(bytes)))
 }
 
 /// Law V1 (`docs/building/core/laws.md`): bytes on disk may be replaced only when the caller
@@ -727,13 +773,92 @@ fn is_other_file(src_real: &Path, dest: &Path) -> bool {
 /// no-replace step (it refuses an existing name on NTFS and POSIX), then the old name goes.
 /// A case-only rename of the same file is the one case that must rename over its own name.
 fn move_without_replace(src: &Path, dest: &Path) -> io::Result<()> {
-    match fs::hard_link(src, dest) {
+    move_with_link(src, dest, |s, d| fs::hard_link(s, d))
+}
+
+/// `move_without_replace` with the link step injected, so tests can simulate a filesystem
+/// that refuses hard links.
+fn move_with_link(
+    src: &Path,
+    dest: &Path,
+    link: impl Fn(&Path, &Path) -> io::Result<()>,
+) -> io::Result<()> {
+    match link(src, dest) {
         Ok(()) => fs::remove_file(src),
         Err(err) if err.kind() == io::ErrorKind::AlreadyExists && is_same_file(src, dest) => {
             fs::rename(src, dest)
         }
         Err(err) => Err(err),
     }
+}
+
+/// Moves a file into the trash without replacing one already there. Where the filesystem has
+/// no hard links (exFAT, some network shares) it falls back to a plain rename, as before.
+fn trash_file(src: &Path, dest: &Path) -> io::Result<()> {
+    trash_with_link(src, dest, |s, d| fs::hard_link(s, d))
+}
+
+/// `trash_file` with the link step injected. Only "no hard links here" errors fall back to a
+/// rename; permission and sharing errors are returned as they are.
+fn trash_with_link(
+    src: &Path,
+    dest: &Path,
+    link: impl Fn(&Path, &Path) -> io::Result<()>,
+) -> io::Result<()> {
+    match move_with_link(src, dest, link) {
+        Err(err) if is_no_hard_link(&err) && !taken(dest) => rename_without_replace(src, dest),
+        moved => moved,
+    }
+}
+
+/// True when the filesystem cannot make hard links at all.
+fn is_no_hard_link(err: &io::Error) -> bool {
+    if matches!(
+        err.kind(),
+        io::ErrorKind::Unsupported | io::ErrorKind::InvalidInput
+    ) {
+        return true;
+    }
+    match err.raw_os_error() {
+        // EPERM (1) from vfat, exFAT and Android shared storage; EXDEV (18) across mounts.
+        #[cfg(unix)]
+        Some(1) | Some(18) => true,
+        // ERROR_NOT_SUPPORTED (50) and ERROR_INVALID_FUNCTION (1): what Windows volumes without
+        // hard links (exFAT, some network shares) return.
+        #[cfg(windows)]
+        Some(50) | Some(1) => true,
+        _ => false,
+    }
+}
+
+/// Renames `src` to `dest` without replacing a file at `dest`, for filesystems without hard
+/// links. A `create_new` probe refuses a name that already exists. The probe is closed before
+/// the rename, because an open handle can make the rename fail on Windows. If the rename
+/// fails, the probe is removed only while it is still empty, so a file written there by
+/// someone else is never deleted.
+fn rename_without_replace(src: &Path, dest: &Path) -> io::Result<()> {
+    rename_with(src, dest, |s, d| fs::rename(s, d))
+}
+
+/// `rename_without_replace` with the rename step injected, so tests can fail the rename after
+/// the probe exists.
+fn rename_with(
+    src: &Path,
+    dest: &Path,
+    rename: impl Fn(&Path, &Path) -> io::Result<()>,
+) -> io::Result<()> {
+    // The probe handle is dropped here, before the rename.
+    drop(
+        fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(dest)?,
+    );
+    rename(src, dest).inspect_err(|_| {
+        if fs::metadata(dest).is_ok_and(|m| m.len() == 0) {
+            let _ = fs::remove_file(dest);
+        }
+    })
 }
 
 fn is_same_file(a: &Path, b: &Path) -> bool {
@@ -872,8 +997,61 @@ mod proofs {
 
 #[cfg(test)]
 mod move_tests {
-    use super::move_without_replace;
+    use super::{
+        is_no_hard_link, move_without_replace, rename_with, rename_without_replace, trash_with_link,
+    };
     use std::fs;
+    use std::io;
+
+    #[test]
+    fn trash_falls_back_to_rename_when_hard_links_are_unsupported() {
+        let dir = std::env::temp_dir().join(format!("wf-nr-nolink-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+        let src = dir.join("src.md");
+        let dest = dir.join("dest.md");
+        fs::write(&src, "moved").unwrap();
+
+        let no_links = |_: &std::path::Path, _: &std::path::Path| {
+            Err(io::Error::from(io::ErrorKind::Unsupported))
+        };
+        trash_with_link(&src, &dest, no_links).unwrap();
+        assert!(!src.exists());
+        assert_eq!(fs::read_to_string(&dest).unwrap(), "moved");
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn trash_does_not_fall_back_to_rename_on_a_permission_error() {
+        let dir = std::env::temp_dir().join(format!("wf-nr-denied-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+        let src = dir.join("src.md");
+        let dest = dir.join("dest.md");
+        fs::write(&src, "kept").unwrap();
+
+        let denied = |_: &std::path::Path, _: &std::path::Path| {
+            Err(io::Error::from(io::ErrorKind::PermissionDenied))
+        };
+        let err = trash_with_link(&src, &dest, denied).expect_err("must not move");
+        assert_eq!(err.kind(), io::ErrorKind::PermissionDenied);
+        assert_eq!(fs::read_to_string(&src).unwrap(), "kept");
+        assert!(!dest.exists());
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn rename_fallback_leaves_no_placeholder_when_the_rename_fails() {
+        let dir = std::env::temp_dir().join(format!("wf-nr-placeholder-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+        let src = dir.join("missing.md");
+        let dest = dir.join("dest.md");
+
+        let _ = rename_without_replace(&src, &dest).expect_err("source is missing");
+        assert!(!dest.exists());
+        let _ = fs::remove_dir_all(&dir);
+    }
 
     #[test]
     fn move_refuses_an_existing_destination_and_keeps_both_files() {
@@ -908,5 +1086,85 @@ mod move_tests {
         assert!(!src.exists());
         assert_eq!(fs::read_to_string(&dest).unwrap(), "moved");
         let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn rename_fallback_keeps_a_file_that_appears_at_the_destination() {
+        let dir = std::env::temp_dir().join(format!("wf-nr-fallback-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+        let src = dir.join("src.md");
+        let dest = dir.join("dest.md");
+        fs::write(&src, "moved").unwrap();
+        fs::write(&dest, "created in the race window").unwrap();
+
+        let err = rename_without_replace(&src, &dest).expect_err("must not replace");
+        assert_eq!(err.kind(), std::io::ErrorKind::AlreadyExists);
+        assert_eq!(
+            fs::read_to_string(&dest).unwrap(),
+            "created in the race window"
+        );
+        assert_eq!(fs::read_to_string(&src).unwrap(), "moved");
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn rename_fallback_moves_to_a_free_destination() {
+        let dir = std::env::temp_dir().join(format!("wf-nr-fallback-free-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+        let src = dir.join("src.md");
+        let dest = dir.join("dest.md");
+        fs::write(&src, "moved").unwrap();
+
+        rename_without_replace(&src, &dest).unwrap();
+        assert!(!src.exists());
+        assert_eq!(fs::read_to_string(&dest).unwrap(), "moved");
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn rename_fallback_keeps_a_non_empty_destination_when_the_rename_fails() {
+        let dir = std::env::temp_dir().join(format!("wf-nr-nonempty-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+        let src = dir.join("src.md");
+        let dest = dir.join("dest.md");
+        fs::write(&src, "moved").unwrap();
+
+        // Someone writes to the probe, then the rename fails: the len == 0 guard must keep it.
+        let write_then_fail = |_: &std::path::Path, d: &std::path::Path| -> io::Result<()> {
+            fs::write(d, "written after the probe").unwrap();
+            Err(io::Error::from(io::ErrorKind::PermissionDenied))
+        };
+        let err = rename_with(&src, &dest, write_then_fail).expect_err("rename fails");
+        assert_eq!(err.kind(), io::ErrorKind::PermissionDenied);
+        assert_eq!(
+            fs::read_to_string(&dest).unwrap(),
+            "written after the probe"
+        );
+        assert_eq!(fs::read_to_string(&src).unwrap(), "moved");
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    // wf-store has no libc dependency, so the errno values are literal numbers.
+    #[cfg(unix)]
+    #[test]
+    fn unix_eperm_and_exdev_links_mean_no_hard_link() {
+        // EPERM = 1 (vfat, exFAT, Android shared storage), EXDEV = 18 (across mounts).
+        assert!(is_no_hard_link(&io::Error::from_raw_os_error(1)));
+        assert!(is_no_hard_link(&io::Error::from_raw_os_error(18)));
+        // EACCES = 13 is a real permission error and must still fail.
+        assert!(!is_no_hard_link(&io::Error::from_raw_os_error(13)));
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn windows_not_supported_codes_mean_no_hard_link() {
+        // ERROR_NOT_SUPPORTED = 50, ERROR_INVALID_FUNCTION = 1.
+        assert!(is_no_hard_link(&io::Error::from_raw_os_error(50)));
+        assert!(is_no_hard_link(&io::Error::from_raw_os_error(1)));
+        // ERROR_ACCESS_DENIED = 5 must still fail.
+        assert!(!is_no_hard_link(&io::Error::from_raw_os_error(5)));
     }
 }

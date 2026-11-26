@@ -1,7 +1,7 @@
 import { before, test } from "node:test";
 import assert from "node:assert/strict";
 
-import { dedupeMetrics, isInAppHref, rendererFor, surfaceBody, tabForHref, type DocumentMetrics } from "../ui/document-host";
+import { dedupeMetrics, documentSuffix, isInAppHref, rendererFor, surfaceBody, tabForHref, type DocumentMetrics } from "../ui/document-host";
 import { loadTestCore } from "@/lib/test/load-test-core";
 
 before(loadTestCore);
@@ -79,4 +79,11 @@ test("Ink opens on the text just typed, not the last saved body (E35)", () => {
   assert.equal(surfaceBody("old", ""), "");
   // Nothing typed yet: the saved body.
   assert.equal(surfaceBody("saved", null), "saved");
+});
+
+test("a tab's suffix is the file's for a canvas or a legacy .ink.md note, else the kind's (E2)", () => {
+  assert.equal(documentSuffix({ kind: "vault_page", path: "p/notes/a.ink.md" }, ".note.md"), ".ink.md");
+  assert.equal(documentSuffix({ kind: "vault_page", path: "p/notes/a.canvas" }, ".note.md"), ".canvas");
+  assert.equal(documentSuffix({ kind: "vault_page", path: "p/notes/a.note.md" }, ".note.md"), ".note.md");
+  assert.equal(documentSuffix(undefined, ".paper.md"), ".paper.md");
 });

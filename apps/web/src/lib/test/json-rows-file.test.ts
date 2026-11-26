@@ -72,6 +72,14 @@ test("a file that keeps changing gives a ConflictError and loses no outside row"
   assert.deepEqual(ids, ["a", "outside-0", "outside-1", "outside-2", "outside-3", "outside-4"]);
 });
 
+test("a file trashed between the read and the write is not recreated", async () => {
+  const fs = new RacingFs();
+  await changeJsonRows(fs, FILE, () => [{ id: "a" }]);
+  fs.races.push(async () => fs.rename(FILE, ".weaveforge/trash/rows.json"));
+  await assert.rejects(changeJsonRows(fs, FILE, (rows) => [...rows, { id: "b" }]), ConflictError);
+  assert.equal(await fs.stat(FILE), null, "the trashed file stays trashed");
+});
+
 test("a workspace without a conditional write is refused", async () => {
   const fs = new MemoryWorkspaceFs();
   Object.defineProperty(fs, "writeTextIf", { value: undefined });

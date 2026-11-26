@@ -30,7 +30,9 @@ fn the_shell_source_has_no_electron_copy_or_rename_aside() {
         "migration_blocker",
         "write_done_marker",
         "copy_tree",
-        "pre-migration",
+        // The Electron copy's aside folder. The 0.9.7 export's `pre-migration-<stamp>.dump` is
+        // a backup, not a copy aside, so only the dotted folder name is banned.
+        ".pre-migration",
         "migrated-from-electron",
     ];
     for (path, text) in &files {

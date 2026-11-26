@@ -8,7 +8,7 @@ use reqwest::header::{ACCEPT, CONTENT_LENGTH, CONTENT_TYPE, HeaderMap, HeaderVal
 
 use super::shared::{
     Answer, Refusal, fetch_checked_hops, header_latin1, is_public_https_url, read_capped, refuse,
-    upstream_failed,
+    shared_public_client, upstream_failed, upstream_refusal,
 };
 
 /// The path the page requests: `app://localhost/api/pdf-proxy`.
@@ -110,8 +110,9 @@ pub fn has_pdf_magic(bytes: &[u8]) -> bool {
     window.windows(4).any(|w| w == b"%PDF")
 }
 
-/// Answers a page's PDF request (`?url=`, optional `typed=1`).
-pub async fn proxy_pdf(client: &reqwest::Client, request_url: &Url) -> Answer {
+/// Answers a page's PDF request (`?url=`, optional `typed=1`). Every host must resolve
+/// to public addresses only.
+pub async fn proxy_pdf(request_url: &Url) -> Answer {
     let Some(target) = query_value(request_url, "url").filter(|t| !t.is_empty()) else {
         return Answer::from(refuse(400, "url is required"));
     };
@@ -122,6 +123,9 @@ pub async fn proxy_pdf(client: &reqwest::Client, request_url: &Url) -> Answer {
     }
     let Ok(target_url) = Url::parse(&target) else {
         return not_allowed;
+    };
+    let Some(client) = shared_public_client() else {
+        return Answer::from(refuse(502, "Upstream fetch failed"));
     };
     let allowed = move |url: &Url| allowed_for(typed, url.as_str());
     relay_pdf(
@@ -183,10 +187,7 @@ pub async fn relay_pdf(
 fn check_headers(response: &reqwest::Response, max: usize) -> Result<(), Refusal> {
     let status = response.status();
     if !status.is_success() {
-        return Err(refuse(
-            502,
-            &format!("Upstream returned {}", status.as_u16()),
-        ));
+        return Err(upstream_refusal(status.as_u16()));
     }
     let content_type = header_latin1(response.headers(), CONTENT_TYPE);
     if !is_pdf_content_type(content_type.as_deref()) {

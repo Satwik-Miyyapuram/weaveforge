@@ -14,10 +14,6 @@ import {
   ScreenItemsUseCase,
   ManageSharingUseCase,
   ManageCommentsUseCase,
-  CreateShareLinkUseCase,
-  RedeemShareLinkUseCase,
-  ManageShareLinksUseCase,
-  RevokeShareLinkUseCase,
   PinSharedResourceUseCase,
   DuplicateSharedPaperUseCase,
   MetadataResolver,
@@ -38,10 +34,7 @@ import {
   OpenAlexMetadataSource,
   PrefetchingAddPaperUseCase,
   reportCitationAlertError,
-  RoutedInkChunkStore,
-  inkChunkStoreFor,
   VaultAssetStore,
-  WebCryptoShareLinkTokenHasher,
   wireBackend,
 } from "@/container/parts";
 import { createReferenceActions, ReferenceLookupService } from "@/features/reader/application/parts-2";
@@ -51,13 +44,19 @@ import { DeletePaperUseCase, ImportLocalZoteroUseCase, LoadPapersScreenUseCase }
 // was adopted reaches `papers/pdf/` without a restart (explorer plan §8).
 import { LoadExperimentsScreenUseCase } from "@/features/experiments/application/parts";
 import { LoadVaultScreenUseCase } from "@/features/vault/application/parts";
+import { withDeleteTrashesFile } from "@/features/vault/application/delete-trashes-file";
+import { withRenameLinkRewrite } from "@/features/vault/application/rename-updates-links";
 import { LoadReportScreenUseCase } from "@/features/report/application/parts";
 import { LoadPlanScreenUseCase } from "@/features/plan/application/parts";
 import { PlanFeedLinks } from "@/features/plan/infrastructure/plan-feed-links";
 import { LoadReadingListsScreenUseCase } from "@/features/reading-lists/application/parts";
 import { DuplicateSharedVaultPageUseCase } from "@/features/library/application/duplicate-shared-vault.use-case";
-import { LoadSharedWithMeScreenUseCase } from "@/features/sharing/application/parts";
-import { rustAiStores, rustShareLinkRepository } from "@/backend/providers/postgrest/rust-repository";
+import { LoadSharedWithMeScreenUseCase, noSharedWithMe } from "@/features/sharing/application/parts";
+import {
+  FILES_MODE_CRDT_TYPES,
+  limitCrdtSnapshotStore,
+  limitCrdtUpdateStore,
+} from "@/features/collab/infrastructure/files-mode-crdt-limit";
 import { PrefetchProjectUseCase } from "@/application/prefetch-project.use-case";
 import { readBackendConfig } from "@/backend/parts";
 import {
@@ -86,24 +85,19 @@ import {
   InkFacade,
   type AppContainer,
 } from "@/container/facades";
-import {
-  BlobInkChunkStore,
-  CopyOnReadInkChunkStore,
-  FolderInkNotes,
-  FsInkChunkStore,
-  UnavailableInkChunkStore,
-} from "@/features/ink/infrastructure/parts";
+import { FolderInkNotes } from "@/features/ink/infrastructure/parts";
 import { folderLock } from "@/features/workspace/application/folder-lock";
+import { trashDeletedNote } from "@/features/workspace/application/trash-note-files";
 import {
   activeWorkspaceFs,
   closeFolder,
-  folderRestored,
-  syncToFolder,
 } from "@/features/workspace/application/workspace-folder";
 import { desktop } from "@/lib/desktop/desktop-bridge";
+import { logToApp } from "@/lib/error-report/app-log";
+import { showToast } from "@/lib/toast/index";
 import { loadCore } from "@/lib/rust-core";
 import type { ProjectContext } from "@/lib/parts-2";
-import { randomBytes, readInkHapticsOn, relayUrl, systemClock, uuidIds } from "@/lib/parts";
+import { readInkHapticsOn, relayUrl, systemClock, uuidIds } from "@/lib/parts";
 import type { ProjectLwwInvalidator } from "@/lib/cache/parts-1";
 import { FetchingBlobStore } from "@/storage/fetching-blob-store";
 import { PaperImageStore } from "@/features/papers/infrastructure/parts-1";
@@ -113,6 +107,13 @@ import { ExperimentArtifactStore } from "@/features/experiments/infrastructure/p
 import { createCredentialReader } from "@/integrations/parts";
 import { WorkspaceSearch } from "@/features/search/application/workspace-search";
 import { clearActiveProvider } from "@/features/ai-assistant/application/parts";
+import { reresolveOnFocus, resolveMigrationChoice } from "@/container/resolve-migration-choice";
+import { wireShareLinks } from "@/container/wire-share-links";
+import { wireInkChunks } from "@/container/wire-ink-chunks";
+import { workspaceSettings } from "@/features/settings/application/workspace-settings";
+import { isLocalMode, parkLocalMode, resumeParkedLocalMode } from "@/backend/providers/local/local-identity";
+import { usesFileBackend } from "@/lib/desktop/migrate-097";
+import { watchProjectChannel } from "@/container/project-watch";
 
 export interface CreatedAppContainer {
   container: AppContainer;
@@ -156,13 +157,46 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
     projectLww.notifyPeers(resourceType);
     search?.markStale(resourceType);
   });
-  const backend = wireBackend(readBackendConfig(), projectContext, pid);
-  if ("db" in backend) {
-    projectLww.watch(backend.db, pid());
+  // Awaited before `wireBackend`: the personal-data backend is chosen once, from
+  // the folder's migration report, so the choice never races a late answer.
+  const migration = await resolveMigrationChoice(desktop());
+  const shell = desktop();
+  // Browser and Android do not open OPFS yet. Legacy detection is not wired, so the 0.9.8 chooser
+  // ("unknown") always answers export-first and the OPFS report read and open would be wasted work.
+  // Restore the chooser call here (chooseBrowserBackend plus browserReportOk and openBrowserFileWiring
+  // from browser-file-backend) once legacy detection exists.
+  const browserFiles = undefined;
+  // Desktop only: a folder still settling re-asks on focus, and the first usable answer reloads.
+  // Offline mode (no account) runs only on a desktop folder already on files: there is no
+  // server and no local database to fall back to. Anything else goes back to sign-in.
+  // A choice set aside for the upgrade comes back once the folder is on files.
+  const onFiles = Boolean(shell) && usesFileBackend(migration);
+  const offline = resumeParkedLocalMode(onFiles) || isLocalMode();
+  if (offline && !onFiles) {
+    parkLocalMode();
+    window.location.reload();
+    return new Promise<never>(() => {});
   }
+  if (shell) reresolveOnFocus(migration, shell, window, () => window.location.reload());
+  // Loaded only inside the shell: the file repositories are not in the web first load.
+  const desktopFiles = shell ? (await import("@/container/desktop-file-backend")).wireDesktopFileBackend : undefined;
+  const backend = wireBackend(readBackendConfig(), projectContext, pid, {
+    migration,
+    onDesktop: Boolean(shell),
+    localMode: offline,
+    wireDesktopFileBackend: shell && desktopFiles ? desktopFiles(shell, workspaceSettings, undefined, offline) : undefined,
+    wireBrowserFileBackend: browserFiles,
+  });
+  watchProjectChannel(projectLww, backend, pid());
 
-  const crdtUpdateStore = rustCrdtUpdateStore(backend.db);
-  const crdtSnapshotStore = rustCrdtSnapshotStore(backend.db);
+  // Files mode: the server CRDT log keeps only the non-personal types (files-mode-crdt-limit).
+  const filesMode = backend.filesMode;
+  const crdtUpdateStore = filesMode
+    ? limitCrdtUpdateStore(rustCrdtUpdateStore(backend.db), FILES_MODE_CRDT_TYPES)
+    : rustCrdtUpdateStore(backend.db);
+  const crdtSnapshotStore = filesMode
+    ? limitCrdtSnapshotStore(rustCrdtSnapshotStore(backend.db), FILES_MODE_CRDT_TYPES)
+    : rustCrdtSnapshotStore(backend.db);
 
   const vaultPageRepository = backend.rawVaultPageRepository;
   const paperRepository = backend.paperRepository;
@@ -175,7 +209,9 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
   const commentRepository = backend.commentRepository;
   const encryptedBlobStore = new FetchingBlobStore(backend.rawBlobStore);
 
-  const { proposals: aiProposalStore, audit: aiAuditStore } = rustAiStores(backend.db, projectContext, backend.session);
+  // Personal AI data: folder files in files mode, PostgREST otherwise (wired in wirePostgrestBackend).
+  const aiProposalStore = backend.aiProposalStore;
+  const aiAuditStore = backend.aiAuditStore;
 
   const paperImageStore = new PaperImageStore(encryptedBlobStore, backend.session);
   const vaultAssetStore = new VaultAssetStore(encryptedBlobStore, backend.session);
@@ -184,35 +220,7 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
   // Signs artifact paths on read. Nothing stores a signed URL: SigV4 caps one
   // at seven days, so a stored link is a link with a deadline.
   const experimentArtifactStore = new ExperimentArtifactStore(encryptedBlobStore, backend.session);
-  // Ink chunks follow the page: in the folder beside the note's file
-  // (`foo.note.md` -> `foo.note.ink/`, legacy `foo.ink.md` -> `foo.ink/`) when one is open, the encrypted asset bucket
-  // otherwise (§4.1). Routed per call, since a folder can be chosen or
-  // forgotten while the app is running.
-  const inkNotes = new FolderInkNotes(activeWorkspaceFs, {
-    run: (fn) => folderLock.run(fn),
-    syncFolder: syncToFolder,
-  });
-  const fsInkChunks = new FsInkChunkStore(activeWorkspaceFs, inkNotes, (fn) => folderLock.run(fn));
-  const blobInkChunks = new BlobInkChunkStore(encryptedBlobStore, backend.session);
-  // On the desktop the folder is the only home: the bucket is read once per
-  // page to migrate legacy ink (copy-on-read), and nothing is written to it.
-  // Without a folder the desktop has nowhere for ink. The web is unchanged.
-  const copyOnReadInkChunks = new CopyOnReadInkChunkStore(fsInkChunks, blobInkChunks);
-  const unavailableInkChunks = new UnavailableInkChunkStore();
-  const inkChunkStore = new RoutedInkChunkStore(
-    () => {
-      const onDesktop = desktop() !== null;
-      return inkChunkStoreFor(
-        { folderOpen: Boolean(activeWorkspaceFs()), desktop: onDesktop },
-        {
-          folder: onDesktop ? copyOnReadInkChunks : fsInkChunks,
-          bucket: blobInkChunks,
-          unavailable: unavailableInkChunks,
-        },
-      );
-    },
-    folderRestored,
-  );
+  const inkChunkStore = wireInkChunks(encryptedBlobStore, backend.session);
 
   const manageProject = backend.projectRepository;
 
@@ -283,8 +291,19 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
   // Writes go straight to the Rust-backed repositories; they own id, clock and
   // validation, so there is no TS use-case layer in between.
   const manageReportSection = reportSectionRepository;
-  const manageVaultPage = vaultPageRepository;
-
+  // A rename also rewrites [[Old]] links in the other notes.
+  // Deleting a note moves its file (and ink pages) in the open folder to
+  // `.weaveforge/trash`, or the next import offers it back. Found without
+  // syncing: the row is already gone, so a sync could not write it.
+  const noteFileLocator = new FolderInkNotes(activeWorkspaceFs, { run: (fn) => folderLock.run(fn) });
+  const manageVaultPage = withDeleteTrashesFile(
+    withRenameLinkRewrite(vaultPageRepository),
+    { pathOf: (id) => noteFileLocator.pathOf(id), trash: trashDeletedNote },
+    (message) => {
+      logToApp({ level: "warn", source: "vault", message });
+      showToast(message);
+    },
+  );
   const manageReadingList = new ManageReadingListUseCase({
     lists: readingListRepository,
     items: readingListItemRepository,
@@ -333,8 +352,9 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
     onError: reportCitationAlertError,
   });
 
+  const fieldRepo = backend.paperFieldRepository;
   const managePaperFields = new ManagePaperFieldsUseCase({
-    fields: backend.paperFieldRepository,
+    fields: fieldRepo,
     ids: uuidIds,
   });
 
@@ -342,29 +362,9 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
 
   const manageSharing = new ManageSharingUseCase({ repository: backend.shareRepository });
   const manageComments = new ManageCommentsUseCase({ repository: commentRepository });
-  const shareLinkTokenHasher = new WebCryptoShareLinkTokenHasher();
-  const shareLinkRepository =
-    "db" in backend ? rustShareLinkRepository(backend.db) : null;
-  const createShareLink =
-    shareLinkRepository &&
-    new CreateShareLinkUseCase({
-      shareLinks: shareLinkRepository,
-      tokenHasher: shareLinkTokenHasher,
-      ids: uuidIds,
-      clock: systemClock,
-      randomBytes,
-    });
-  const redeemShareLink =
-    shareLinkRepository &&
-    new RedeemShareLinkUseCase({
-      shareLinks: shareLinkRepository,
-      tokenHasher: shareLinkTokenHasher,
-    });
-  const manageShareLinks =
-    shareLinkRepository && new ManageShareLinksUseCase({ shareLinks: shareLinkRepository });
-  const revokeShareLink =
-    shareLinkRepository &&
-    new RevokeShareLinkUseCase({ shareLinks: shareLinkRepository });
+  const { createShareLink, redeemShareLink, manageShareLinks, revokeShareLink } = wireShareLinks(
+    "db" in backend ? backend.db : null,
+  );
   const pinSharedResource = new PinSharedResourceUseCase({
     pins: backend.libraryPinRepository,
     shares: backend.shareRepository,
@@ -485,6 +485,7 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
     lists: readingListRepository,
     papers: paperRepository,
     notes: vaultPageRepository,
+    listItems: readingListItemRepository,
     pins: backend.libraryPinRepository,
     shares: backend.shareRepository,
   });
@@ -517,6 +518,7 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
     // project-wide read that carries the paper and page on each row.
     readerAnnotations: { list: () => backend.readerAnnotationRepository.listForProject() },
     projectId: pid,
+    filesMode,
   });
 
   // Registered once `workspace` exists: it closes over the facade, and
@@ -577,7 +579,11 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
       readerAnnotations: backend.readerAnnotationRepository,
       reportSections: reportSectionRepository,
     }),
-    paperFields: new PaperFieldsFacade({ paperFields: managePaperFields }),
+    paperFields: new PaperFieldsFacade({
+      paperFields: managePaperFields,
+      // Present only in files mode (the overlay supplies it); PostgREST leaves it undefined.
+      moveProjectFolder: fieldRepo.moveProjectFolder?.bind(fieldRepo),
+    }),
     libraryTidy: createLibraryTidy({ papers: paperRepository, updatePaper, resolver, backend, bibliography, newId: uuidIds.newId }),
     zotero: new ZoteroFacade({
       bibliography,
@@ -616,6 +622,7 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
       manageMilestone,
       notifications,
       feedLinks: new PlanFeedLinks(backend.db, backend.session),
+      feedLinksAvailable: !filesMode,
     }),
     logbook: new LogbookFacade({
       logEntries: logEntryRepository,
@@ -708,6 +715,13 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
       executors: aiProposalExecutors,
       newId: () => uuidIds.newId(),
       now: () => systemClock.nowIso(),
+      revisionSources: {
+        papers: paperRepository,
+        vaultPages: vaultPageRepository,
+        reportSections: reportSectionRepository,
+        milestones: milestoneRepository,
+        experiments: experimentRepository,
+      },
     }),
     org: new OrgFacade({
       members: backend.memberRepository,
@@ -735,14 +749,14 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
       libraryPins: backend.libraryPinRepository,
       papers: paperRepository,
       experiments: experimentRepository,
-      loadSharedWithMe: loadSharedWithMeScreen,
+      loadSharedWithMe: offline ? noSharedWithMe : loadSharedWithMeScreen,
     }),
     projects: new ProjectsFacade({
       projects: backend.projectRepository,
       manageProject,
       context: projectContext,
       watchLww: (id) => {
-        if ("db" in backend) projectLww.watch(backend.db, id);
+        watchProjectChannel(projectLww, backend, id);
       },
     }),
     auth: new AuthFacade({ auth: backend.auth }),

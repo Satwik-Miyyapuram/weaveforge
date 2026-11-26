@@ -3,7 +3,8 @@ import assert from "node:assert/strict";
 
 import { HIGHLIGHTER_ALPHA } from "../render/canvas-renderer";
 import type { InkRenderStroke } from "../ui/ink-strokes";
-import { drawInkStrokes } from "../ui/ink-page-canvas";
+import { drawInkStrokes, renderStrokesFor } from "../ui/ink-page-canvas";
+import { INK_RENDER_COLOURS } from "../render/parts-1";
 import { settledStrokePath } from "../ui/ink-strokes";
 
 class FakePath2D {
@@ -198,4 +199,17 @@ test("drawInkStrokes fills each stroke's settled outline and strokes none", () =
   );
   assert.equal(fills[0]!.fillStyle, "#000000");
   assert.equal(fills[1]!.globalAlpha, HIGHLIGHTER_ALPHA, "highlighter fill is translucent");
+});
+
+test("renderStrokesFor hands back the same render strokes for the same decoded page, so outlines are reused", () => {
+  const strokes = [
+    { id: "s1", points: [10, 10, 40, 40, 80, 20], pressures: [0.5, 0.5, 0.5], width: 4, colour: "text", tool: "pen" },
+  ] as unknown as Parameters<typeof renderStrokesFor>[0];
+  const first = renderStrokesFor(strokes, INK_RENDER_COLOURS);
+  // A remount reads the theme again: an equal palette in a new object.
+  assert.equal(renderStrokesFor(strokes, { ...INK_RENDER_COLOURS }), first);
+  assert.equal(first[0]!.points, renderStrokesFor(strokes, { ...INK_RENDER_COLOURS })[0]!.points);
+  // Another palette or hidden set is drawn anew.
+  assert.notEqual(renderStrokesFor(strokes, { ...INK_RENDER_COLOURS, text: [1, 1, 1] }), first);
+  assert.equal(renderStrokesFor(strokes, INK_RENDER_COLOURS, new Set([0])).length, 0);
 });

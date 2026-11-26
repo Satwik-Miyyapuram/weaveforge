@@ -36,6 +36,7 @@
 
 import { getStroke, type StrokeOptions } from "perfect-freehand";
 import { smoothKeepingCorners } from "./corner-smoothing";
+import { densifyHermite } from "./hermite-densify";
 
 /** The fields of an Excalidraw freedraw element that the path function reads. */
 export interface FreedrawElement {
@@ -158,8 +159,10 @@ export function freedrawShapeKey(shape: FreedrawShape = DEFAULT_FREEDRAW_SHAPE):
 
 /**
  * The freedraw outline of a stroke `width` units wide, with INK_FREEDRAW's options and `shape`'s knobs.
- * The points are smoothed first, corners kept (corner-smoothing.ts), so a low streamline
- * draws sharp corners without following every shake of the hand.
+ * Long spans are first filled along the stroke's Hermite curve (hermite-densify.ts),
+ * so a stroke packed before 0.9.5 draws its curve, not straight chords between its
+ * samples. Then the points are smoothed, corners kept (corner-smoothing.ts), so a low
+ * streamline draws sharp corners without following every shake of the hand.
  */
 export function inkFreedrawPath(
   points: number[][],
@@ -184,8 +187,9 @@ export function inkFreedrawPath(
     simulatePressure || (shape.pressureGamma === 1 && shape.minWidth === 0)
       ? pressures
       : pressures.map((p) => Math.max(shape.minWidth, p) ** shape.pressureGamma);
+  const dense = densifyHermite(points, reshaped);
   return getFreeDrawSvgPath(
-    { points: smoothKeepingCorners(points), pressures: reshaped, strokeWidth: 0, simulatePressure, lastCommittedPoint: last ? [0, 0] : null },
+    { points: smoothKeepingCorners(dense.points, dense.corners), pressures: dense.pressures, strokeWidth: 0, simulatePressure, lastCommittedPoint: last ? [0, 0] : null },
     options,
   );
 }

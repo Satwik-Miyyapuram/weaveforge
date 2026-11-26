@@ -1,4 +1,4 @@
-import { readyCore, typedCore } from "@/lib/rust-core";
+import { readyCore } from "@/lib/rust-core";
 import type { InkColour, InkTool } from "@weaveforge/core";
 import type { InkStrokeGeometry } from "../application/parts-3";
 
@@ -85,30 +85,6 @@ export function readThemePalette(doc: Document): InkPalette {
 }
 
 // --- ink-renderer ---
-/**
- * What a renderer is, and the arithmetic that turns strokes into instances.
- *
- * The interface exists so the WebGL2 path is not the only path (§6.2.10): a
- * context loss, a blocklisted driver or a browser without WebGL2 has to fall back
- * to Canvas 2D without the screen knowing. It is also what keeps the geometry work
- * testable on its own — {@link packStrokeInstances} is pure, and the part that
- * cannot be tested without a GPU is the part that is only shader source.
- *
- * **The geometry model is one instanced quad per segment, expanded in the vertex
- * shader** (§6.2.3). Nothing on the CPU materialises a vertex: 5 000 strokes is
- * 295 000 segments, which as instanced data is 5.9 MB and 0.5 ms to upload, and as
- * a triangle soup is 14.2 MB and 61.7 ms to build. The plan's warning about
- * batching was about Canvas 2D `Path2D`, where one huge path is pathological
- * (1 400 ms); in WebGL many strokes in one draw call is the point.
- *
- * **Joins and caps are analytic.** A single-pass fragment shader computes the
- * distance to the segment and discards outside it, so round caps and round joins
- * come for free, sub-pixel anti-aliasing comes from `fwidth`, there is no notch
- * geometry, and overlapping join discs cannot z-fight or double-blend. That last
- * one is a bug the geometric approach has and this one does not. The price is
- * overdraw — measured at **~1.8–3.1×** on a committed page (§11.3.9), against the
- * 10–15× a review claimed for geometry this engine does not draw.
- */
 /** Which renderer is actually drawing. Reported in the status bar. */
 export type InkBackend = "webgl2" | "canvas2d" | "none";
 
@@ -243,80 +219,6 @@ export interface InkRenderer {
 }
 
 /**
- * 12 floats per segment instance: `A.xy, B.xy, rA, rB, prevA.xy, nextB.xy,
- * prevRA, nextRB`.
- *
- * The second half is the instance's neighbours along the stroke: the start and
- * radius of the capsule before it, the end and radius of the one after. A
- * negative neighbour radius means there is none — the instance is the first or
- * last of its stroke. The fragment shader needs them because adjacent capsules
- * overlap, and where two anti-aliased edges overlap they blend twice: a 50 %
- * edge pixel comes out 75 %, so every join along a stroke is a slightly darker
- * band and the edge reads as ribbed. With the neighbours in hand each fragment
- * can tell which capsule it is nearest to, and only that one draws it.
- */
-export const INK_INSTANCE_FLOATS = 12;
-
-/**
- * Instances per sample-to-sample segment.
- *
- * The samples are joined by a Hermite spline rather than straight lines, and
- * each span is drawn as this many capsules. Live and saved strokes are both
- * simplified at `INK_PACK_TOLERANCE`, which leaves samples 0.5–2 mm apart on
- * a curve and turns of 50–60° between them in a small letter loop. Three
- * capsules a span drew that loop with 20–35° facets; eight keep each join
- * near 15° or less, below what the eye picks out at writing size.
- */
-export const INK_SEGMENT_SUBDIVISIONS = 8;
-
-/** How many instances a stroke of `points` samples packs to. */
-export function strokeInstanceCount(points: number): number {
-  return readyCore().inkStrokeInstanceCount(points);
-}
-
-/**
- * The tangent of the stroke at sample `i`, for the Hermite span on `side`:
- * {@link inkTangentAt}, which says how it is chosen. It lives in core because
- * `packInkStroke` measures samples against the same curve it is drawn as.
- */
-export function strokeTangentAt(
-  stroke: StrokeInstanceInput,
-  i: number,
-  side: "in" | "out" = "out",
-): { x: number; y: number } {
-  return typedCore().inkTangentAt(stroke.x, stroke.y, i, side);
-}
-
-/**
- * A point on the stroke's curve between samples `i` and `i + 1`, and the nib
- * radius there: the Hermite span {@link inkCurveAt} draws through the two
- * samples.
- */
-export function strokeCurveAt(
-  stroke: StrokeInstanceInput,
-  i: number,
-  u: number,
-): { x: number; y: number; r: number } {
-  const p = typedCore().inkCurveAt(stroke.x, stroke.y, i, u);
-  return {
-    x: p.x,
-    y: p.y,
-    r:
-      radiusAt(stroke, i) * (1 - u) + radiusAt(stroke, i + 1) * u,
-  };
-}
-
-/**
- * Anti-aliasing margin, in device pixels.
- *
- * The plan's lever on overdraw is to keep this at ~1 px rather than inflating the
- * quad generously: the margin is what makes adjacent quads overlap even when the
- * stroke does not, so it is paid for on every segment. At 1 px the measured
- * overdraw is 1.8–3.1× on a committed page (§11.3.9).
- */
-export const INK_AA_MARGIN_PX = 1;
-
-/**
  * The most device pixels a page canvas is given. The canvas covers the whole
  * page, so at 4× zoom on a 2× display an A4 page would want 8700 × 12300 px —
  * 430 MB of colour alone, plus the stencil — and the GPU refuses the
@@ -342,68 +244,4 @@ export function backingRatio(
   devicePixelRatio: number,
 ): number {
   return readyCore().inkBackingRatio(cssWidth, cssHeight, devicePixelRatio);
-}
-
-/** One stroke's rendering inputs, as the packer needs them. */
-export interface StrokeInstanceInput {
-  x: Float32Array;
-  y: Float32Array;
-  pressure: Uint8Array;
-  /** Nib width in 0.1 mm, constant along the stroke. */
-  width: number;
-}
-
-/**
- * Pack a stroke's segments into instance data.
- *
- * `INK_SEGMENT_SUBDIVISIONS` instances per segment, `A.xy, B.xy, rA, rB`, where
- * a radius is half the tool's width.
- *
- * `out` is written into rather than allocated, because this runs once per stroke
- * at commit time and once per *frame* for the live stroke. It must be at least
- * `strokeInstanceCount(points) * INK_INSTANCE_FLOATS` long; the writer returns
- * how many floats it used so a pooled buffer can be reused. `from` is the first
- * *segment* to pack — a live stroke re-packs its last segment when the next
- * sample lands, because that sample sets the tangent the segment curves with.
- */
-export function packStrokeInstances(
-  stroke: StrokeInstanceInput,
-  out: Float32Array,
-  options: { from?: number } = {},
-): number {
-  const floats = readyCore().packInkStrokeInstances(
-    stroke.x,
-    stroke.y,
-    stroke.width,
-    options.from ?? 0,
-  );
-  // Writes past the end of `out` are dropped, as a typed-array write always was.
-  out.set(floats.subarray(0, out.length));
-  return floats.length;
-}
-
-/**
- * The first segment a live stroke must repack, given `packed` segments already
- * packed, `segments` in the stroke now and `changedFrom`, the first point that
- * moved. A point sets the tangents of the two segments before it as well as the
- * one it starts, so the repack begins two segments before the first moved point,
- * or before the newest packed segment when nothing earlier is known to have moved.
- */
-export function liveRepackFrom(packed: number, segments: number, changedFrom?: number): number {
-  return Math.max(0, Math.min(packed, segments, changedFrom ?? Number.POSITIVE_INFINITY) - 2);
-}
-
-/**
- * The nib radius at one point, in 0.1 mm: half the tool's width, everywhere.
- *
- * No pressure or speed taper, so the stroke under the pen and the stroke saved
- * on lift are the same shape.
- */
-export function radiusAt(stroke: StrokeInstanceInput, _index?: number): number {
-  return stroke.width / 2;
-}
-
-/** Whether a stroke is drawn translucent and deduped through the stencil. */
-export function usesHighlighterPass(tool: InkTool): boolean {
-  return readyCore().usesInkHighlighterPass(tool);
 }

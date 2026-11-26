@@ -28,7 +28,7 @@ import { rememberRecentTarget } from "@/lib/parts-2";
 import { useScreenSearch } from "@/lib/hooks/use-screen-search";
 import { noteBodyText, isHydratedPage } from "./note-card";
 import { NoteCardGrid } from "./note-card-grid";
-import { openNoteBody } from "./open-note-body";
+import { noteToShow, openNoteBody } from "./open-note-body";
 import { PageEditor } from "./page-editor";
 import type { VaultViewData } from "./types";
 import { FilterRow } from "@/components/filter-row";
@@ -129,8 +129,7 @@ export function VaultScreen() {
   // Why the selected note could not be opened, shown instead of "Opening note…".
   const [openError, setOpenError] = useState<string | null>(null);
   if (selected && isHydratedPage(selected) && selected !== heldPage) setHeldPage(selected);
-  const shownPage: VaultPage | VaultPageSummary | null =
-    selected && !isHydratedPage(selected) && heldPage?.id === selected.id ? heldPage : selected;
+  const shownPage = noteToShow(selected, heldPage, selectedId, openError);
 
   useEffect(() => {
     if (!selected) return;
@@ -359,7 +358,7 @@ export function VaultScreen() {
       )}
       {/* An open note is a record page, as a paper is: its own bar carries
           the way back and its actions, so the list head steps aside. */}
-      {!selected && (
+      {!shownPage && (
       <ScreenHead
         eyebrow={hasNotes ? `${ownedNotes.length} ${ownedNotes.length === 1 ? "note" : "notes"}` : undefined}
         search={hasNotes ? { value: search, onChange: setSearch, label: "Search notes", helpId: "notes-search" } : undefined}
@@ -449,7 +448,7 @@ export function VaultScreen() {
       {data?.linkTargetsError && <FormError>{data.linkTargetsError}</FormError>}
       {importMsg && <p className="muted vault-import-msg">{importMsg}</p>}
 
-      {!error && !selected && hasNotes && (
+      {!error && !shownPage && hasNotes && (
         <FilterRow
           label="Filter notes"
           helpId="notes-filters"
@@ -474,7 +473,7 @@ export function VaultScreen() {
       )}
 
       {!error && (
-        selected ? (
+        shownPage ? (
           <div className="vault-note-page">
             {/* The editor binds its draft state to `page.body` in a
                 `useState` initialiser, so it must never be handed a summary:

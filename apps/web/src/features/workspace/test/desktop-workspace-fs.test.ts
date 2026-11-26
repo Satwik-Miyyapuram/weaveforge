@@ -82,6 +82,36 @@ test("without the shell's checked write, the file is compared before writing", a
   assert.equal(await fs.readText("notes/new.note.md"), "app");
 });
 
+test("a rename is passed to the shell's native move when it has one", async () => {
+  const mem = new MemoryWorkspaceFs();
+  await mem.mkdirp("notes");
+  await mem.writeFile("notes/a.note.md", "body");
+  const calls: unknown[][] = [];
+  const fs = new DesktopWorkspaceFs({
+    ...bridgeOver(mem),
+    async readVaultBytes() {
+      throw new Error("a native rename reads nothing");
+    },
+    async removeVaultFile() {
+      throw new Error("a native rename removes nothing");
+    },
+    async renameVaultFile(...args) {
+      calls.push(args);
+    },
+  });
+  await fs.rename("notes/a.note.md", "notes/b.note.md");
+  assert.deepEqual(calls, [["notes/a.note.md", "notes/b.note.md"]]);
+  await assert.rejects(() => fs.rename("../x.md", "notes/b.note.md"), WorkspacePathError);
+});
+
+test("without the shell's native move, a rename copies the bytes then removes", async () => {
+  const fs = adapter();
+  await fs.writeFile("notes/a.note.md", "body");
+  await fs.rename("notes/a.note.md", "notes/b.note.md");
+  assert.equal(await fs.readText("notes/b.note.md"), "body");
+  assert.equal(await fs.stat("notes/a.note.md"), null);
+});
+
 test("bytes survive the trip in both directions", async () => {
   const fs = adapter();
   await fs.writeFile("notes/two.note.md", new TextEncoder().encode("héllo"));

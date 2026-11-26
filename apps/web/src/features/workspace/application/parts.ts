@@ -1,6 +1,8 @@
 import { getContainer } from "@/bootstrap";
 import type { DesktopBridge } from "@/lib/desktop/desktop-bridge";
+import { logToApp } from "@/lib/error-report/app-log";
 import { notifyEach } from "@/lib/parts";
+import { claimTrashFolder } from "@/lib/workspace-trash";
 import { loadCore, readyCore, typedCore } from "@/lib/rust-core";
 import type { IWorkspaceFs, WorkspaceProject, WorkspaceSnapshot } from "@weaveforge/core";
 import type { ReanchorPlan } from "@weaveforge/wasm";
@@ -148,18 +150,89 @@ export function watchForLoss(bridge: Pick<DesktopBridge, "onVaultWatchLost">): (
 
 // --- remove-project-folder ---
 /**
- * Remove a deleted project's folder from the workspace.
+ * Move a deleted project's folder to the workspace trash.
  *
- * Found by its `--id6` suffix as well as its current name, so a folder named
- * before a rename still goes. Returns the folder removed, or null.
+ * Found by its current name, or by its `--id6` suffix so a folder named before
+ * a rename still goes. A suffix that one of `others` (the projects that remain)
+ * also has is refused, and so is a folder without the project layout (an entity
+ * folder or `.weaveforge`): a short suffix is not proof of ownership. The files
+ * go to `.weaveforge/trash/<day>/<folder>`, numbered on a clash, never deleted.
+ * Returns the folder moved, or null.
  */
-export async function removeProjectFolder(fs: IWorkspaceFs, project: WorkspaceProject): Promise<string | null> {
+export async function removeProjectFolder(
+  fs: IWorkspaceFs,
+  project: WorkspaceProject,
+  others: readonly WorkspaceProject[] = [],
+): Promise<string | null> {
   const core = await loadCore();
+  const typed = typedCore();
   const exact = core.projectDir(project);
-  const tail = `--${typedCore().idSuffix(project.id)}`;
-  const dirs = (await fs.list("")).filter((s) => s.kind === "dir").map((s) => s.path.split("/").pop() ?? "");
-  const match = typedCore().pickProjectFolder(dirs, exact, tail) ?? null;
+  const tail = `--${typed.idSuffix(project.id)}`;
+  const otherTails = others.map((other) => `--${typed.idSuffix(other.id)}`);
+  const names = (entries: readonly { path: string }[]) => entries.map((s) => s.path.split("/").pop() ?? "");
+  const dirNames = names((await fs.list("")).filter((s) => s.kind === "dir"));
+  const match = typed.pickProjectFolder(dirNames, exact, tail, otherTails) ?? null;
   if (!match) return null;
-  await fs.remove(match, { recursive: true });
+  if (!typed.holdsProjectLayout(names(await fs.list(match)))) return null;
+  const { target: base, release } = await claimTrashFolder(fs, match, Date.now());
+  const { files, dirs } = await treeUnder(fs, match);
+  try {
+    for (const path of files) {
+      const target = base + path.slice(match.length);
+      await fs.mkdirp(target.slice(0, target.lastIndexOf("/")));
+      await fs.rename(path, target);
+    }
+  } finally {
+    await release();
+  }
+  // Remove the emptied folders deepest first, without recursion. The desktop's
+  // remove refuses a folder that still holds something (a file written after the
+  // walk), so that folder is left in place and the refusal is logged.
+  for (const dir of [...dirs, match].sort((a, b) => b.length - a.length)) {
+    try {
+      await fs.remove(dir);
+    } catch (error) {
+      if (isKeptFolderError(error)) continue;
+      logToApp({
+        level: "warn",
+        source: "workspace",
+        message: `Could not remove the emptied folder ${dir} after moving its files to the trash`,
+        detail: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
   return match;
+}
+
+/**
+ * A folder that is not empty (ENOTEMPTY) or already gone (ENOENT / NotFound) is
+ * expected here and stays silent; any other failure to remove a folder is logged.
+ */
+function isKeptFolderError(error: unknown): boolean {
+  const code = (error as { code?: unknown } | null)?.code;
+  if (code === "ENOTEMPTY" || code === "ENOENT" || code === "NotFound") return true;
+  const message = error instanceof Error ? error.message : String(error);
+  return /\b(ENOTEMPTY|ENOENT|NotFound)\b/.test(message);
+}
+
+/**
+ * Every file and folder under `dir`, from `list` alone. `walk` reports files only,
+ * so a folder with nothing in it would never be seen and never removed.
+ */
+async function treeUnder(fs: IWorkspaceFs, dir: string): Promise<{ files: string[]; dirs: string[] }> {
+  const files: string[] = [];
+  const dirs: string[] = [];
+  const pending = [dir];
+  while (pending.length > 0) {
+    const current = pending.pop()!;
+    for (const entry of await fs.list(current)) {
+      if (entry.kind === "dir") {
+        dirs.push(entry.path);
+        pending.push(entry.path);
+      } else {
+        files.push(entry.path);
+      }
+    }
+  }
+  return { files, dirs };
 }

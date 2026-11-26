@@ -13,6 +13,7 @@ import { activeProjectRoot } from "@/features/workspace/application/parts";
 import { activeWorkspaceFs } from "@/features/workspace/application/workspace-folder";
 import type { PaperHtmlPage } from "@weaveforge/wasm";
 import { PAPER_HTML_DB_NAME } from "./parts-1";
+import { findProjectFile } from "./project-file-lookup";
 import { sanitizePaperHtml } from "./sanitize-paper-html";
 
 export interface PaperHtmlStore {
@@ -29,8 +30,10 @@ class FolderPaperHtmlStore implements PaperHtmlStore {
   ) {}
 
   async get(paperId: string): Promise<PaperHtmlPage | null> {
-    const path = typedCore().paperHtmlPath(paperId, await this.projectRoot());
-    if (!(await this.fs.stat(path))) return null;
+    const path = await findProjectFile(this.fs, await this.projectRoot(), (root) =>
+      typedCore().paperHtmlPath(paperId, root),
+    );
+    if (!path) return null;
     const page = typedCore().parsePaperHtmlDocument(paperId, await this.fs.readText(path));
     if (!page) return null;
     return { ...page, html: sanitizePaperHtml(page.html, page.url).html };

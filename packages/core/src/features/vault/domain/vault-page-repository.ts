@@ -32,8 +32,11 @@ export interface EditVaultPageInput {
   sessionDigests?: readonly string[];
 }
 
-/** The stored page after an edit; `conflictCopyId` names the copy a clashing edit was kept in. */
-export type EditedVaultPage = VaultPage & { conflictCopyId?: string };
+/**
+ * The stored page after an edit; `conflictCopyId` names the copy a clashing edit
+ * was kept in (the last one), `conflictCopyIds` every copy this save made.
+ */
+export type EditedVaultPage = VaultPage & { conflictCopyId?: string; conflictCopyIds?: string[] };
 
 /** Vault-page writes that validate and apply changes (the Rust `vault_pages` arms). */
 export interface IVaultPageManager {

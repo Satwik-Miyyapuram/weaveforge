@@ -967,23 +967,6 @@
   display: none;
 }
 
-:is(.workspace-toolbar, .document-toolbar)[data-moved] .workspace-toolbar-doc .ink-menu-more {
-  position: relative;
-}
-
-:is(.workspace-toolbar, .document-toolbar)[data-moved] .workspace-toolbar-doc .ink-menu-more::after {
-  content: "";
-  position: absolute;
-  top: 5px;
-  right: 4px;
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--accent);
-  box-shadow: 0 0 0 2px var(--surface);
-  pointer-events: none;
-}
-
 /* What moved, at the top of More: a row each for undo, the page and the zoom. */
 .ink-menu-fold-row {
   display: flex;
@@ -2044,6 +2027,8 @@
 .ink-bar-spacer { flex: 1 1 auto; }
 
 .ink-rail-container {
+  /* The growing row, also when the bar floats out of flow (Focus). */
+  grid-row: 2;
   position: relative;
   display: flex;
   flex-direction: column;
@@ -2564,6 +2549,7 @@
 }
 
 .ink-text {
+  grid-row: 2;
   min-height: 0;
   overflow-y: auto;
   scrollbar-gutter: stable;

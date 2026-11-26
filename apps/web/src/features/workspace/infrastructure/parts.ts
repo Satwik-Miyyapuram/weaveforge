@@ -63,14 +63,21 @@ export class BrowserWorkspaceFs implements IWorkspaceFs {
     return typeof (globalThis as { showDirectoryPicker?: unknown }).showDirectoryPicker === "function";
   }
 
+  /**
+   * The folder handle for `path`, or null when it is absent. Only NotFoundError is absent. A
+   * TypeMismatchError (a file sits where a folder is expected) is absent on a read, since no folder
+   * is there, but on a create it rethrows so the write reports the clash. Any other refusal rethrows.
+   */
   private async dirFor(path: string, create: boolean): Promise<DirHandle | null> {
     const parts = path ? safeWorkspacePath(path).split("/") : [];
     let dir = this.root;
     for (const part of parts) {
       try {
         dir = (await dir.getDirectoryHandle(part, { create })) as DirHandle;
-      } catch {
-        return null;
+      } catch (error) {
+        const name = (error as { name?: unknown } | null)?.name;
+        if (name === "NotFoundError" || (name === "TypeMismatchError" && !create)) return null;
+        throw error;
       }
     }
     return dir;
@@ -82,8 +89,13 @@ export class BrowserWorkspaceFs implements IWorkspaceFs {
     if (!dir) return null;
     try {
       return await dir.getFileHandle(name, { create });
-    } catch {
-      return null;
+    } catch (error) {
+      // On a read, a missing file or a folder that holds this name is absent (the browser throws
+      // TypeMismatchError for a folder name). On a create, a clash rethrows so the write reports it.
+      // Any other refusal (permission and the like) reaches the caller.
+      const errorName = (error as { name?: unknown } | null)?.name;
+      if (errorName === "NotFoundError" || (errorName === "TypeMismatchError" && !create)) return null;
+      throw error;
     }
   }
 
@@ -118,16 +130,20 @@ export class BrowserWorkspaceFs implements IWorkspaceFs {
 
   /**
    * Compares the file's text with what the caller read, then writes. Same rule as the
-   * desktop adapter's fallback: a missing file reads as null. The browser has no atomic
-   * compare-and-swap, so the window is the length of one read; no outside edit is lost
-   * to a stale save, which is what matters here.
+   * desktop adapter's fallback: a missing file reads as null. A Web Lock per path makes
+   * the read, compare and write one step across this origin's tabs, so two saves from
+   * the same text cannot both win. Without Web Locks it runs unlocked.
    */
   async writeTextIf(path: string, text: string, expected: string | null): Promise<boolean> {
-    const handle = await this.fileFor(path, false);
-    const current = handle ? await (await handle.getFile()).text() : null;
-    if (current !== expected) return false;
-    await this.writeFile(path, text);
-    return true;
+    const run = async () => {
+      const handle = await this.fileFor(path, false);
+      const current = handle ? await (await handle.getFile()).text() : null;
+      if (current !== expected) return false;
+      await this.writeFile(path, text);
+      return true;
+    };
+    const locks = globalThis.navigator?.locks;
+    return locks ? locks.request(`weaveforge:workspace-file:${safeWorkspacePath(path)}`, run) : run();
   }
 
   async remove(path: string, options?: { recursive?: boolean }): Promise<void> {
@@ -186,12 +202,36 @@ export class BrowserWorkspaceFs implements IWorkspaceFs {
     return dir ? { path: safeWorkspacePath(path), size: 0, modifiedAt: "", kind: "dir" } : null;
   }
 
+  /**
+   * No native move in the File System Access API: copy, read the copy back, then delete the source.
+   * Like the desktop move, a file at `to` is replaced (temp-file saves rely on it). Web Locks on both
+   * paths, taken in name order so two renames cannot deadlock, keep a checked save of either path
+   * out of the window between the copy and the delete. A rename onto itself does nothing. A copy that
+   * does not read back the same is undone (removed, or the file that was at `to` written back) and the
+   * source is kept.
+   */
   async rename(from: string, to: string): Promise<void> {
-    // No native move in the File System Access API; copy then delete.
-    const bytes = await this.readFile(from);
-    await this.writeFile(to, bytes);
-    await this.remove(from);
+    const [src, dest] = [safeWorkspacePath(from), safeWorkspacePath(to)];
+    if (src === dest) return;
+    const run = async () => {
+      const bytes = await this.readFile(src);
+      const before = (await this.stat(dest))?.kind === "file" ? await this.readFile(dest) : null;
+      await this.writeFile(dest, bytes);
+      if (!sameBytes(await this.readFile(dest), bytes)) {
+        await (before === null ? this.remove(dest) : this.writeFile(dest, before)).catch(() => undefined);
+        throw new Error(`${dest}: the copy did not read back the same; ${src} kept.`);
+      }
+      await this.remove(src);
+    };
+    const locks = globalThis.navigator?.locks;
+    if (!locks) return run();
+    const [first, second] = [src, dest].sort().map((path) => `weaveforge:workspace-file:${path}`);
+    return locks.request(first!, () => locks.request(second!, run));
   }
+}
+
+function sameBytes(a: Uint8Array, b: Uint8Array): boolean {
+  return a.byteLength === b.byteLength && a.every((byte, i) => byte === b[i]);
 }
 
 // --- desktop-workspace-fs ---
@@ -207,8 +247,8 @@ export class BrowserWorkspaceFs implements IWorkspaceFs {
  * Two methods have no channel behind them and are satisfied here instead.
  * `mkdirp` is a no-op because a write creates its parents on the far side, and
  * a channel that makes empty directories is a channel that can litter a folder
- * with them. `rename` is a copy and a delete, which is what a rename across a
- * process boundary would be anyway.
+ * with them. `rename` is the shell's native move when it has one, and a copy and
+ * a delete otherwise.
  */
 
 export interface VaultFileBridge {
@@ -225,6 +265,8 @@ export interface VaultFileBridge {
     { path: string; kind: "file" | "dir"; size: number; modifiedAt: string } | null
   >;
   removeVaultFile(path: string): Promise<void>;
+  /** A native move that replaces a file at `to`; absent on shells without it (Electron). */
+  renameVaultFile?(from: string, to: string): Promise<void>;
 }
 
 export class DesktopWorkspaceFs implements IWorkspaceFs {
@@ -286,6 +328,10 @@ export class DesktopWorkspaceFs implements IWorkspaceFs {
   }
 
   async rename(from: string, to: string): Promise<void> {
+    const [src, dest] = [safeWorkspacePath(from), safeWorkspacePath(to)];
+    // One move on disk: no crash window with the file in both places, and no
+    // whole-file load into the webview.
+    if (this.bridge.renameVaultFile) return this.bridge.renameVaultFile(src, dest);
     // Bytes, not text: a text round trip mangles anything that is not UTF-8.
     await this.writeFile(to, await this.readFile(from));
     await this.remove(from);

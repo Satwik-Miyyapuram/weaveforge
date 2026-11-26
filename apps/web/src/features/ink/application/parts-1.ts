@@ -187,9 +187,19 @@ export function inkChunkCodec(
     compress: async (bytes) =>
       pipeThrough(new CompressionStream("deflate-raw"), bytes),
     decompress: async (bytes) =>
-      pipeThrough(new DecompressionStream("deflate-raw"), bytes),
+      pipeThrough(
+        new DecompressionStream("deflate-raw"),
+        bytes,
+        INK_CHUNK_MAX_INFLATED_BYTES,
+      ),
   };
 }
+
+/**
+ * The most one chunk may inflate to. A page of strokes is far smaller; a
+ * crafted file that inflates past this is read no further and is corrupt.
+ */
+export const INK_CHUNK_MAX_INFLATED_BYTES = 64 * 1024 * 1024;
 
 /**
  * The codec this runtime can store with, or `undefined` to leave core on
@@ -199,10 +209,14 @@ export function availableInkChunkCodec(): InkChunkCodec | undefined {
   return inkChunkCodec(INK_CHUNK_CODEC_NAME) ?? undefined;
 }
 
-/** Push bytes through a transform stream and collect what comes out. */
+/**
+ * Push bytes through a transform stream and collect what comes out, refusing
+ * once the output passes `limit` bytes.
+ */
 export async function pipeThrough(
   stream: GenericTransformStream,
   bytes: Uint8Array,
+  limit = Infinity,
 ): Promise<Uint8Array> {
   const writer = stream.writable.getWriter();
   // A corrupt input errors the stream: the reader below rejects with it, and
@@ -211,12 +225,19 @@ export async function pipeThrough(
   writer.close().catch(() => {});
   const chunks: Uint8Array[] = [];
   const reader = stream.readable.getReader();
+  let total = 0;
   for (;;) {
     const { done, value } = await reader.read();
     if (done) break;
-    if (value) chunks.push(value as Uint8Array);
+    if (!value) continue;
+    total += (value as Uint8Array).length;
+    if (total > limit) {
+      // Cancelling errors the writable side too; its promises are caught above.
+      await reader.cancel().catch(() => {});
+      throw new Error(`stream output is larger than ${limit} bytes`);
+    }
+    chunks.push(value as Uint8Array);
   }
-  const total = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
   const out = new Uint8Array(total);
   let at = 0;
   for (const chunk of chunks) {

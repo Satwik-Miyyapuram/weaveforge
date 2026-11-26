@@ -42,7 +42,8 @@
  * afterwards is what makes it feel native.
  */
 
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { FingerPan } from "@/lib/finger-pan";
 
 /** How far a finger must travel before it is panning rather than touching. */
 const PAN_SLOP_PX = 8;
@@ -168,6 +169,11 @@ export function useReaderGestures({
     [scrollRef],
   );
 
+  /** One finger's pan: follows the finger, and a flick glides on after it lifts. */
+  const [fling] = useState(
+    () => new FingerPan((dx, dy) => scrollRef.current?.scrollBy(dx, dy)),
+  );
+
   /**
    * One frame of the gesture: measure the fingers, decide if it is still
    * undecided, and do the one thing that gesture does.
@@ -181,7 +187,7 @@ export function useReaderGestures({
       const now = [...fingers.current.values()][0]!;
       const was = lastFinger.current;
       lastFinger.current = now;
-      if (was) panBy(now.x - was.x, now.y - was.y);
+      if (was) fling.move(now.x - was.x, now.y - was.y);
       return;
     }
 
@@ -221,7 +227,7 @@ export function useReaderGestures({
     const previous = last.current ?? start;
     last.current = pair;
     panBy(pair.cx - previous.cx, pair.cy - previous.cy);
-  }, [focusOn, panBy, pairOf]);
+  }, [fling, focusOn, panBy, pairOf]);
 
   const schedule = useCallback(() => {
     if (frame.current != null) return;
@@ -246,14 +252,16 @@ export function useReaderGestures({
   useEffect(
     () => () => {
       if (frame.current != null) cancelAnimationFrame(frame.current);
+      fling.stop();
     },
-    [],
+    [fling],
   );
 
   const begin = useCallback(
     (event: React.PointerEvent): boolean => {
       // A pen is not a finger: a stylus landing on a pinch is drawing.
       if (event.pointerType !== "touch") return false;
+      fling.stop();
       const map = fingers.current;
       map.set(event.pointerId, { x: event.clientX, y: event.clientY });
 
@@ -277,7 +285,7 @@ export function useReaderGestures({
       lastFinger.current = { x: event.clientX, y: event.clientY };
       return true;
     },
-    [focusOn, pairOf],
+    [fling, focusOn, pairOf],
   );
 
   const move = useCallback(
@@ -302,6 +310,8 @@ export function useReaderGestures({
 
       if (map.size === 0) {
         if (intent.current === "zoom") commitZoom();
+        // The last finger off a one-finger pan: the page glides on at the flick's speed.
+        else if (intent.current === "pan" && lastFinger.current) fling.release();
         intent.current = "none";
         from.current = null;
         last.current = null;
@@ -323,7 +333,7 @@ export function useReaderGestures({
       }
       return handled;
     },
-    [commitZoom],
+    [commitZoom, fling],
   );
 
   return { begin, move, end };

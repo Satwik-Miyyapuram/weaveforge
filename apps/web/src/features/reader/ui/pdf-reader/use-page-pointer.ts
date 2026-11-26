@@ -1,14 +1,14 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { INK_HIGHLIGHTER_WIDTH, INK_DEFAULT_WIDTH, type PageProjection, type ReaderAnnotation } from "@weaveforge/core";
-import type { ReaderPageSize, PageTextGeometry } from "@weaveforge/wasm";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { INK_DEFAULT_WIDTH, type PageProjection, type ReaderAnnotation } from "@weaveforge/core";
+import type { CombinedPdfAnchor, ReaderPageSize, PageTextGeometry } from "@weaveforge/wasm";
 import { readyCore } from "@/lib/rust-core";
 // The shared palm rules, through ink's public API: an ink note needs the same
 // three layers this reader already had, so they live in one place rather than in
 // two implementations that would drift.
 import { ERASER_CURSOR, ERASER_SCREEN_RADIUS } from "@/features/ink";
-import { InkGesture, StrokeEdgeSplit, type InkToolKind } from "@/features/ink/application/parts-1";
+import { InkGesture, type InkToolKind } from "@/features/ink/application/parts-1";
 import { InkPenGate } from "@/features/ink/application/parts-4";
 import {
   appendInkStroke,
@@ -16,7 +16,6 @@ import {
   eraseInkPaths,
   draftInkAnnotation,
 } from "@weaveforge/wasm";
-import { PdfInkSampler, coalescedSamples } from "../../application/parts-2";
 import type { ReaderCreateTool } from "../../application/parts";
 import {
   EMPTY_ANNOTATIONS,
@@ -25,7 +24,7 @@ import {
 } from "./constants";
 import type { AnnotationActions } from "./use-annotation-actions";
 import { usePointerPreviews } from "./use-pointer-previews";
-import { drawArea, pageBoxOf } from "./page-box";
+import { pageBoxOf } from "./page-box";
 import type { DraftShape, InkGroup, InkMove, PendingTextBox } from "./types";
 
 export interface PagePointerDeps {
@@ -42,10 +41,6 @@ export interface PagePointerDeps {
    * stroke up.
    */
   inkEditable: boolean;
-  /** Pen nib in PDF points, before pressure. Defaults to `INK_DEFAULT_WIDTH`. */
-  inkWidth?: number;
-  /** Highlighter nib in the note's 0.1 mm. Defaults to `INK_HIGHLIGHTER_WIDTH`. */
-  highlighterWidth?: number;
   selectedAnnId: string | null;
   pageSize: ReaderPageSize | null;
   scale: number;
@@ -57,6 +52,8 @@ export interface PagePointerDeps {
   persistDraft: AnnotationActions["persistDraft"];
   removeLocal: AnnotationActions["removeLocal"];
   saveAnchor: AnnotationActions["saveAnchor"];
+  /** Undo and redo steps taken (`InkUndo.steps`); a change ends the mark in progress. */
+  inkUndoSteps?: number;
 }
 
 export interface PagePointer {
@@ -95,6 +92,14 @@ export interface PagePointer {
    * not a line. The sheet does the same when a palm arrives.
    */
   cancelStroke: () => void;
+  /**
+   * Save a stroke the notes' pen finished on a page (`PdfInkPen`), joining
+   * the mark in progress when there is one.
+   */
+  /** Resolves true once the stroke is stored (or there was nothing to store). */
+  persistInkStroke: (input: { pageNumber: number; pageHeight: number; path: number[]; width: number }) => Promise<boolean>;
+  /** Hand a page's pen to `cancelStroke`; returns the undo. */
+  registerPenCancel: (cancel: () => void) => () => void;
   pendingTextBox: PendingTextBox | null;
   setPendingTextBox: (box: PendingTextBox | null) => void;
   pageProjection: (pageNumber: number) => PageProjection;
@@ -120,8 +125,6 @@ export function usePagePointer({
   createTool,
   createColor,
   inkEditable,
-  inkWidth = INK_DEFAULT_WIDTH,
-  highlighterWidth = INK_HIGHLIGHTER_WIDTH,
   selectedAnnId,
   pageSize,
   scale,
@@ -132,11 +135,8 @@ export function usePagePointer({
   persistDraft,
   removeLocal,
   saveAnchor,
+  inkUndoSteps = 0,
 }: PagePointerDeps): PagePointer {
-  /** The stroke being drawn, filtered the way a note's pen is. */
-  const ink = useRef(new PdfInkSampler());
-  /** Pointer that owns the stroke in progress, so a second contact cannot join it. */
-  const inkPointerId = useRef<number | null>(null);
   /**
    * Which pointer may draw, which is ink's palm handling and not the reader's.
    *
@@ -156,8 +156,16 @@ export function usePagePointer({
   const [penSeen, setPenSeen] = useState(false);
   /** The ink annotation the last stroke went into, for stroke grouping. */
   const inkGroup = useRef<InkGroup | null>(null);
-  /** The stroke against the page's edge; shared with Notes. */
-  const edge = useRef(new StrokeEdgeSplit());
+  /** The group's anchor as last saved; read only while `inkGroup` names its mark. */
+  const groupAnchor = useRef<CombinedPdfAnchor | null>(null);
+  /**
+   * The undo steps taken when the group was last written. An undo or redo
+   * since then rewrote the mark under the pen, so `groupAnchor` is stale:
+   * joining onto it brought an undone stroke back.
+   */
+  const groupSteps = useRef(0);
+  const undoSteps = useRef(inkUndoSteps);
+  undoSteps.current = inkUndoSteps;
   const inkMove = useRef<InkMove | null>(null);
   /**
    * What the current eraser drag has left of each mark it touched: the trimmed
@@ -214,8 +222,8 @@ export function usePagePointer({
     };
   }
 
-  function screenToPdf(row: Element, clientX: number, clientY: number) {
-    const rect = pageBoxOf(row).getBoundingClientRect();
+  /** `rect` is the page box, when the caller has already measured it for this event. */
+  function screenToPdf(row: Element, clientX: number, clientY: number, rect = pageBoxOf(row).getBoundingClientRect()) {
     const pageNumber = Number((row as HTMLElement).dataset.page);
     // Rotation is part of the mapping, not a reason to refuse to draw: the
     // create tools used to switch off entirely at 90/180/270, which is exactly
@@ -307,16 +315,19 @@ export function usePagePointer({
     pageHeight: number;
     path: number[];
     width: number;
-  }) {
+  }): Promise<boolean> {
     const pageIndex = input.pageNumber - 1;
     const now = Date.now();
+    if (groupSteps.current !== undoSteps.current) inkGroup.current = null;
     const group = inkGroup.current;
 
     if (
       readyCore().canJoinInkGroup(group, { pageIndex, color: createColor, width: input.width, at: now }) &&
       group
     ) {
-      const existing = annotationsRef.current.find((a) => a.id === group.annotationId);
+      const listed = annotationsRef.current.find((a) => a.id === group.annotationId);
+      // The list is a render behind a save; the group's own anchor is not.
+      const existing = listed && groupAnchor.current ? { ...listed, anchor: groupAnchor.current } : listed;
       const merged = existing ? appendInkStroke(existing.anchor, input.path) : null;
       if (existing && merged) {
         inkGroup.current = {
@@ -324,8 +335,9 @@ export function usePagePointer({
           pathCount: merged.zoteroPosition?.paths?.length ?? group.pathCount + 1,
           lastAt: now,
         };
-        await saveAnchor(existing, merged);
-        return;
+        groupAnchor.current = merged;
+        groupSteps.current = undoSteps.current;
+        return saveAnchor(existing, merged);
       }
       // The group's row is gone (erased, or still being created) — fall through
       // and start a fresh mark rather than dropping the stroke.
@@ -339,9 +351,11 @@ export function usePagePointer({
       path: input.path,
       width: input.width,
     });
-    if (!draft) return;
+    if (!draft) return true;
     const created = await persistDraft(draft);
     if (created) {
+      groupAnchor.current = created.anchor;
+      groupSteps.current = undoSteps.current;
       inkGroup.current = {
         annotationId: created.id,
         pageIndex,
@@ -351,6 +365,7 @@ export function usePagePointer({
         lastAt: Date.now(),
       };
     }
+    return created !== null;
   }
 
   /** Write a finished move to the stored paths of every mark it carried. */
@@ -401,18 +416,6 @@ export function usePagePointer({
       })
       .map((ann) => ann.id);
   }
-
-  /**
-   * The nib, constant along the stroke as on a note: the highlighter's is fixed, the pen's is chosen.
-   *
-   * The highlighter's is the ink note's 6 mm, converted once — the reader
-   * carries no nib set of its own any more, so a highlighter is the same band
-   * on a paper as on a sheet of ruled paper.
-   */
-  const nibBase =
-    createTool === "highlighter"
-      ? readyCore().inkNoteWidthToPdfPoints(highlighterWidth)
-      : inkWidth;
 
   function startErase(pageNumber: number, event: React.PointerEvent<HTMLDivElement>, pt: { x: number; y: number }) {
     event.preventDefault();
@@ -481,24 +484,8 @@ export function usePagePointer({
       return;
     }
 
-    if (readyCore().isInkTool(createTool)) {
-      // One contact owns the stroke. Without this a palm landing mid-stroke on
-      // a pen-less tablet would splice its own path into the same line.
-      if (inkPointerId.current != null) return;
-      inkPointerId.current = event.pointerId;
-      ink.current.begin(pt.x, pt.y, event.timeStamp);
-      // A stroke begins on the paper: the press that started it landed here.
-      edge.current.begin({ x: event.clientX, y: event.clientY });
-      scheduleDraft({
-        kind: "ink",
-        pageNumber,
-        path: [pt.x, pt.y],
-        width: nibBase,
-        highlighter: createTool === "highlighter",
-      });
-      host.setPointerCapture(event.pointerId);
-      return;
-    }
+    // The stroke itself is the notes' pen on the page (`PdfInkPen`).
+    if (readyCore().isInkTool(createTool)) return;
     // Both tools drag out a region. Text used to place a fixed 120x24 box
     // wherever you clicked, with no way to say how big it should be.
     if (createTool === "image" || createTool === "text") {
@@ -519,7 +506,10 @@ export function usePagePointer({
     if (!canCreate) return;
     const host = event.currentTarget;
     const pageNumber = Number(host.dataset.page);
-    const pt = screenToPdf(host, event.clientX, event.clientY);
+    // Measured once for the event and its merged samples: a layout read per
+    // sample forces a layout per sample.
+    const rect = pageBoxOf(host).getBoundingClientRect();
+    const pt = screenToPdf(host, event.clientX, event.clientY, rect);
 
     const move = inkMove.current;
     if (move && move.pointerId === event.pointerId) {
@@ -544,83 +534,6 @@ export function usePagePointer({
       return;
     }
 
-    if (
-      readyCore().isInkTool(createTool) &&
-      inkPointerId.current === event.pointerId &&
-      // A stroke in hand, *or* a pen that is off the paper: cutting the stroke at
-      // the edge empties the path, and the return that starts the next one has
-      // to be let in — it is the same gesture, and the contact is still ours.
-      (ink.current.path.length >= 2 || edge.current.outside)
-    ) {
-      /*
-       * The stroke is cut at the edge of the row — the page and the writing
-       * margin beside it — and starts again as a *new* stroke where the pen
-       * comes back. A hand does not stop at the edge of the paper, and a stroke
-       * that collected points through everything it passed over would come back
-       * with a line drawn across a gap the page does not own.
-       *
-       * Whether the point is in the area is asked of the point; *where* the pen
-       * crossed is asked of the segment, so the ink reaches the edge exactly
-       * rather than stopping a sample short of it — and the area is the page
-       * inset by half the nib, so the ink's own edge is what lands on the page's.
-       */
-      const nibPx = nibBase * scale;
-      const area = drawArea(host, nibPx / 2);
-      const step = edge.current.move({ x: event.clientX, y: event.clientY }, area);
-
-      // Still outside: the pen's travel leaves no mark at all.
-      if (step.kind === "outside") return;
-
-      if (step.kind === "enter") {
-        // Back on the paper: a new stroke, beginning where the pen crossed in.
-        const entry = screenToPdf(host, step.at.x, step.at.y);
-        ink.current.begin(entry.x, entry.y, event.timeStamp);
-        if (!ink.current.push(pt.x, pt.y, event.timeStamp)) return;
-        scheduleDraft({
-          kind: "ink",
-          pageNumber,
-          path: [...ink.current.path],
-          width: nibBase,
-          highlighter: createTool === "highlighter",
-        });
-        return;
-      }
-
-      if (step.kind === "exit") {
-        // The pen has left: finish the stroke at the edge it crossed and wait.
-        const cut = screenToPdf(host, step.at.x, step.at.y);
-        ink.current.pushExact(cut.x, cut.y);
-        const height =
-          pageGeometries.current.get(pageNumber)?.pageHeight ?? pageSize?.height;
-        if (height) {
-          void persistInkStroke({
-            pageNumber,
-            pageHeight: height,
-            path: [...ink.current.path],
-            width: nibBase,
-          });
-        }
-        ink.current.clear();
-        clearDraft();
-        return;
-      }
-
-      // Every sample the frame merged, through the notes' filter.
-      let grew = false;
-      for (const sample of coalescedSamples(event.nativeEvent ?? (event as unknown as PointerEvent))) {
-        const at = screenToPdf(host, sample.clientX, sample.clientY);
-        if (ink.current.push(at.x, at.y, sample.timeStamp)) grew = true;
-      }
-      if (!grew) return;
-      scheduleDraft({
-        kind: "ink",
-        pageNumber,
-        path: [...ink.current.path],
-        width: nibBase,
-        highlighter: createTool === "highlighter",
-      });
-      return;
-    }
     if ((createTool === "image" || createTool === "text") && dragRect.current) {
       dragRect.current.x1 = pt.x;
       dragRect.current.y1 = pt.y;
@@ -666,27 +579,6 @@ export function usePagePointer({
     // The persisted annotation takes over from here; drop the live preview so
     // the two cannot both be painted for a frame.
     clearDraft();
-    if (readyCore().isInkTool(createTool) && inkPointerId.current === event.pointerId) {
-      const path = [...ink.current.path];
-      ink.current.clear();
-      inkPointerId.current = null;
-      // A pen that lifted off the paper has already been cut and written at the
-      // edge it crossed; there is nothing left in hand to save.
-      const cutAtEdge = edge.current.end();
-      if (!cutAtEdge && path.length >= 4) {
-        const pageHeight =
-          pageGeometries.current.get(pageNumber)?.pageHeight ?? pageSize.height;
-        void persistInkStroke({
-          pageNumber,
-          pageHeight,
-          path,
-          width: nibBase,
-        });
-      }
-      return;
-    }
-    ink.current.clear();
-    inkPointerId.current = null;
     if (createTool === "text" && dragRect.current) {
       const d = dragRect.current;
       dragRect.current = null;
@@ -731,9 +623,22 @@ export function usePagePointer({
     void event;
   }
 
+  /** The pens on the pages (`PdfInkPen`): a second finger or a pinch ends their stroke too. */
+  const penCancels = useRef(new Set<() => void>());
+  const registerPenCancel = useCallback((cancel: () => void) => {
+    penCancels.current.add(cancel);
+    return () => {
+      penCancels.current.delete(cancel);
+    };
+  }, []);
+
+  /** A second finger or a pinch: the row's gesture and the pens' strokes all end. */
   function cancelStroke() {
-    ink.current.clear();
-    inkPointerId.current = null;
+    for (const cancel of penCancels.current) cancel();
+    clearStroke();
+  }
+
+  function clearStroke() {
     dragRect.current = null;
     inkMove.current = null;
     lassoPointerId.current = null;
@@ -753,15 +658,13 @@ export function usePagePointer({
     // hand leaves another pointer's stroke alone.
     const owns =
       gesture.current.route(id) != null ||
-      inkPointerId.current === id ||
       inkMove.current?.pointerId === id ||
       lassoPointerId.current === id;
     if (!owns) return;
     gesture.current.up(id);
     scheduleMove(null);
     erased.current = new Map();
-    edge.current.end();
-    cancelStroke();
+    clearStroke();
   }
 
   return {
@@ -777,6 +680,8 @@ export function usePagePointer({
       inkGroup.current = null;
     },
     cancelStroke,
+    persistInkStroke,
+    registerPenCancel,
     pendingTextBox,
     setPendingTextBox,
     pageProjection,

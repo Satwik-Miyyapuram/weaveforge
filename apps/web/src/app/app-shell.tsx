@@ -28,6 +28,7 @@ import { ShareDialogHost } from "@/features/sharing/ui/share-dialog-host";
 import { PageHeaderAccount } from "@/components/screen-head";
 import { RoutePending } from "./route-pending";
 import { SwipeViews } from "./swipe-views";
+import { startCitationAlerts } from "./start-citation-alerts";
 import { StartupProvider } from "@/features/startup";
 import { EmailRecoveryScreen } from "@/components/email-recovery-screen";
 import { PasswordResetScreen } from "@/components/password-reset-screen";
@@ -227,15 +228,8 @@ function ProjectScopedShell({ children }: { children: React.ReactNode }) {
     if (!current) return;
     const projectId = current.id;
     let cancelled = false;
-    void import("@/bootstrap").then(async ({ ensureContainer, getContainer }) => {
-      await ensureContainer();
-      if (cancelled) return;
-      const ctx = getContainer().projects.context;
-      if (ctx.projectId !== projectId) return;
-      // Browser-triggered citation alerts: at most once per tracked paper/day.
-      // Use-case also aborts writes if projectId changes mid-poll.
-      void getContainer().papers.checkCitationAlerts().catch(() => undefined);
-    });
+    // Browser-triggered citation alerts; every failure is logged (F97-P2-22).
+    void startCitationAlerts(projectId, () => cancelled);
     return () => {
       cancelled = true;
     };

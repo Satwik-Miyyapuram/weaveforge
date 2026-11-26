@@ -1,3 +1,4 @@
+import { logToApp } from "@/lib/error-report/app-log";
 import { desktop } from "@/lib/desktop/desktop-bridge";
 import { readyCore, typedCore } from "@/lib/rust-core";
 import {
@@ -122,11 +123,26 @@ export async function forgetStoredProvider(): Promise<void> {
  * module, but it survives upgrades that change the descriptor's shape, and a
  * half-valid provider would fail later at the model call — where the message
  * would be the provider's rather than ours.
+ *
+ * A keychain that refuses to answer (locked, or no keychain) also counts as
+ * nothing stored, so the AI settings stay usable. The log names the failure and
+ * never the value.
  */
 export async function restoreActiveProvider(): Promise<boolean> {
   const bridge = desktop();
   if (!bridge) return false;
-  const stored = await bridge.readSecret(SECRET);
+  let stored: string | null;
+  try {
+    stored = await bridge.readSecret(SECRET);
+  } catch (err) {
+    logToApp({
+      level: "warn",
+      source: "ai-provider",
+      message: "Could not restore the stored AI provider",
+      detail: err instanceof Error ? err.message : String(err),
+    });
+    return false;
+  }
   if (!stored) return false;
   const parsed = parseStored(stored);
   if (!parsed) return false;
@@ -182,8 +198,11 @@ export async function importFolderDrafts(
     if (!draft) continue;
     // Claim by rename, not delete: the draft stays on disk until the queue has it,
     // and a claimed name is no longer a draft path, so no pass queues it twice.
-    const claimed = `${entry.path}.claimed`;
+    // Rename replaces, so the claim takes a free name: a `.claimed` file a crash
+    // left behind is someone's draft too.
+    let claimed: string;
     try {
+      claimed = await freeClaimedName(fs, entry.path);
       await fs.rename(entry.path, claimed);
     } catch {
       continue;
@@ -192,7 +211,12 @@ export async function importFolderDrafts(
       await queue(draft);
     } catch (err) {
       firstError ??= err;
-      await fs.rename(claimed, entry.path).catch(() => undefined);
+      // Put the draft back for the next pass. A new draft written under the same name
+      // meanwhile keeps that name, and ours takes the next free `.json` name: a `.claimed`
+      // file is not a draft path, so it would never be queued again.
+      const taken = await fs.stat(entry.path).catch(() => null);
+      const back = taken ? await freeDraftName(fs, entry.path) : entry.path;
+      await fs.rename(claimed, back).catch(() => undefined);
       continue;
     }
     imported += 1;
@@ -200,6 +224,23 @@ export async function importFolderDrafts(
   }
   if (firstError !== null) throw firstError;
   return imported;
+}
+
+/** `<stem>-2.json`, `-3.json`, ... : the first free draft name after `path`, which ends in `.json`. */
+async function freeDraftName(fs: IWorkspaceFs, path: string): Promise<string> {
+  const stem = path.slice(0, -".json".length);
+  for (let n = 2; ; n += 1) {
+    const name = `${stem}-${n}.json`;
+    if (!(await fs.stat(name).catch(() => null))) return name;
+  }
+}
+
+/** `<path>.claimed`, or `<path>.claimed-2`, `-3`, ... when that is taken. */
+async function freeClaimedName(fs: IWorkspaceFs, path: string): Promise<string> {
+  for (let n = 1; ; n += 1) {
+    const name = n === 1 ? `${path}.claimed` : `${path}.claimed-${n}`;
+    if (!(await fs.stat(name).catch(() => null))) return name;
+  }
 }
 
 type ImportArgs = Parameters<typeof importFolderDrafts>;
@@ -247,12 +288,26 @@ export function importFolderDraftsOnce(
 type RevisionedRow = { id: string; updatedAt?: string };
 
 /**
- * A missing row never applies. A draft naming a revision applies only to a row
- * at that revision, so a row with no revision cannot prove it and conflicts.
+ * The revision a draft is checked against: the row's `updatedAt`, or for a row
+ * without one (milestones, runs) a hash of the whole row, so any change to it
+ * still reads as a change.
  */
+export function rowRevision(row: RevisionedRow): string {
+  if (row.updatedAt) return row.updatedAt;
+  // Keys sorted at every depth, so the same row always hashes the same.
+  const sorted = JSON.stringify(row, (_key, value: unknown) =>
+    value && typeof value === "object" && !Array.isArray(value)
+      ? Object.fromEntries(Object.entries(value).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)))
+      : value);
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < sorted.length; i += 1) hash = Math.imul(hash ^ sorted.charCodeAt(i), 0x01000193);
+  return `row:${(hash >>> 0).toString(16)}:${sorted.length}`;
+}
+
+/** A missing row never applies. A draft naming a revision applies only to a row at that revision. */
 function rowMatches(row: RevisionedRow | null, expectedRevision?: string): row is RevisionedRow {
   if (!row) return false;
-  return !expectedRevision || row.updatedAt === expectedRevision;
+  return !expectedRevision || rowRevision(row) === expectedRevision;
 }
 
 /**
@@ -347,19 +402,24 @@ export function createAiProposalExecutors(deps: {
     executor("edit_vault_note", async (proposal) => {
       const page = await editableNote(proposal);
       if (!page) return "conflicted";
-      await deps.vault.update(page.id, readyCore().proposalEditVaultNote(proposal.payload) as Arg<IVaultPageManager["update"], 1>);
+      await deps.vault.update(page.id, {
+        ...(readyCore().proposalEditVaultNote(proposal.payload) as Arg<IVaultPageManager["update"], 1>),
+        baseBody: page.body,
+      });
       return "accepted";
     }),
     executor("append_vault_note", async (proposal) => {
       const page = await editableNote(proposal);
       if (!page) return "conflicted";
-      await deps.vault.update(page.id, { body: readyCore().proposalAppendVaultNoteBody(page.body, proposal.payload) });
+      await deps.vault.update(page.id, {
+        body: readyCore().proposalAppendVaultNoteBody(page.body, proposal.payload),
+        baseBody: page.body,
+      });
       return "accepted";
     }),
     executor("report_edit", async (proposal) => {
       const section = await deps.reportSectionById(proposal.resourceId);
-      if (!section) return "conflicted";
-      if (proposal.expectedRevision && section.updatedAt !== proposal.expectedRevision) return "conflicted";
+      if (!rowMatches(section, proposal.expectedRevision)) return "conflicted";
       await deps.reportSections.setNotes(section.id, readyCore().proposalReportNotes(proposal.payload));
       return "accepted";
     }),

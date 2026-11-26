@@ -230,7 +230,9 @@ test("the bar folds rather than wraps: a Layout ▾ holds Preview and Split once
   assert.match(css, /\.workspace-toolbar-layout \{[^}]*display: none;/, "Layout ▾ is hidden until the fold needs it");
   assert.match(css, /:is\(\.workspace-toolbar, \.document-toolbar\)\[data-fold~="layout"\] \.workspace-toolbar-layout/);
   assert.match(css, /:is\(\.workspace-toolbar, \.document-toolbar\)\[data-fold~="colours"\] \.workspace-toolbar-doc \.ink-quick-colours/);
-  assert.match(css, /:is\(\.workspace-toolbar, \.document-toolbar\)\[data-moved\] \.workspace-toolbar-doc \.ink-menu-more::after/, "a dot on More once something moved");
+  assert.doesNotMatch(css, /data-moved|\.ink-menu-more::after/, "no dot on More: folded tools just sit in its menu");
+  const fold = readFileSync(fileURLToPath(new URL("../../ink/ui/ink-bar-fold.tsx", import.meta.url)), "utf8");
+  assert.doesNotMatch(fold, /dataset\.moved/, "the bar sets no moved flag");
   assert.match(css, /\.workspace-toolbar-doc > \.ink-bar \{[^}]*flex-wrap: nowrap;/, "never wraps");
   assert.match(css, /\.workspace-toolbar \{[^}]*padding-inline: 16px 8px;/, "the first tool keeps clear of the rail border");
   assert.match(

@@ -33,7 +33,7 @@ import { CollabBodyHost, type SaveBody } from "@/features/collab";
 // are theirs, not because this screen learned the prefixes.
 import { InkHost } from "@/features/ink";
 import { PaperMarkdown, paperImageMarkdown } from "@/features/papers";
-import { PaperPdfPane } from "@/features/reader";
+import { PaneErrorBoundary, PaperPdfPane } from "@/features/reader";
 import {
   OVERLEAF_SIGN_IN_ROW,
   OverleafProjectTab,
@@ -177,6 +177,14 @@ type ImageStore = Pick<Parameters<typeof editorImageUpload>[0], "store" | "toMar
 /** Whether a workspace document is a canvas note (its path is `notes/<title>.canvas`). */
 export function isCanvasDocument(doc: Pick<Document, "kind" | "path">): boolean {
   return doc.kind === "vault_page" && doc.path.endsWith(".canvas");
+}
+
+/** The suffix a tab shows: the file's own for a canvas or a legacy `.ink.md` note, else the kind's. */
+export function documentSuffix(doc: Pick<Document, "kind" | "path"> | undefined, kindSuffix: string | null): string | null {
+  if (!doc) return kindSuffix;
+  if (isCanvasDocument(doc)) return ".canvas";
+  if (doc.path.endsWith(".ink.md")) return ".ink.md";
+  return kindSuffix;
 }
 
 /**
@@ -445,7 +453,11 @@ export function DocumentHost({
   if (renderer === "pdf_ink") {
     // The reader's paper half, in the tab. The route is the same component
     // with a header around it; the PDF is not loaded twice.
-    return <PaperPdfPane paperId={tab.id} inkRail />;
+    return (
+      <PaneErrorBoundary label="Reader">
+        <PaperPdfPane paperId={tab.id} inkRail />
+      </PaneErrorBoundary>
+    );
   }
 
   if (renderer === "markdown" && tab.kind !== "paper" && tab.kind !== "report_section") {

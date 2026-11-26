@@ -237,7 +237,13 @@ export function useInkPageMedia(deps: InkPageMediaDeps): InkPageMedia {
       deps.textPagesRef.current = deps.textPagesRef.current.map((text, index) =>
         index === target ? typedCore().withInkPageBackground(text, null) : text,
       );
-      await writePageBackgroundChunk(target, 0);
+      try {
+        await writePageBackgroundChunk(target, 0);
+      } catch (error) {
+        // Shown, not an unhandled rejection (F97-P2-31). The text layer already
+        // dropped the image, so the save below still records the removal.
+        deps.setUnavailable(`The page image could not be removed: ${errorMessage(error)}`);
+      }
       // Only if the reader is still on that page: the chunk write above is an
       // await, so the page losing its image may be behind them by now.
       if (target === deps.pageIndexRef.current) {

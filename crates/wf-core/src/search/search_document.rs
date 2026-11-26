@@ -16,6 +16,7 @@ use crate::search::acronyms::acronyms_for_title;
 use crate::search::js_text::utf16_len;
 use crate::search::query::SearchKind;
 use crate::search::search_tuning::{LARGE_CORPUS_WARNING, MAX_INDEXED_BODY_CHARS};
+use crate::sync::ink_note::{is_ink_note_body, read_ink_note_body};
 use crate::sync::workspace_snapshot::WorkspaceSnapshot;
 
 /// Pages with almost no text are figures or scan artefacts (TS `MIN_PDF_PAGE_CHARS`).
@@ -283,13 +284,19 @@ pub fn to_search_docs(
         .collect();
     let note_paths = breadcrumbs(&note_nodes);
     for page in &snapshot.vault_pages {
+        // An ink note's header is metadata, not text: index its text layer only.
+        let text = if is_ink_note_body(&page.body) {
+            read_ink_note_body(&page.body).1
+        } else {
+            page.body.clone()
+        };
         docs.push(SearchDoc {
             title: page.title.clone(),
-            headings: extract_headings(Some(&page.body)),
+            headings: extract_headings(Some(&text)),
             // Notes carry their tags as #hashtags in the body.
-            tags: extract_hashtags(Some(&page.body)),
+            tags: extract_hashtags(Some(&text)),
             path: note_paths.get(&page.id).cloned().unwrap_or_default(),
-            body: bounded_body(&page.body),
+            body: bounded_body(&text),
             updated_at: first_present(&[&page.updated_at, &page.created_at]),
             href: href(SearchKind::Note, &page.id),
             degree: degree(format!("note:{}", page.id)),
@@ -695,6 +702,20 @@ mod tests {
             .expect("experiment doc");
         assert_eq!(experiment.body, "python train.py");
         assert_eq!(experiment.updated_at, "2026-02-01");
+    }
+
+    #[test]
+    fn an_ink_note_indexes_its_text_layer_not_its_header() {
+        let body = "<!-- weaveforge-ink v=1 page=a4 -->\n# Plan\nwrite the draft #idea";
+        let docs = to_search_docs(
+            &snapshot_with_notes(vec![note("n", "N", body)]),
+            &HashMap::new(),
+        );
+        let doc = &docs[0];
+        assert!(!doc.body.contains("weaveforge-ink"), "{}", doc.body);
+        assert!(doc.body.contains("write the draft"));
+        assert_eq!(doc.headings, vec!["Plan".to_owned()]);
+        assert_eq!(doc.tags, vec!["idea".to_owned()]);
     }
 
     #[test]

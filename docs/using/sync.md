@@ -210,6 +210,14 @@ any pull or push that works.
 **Advanced** under the button keeps the old way: any https git host, with a URL
 and a token you paste.
 
+### Which repository it backs up to
+
+**Settings → Workspace folder → Git remote** shows **Backs up to** with the
+repository whenever a remote is saved, without opening **Advanced**. For GitHub
+it names `owner/repo` and links to it on github.com. For another host it shows
+the host and path. It never shows the token. The line goes away when you click
+**Disconnect**.
+
 ## What is not synced
 
 - **The database as a file.** Only its contents travel. Two devices do not

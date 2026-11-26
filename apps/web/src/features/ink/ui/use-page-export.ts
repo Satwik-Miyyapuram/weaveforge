@@ -14,6 +14,7 @@ import type { InkPalette } from "../render/parts-1";
 import { INK_UNDERLAY, inkSheetRuleStyle, loadMathOrLog } from "./ink-sheet-underlay";
 import { readyCore, toWasmInkPage, typedCore } from "@/lib/rust-core";
 import { exportBaseName } from "./export-name";
+import { reportFailure } from "./report-failure";
 
 /**
  * The app's stylesheets as the print document links them: the linked ones by
@@ -90,6 +91,8 @@ export interface PageExportDeps {
   scale: number;
   /** The paper the sheet is drawn on (`paper-${paper}`). */
   paper: string;
+  /** Shows a failed export or print to the user (F97-P2-30). */
+  onError: (message: string) => void;
 }
 
 /** A print waiting in its preview: the document and its title. */
@@ -112,7 +115,7 @@ export interface PendingPrint {
  * Pure canvas work, deliberately: the DOM is a window onto the sheet
  * (§6.2.14) and printing it would crop the page to the scroll.
  */
-async function composeWithFigures(
+export async function composeWithFigures(
   ink: Blob,
   figures: readonly FigureGeometry[],
   fetchBlob: (path: string) => Promise<Blob>,
@@ -137,24 +140,28 @@ async function composeWithFigures(
       figure,
       bitmap: await createImageBitmap(await fetchBlob(figure.path)),
     }));
-    for (const { figure, bitmap } of loaded) {
-      const crop = figure.crop ?? [0, 0, 0, 0];
-      const sx = (crop[0] / 100) * bitmap.width;
-      const sy = (crop[1] / 100) * bitmap.height;
-      const sw = (1 - (crop[0] + crop[2]) / 100) * bitmap.width;
-      const sh = (1 - (crop[1] + crop[3]) / 100) * bitmap.height;
-      context.drawImage(
-        bitmap,
-        sx,
-        sy,
-        Math.max(1, sw),
-        Math.max(1, sh),
-        figure.x * scale,
-        figure.y * scale,
-        figure.w * scale,
-        figure.h * scale,
-      );
-      bitmap.close();
+    try {
+      for (const { figure, bitmap } of loaded) {
+        const crop = figure.crop ?? [0, 0, 0, 0];
+        const sx = (crop[0] / 100) * bitmap.width;
+        const sy = (crop[1] / 100) * bitmap.height;
+        const sw = (1 - (crop[0] + crop[2]) / 100) * bitmap.width;
+        const sh = (1 - (crop[1] + crop[3]) / 100) * bitmap.height;
+        context.drawImage(
+          bitmap,
+          sx,
+          sy,
+          Math.max(1, sw),
+          Math.max(1, sh),
+          figure.x * scale,
+          figure.y * scale,
+          figure.w * scale,
+          figure.h * scale,
+        );
+      }
+    } finally {
+      // Every figure's bitmap, even when a draw threw part way (F97-P2-29).
+      for (const { bitmap } of loaded) bitmap.close();
     }
     context.drawImage(inkBitmap, 0, 0);
     return await new Promise<Blob>((resolve, reject) =>
@@ -189,8 +196,11 @@ async function savedPageInk(
   if (!context) return null;
   if (background) {
     const bitmap = await createImageBitmap(background);
-    context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-    bitmap.close();
+    try {
+      context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    } finally {
+      bitmap.close();
+    }
   }
   if (drawn.length > 0) {
     drawInkStrokes(context, drawn, PNG_EXPORT_SCALE, readInkTuning());
@@ -233,6 +243,7 @@ export function usePageExport(deps: PageExportDeps) {
     root,
     scale,
     paper,
+    onError,
   } = deps;
   const baseName = exportBaseName(title, noteId);
   const fileBase = `${baseName}-page-${pageIndex + 1}`;
@@ -256,7 +267,7 @@ export function usePageExport(deps: PageExportDeps) {
     );
   }, [fetchBlob, pageIndex, pageSize, requestExport, textPages]);
 
-  const onExportPng = useCallback(async () => {
+  const exportPng = useCallback(async () => {
     const png = await composedExport();
     if (!png) return;
     downloadBlob(png, `${fileBase}.png`);
@@ -275,7 +286,7 @@ export function usePageExport(deps: PageExportDeps) {
    * transparent, which still carries the page's background image: only the
    * white is left out, and the print document lays its own paper down.
    */
-  const onPrint = useCallback(async () => {
+  const print = useCallback(async () => {
     const host = root.current;
     const count = Math.max(pageCount, 1);
     const texts = pageTexts.current;
@@ -369,7 +380,7 @@ export function usePageExport(deps: PageExportDeps) {
    * comes from the vault, as a data URL — a blob URL would not survive the file
    * being saved and opened again.
    */
-  const onExportSvg = useCallback(async () => {
+  const exportSvg = useCallback(async () => {
     const page = await requestModel();
     const path = typedCore().inkPageBackground(textPages.current[pageIndex] ?? "");
     let backgroundDataUrl: string | null = null;
@@ -400,6 +411,20 @@ export function usePageExport(deps: PageExportDeps) {
     });
     downloadBlob(new Blob([svg], { type: "image/svg+xml" }), `${fileBase}.svg`);
   }, [baseName, fetchBlob, fileBase, pageIndex, palette, requestModel, textPages]);
+
+  // A failed export or print is shown, never an unhandled rejection (F97-P2-30).
+  const onExportPng = useCallback(
+    () => reportFailure(exportPng, "The page could not be exported", onError),
+    [exportPng, onError],
+  );
+  const onPrint = useCallback(
+    () => reportFailure(print, "The note could not be printed", onError),
+    [print, onError],
+  );
+  const onExportSvg = useCallback(
+    () => reportFailure(exportSvg, "The page could not be exported", onError),
+    [exportSvg, onError],
+  );
 
   return { onExportPng, onPrint, onExportSvg, printDoc, closePrint };
 }

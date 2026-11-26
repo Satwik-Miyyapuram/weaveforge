@@ -20,10 +20,20 @@ use crate::sync::markdown_image::{
     image_paths_in_body, markdown_image, normalize_markdown_image_syntax,
 };
 
-/// Fenced code blocks, lazily to the next fence.
-static FENCE_RE: LazyLock<Option<Regex>> = LazyLock::new(|| compile(r"```[\s\S]*?```").ok());
-/// Inline code on one line.
-static INLINE_CODE_RE: LazyLock<Option<Regex>> = LazyLock::new(|| compile(r"`[^`\n]*`").ok());
+/// Fenced code blocks, lazily to the next fence or, when unclosed, to the end of the note.
+/// A fence counts only at the start of a line (up to three spaces in, as in list items, and
+/// after any `>` markers, as in blockquotes and callouts), so a stray ```` ``` ```` or `~~~` in
+/// prose is not code; same-line spans go to `INLINE_CODE_RE`.
+pub(crate) static FENCE_RE: LazyLock<Option<Regex>> = LazyLock::new(|| {
+    compile(
+        r"(?m)^(?:> ?)* {0,3}```[\s\S]*?(?:^(?:> ?)* {0,3}```|\z)|^(?:> ?)* {0,3}~~~[\s\S]*?(?:^(?:> ?)* {0,3}~~~|\z)",
+    )
+    .ok()
+});
+/// Inline code on one line: a ``double-backtick`` span (which may hold a single backtick)
+/// or a `single-backtick` one.
+pub(crate) static INLINE_CODE_RE: LazyLock<Option<Regex>> =
+    LazyLock::new(|| compile(r"``[^\n]*?``|`[^`\n]*`").ok());
 /// One `[[...]]` on one line; group 1 is the inside.
 pub(crate) static WIKILINK_RE: LazyLock<Option<Regex>> =
     LazyLock::new(|| compile(r"\[\[([^\[\]\n]+?)\]\]").ok());
@@ -636,11 +646,18 @@ fn mark_reached(start: usize, children: &[Vec<usize>], reached: &mut [bool]) {
     }
 }
 
-/// Sorts one level, then builds each node's children the same way.
+/// The deepest nesting the tree keeps. A page at this depth lists every page
+/// under it flat, so neither this build nor serde's walk of the tree can
+/// overflow the stack on a very deep parent chain (F97-P2-15).
+const MAX_TREE_DEPTH: usize = 256;
+
+/// Sorts one level at `depth` (roots are 1), then builds each node's children
+/// the same way, down to [`MAX_TREE_DEPTH`].
 fn build_level<P: TreePage + Clone>(
     slots: &[usize],
     items: &[&P],
     children: &[Vec<usize>],
+    depth: usize,
 ) -> Vec<VaultPageTreeNode<P>> {
     let mut sorted = slots.to_vec();
     sorted.sort_by(|&a, &b| compare_pages(items[a], items[b]));
@@ -648,7 +665,33 @@ fn build_level<P: TreePage + Clone>(
         .into_iter()
         .map(|slot| VaultPageTreeNode {
             page: items[slot].clone(),
-            children: build_level(&children[slot], items, children),
+            children: if depth < MAX_TREE_DEPTH {
+                build_level(&children[slot], items, children, depth + 1)
+            } else {
+                flat_below(slot, items, children)
+            },
+        })
+        .collect()
+}
+
+/// Every page under `slot`, sorted, each without children.
+fn flat_below<P: TreePage + Clone>(
+    slot: usize,
+    items: &[&P],
+    children: &[Vec<usize>],
+) -> Vec<VaultPageTreeNode<P>> {
+    let mut below = Vec::new();
+    let mut stack = children[slot].clone();
+    while let Some(node) = stack.pop() {
+        below.push(node);
+        stack.extend(children[node].iter().copied());
+    }
+    below.sort_by(|&a, &b| compare_pages(items[a], items[b]));
+    below
+        .into_iter()
+        .map(|slot| VaultPageTreeNode {
+            page: items[slot].clone(),
+            children: Vec::new(),
         })
         .collect()
 }
@@ -689,15 +732,16 @@ pub fn build_page_tree<P: TreePage + Clone>(pages: &[P]) -> Vec<VaultPageTreeNod
     for &root in &roots {
         mark_reached(root, &children, &mut reached);
     }
+    // One mark vector for every walk: `seen[i] == start` means this walk passed `i`.
+    let mut seen = vec![usize::MAX; n];
     for start in 0..n {
         if reached[start] {
             continue;
         }
         // Unreached nodes all have an existing parent, so walking up must repeat a node.
-        let mut seen = vec![false; n];
         let mut on_loop = start;
-        while !seen[on_loop] {
-            seen[on_loop] = true;
+        while seen[on_loop] != start {
+            seen[on_loop] = start;
             match parent[on_loop] {
                 Some(next) => on_loop = next,
                 None => break,
@@ -710,7 +754,7 @@ pub fn build_page_tree<P: TreePage + Clone>(pages: &[P]) -> Vec<VaultPageTreeNod
         roots.push(on_loop);
         mark_reached(on_loop, &children, &mut reached);
     }
-    build_level(&roots, &items, &children)
+    build_level(&roots, &items, &children, 1)
 }
 
 /// A note as the notes screen derives from it: a summary (`bodyPreview`) or a full page (`body`).
@@ -878,6 +922,44 @@ mod tests {
         let refs = extract_wikilinks("```\n[[X]]\n```\n`[[Y]]` [[Z]]");
         assert_eq!(refs.len(), 1);
         assert_eq!(refs.first().map(|r| r.target.as_str()), Some("Z"));
+    }
+
+    #[test]
+    fn links_in_tilde_and_unclosed_fences_are_ignored() {
+        let refs = extract_wikilinks("[[A]]\n~~~\n[[X]]\n~~~\n[[B]] mid ~~~ [[C]]\n```\n[[Y]]");
+        let targets: Vec<&str> = refs.iter().map(|r| r.target.as_str()).collect();
+        assert_eq!(targets, ["A", "B", "C"]);
+    }
+
+    #[test]
+    fn stray_backtick_fence_in_prose_hides_no_later_link() {
+        let refs = extract_wikilinks("type ``` then Enter [[A]]\n[[B]]\n```\n[[X]]\n```\n[[C]]");
+        let targets: Vec<&str> = refs.iter().map(|r| r.target.as_str()).collect();
+        assert_eq!(targets, ["A", "B", "C"]);
+    }
+
+    #[test]
+    fn fences_indented_up_to_three_spaces_are_code() {
+        let refs =
+            extract_wikilinks("- item\n   ```\n   [[X]]\n   ```\n  ~~~\n  [[Y]]\n  ~~~\n[[B]]");
+        let targets: Vec<&str> = refs.iter().map(|r| r.target.as_str()).collect();
+        assert_eq!(targets, ["B"]);
+    }
+
+    #[test]
+    fn fences_in_blockquotes_and_callouts_are_code() {
+        let refs = extract_wikilinks(
+            "> [!note]\n> ```\n> [[A]]\n> ```\n>~~~\n>[[C]]\n>~~~\n> > ```\n> > [[D]]\n> > ```\n[[B]]",
+        );
+        let targets: Vec<&str> = refs.iter().map(|r| r.target.as_str()).collect();
+        assert_eq!(targets, ["B"]);
+    }
+
+    #[test]
+    fn links_in_double_backtick_code_are_ignored() {
+        let refs = extract_wikilinks("``[[X]]`` and `` a ` [[Y]] `` and [[Z]]");
+        let targets: Vec<&str> = refs.iter().map(|r| r.target.as_str()).collect();
+        assert_eq!(targets, ["Z"]);
     }
 
     #[test]
@@ -1119,5 +1201,34 @@ mod tests {
         assert_eq!(tree[0].children.len(), 1);
         assert_eq!(tree[0].children[0].page.id, "b");
         assert!(tree[0].children[0].children.is_empty());
+    }
+
+    #[test]
+    fn f97_p2_15_a_deep_parent_chain_builds_without_overflow() {
+        let ids: Vec<String> = (0..10_000).map(|i| format!("p{i:05}")).collect();
+        let pages: Vec<_> = ids
+            .iter()
+            .enumerate()
+            .map(|(i, id)| summary(id, id, i.checked_sub(1).map(|p| ids[p].as_str()), 0.0))
+            .collect();
+        let tree = build_page_tree(&pages);
+        // Walked without recursion: every page is there once, and the nesting is capped.
+        let mut seen = Vec::new();
+        let mut deepest = 0;
+        let mut stack: Vec<(&VaultPageTreeNode<VaultPageSummary>, usize)> =
+            tree.iter().map(|node| (node, 1)).collect();
+        while let Some((node, depth)) = stack.pop() {
+            seen.push(node.page.id.clone());
+            deepest = deepest.max(depth);
+            stack.extend(node.children.iter().map(|child| (child, depth + 1)));
+        }
+        seen.sort();
+        assert_eq!(seen, ids);
+        assert!(deepest <= 257, "{deepest}");
+        // serde recurses too: the capped tree must serialise.
+        assert!(
+            serde_json::to_string(&tree).is_ok(),
+            "a capped tree serialises"
+        );
     }
 }

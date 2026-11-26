@@ -1,0 +1,230 @@
+import { onlyReportPath } from "./own-report";
+import assert from "node:assert/strict";
+import { before, test } from "node:test";
+import { loadTestCore } from "@/lib/test/load-test-core";
+import { runWebExport, verifyReasonCode } from "../application/run-web-export";
+import type { KindWriter } from "../domain/kind-writer";
+import type { FileCodec, ServerSource } from "../domain/ports";
+import { MemorySink } from "../infrastructure/memory-sink";
+import { ConflictError } from "@weaveforge/core";
+
+before(loadTestCore);
+
+test("run: a readBack that differs is listed with the fixed code readback-differs, never the counts", async () => {
+  const source = {
+    listRows: async () => [{ id: "w1" }],
+    listTrashed: async () => [],
+    secretProviders: async () => [],
+    countRows: async () => 1,
+    pendingOutbox: async () => 0,
+    undecryptable: async () => 0,
+    listBlobs: async () => [],
+    fetchBlob: async () => new Uint8Array(),
+    markExported097: async () => {},
+  } as unknown as ServerSource;
+  const writer: KindWriter = {
+    kinds: ["widgets"],
+    write: async () => {},
+    readBack: async () => [],
+  };
+  const codec = { supports: () => false } as unknown as FileCodec;
+  const result = await runWebExport({ runDeviceId: "dev-test",
+    kinds: ["widgets"],
+    codec,
+    writers: () => [writer],
+    now: "2026-11-22T00:00:00.000Z",
+    source,
+    sink: new MemorySink(),
+  });
+  const row = result.run.missing.find((m) => m.kind === "widgets");
+  assert.deepEqual(row, { kind: "widgets", id: "*", reason: "readback-differs" });
+  assert.equal(result.state, "incomplete");
+});
+
+test("run: a backup or outbox error message with a path never reaches report.json; the fixed code does", async () => {
+  const source = {
+    listRows: async () => [],
+    listTrashed: async () => [],
+    secretProviders: async () => [],
+    countRows: async () => 0,
+    pendingOutbox: async () => {
+      throw new Error("EACCES /secret/path/outbox.json");
+    },
+    undecryptable: async () => 0,
+    listBlobs: async () => [],
+    fetchBlob: async () => new Uint8Array(),
+    markExported097: async () => {},
+  } as unknown as ServerSource;
+  const codec = { supports: () => false } as unknown as FileCodec;
+  const debug: string[] = [];
+
+  const backupSink = new MemorySink();
+  const backedUp = await runWebExport({ runDeviceId: "dev-test",
+    kinds: [],
+    codec,
+    now: "2026-11-22T00:00:00.000Z",
+    source,
+    sink: backupSink,
+    desktop: {
+      folder: "C:/ws",
+      bridge: {
+        backup: async () => {
+          throw new Error("EACCES /secret/path/backup.dump");
+        },
+        markExported: async () => {},
+      },
+    },
+    debugLog: (line) => debug.push(line),
+  });
+  // A failed backup leaves the run with no device id, so writeReport writes no report.json at all.
+  assert.equal(backedUp.state, "incomplete");
+  assert.deepEqual(backedUp.run.missing.map((m) => m.reason), ["backup-failed"]);
+  assert.ok(!JSON.stringify(backedUp.run).includes("/secret/path"));
+  assert.deepEqual(await backupSink.list(), [], "no report.json is written");
+  assert.ok(debug.some((l) => l.includes("/secret/path/backup.dump")));
+
+  const outboxSink = new MemorySink();
+  const outboxRun = await runWebExport({ runDeviceId: "dev-test",
+    kinds: [],
+    codec,
+    now: "2026-11-22T00:00:00.000Z",
+    source,
+    sink: outboxSink,
+    debugLog: (line) => debug.push(line),
+  });
+  const outboxReport = await outboxSink.readText(await onlyReportPath(outboxSink));
+  assert.equal(outboxRun.state, "incomplete");
+  assert.ok(outboxReport.includes("outbox-unreadable"));
+  assert.ok(!outboxReport.includes("/secret/path"));
+  assert.ok(debug.some((l) => l.includes("/secret/path/outbox.json")));
+});
+
+test("verifyReasonCode: each verify error maps to a fixed code, with no path or kind text", () => {
+  assert.equal(verifyReasonCode("blob secret/p.png: unsafe path"), "blob-unsafe-path");
+  assert.equal(verifyReasonCode("blob secret/p.png: size mismatch"), "blob-size-mismatch");
+  assert.equal(verifyReasonCode("blob secret/p.png: sha256 mismatch"), "blob-sha256-mismatch");
+  assert.equal(verifyReasonCode("blob secret/p.png: read failed"), "read-failed");
+  assert.equal(verifyReasonCode("papers: read failed"), "read-failed");
+  assert.equal(verifyReasonCode("blobs: read failed"), "read-failed");
+  assert.equal(verifyReasonCode("papers: decoded files differ from the rows"), "decoded-differ");
+  assert.equal(verifyReasonCode("something new that nobody mapped"), "verify-error");
+  for (const raw of ["blob secret/p.png: unsafe path", "papers: decoded files differ from the rows"]) {
+    assert.ok(!verifyReasonCode(raw).includes("secret"));
+    assert.ok(!verifyReasonCode(raw).includes("papers"));
+  }
+});
+
+test("run: a row merged into the user's file in place is reported as kept, and readBack skips it", async () => {
+  const source = {
+    listRows: async () => [{ id: "w1", status: "to_read" }],
+    listTrashed: async () => [],
+    secretProviders: async () => [],
+    countRows: async () => 1,
+    pendingOutbox: async () => 0,
+    undecryptable: async () => 0,
+    listBlobs: async () => [],
+    fetchBlob: async () => new Uint8Array(),
+    markExported097: async () => {},
+  } as unknown as ServerSource;
+  const sink = new MemorySink();
+  const user = '---\nweaveforge-id: w1\nstatus: read\nupdated-at: "2026-11-25T00:00:00.000Z"\n---\nbody';
+  await sink.write("w1.md", user);
+  const writers = (guarded: import("../domain/ports").FileSink): KindWriter[] => [{
+    kinds: ["widgets"],
+    write: async () => {
+      const db = '---\nweaveforge-id: "w1"\nstatus: "to_read"\nupdated-at: "2026-11-20T00:00:00.000Z"\norder: 0\n---\nbody';
+      if (!(await guarded.writeIf("w1.md", db, user))) throw new Error("not written");
+    },
+    // The file keeps its own status, so it reads back differently from the DB row.
+    readBack: async () => [{ id: "w1", status: "read" }],
+  }];
+  const result = await runWebExport({ runDeviceId: "dev-test",
+    kinds: ["widgets"],
+    codec: { supports: () => false } as unknown as FileCodec,
+    writers,
+    now: "2026-11-22T00:00:00.000Z",
+    source,
+    sink,
+  });
+  assert.equal(result.run.missing.find((m) => m.kind === "widgets"), undefined);
+  assert.deepEqual(result.run.kinds.widgets?.kept, ["w1"]);
+  assert.match(new TextDecoder().decode(await sink.readBytes("w1.md")), /status: read\n.*\norder: 0\n/s);
+});
+
+test("run: a writer whose kept no-op merge makes its file layer throw ConflictError still reports the row as kept", async () => {
+  const source = {
+    listRows: async () => [{ id: "w1", status: "to_read" }],
+    listTrashed: async () => [],
+    secretProviders: async () => [],
+    countRows: async () => 1,
+    pendingOutbox: async () => 0,
+    undecryptable: async () => 0,
+    listBlobs: async () => [],
+    fetchBlob: async () => new Uint8Array(),
+    markExported097: async () => {},
+  } as unknown as ServerSource;
+  const sink = new MemorySink();
+  const user = '---\nweaveforge-id: w1\nstatus: read\nupdated-at: "2026-11-25T00:00:00.000Z"\n---\nbody';
+  await sink.write("w1.md", user);
+  const writers = (guarded: import("../domain/ports").FileSink): KindWriter[] => [{
+    kinds: ["widgets"],
+    write: async () => {
+      // The DB row adds no key the file lacks, so the store keeps the file as is; a file layer that reads it back
+      // unchanged (as sinkAsWorkspaceFs does) calls that a conflict.
+      const db = '---\nweaveforge-id: "w1"\nstatus: "to_read"\nupdated-at: "2026-11-20T00:00:00.000Z"\n---\nbody';
+      await guarded.writeIf("w1.md", db, user);
+      throw new ConflictError("conflict: w1.md differs");
+    },
+    readBack: async () => [{ id: "w1", status: "read" }],
+  }];
+  const result = await runWebExport({ runDeviceId: "dev-test",
+    kinds: ["widgets"],
+    codec: { supports: () => false } as unknown as FileCodec,
+    writers,
+    now: "2026-11-22T00:00:00.000Z",
+    source,
+    sink,
+  });
+  assert.equal(result.run.missing.find((m) => m.kind === "widgets"), undefined);
+  assert.deepEqual(result.run.kinds.widgets?.kept, ["w1"]);
+  assert.equal(result.run.kinds.widgets?.files, 1);
+  assert.equal(new TextDecoder().decode(await sink.readBytes("w1.md")), user);
+});
+
+test("run: a row kept in the user's file is never listed archive-only, even when its writer listed it", async () => {
+  const source = {
+    listRows: async () => [{ id: "w1", status: "to_read" }],
+    listTrashed: async () => [],
+    secretProviders: async () => [],
+    countRows: async () => 1,
+    pendingOutbox: async () => 0,
+    undecryptable: async () => 0,
+    listBlobs: async () => [],
+    fetchBlob: async () => new Uint8Array(),
+    markExported097: async () => {},
+  } as unknown as ServerSource;
+  const sink = new MemorySink();
+  const user = '---\nweaveforge-id: w1\nstatus: read\nupdated-at: "2026-11-25T00:00:00.000Z"\n---\nbody';
+  await sink.write("w1.md", user);
+  const writers = (guarded: import("../domain/ports").FileSink): KindWriter[] => [{
+    kinds: ["widgets"],
+    // As the archive writer does: the app write's ConflictError is swallowed and the row listed archive-only.
+    write: async () => {
+      const db = '---\nweaveforge-id: "w1"\nstatus: "to_read"\nupdated-at: "2026-11-20T00:00:00.000Z"\n---\nbody';
+      await guarded.writeIf("w1.md", db, user);
+    },
+    archivedOnly: () => [{ kind: "widgets", id: "w1", reason: "conflict" }],
+    readBack: async () => [{ id: "w1", status: "read" }],
+  }];
+  const result = await runWebExport({ runDeviceId: "dev-test",
+    kinds: ["widgets"],
+    codec: { supports: () => false } as unknown as FileCodec,
+    writers,
+    now: "2026-11-22T00:00:00.000Z",
+    source,
+    sink,
+  });
+  assert.deepEqual(result.run.kinds.widgets?.kept, ["w1"]);
+  assert.deepEqual(result.archivedOnly, []);
+  assert.equal(result.run.archivedOnly, undefined);
+});

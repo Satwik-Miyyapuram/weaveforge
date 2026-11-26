@@ -48,8 +48,8 @@ import {
   type InkInsertTool,
   type ViewMenuProps,
 } from "./ink-bar-view";
-import { InkQuickColours } from "./ink-quick-colours";
-import { INK_COLOUR_TOKENS } from "../render/parts-1";
+import { InkQuickColours, inkSwatchFill } from "./ink-quick-colours";
+import type { InkPalette } from "../render/parts-1";
 import { useQuickColours } from "./use-quick-colours";
 import { PaletteDockButton, PaletteFoldButton, usePaletteDock } from "@/components/palette-dock";
 import { Popover } from "@/components/popover";
@@ -89,6 +89,8 @@ export interface InkBarProps {
   colour: (typeof INK_COLOURS)[number];
   /** The pen's width, in 0.1 mm. */
   width: number;
+  /** The ink the page draws when it is not the theme's (the PDF's paper); the swatches show it. */
+  palette?: InkPalette;
   /** The highlighter's width, in 0.1 mm; the nib row shows its sizes while it is the tool. */
   highlighterWidth?: number;
   /**
@@ -218,6 +220,7 @@ export function InkBar({
   tool,
   colour,
   width,
+  palette,
   highlighterWidth = HIGHLIGHTER_NIB,
   page,
   pages,
@@ -378,7 +381,7 @@ export function InkBar({
 
 
       {/* 2a. Quick colours: five, one tap each; the pen's palette changes the one in use */}
-      <InkQuickColours colours={quickColours} colour={colour} onColour={onColour} disabled={readOnly} />
+      <InkQuickColours colours={quickColours} colour={colour} onColour={onColour} disabled={readOnly} palette={palette} />
 
       {/* 2. The pen: colour and nib behind one swatch. The trigger shows both —
           the colour as the swatch, the nib as the dot on it — so what the next
@@ -387,7 +390,7 @@ export function InkBar({
       <div className="ink-swatches ink-pen-pick">
         <Popover
           trigger="swatch"
-          colour={`var(${INK_COLOUR_TOKENS[colour]})`}
+          colour={inkSwatchFill(colour, palette)}
           portal
           disabled={readOnly}
           ariaLabel="Pen colour and nib"
@@ -415,7 +418,7 @@ export function InkBar({
                       key={entry}
                       label={`Ink colour: ${entry}`}
                       selected={colour === entry}
-                      colour={`var(${INK_COLOUR_TOKENS[entry]})`}
+                      colour={inkSwatchFill(entry, palette)}
                       onClick={() => {
                         // The quick colour in use takes the new colour, so the
                         // five are changed here rather than in a second palette.

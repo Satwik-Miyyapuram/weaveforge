@@ -75,6 +75,24 @@ pub fn ink_strokes_dir(note_path: &str) -> Result<String, String> {
     }
 }
 
+/// The other note whose strokes folder is the same as `note_path`'s: `x/foo.md` and
+/// the legacy `x/foo.ink.md` both keep theirs in `x/foo.ink`. When both notes exist,
+/// the folder is not one note's to trash or move. `None` when no other name maps there.
+///
+/// # Errors
+///
+/// Fails as [`ink_strokes_dir`] does.
+pub fn ink_strokes_dir_sharer(note_path: &str) -> Result<Option<String>, String> {
+    let dir = ink_strokes_dir(note_path)?;
+    let other = if note_path == format!("{dir}.md") {
+        dir.strip_suffix(INK_STROKES_DIR_EXT)
+            .map(|stem| format!("{stem}.md"))
+    } else {
+        Some(format!("{dir}.md"))
+    };
+    Ok(other.filter(|other| ink_strokes_dir(other).as_deref() == Ok(dir.as_str())))
+}
+
 /// `x/foo.ink/<ulid>.inkb`, one page of one note.
 ///
 /// # Errors
@@ -247,12 +265,34 @@ pub fn new_ink_chunk_id(now_ms: f64, random_bytes: &[u8]) -> Result<String, Stri
 mod tests {
     use super::{
         InkChunkBlobSpec, InkChunkPath, ink_chunk_blob_key, ink_chunk_blob_spec,
-        ink_chunk_ids_in_listing, ink_chunk_path, ink_strokes_dir, is_ink_note_id,
-        is_ink_strokes_segment, legacy_ink_dir, new_ink_chunk_id, parse_ink_chunk_path,
+        ink_chunk_ids_in_listing, ink_chunk_path, ink_strokes_dir, ink_strokes_dir_sharer,
+        is_ink_note_id, is_ink_strokes_segment, legacy_ink_dir, new_ink_chunk_id,
+        parse_ink_chunk_path,
     };
     use crate::sync::ink_note::is_ink_chunk_id;
 
     const CHUNK_A: &str = "01JABC0DEF0GH0JK0MN0PQ0RST";
+
+    #[test]
+    fn the_other_note_that_names_the_same_strokes_folder() {
+        for (note, other) in [
+            ("notes/foo.md", "notes/foo.ink.md"),
+            ("notes/foo.ink.md", "notes/foo.md"),
+            ("notes/foo.note.md", "notes/foo.note.ink.md"),
+            ("foo.md", "foo.ink.md"),
+        ] {
+            assert_eq!(
+                ink_strokes_dir_sharer(note),
+                Ok(Some(other.to_owned())),
+                "{note}"
+            );
+            assert_eq!(ink_strokes_dir(other), ink_strokes_dir(note), "{note}");
+        }
+        // `foo.ink.md` keeps its pages in `foo.ink`, so nothing else names `foo.ink.ink`.
+        assert_eq!(ink_strokes_dir_sharer("notes/foo.ink.ink.md"), Ok(None));
+        assert!(ink_strokes_dir_sharer("notes/.ink.md").is_err());
+        assert!(ink_strokes_dir_sharer("../foo.md").is_err());
+    }
 
     #[test]
     fn strokes_sit_in_a_folder_named_after_the_note_file() {

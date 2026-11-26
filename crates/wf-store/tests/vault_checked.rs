@@ -274,6 +274,53 @@ fn trash_name_clash_gets_suffix() {
 }
 
 #[test]
+fn trash_name_taken_after_it_was_picked_is_not_replaced() {
+    // F97-P2-5: another process trashes a file under the same name between the free-name check
+    // and the move. The delete must go to `-2`, and both trashed copies must survive.
+    let dir = TempDir::new();
+    let vault = vault_in(&dir);
+    put(&at(&dir, "p/a.md"), b"mine");
+    let mut raced = false;
+    let trashed = vault
+        .delete_to_trash_with_hook("p/a.md", &mut |dest| {
+            if !raced {
+                raced = true;
+                put(dest, b"theirs");
+            }
+        })
+        .unwrap();
+    assert!(raced);
+    assert!(trashed.ends_with("p/a-2.md"), "{trashed}");
+    assert_eq!(fs::read(at(&dir, &trashed)).unwrap(), b"mine");
+    let theirs = trashed.replace("p/a-2.md", "p/a.md");
+    assert_eq!(fs::read(at(&dir, &theirs)).unwrap(), b"theirs");
+    assert!(!at(&dir, "p/a.md").exists());
+}
+
+#[test]
+fn folder_delete_skips_a_trash_name_taken_after_it_was_picked() {
+    let dir = TempDir::new();
+    let vault = vault_in(&dir);
+    put(&at(&dir, "f/inner.md"), b"mine");
+    let mut raced = false;
+    let trashed = vault
+        .delete_to_trash_with_hook("f", &mut |dest| {
+            if !raced {
+                raced = true;
+                put(&dest.join("inner.md"), b"theirs");
+            }
+        })
+        .unwrap();
+    assert!(trashed.ends_with("/f-2"), "{trashed}");
+    assert_eq!(
+        fs::read(at(&dir, &format!("{trashed}/inner.md"))).unwrap(),
+        b"mine"
+    );
+    let theirs = format!("{}/inner.md", trashed.trim_end_matches("-2"));
+    assert_eq!(fs::read(at(&dir, &theirs)).unwrap(), b"theirs");
+}
+
+#[test]
 fn rename_keeps_displaced_target() {
     let dir = TempDir::new();
     let vault = vault_in(&dir);
@@ -589,4 +636,66 @@ fn save_of_a_new_file_writes_the_text_as_given() {
         .write_text_checked("new.md", "a\nb\n", Some(""))
         .unwrap();
     assert_eq!(fs::read(at(&dir, "new.md")).unwrap(), b"a\nb\n");
+}
+
+/// Every file under `dir` whose bytes equal `want`, as paths relative to `dir`.
+#[cfg(test)]
+fn files_holding(dir: &std::path::Path, want: &[u8]) -> Vec<std::path::PathBuf> {
+    let mut found = Vec::new();
+    for entry in fs::read_dir(dir).unwrap() {
+        let path = entry.unwrap().path();
+        if path.is_dir() {
+            found.extend(files_holding(&path, want));
+        } else if fs::read(&path).unwrap() == want {
+            found.push(path);
+        }
+    }
+    found
+}
+
+#[test]
+fn replaced_invalid_utf8_bytes_that_differ_are_kept() {
+    // F97-P2-6: `FF 41` and `FE 41` both decode lossily to "\u{FFFD}A". A write that expected
+    // `FF 41` must not delete `FE 41` that another writer put there in the meantime.
+    let dir = TempDir::new();
+    let vault = vault_in(&dir);
+    let path = at(&dir, "bad.md");
+    put(&path, b"\xFFA");
+    let WriteOutcome::Changed { disk_hash: seen } = vault
+        .write_text_checked("bad.md", "x", Some("not the hash"))
+        .unwrap()
+    else {
+        panic!("a wrong expectation is refused");
+    };
+    let _ = vault.write_checked_with_hook(
+        "bad.md",
+        b"mine",
+        true,
+        Some(seen.as_str()),
+        &mut || put(&path, b"\xFEA"),
+        &mut || {},
+    );
+    assert!(
+        !files_holding(dir.path(), b"\xFEA").is_empty(),
+        "the other writer's bytes were lost"
+    );
+}
+
+#[test]
+fn a_non_utf8_note_saves_with_the_digest_of_its_decoded_text() {
+    // 1.0.0 review P2-1: the shell reads a Latin-1 note lossily and expects the digest of that
+    // text. The save must go through instead of returning Changed on every attempt.
+    let dir = TempDir::new();
+    let vault = vault_in(&dir);
+    let path = at(&dir, "latin.md");
+    put(&path, b"caf\xE9\n");
+    let seen = vault.read_text("latin.md").unwrap();
+    let outcome = vault
+        .write_text_checked("latin.md", "cafe\n", Some(&canonical_digest(&seen)))
+        .unwrap();
+    assert!(
+        matches!(outcome, WriteOutcome::Written { .. }),
+        "{outcome:?}"
+    );
+    assert_eq!(fs::read(&path).unwrap(), b"cafe\n");
 }

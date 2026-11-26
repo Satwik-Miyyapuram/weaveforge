@@ -160,12 +160,36 @@ fn is_missing(value: Option<&Value>) -> bool {
     }
 }
 
-/// The `contentType` field when it is a non-blank string, else the default type.
+/// The `contentType` field when it is a well-formed type a browser will not run, else the
+/// default type. A signed URL serves the blob inline, so html, svg, xml or script would
+/// be a stored XSS on the storage origin (F97-P2-3).
 fn content_type(fields: &Map<String, Value>) -> String {
     match fields.get("contentType").and_then(Value::as_str) {
-        Some(content_type) if !content_type.trim().is_empty() => content_type.to_owned(),
+        Some(content_type) if is_inert_type(content_type) => content_type.trim().to_owned(),
         _ => CONTENT_TYPE_DEFAULT.to_owned(),
     }
+}
+
+/// Whether `value` is a plain `type/subtype` (parameters allowed) that no browser renders
+/// as a document or runs as script.
+fn is_inert_type(value: &str) -> bool {
+    let essence = value.split(';').next().unwrap_or_default().trim();
+    let token = |part: &str| {
+        !part.is_empty()
+            && part
+                .bytes()
+                .all(|b| b.is_ascii_alphanumeric() || b"!#$&-^_.+".contains(&b))
+    };
+    let well_formed = essence
+        .split_once('/')
+        .is_some_and(|(kind, sub)| token(kind) && token(sub))
+        && value.bytes().all(|b| (0x20..0x7f).contains(&b));
+    let lower = essence.to_ascii_lowercase();
+    let active = ["html", "xml", "svg", "script", "xsl"]
+        .iter()
+        .any(|word| lower.contains(word))
+        || lower.starts_with("multipart/");
+    well_formed && !active
 }
 
 /// Decodes base64 the way Node's `Buffer.from(s, "base64")` does: stops at `=`,

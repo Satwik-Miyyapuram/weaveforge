@@ -1,7 +1,7 @@
 "use client";
 
 import { InlineError } from "@/components/form-error";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { materializeBlobImages, REPORT_STATUSES, type ReportSection, type ReportStatus } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { BackButton } from "@/components/back-button";
@@ -12,6 +12,7 @@ import { ShareButton, CommentsToggle, PinnedPaperBadge } from "@/features/sharin
 import type { EditorHandle } from "@/components/editor-handle";
 import { formatError } from "@/lib/format-error";
 import { useCiteLinkCatalog } from "@/lib/hooks/use-cite-links";
+import { useEditorBase } from "@/lib/hooks/use-editor-base";
 import { DocumentToolbar, citeAsSection } from "@/components/document-toolbar";
 import { useCitationFormatPreference } from "@/lib/hooks/parts";
 import type { SectionProgress } from "@weaveforge/wasm";
@@ -87,27 +88,38 @@ export function SectionNote({
     }
   }
 
+  // The notes the next save is based on: what the editor opened with or last saved, never text a reload
+  // brought in meanwhile. After a conflict the page reloads and the editor remounts on the text on disk.
+  const { key: editorKey, run: runSave } = useEditorBase(section.id, section.notes ?? "", onChanged);
+
   /** Every body write. The host saves as it goes, the way it does in the Editor. */
   const saveNotes = useCallback(
     async (nextBody: string) => {
-      setSaveError(null);
+      let uploadError: unknown;
       try {
-        const report = getContainer().report;
-        const { body, uploadError } = await materializeBlobImages(
-          nextBody,
-          section.id,
-          (id, blob, ext) => report.uploadImage(id, blob, ext),
-          "reportimg:",
-          (text: string) => readyCore().normalizeMarkdownImageSyntax(text),
-        );
-        onReplace(await report.manageReportSection.setNotes(section.id, body));
+        await runSave(async (base) => {
+          // Cleared when this save runs, not when it is queued: the error shown is the latest run's.
+          setSaveError(null);
+          const report = getContainer().report;
+          const done = await materializeBlobImages(
+            nextBody,
+            section.id,
+            (id, blob, ext) => report.uploadImage(id, blob, ext),
+            "reportimg:",
+            (text: string) => readyCore().normalizeMarkdownImageSyntax(text),
+          );
+          uploadError = done.uploadError;
+          const saved = await report.manageReportSection.setNotes(section.id, done.body, base);
+          onReplace(saved);
+          return saved.notes ?? "";
+        });
         // The text is saved; a failed upload is still said out loud.
-        if (uploadError) throw uploadError;
+        if (uploadError) setSaveError(formatError(uploadError));
       } catch (err) {
         setSaveError(formatError(err));
       }
     },
-    [onReplace, section.id],
+    [onReplace, runSave, section.id],
   );
 
   /**
@@ -221,6 +233,7 @@ export function SectionNote({
               moreSections={editing ? [citeAsSection(citationFormat, setCitationFormat)] : undefined}
             >
             <DocumentBody
+              key={editorKey}
               tab={{ kind: "report_section", id: section.id }}
               mode={editing ? "edit" : "read"}
               body={section.notes ?? ""}

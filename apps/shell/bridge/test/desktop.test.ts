@@ -243,11 +243,13 @@ test("reportAppLog does not leave a rejection when the promise rejects", async (
   await new Promise((resolve) => setImmediate(resolve));
 });
 
-test("writeVaultFile, removeVaultFile, writePreference, writeSecret and clearSecret resolve to undefined", async () => {
+test("writeVaultFile, removeVaultFile, renameVaultFile, writePreference, writeSecret and clearSecret resolve to undefined", async () => {
   const { cmds, calls } = fakeCommands();
   const shim = desktopShim(cmds, fakeEvents().events);
   assert.equal(await shim.writeVaultFile("a.md", "x"), undefined);
   assert.equal(await shim.removeVaultFile("a.md"), undefined);
+  assert.equal(await shim.renameVaultFile?.("a.md", "b.md"), undefined);
+  assert.equal(await shim.trashVaultFile?.("b.md"), undefined);
   assert.equal(await shim.writePreference("vault-git", true), undefined);
   assert.equal(await shim.writeSecret("git-sync-token", "t"), undefined);
   assert.equal(await shim.clearSecret("git-sync-token"), undefined);
@@ -256,6 +258,8 @@ test("writeVaultFile, removeVaultFile, writePreference, writeSecret and clearSec
     [
       "vaultWrite",
       "vaultRemove",
+      "vaultRename",
+      "fileDelete",
       "preferenceWrite",
       "secretWrite",
       "secretClear",
@@ -889,4 +893,44 @@ test("revealAppLog resolves to undefined and throws the shell's message", async 
     async () => desktopShim(bad.cmds, fakeEvents().events).revealAppLog?.(),
     /Could not show the log file/,
   );
+});
+
+test("the 0.9.7 migration wrappers call their commands with the page's arguments and unwrap", async () => {
+  const status = { state: "verified", deviceId: "d1", exportedHere: true, ownRunVerified: true };
+  const counts = { counts: { papers: 2 }, crdtTail: {} };
+  const backup = { deviceId: "d1", dumpPath: "/data/backup.pgdump" };
+  const rows = [{ id: "p1" }];
+  const { cmds, calls } = fakeCommands({
+    migrate097Status: { status: "ok", data: status },
+    migrate097Counts: { status: "ok", data: counts },
+    migrate097Backup: { status: "ok", data: backup },
+    migrate097Read: { status: "ok", data: rows },
+  });
+  const shim = desktopShim(cmds, fakeEvents().events);
+  assert.deepEqual(await shim.migrate097Status!("/w"), status);
+  assert.deepEqual(await shim.migrate097Counts!(), counts);
+  assert.deepEqual(await shim.migrate097Backup!("/w"), backup);
+  assert.deepEqual(await shim.migrate097Read!("papers", ["p0"], 500), rows);
+  assert.equal(await shim.migrate097Read!("papers", null, 500).then(() => "ok"), "ok");
+  assert.equal(await shim.migrate097RemoveOld!("/w"), undefined);
+  assert.equal(await shim.migrate097MarkExported!("/w"), undefined);
+  assert.deepEqual(calls, [
+    { cmd: "migrate097Status", args: ["/w"] },
+    { cmd: "migrate097Counts", args: [] },
+    { cmd: "migrate097Backup", args: ["/w"] },
+    { cmd: "migrate097Read", args: ["papers", ["p0"], 500] },
+    { cmd: "migrate097Read", args: ["papers", null, 500] },
+    { cmd: "migrate097RemoveOld", args: ["/w"] },
+    { cmd: "markExported097", args: ["/w"] },
+  ]);
+});
+
+test("a failed 0.9.7 backup or mark rejects, so the export never runs or marks on a shell error", async () => {
+  const { cmds } = fakeCommands({
+    migrate097Backup: error("backup wrote no file"),
+    markExported097: error("refused: not verified"),
+  });
+  const shim = desktopShim(cmds, fakeEvents().events);
+  await assert.rejects(shim.migrate097Backup!("/w"), { message: "backup wrote no file" });
+  await assert.rejects(shim.migrate097MarkExported!("/w"), { message: "refused: not verified" });
 });

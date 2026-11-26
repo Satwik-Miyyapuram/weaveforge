@@ -57,6 +57,27 @@ async function text(bytes: Uint8Array | null): Promise<string | null> {
   return bytes === null ? null : new TextDecoder().decode(bytes);
 }
 
+test("the 0.9.7 export folder (pre-migration dump, report, archive, trash) never enters a commit", async () => {
+  const { fs, git } = await repo();
+  const local = [
+    ".weaveforge/migration-0.9.7/pre-migration-20261122-0101.dump",
+    ".weaveforge/migration-0.9.7/report.json",
+    ".weaveforge/migration-0.9.7/archive/notes.json",
+    ".weaveforge/migration-0.9.7/trash/x.md",
+  ];
+  for (const path of local) await fs.writeFile(path, "local only");
+  await fs.writeFile("notes/a.md", "one");
+
+  assert.deepEqual(
+    (await git.status()).map((row) => row.path),
+    ["notes/a.md"],
+  );
+  await git.commitAll("first", author);
+  const isoGit = await import("isomorphic-git");
+  const committed = await isoGit.listFiles({ fs: isomorphicFsFrom(fs), dir: "/", ref: "HEAD" });
+  assert.deepEqual(committed, ["notes/a.md"]);
+});
+
 test("a fresh folder is not a repo until init", async () => {
   const fs = new MemoryWorkspaceFs(advancingClock());
   const git = new IsomorphicWorkspaceGit(fs);

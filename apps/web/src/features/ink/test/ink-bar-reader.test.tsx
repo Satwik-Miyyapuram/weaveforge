@@ -374,3 +374,20 @@ test("the zoom level holds room for three digits, so zoom in never moves as the 
   assert.match(css, /:root:root \.ink-zoom-pill \.wf-btn \{[^}]*font-variant-numeric: tabular-nums;/);
   assert.match(css, /:root:root \.ink-zoom-pill \.wf-btn \{[^}]*min-width: calc\(4\.5ch \+ 12px \+ var\(--s5\)\);/);
 });
+
+test("on paper the bar's swatches show the paper ink, not the theme's", async () => {
+  const { Swatch } = await import("@/components/controls");
+  const { PAPER_INK_PALETTE } = await import("@/features/ink/render/resolve-ink-colour");
+  withWindow(new Map(), () => {
+    const paperText = readyCore().paletteHex(PAPER_INK_PALETTE, "text");
+    const tree = render(readerBar({ colour: "text", quickColours: ["text", "green", "blue", "red", "purple"], palette: PAPER_INK_PALETTE }));
+    const quick = tree.root.findAll((n) => n.type === Swatch && n.props.label === "Ink colour: text");
+    assert.ok(quick.length > 0);
+    for (const s of quick) assert.equal(s.props.colour, paperText);
+    act(() => tree.unmount());
+    const themed = render(readerBar({ colour: "text", quickColours: ["text", "green", "blue", "red", "purple"] }));
+    const plain = themed.root.findAll((n) => n.type === Swatch && n.props.label === "Ink colour: text");
+    for (const s of plain) assert.match(s.props.colour, /^var\(/);
+    act(() => themed.unmount());
+  });
+});

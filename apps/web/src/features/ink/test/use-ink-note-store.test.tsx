@@ -13,9 +13,9 @@ import { act, create } from "react-test-renderer";
 
 
 
-import { MemoryInkChunkStore, type InkStoredPage } from "../application/parts-1";
+import { InkNoFolderError, MemoryInkChunkStore, type InkStoredPage } from "../application/parts-1";
 import { awaitInkWrites } from "../application/parts";
-import { INK_SAVE_FAILED, useInkNoteStore } from "../ui/use-ink-note-store";
+import { INK_NEEDS_FOLDER, INK_SAVE_DELAY_MS, INK_SAVE_FAILED, useInkNoteStore } from "../ui/use-ink-note-store";
 import { useInkWorkerRpc, type InkSave } from "../ui/use-ink-worker-rpc";
 import { typedCore } from "@/lib/rust-core";
 
@@ -110,6 +110,26 @@ test("a sidecar load that fails says so and saves nothing (21-17)", async () => 
   await settle();
   assert.deepEqual(chunks.writes, []);
   assert.deepEqual(saved, []);
+});
+
+test("a note with no workspace folder takes no ink (F97 no-folder loss)", async () => {
+  class NoFolderStore extends RecordingStore {
+    override async list(): Promise<string[]> {
+      throw new InkNoFolderError();
+    }
+  }
+  const { handle } = mount(new NoFolderStore(), [typedCore().newInkChunkId()]);
+  // Before the load answers, nothing is known to be saveable either.
+  assert.equal(handle().canInk, false);
+  await settle();
+  assert.equal(handle().loadError, INK_NEEDS_FOLDER);
+  assert.equal(handle().canInk, false);
+});
+
+test("a note whose pages loaded takes ink", async () => {
+  const { handle } = mount(new RecordingStore(), [typedCore().newInkChunkId()]);
+  await settle();
+  assert.equal(handle().canInk, true);
 });
 
 test("a page that could not be read is never written over (18-01)", async () => {
@@ -264,4 +284,97 @@ test("a body save that fails is logged and resolves, so a loop of them goes on (
   assert.equal(logs.length, 2);
   assert.match(logs[0]!.detail ?? "", /offline/);
   assert.equal(message, INK_SAVE_FAILED);
+});
+
+test("F97-P1-3: a save pending at a note switch lands in the old note, not the new one", async () => {
+  const id = typedCore().newInkChunkId();
+  const chunks = new RecordingStore();
+  await chunks.write(NOTE, id, new Uint8Array([1]));
+  chunks.writes = [];
+  const other = "01HYYYYYYYYYYYYYYYYYYYYYYY";
+  const pagesRef: { current: InkStoredPage[] | null } = { current: null };
+  const metaRef = { current: { ...typedCore().defaultInkNoteMeta(), pageOrder: [id] } };
+  const textPagesRef = { current: [""] };
+  const onSave = async () => {};
+  const requestSave = async () => ({ bytes: new Uint8Array([9]), cleared: false, pageIndex: 0 });
+  const noop = () => {};
+  let handle: Handle | null = null;
+  function Probe({ noteId }: { noteId: string }) {
+    handle = useInkNoteStore({
+      noteId, onSave, chunks, metaRef, pagesRef, textPagesRef, requestSave,
+      pageIndex: 0, pageCount: 1, setPageCount: noop, setPageIndex: noop,
+    });
+    return null;
+  }
+  let renderer: ReturnType<typeof create> | null = null;
+  act(() => void (renderer = create(createElement(Probe, { noteId: NOTE }))));
+  mounted.push(renderer!);
+  await settle();
+  act(() => handle!.scheduleSave());
+  act(() => renderer!.update(createElement(Probe, { noteId: other })));
+  await settle();
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, INK_SAVE_DELAY_MS + 100));
+  });
+  await settle();
+  await awaitInkWrites(NOTE);
+  await awaitInkWrites(other);
+  assert.deepEqual([...(await chunks.read(NOTE, id))!], [9]);
+  assert.deepEqual(await chunks.list(other), []);
+});
+
+test("ink still on its debounce is written when the window goes away (quit loses the last stroke)", async () => {
+  const g = globalThis as { window?: unknown };
+  const had = "window" in g;
+  const before = g.window;
+  const win = new EventTarget();
+  g.window = win;
+  try {
+    const id = typedCore().newInkChunkId();
+    const chunks = new RecordingStore();
+    await chunks.write(NOTE, id, new Uint8Array([1]));
+    chunks.writes = [];
+    const { handle } = mount(chunks, [id]);
+    await settle();
+    act(() => handle().scheduleSave());
+    win.dispatchEvent(new Event("pagehide"));
+    await settle();
+    await awaitInkWrites(NOTE);
+    // Well inside INK_SAVE_DELAY_MS: only the pagehide flush can have written it.
+    assert.deepEqual(chunks.writes, [id]);
+  } finally {
+    if (had) g.window = before;
+    else delete g.window;
+  }
+});
+test("ink still on its debounce is written when the app goes to the background (Android)", async () => {
+  const g = globalThis as { window?: unknown; document?: unknown };
+  const had = "document" in g;
+  const hadWin = "window" in g;
+  const before = g.document;
+  const beforeWin = g.window;
+  const doc = Object.assign(new EventTarget(), { visibilityState: "visible" });
+  g.document = doc;
+  // A browser has both; no pagehide fires here, so only the background flush can write.
+  g.window = new EventTarget();
+  try {
+    const id = typedCore().newInkChunkId();
+    const chunks = new RecordingStore();
+    await chunks.write(NOTE, id, new Uint8Array([1]));
+    chunks.writes = [];
+    const { handle } = mount(chunks, [id]);
+    await settle();
+    act(() => handle().scheduleSave());
+    doc.visibilityState = "hidden";
+    doc.dispatchEvent(new Event("visibilitychange"));
+    await settle();
+    await awaitInkWrites(NOTE);
+    // Well inside INK_SAVE_DELAY_MS: only the visibilitychange flush can have written it.
+    assert.deepEqual(chunks.writes, [id]);
+  } finally {
+    if (had) g.document = before;
+    else delete g.document;
+    if (hadWin) g.window = beforeWin;
+    else delete g.window;
+  }
 });

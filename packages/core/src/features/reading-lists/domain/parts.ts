@@ -18,7 +18,10 @@ export interface ReadingList extends Identifiable {
   createdAt: string;
 }
 
-/** A paper or note membership in a list (the join row). Exactly one of paperId / vaultPageId. */
+/**
+ * A paper or note membership in a list (the join row). Exactly one of paperId / vaultPageId.
+ * A 0.9.6 member that cannot be shown as an item is a {@link ReadingListLegacyLeftover} instead.
+ */
 export interface ReadingListItem extends Identifiable {
   id: string;
   listId: string;
@@ -31,6 +34,23 @@ export interface ReadingListItem extends Identifiable {
   inheritedFromListId?: string;
   /** Marked during screening as a duplicate of another record in this list. */
   duplicateOfItemId?: string;
+}
+
+/**
+ * A 0.9.6 legacy member of a list file that is not shown as an item (it has no paper or note to
+ * point at, or its paper does not carry the membership yet). `conflict`: the paper holds a
+ * different note; `unresolved`: its link names nothing; `pending`: the paper resolves but its
+ * membership is not migrated yet.
+ */
+export interface ReadingListLegacyLeftover {
+  listId: string;
+  state: "conflict" | "unresolved" | "pending";
+  /** The 0.9.6 link text (set for `unresolved`). */
+  legacyLink?: string;
+  paperId?: string;
+  vaultPageId?: string;
+  /** The note the 0.9.6 list file holds for this member. */
+  note?: string;
 }
 
 export interface NewReadingListInput {
@@ -191,6 +211,10 @@ export interface IReadingListItemRepository {
   find(listId: string, paperId: string): Promise<ReadingListItem | null>;
   /** Look up a single note membership by (list, note). Null if absent. */
   findNote(listId: string, vaultPageId: string): Promise<ReadingListItem | null>;
+  /** Workspace paths whose membership value could not be read, so their memberships are left out. Optional: stores without files have none. */
+  unreadablePaths?(): Promise<string[]>;
+  /** The 0.9.6 leftovers (members that are not items), of one list or of all lists. Optional: stores without legacy files have none. */
+  legacyLeftovers?(listId?: string): Promise<ReadingListLegacyLeftover[]>;
   add(item: ReadingListItem): Promise<void>;
   remove(id: string): Promise<void>;
 }

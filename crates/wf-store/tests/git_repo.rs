@@ -428,6 +428,59 @@ fn exclude_keeps_existing_user_lines() {
 }
 
 #[test]
+fn f97_p2_8_exclude_is_replaced_by_rename_not_rewritten_in_place() {
+    let dir = TempDir::new();
+    let repo = FolderRepo::new(dir.path());
+    repo.init().unwrap();
+    let info = dir.path().join(".git").join("info");
+    let exclude = info.join("exclude");
+    // A hard link shares the bytes: an in-place write changes both, a rename only the exclude.
+    let other = dir.path().join("other.txt");
+    fs::write(&other, "mine/").unwrap();
+    let _ = fs::remove_file(&exclude);
+    fs::create_dir_all(&info).unwrap();
+    fs::hard_link(&other, &exclude).unwrap();
+    write(dir.path(), "a.md", b"a");
+    let _ = repo.commit_all("one", me()).unwrap();
+    assert_eq!(fs::read_to_string(&other).unwrap(), "mine/");
+    let text = exclude_text(dir.path());
+    assert!(text.starts_with("mine/\n"));
+    assert!(text.contains("/.weaveforge/"));
+    let leftovers: Vec<_> = fs::read_dir(&info)
+        .unwrap()
+        .map(|e| e.unwrap().file_name().to_string_lossy().into_owned())
+        .filter(|name| name.ends_with(".wftmp"))
+        .collect();
+    assert!(leftovers.is_empty(), "{leftovers:?}");
+}
+
+#[test]
+fn f97_p2_8_a_failed_exclude_write_leaves_no_temp_file() {
+    let dir = TempDir::new();
+    let repo = FolderRepo::new(dir.path());
+    repo.init().unwrap();
+    let info = dir.path().join(".git").join("info");
+    let exclude = info.join("exclude");
+    // A folder in the file's place makes the final step fail.
+    let _ = fs::remove_file(&exclude);
+    fs::create_dir_all(&info).unwrap();
+    fs::create_dir(&exclude).unwrap();
+    fs::write(exclude.join("keep.txt"), "kept").unwrap();
+    write(dir.path(), "a.md", b"a");
+    assert!(repo.commit_all("one", me()).is_err());
+    assert_eq!(
+        fs::read_to_string(exclude.join("keep.txt")).unwrap(),
+        "kept"
+    );
+    let leftovers: Vec<_> = fs::read_dir(&info)
+        .unwrap()
+        .map(|e| e.unwrap().file_name().to_string_lossy().into_owned())
+        .filter(|name| name.ends_with(".wftmp"))
+        .collect();
+    assert!(leftovers.is_empty(), "{leftovers:?}");
+}
+
+#[test]
 fn stale_lock_is_named_and_kept() {
     let dir = TempDir::new();
     let repo = FolderRepo::new(dir.path());

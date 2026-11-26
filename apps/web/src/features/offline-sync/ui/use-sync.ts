@@ -7,6 +7,7 @@ import { formatError } from "@/lib/format-error";
 import { LocalRunner } from "@/backend/providers/local/parts";
 import { LOCAL_USER_ID } from "@weaveforge/core";
 import { SyncEngine, SyncStateStore } from "../domain/parts-3";
+import { syncAllowedHere } from "./sync-gate";
 import { PostgrestTransport } from "../infra/postgrest-transport";
 import { readBackendConfig } from "@/backend/parts";
 import { githubSyncConnected } from "@/features/workspace/application/parts-2";
@@ -66,7 +67,10 @@ export function useSyncStatus(): { status: SyncStatus; refresh: () => void } {
       setStatus(OFF);
       return;
     }
-    void readSyncStatus(new SyncStateStore(new LocalRunner())).then(setStatus);
+    // A folder that is migrating or migrated to files shows sync as off, not as a control to turn on.
+    void syncAllowedHere().then((allowed) =>
+      allowed ? readSyncStatus(new SyncStateStore(new LocalRunner())).then(setStatus) : setStatus(OFF),
+    );
   }, []);
 
   useEffect(refresh, [refresh]);

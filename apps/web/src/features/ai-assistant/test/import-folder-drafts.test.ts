@@ -46,6 +46,29 @@ test("a failed queue keeps the file for the next pass", async () => {
   assert.equal((await remaining(fs)).length, 1);
 });
 
+test("a claim never overwrites a claimed file a crash left behind", async () => {
+  const stale = JSON.stringify({ ...draft, resourceId: "note-old" });
+  const fs = await withFiles({ "a.json": JSON.stringify(draft), "a.json.claimed": stale });
+  const queued: string[] = [];
+  assert.equal(await importFolderDrafts(fs, async (d) => queued.push(d.resourceId)), 1);
+  assert.deepEqual(queued, ["note-1"]);
+  assert.equal(await fs.readText(`${FOLDER_DRAFTS_DIR}/a.json.claimed`), stale);
+});
+
+test("a failed queue never puts its draft back over a new draft of the same name", async () => {
+  const fs = await withFiles({ "a.json": JSON.stringify(draft) });
+  const fresh = JSON.stringify({ ...draft, resourceId: "note-new" });
+  await assert.rejects(
+    importFolderDrafts(fs, async () => {
+      await fs.writeFile(`${FOLDER_DRAFTS_DIR}/a.json`, fresh);
+      throw new Error("offline");
+    }),
+  );
+  assert.equal(await fs.readText(`${FOLDER_DRAFTS_DIR}/a.json`), fresh);
+  const kept = await Promise.all((await remaining(fs)).map((path) => fs.readText(path)));
+  assert.ok(kept.includes(JSON.stringify(draft)), "the old draft is still on disk");
+});
+
 test("overlapping runs never queue the same draft twice", async () => {
   const fs = await withFiles({ "a.json": JSON.stringify(draft), "b.json": JSON.stringify({ ...draft, resourceId: "note-2" }) });
   const queued: string[] = [];
@@ -131,4 +154,42 @@ test("a call during a run imports its own folder and project on the next pass (3
   await Promise.all([importFolderDraftsOnce(first, queue, "p1"), importFolderDraftsOnce(second, queue, "p2")]);
   assert.deepEqual(queued.sort(), ["note-1", "note-2"]);
   assert.deepEqual(await remaining(second), []);
+});
+
+test("F97-P2-2: a draft whose name a new draft took is queued again on the next pass", async () => {
+  const fs = await withFiles({ "a.json": JSON.stringify(draft) });
+  const fresh = JSON.stringify({ ...draft, resourceId: "note-new" });
+  await assert.rejects(
+    importFolderDrafts(fs, async () => {
+      await fs.writeFile(`${FOLDER_DRAFTS_DIR}/a.json`, fresh);
+      throw new Error("offline");
+    }),
+  );
+  const queued: string[] = [];
+  assert.equal(await importFolderDrafts(fs, async (d) => queued.push(d.resourceId)), 2);
+  assert.deepEqual(queued.sort(), ["note-1", "note-new"]);
+  assert.deepEqual(await remaining(fs), []);
+});
+
+test("a stat that fails while finding a free draft name does not hide the queue error", async () => {
+  // The name `a-2.json` cannot be checked; that must count as free, so the draft
+  // goes back under it and the queue error (not the stat error) is what the caller sees.
+  class FlakyStatFs extends MemoryWorkspaceFs {
+    override async stat(path: string) {
+      if (path.endsWith("/a-2.json")) throw new Error("EACCES: a-2.json");
+      return super.stat(path);
+    }
+  }
+  const fs = new FlakyStatFs();
+  await fs.writeFile(`${FOLDER_DRAFTS_DIR}/a.json`, JSON.stringify(draft));
+  // A new draft lands under the same name while the queue fails, so the failed
+  // draft must find a free name, which is where the stat is checked.
+  await assert.rejects(
+    importFolderDrafts(fs, async () => {
+      await fs.writeFile(`${FOLDER_DRAFTS_DIR}/a.json`, JSON.stringify({ ...draft, resourceId: "note-new" }));
+      throw new Error("offline");
+    }),
+    /offline/,
+  );
+  assert.deepEqual(await remaining(fs), [`${FOLDER_DRAFTS_DIR}/a-2.json`, `${FOLDER_DRAFTS_DIR}/a.json`]);
 });

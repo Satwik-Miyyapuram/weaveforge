@@ -51,7 +51,6 @@ A request is refused with one of these reasons:
 
 - AI is off.
 - The disclosure was never accepted.
-- The encryption key is locked.
 - The session grant is expired, or its date does not parse.
 - The resource is not in the grant.
 - The read category is turned off.

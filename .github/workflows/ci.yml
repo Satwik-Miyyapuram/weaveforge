@@ -508,7 +508,7 @@ jobs:
         run: cargo clippy --all-targets --locked -- -D warnings
 
       - name: Test
-        run: cargo test --locked
+        run: cargo test --locked --no-fail-fast
 
       - name: Dependency policy
         run: cargo deny --locked check
@@ -544,7 +544,7 @@ jobs:
         run: cargo clippy -p wf-relay -p wf-relay-server --all-targets --locked -- -D warnings
 
       - name: Test
-        run: cargo test -p wf-relay -p wf-relay-server --locked
+        run: cargo test -p wf-relay -p wf-relay-server --locked --no-fail-fast
 
       - name: Phone build check
         # Phones take the rustls path (src/tls.rs); check it compiles there too.
@@ -598,7 +598,7 @@ jobs:
         run: cargo clippy --all-targets --locked -- -D warnings
 
       - name: Test
-        run: cargo test --locked
+        run: cargo test --locked --no-fail-fast
 
   shell-bundle-windows:
     # Windows x64 release bundles (MSI and NSIS) with Postgres and the web

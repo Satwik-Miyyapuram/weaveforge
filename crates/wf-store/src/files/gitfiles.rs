@@ -14,6 +14,7 @@ pub const GITIGNORE_LINES: &[&str] = &[
     ".weaveforge/trash/",
     ".weaveforge/tables/",
     ".weaveforge/migration-0.9.4/",
+    ".weaveforge/migration-0.9.7/",
     "*.wftmp",
     "*.wfprev",
 ];
@@ -63,6 +64,13 @@ pub fn missing_lines(existing: &str, wanted: &[&str]) -> Vec<String> {
 /// Append the missing `wanted` lines to the file at `path`, creating it if absent.
 /// Returns how many lines were added; writes nothing when none are missing.
 fn ensure_file(path: &Path, wanted: &[&str]) -> io::Result<usize> {
+    // A link could point outside the folder; never write through one (F97-P2-9).
+    if fs::symlink_metadata(path).is_ok_and(|meta| meta.file_type().is_symlink()) {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "refusing to write through a link",
+        ));
+    }
     let existing = match fs::read_to_string(path) {
         Ok(text) => text,
         Err(err) if err.kind() == io::ErrorKind::NotFound => String::new(),

@@ -5,6 +5,7 @@ import type { InkPage as InkPageModel } from "@weaveforge/core";
 import { fromWasmInkStrokes, readyCore, toWasmInkStrokes, typedCore } from "@/lib/rust-core";
 import type { InkWorkerMessage } from "../application/capture-protocol";
 import type { InkSheetInk } from "./use-ink-worker-rpc";
+import { reportFailure } from "./report-failure";
 
 export interface UseInkSelectionOptions {
   send: (message: InkWorkerMessage) => void;
@@ -17,6 +18,8 @@ export interface UseInkSelectionOptions {
   sheetInk: InkSheetInk | null;
   pageSize: { width: number; height: number };
   wrapRef: React.RefObject<HTMLElement | null>;
+  /** Shows a failed copy to the user (F97-P2-30). */
+  onError: (message: string) => void;
 }
 
 /** A clipboard event the note should answer: focus is in it, not in a text field. */
@@ -35,6 +38,7 @@ export function useInkSelection({
   sheetInk,
   pageSize,
   wrapRef,
+  onError,
 }: UseInkSelectionOptions) {
   const onLasso = useCallback(
     (path: readonly number[]) => {
@@ -68,13 +72,21 @@ export function useInkSelection({
     scheduleSave();
   }, [scheduleSave, send, setSelection]);
 
-  const onCopyAsText = useCallback(async () => {
-    const model = await requestModel();
-    const text = readyCore().selectedText(model.lines, selection);
-    if (text && typeof navigator !== "undefined" && navigator.clipboard) {
-      await navigator.clipboard.writeText(text);
-    }
-  }, [requestModel, selection]);
+  const onCopyAsText = useCallback(
+    () =>
+      reportFailure(
+        async () => {
+          const model = await requestModel();
+          const text = readyCore().selectedText(model.lines, selection);
+          if (text && typeof navigator !== "undefined" && navigator.clipboard) {
+            await navigator.clipboard.writeText(text);
+          }
+        },
+        "The text could not be copied",
+        onError,
+      ),
+    [onError, requestModel, selection],
+  );
 
   const selectedStrokes = useCallback(
     () =>
@@ -84,12 +96,20 @@ export function useInkSelection({
     [selection, sheetInk],
   );
 
-  const onCopyStrokes = useCallback(async () => {
-    const strokes = selectedStrokes();
-    if (strokes.length > 0 && typeof navigator !== "undefined" && navigator.clipboard) {
-      await navigator.clipboard.writeText(readyCore().strokeClipText(toWasmInkStrokes(strokes)));
-    }
-  }, [selectedStrokes]);
+  const onCopyStrokes = useCallback(
+    () =>
+      reportFailure(
+        async () => {
+          const strokes = selectedStrokes();
+          if (strokes.length > 0 && typeof navigator !== "undefined" && navigator.clipboard) {
+            await navigator.clipboard.writeText(readyCore().strokeClipText(toWasmInkStrokes(strokes)));
+          }
+        },
+        "The strokes could not be copied",
+        onError,
+      ),
+    [onError, selectedStrokes],
+  );
 
   // Ctrl+C copies the lassoed strokes; a paste of them lands in whichever note has focus.
   useEffect(() => {

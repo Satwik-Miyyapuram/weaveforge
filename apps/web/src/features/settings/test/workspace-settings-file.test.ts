@@ -3,11 +3,17 @@
  * damaged or newer file must never be overwritten and external edits must show up.
  */
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
+import path from "node:path";
+import { pathToFileURL } from "node:url";
 import test from "node:test";
 import type { IWorkspaceFs } from "@weaveforge/core";
 import {
   SETTINGS_PATH,
+  SETTINGS_WRITE_DELAY_MS,
   WorkspaceSettingsFile,
+  defaultReminderSchedule,
+  defaultSchedule,
   parseSettings,
   renderSettings,
 } from "../application/workspace-settings-file";
@@ -203,6 +209,32 @@ test("conflict that keeps changing: one warning, file unchanged, pending kept", 
   assert.equal(readDoc(files).ink.toolColours, "later");
 });
 
+test("a conflict is retried three times, then the flush fails and the edit stays pending", async () => {
+  const files = new Map<string, string>([[P, '{"version":1}']]);
+  const warnings: string[] = [];
+  const { fs } = store(files, warnings);
+  let attempts = 0;
+  const losing = {
+    ...fs,
+    writeTextIf: async () => {
+      attempts += 1;
+      return false;
+    },
+  };
+  const s = new WorkspaceSettingsFile({
+    fs: () => losing as unknown as IWorkspaceFs,
+    warn: (m: string) => warnings.push(m),
+    schedule: () => 0,
+    cancel: () => {},
+  });
+  await s.load();
+  s.set(["ink", "toolColours"], "kept");
+  await s.flush();
+  assert.equal(attempts, 3);
+  assert.equal(files.get(P), '{"version":1}');
+  assert.equal(warnings.filter((w) => /kept changing/.test(w)).length, 1);
+});
+
 test("debounce: second set cancels the first timer and one flush writes once", async () => {
   const files = new Map<string, string>();
   const scheduled: unknown[] = [];
@@ -279,13 +311,13 @@ test("a refused save retries on a growing backoff timer until it lands", async (
   assert.equal(live.size, 0, "no retry once saved");
 });
 
-test("no folder: set works in memory, flush is quiet, no schedule", async () => {
+test("no folder: set works in memory, flush is quiet, no write scheduled", async () => {
   const scheduleCalls: number[] = [];
   const s = new WorkspaceSettingsFile({
     fs: () => null,
     warn: () => {},
-    schedule: () => {
-      scheduleCalls.push(1);
+    schedule: (_fn: () => void, ms: number) => {
+      scheduleCalls.push(ms);
       return 0;
     },
     cancel: () => {},
@@ -293,7 +325,8 @@ test("no folder: set works in memory, flush is quiet, no schedule", async () => 
   s.set(["ink", "toolColours"], "mem");
   assert.equal(s.get(["ink", "toolColours"]), "mem");
   await s.flush();
-  assert.equal(scheduleCalls.length, 0);
+  // Only the repeating no-folder reminder may be armed; no write debounce.
+  assert.equal(scheduleCalls.filter((ms) => ms === SETTINGS_WRITE_DELAY_MS).length, 0);
 });
 
 test("no writeTextIf: checked fallback writes, and an external change is merged", async () => {
@@ -324,6 +357,28 @@ test("no writeTextIf: checked fallback writes, and an external change is merged"
   assert.deepEqual(warnings, []);
 });
 
+test("busy covers a waiting change and a write still on its way, for the desktop close", async () => {
+  const files = new Map<string, string>();
+  const { s, fs } = store(files, []);
+  await s.load();
+  assert.equal(s.busy(), false);
+  s.set(["ink", "toolColours"], { a: "#fff" });
+  assert.equal(s.busy(), true, "a change waits for the debounce");
+  const write = fs.writeTextIf;
+  let land: () => void = () => {};
+  fs.writeTextIf = async (p, text, expected) => {
+    await new Promise<void>((r) => (land = r));
+    return write(p, text, expected);
+  };
+  const done = s.flush();
+  await new Promise((r) => setImmediate(r));
+  assert.equal(s.busy(), true, "the write has not landed yet");
+  land();
+  await done;
+  assert.equal(s.busy(), false);
+  assert.equal(files.has(P), true);
+});
+
 test("parseSettings: version rules and corrupt shapes", () => {
   assert.equal(parseSettings('{"ink":{}}').ok, true);
   assert.deepEqual(parseSettings('{"version":1}'), { ok: true, doc: { version: 1 } });
@@ -332,4 +387,32 @@ test("parseSettings: version rules and corrupt shapes", () => {
   assert.deepEqual(parseSettings('{"version":2}'), { ok: false, reason: "newer" });
   assert.deepEqual(parseSettings("[1]"), { ok: false, reason: "corrupt" });
   assert.deepEqual(parseSettings("null"), { ok: false, reason: "corrupt" });
+});
+
+test("the no-folder reminder timer is unref'd, while the write timer stays ref'd so a pending save finishes", () => {
+  const reminder = defaultReminderSchedule(() => {}, 60_000) as ReturnType<typeof setTimeout>;
+  const write = defaultSchedule(() => {}, 60_000) as ReturnType<typeof setTimeout>;
+  try {
+    assert.equal(reminder.hasRef(), false);
+    assert.equal(write.hasRef(), true);
+  } finally {
+    clearTimeout(reminder);
+    clearTimeout(write);
+  }
+});
+
+test("a process with an unsaved edit and no folder open exits on its own (no-folder reminder does not keep it alive)", () => {
+  const moduleUrl = pathToFileURL(path.resolve("src/features/settings/application/workspace-settings-file.ts")).href;
+  const script = `
+    const { WorkspaceSettingsFile } = await import(${JSON.stringify(moduleUrl)});
+    const s = new WorkspaceSettingsFile({ fs: () => null, warn: () => {} });
+    s.set(["ui", "zoom"], 2);
+  `;
+  const run = spawnSync(process.execPath, ["--import", "tsx", "--input-type=module", "-e", script], {
+    cwd: path.resolve("."),
+    timeout: 60_000,
+    encoding: "utf8",
+  });
+  assert.equal(run.signal, null, `child was killed (still alive): ${run.stderr}`);
+  assert.equal(run.status, 0, run.stderr);
 });

@@ -87,13 +87,13 @@ writes them into your files:
 While the inbox is on, artifact *files* are refused (`415`); send JSON metadata. A JSON body with a
 `dataBase64` or `data` field is refused (`415`) too, and nothing is queued.
 
-Rollout order: set `SDK_INBOX=1` on the relay first, then apply `0162`. With it off,
-SDK metrics are written as the user, and `0162` revokes that write.
+Rollout order: set `SDK_INBOX=1` on the relay first, then apply `0163`. With it off,
+SDK metrics are written as the user, and `0163` revokes that write.
 With `SDK_INBOX` unset, nothing changes.
 
 ## Legacy tables
 
-`db/held/0162_legacy_write_revoke.sql` stops signed-in users writing the old per-item
+`db/held/0163_legacy_write_revoke.sql` stops signed-in users writing the old per-item
 tables (papers, notes, experiments and so on). They can still read them for the
 one-time import. It is held out of `db/migrations` and is not applied: the desktop app
 still writes these tables until its database code is removed (lane L11).

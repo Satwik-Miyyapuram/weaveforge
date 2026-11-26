@@ -199,10 +199,8 @@ impl Vault {
         } else if recursive {
             fs::remove_dir_all(&target)
         } else {
-            Err(io::Error::new(
-                io::ErrorKind::IsADirectory,
-                "a folder needs recursive removal",
-            ))
+            // Without `recursive` only an empty folder goes; a non-empty one is refused, never emptied.
+            fs::remove_dir(&target)
         };
         outcome.map_err(|source| io_err("remove", rel, source))
     }
@@ -316,6 +314,20 @@ impl Vault {
                 io::Error::new(io::ErrorKind::AlreadyExists, "the target already exists"),
             ));
         }
+        if let Some(parent) = dest.parent() {
+            fs::create_dir_all(parent).map_err(|source| io_err("create folder", to, source))?;
+        }
+        fs::rename(&src, &dest).map_err(|source| io_err("rename", from, source))
+    }
+
+    /// Move a file in one step, creating its parent folders and replacing a file at `to`.
+    /// This is the workspace port's rename, which callers use to finish an atomic write.
+    ///
+    /// # Errors
+    /// Refused or escaping paths, a missing source, or the rename failing.
+    pub fn rename_replacing(&self, from: &str, to: &str) -> Result<(), VaultError> {
+        let dest = self.resolve(to)?;
+        let src = self.resolve(from)?;
         if let Some(parent) = dest.parent() {
             fs::create_dir_all(parent).map_err(|source| io_err("create folder", to, source))?;
         }

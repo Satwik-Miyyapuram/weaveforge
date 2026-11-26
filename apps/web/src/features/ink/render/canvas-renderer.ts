@@ -149,11 +149,24 @@ export class CanvasInkRenderer implements InkRenderer {
     this.nextIndex = strokes.length;
   }
 
+  /**
+   * Paint order is buffer order: a stroke put back at a lower index (undo of
+   * a delete) goes under the later ones, not on top. An index already here is
+   * replaced in place.
+   */
   appendStroke(stroke: InkStrokeGeometry, index = this.nextIndex): void {
-    this.nextIndex = index + 1;
+    this.nextIndex = Math.max(this.nextIndex, index + 1);
+    const known = this.strokes.has(index);
     this.strokes.set(index, stroke);
     this.outlines.forget(index);
-    this.order.push(index);
+    if (known) return;
+    const last = this.order[this.order.length - 1];
+    if (last === undefined || last < index) {
+      this.order.push(index);
+      return;
+    }
+    const at = this.order.findIndex((other) => other > index);
+    this.order.splice(at, 0, index);
   }
 
   removeStroke(index: number): void {

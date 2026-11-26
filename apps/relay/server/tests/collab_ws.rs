@@ -28,7 +28,7 @@ use tokio_tungstenite::tungstenite::{self, Message};
 use tokio_tungstenite::{MaybeTlsStream, WebSocketStream};
 use wf_core::sync::instant::format_instant;
 use wf_relay_server::collab::hub::{self, Hub};
-use wf_relay_server::collab::protocol::update_frame;
+use wf_relay_server::collab::protocol::{sync_step1, update_frame};
 use wf_relay_server::collab::store::{
     DocRow, DocStatus, GrantRow, MemoryStore, NewGrant, SharedDocStore,
 };
@@ -320,7 +320,12 @@ async fn connect(
             HeaderValue::from_str(&value).expect("protocol header"),
         );
     }
-    let (ws, _) = tokio_tungstenite::connect_async(request).await?;
+    // No frame cap: a whole-document resync can be larger than tungstenite's 16 MiB default.
+    let config = tungstenite::protocol::WebSocketConfig::default()
+        .max_frame_size(None)
+        .max_message_size(None);
+    let (ws, _) =
+        tokio_tungstenite::connect_async_with_config(request, Some(config), false).await?;
     Ok(ws)
 }
 
@@ -677,6 +682,51 @@ async fn save_at_stale_epoch_is_an_error() {
     assert_eq!(store.doc(ITEM).expect("doc row").state, before);
 }
 
+/// A room opened from a row read before a restore saves at the old epoch, which can never land.
+/// The save must retire it (rejoin at the new epoch, log gone) instead of failing forever.
+#[tokio::test]
+async fn room_opened_at_a_stale_epoch_is_retired_on_save() {
+    let dir = TempDir::new("stale-open");
+    let mem = Arc::new(MemoryStore::new());
+    seed(&mem, ITEM, text_update("v1")).await;
+    let state = build_state(
+        dir.path(),
+        mem.clone(),
+        Duration::from_secs(3600),
+        GRANT_CHECK_IDLE,
+        Arc::new(AtomicI64::new(START_MS)),
+    );
+    let old_row = mem.load(ITEM).await.expect("load").expect("row");
+    let new_epoch = hub::restore(&state, ITEM, "canvas", &text_update("restored"))
+        .await
+        .expect("restore");
+    let room = hub::open_room(&state, old_row).await.expect("open room");
+    let mut rx = room.tx.subscribe();
+    {
+        let mut inner = room.inner.lock().await;
+        inner.log.append(&map_update("lost", "x")).expect("append");
+        inner.dirty = true;
+    }
+
+    hub::persist_all(&state).await;
+
+    assert!(
+        state.hub.get(ITEM).is_none(),
+        "the stale room is still open"
+    );
+    match rx.try_recv() {
+        Ok(hub::Event::Close(text)) => {
+            let value: Value = serde_json::from_str(&text).expect("json");
+            assert_eq!(value["type"], "rejoin");
+            assert_eq!(value["epoch"], new_epoch);
+        }
+        other => panic!("clients were not told to rejoin: {other:?}"),
+    }
+    let log = log_path(dir.path(), ITEM).expect("log path");
+    let logged = std::fs::metadata(&log).map_or(0, |meta| meta.len());
+    assert_eq!(logged, 0, "the stale room's log was kept");
+}
+
 /// Appends `value` as a lib0 varuint.
 fn varuint(mut value: usize, out: &mut Vec<u8>) {
     loop {
@@ -783,6 +833,117 @@ async fn awareness_flood_is_rate_limited() {
     );
 }
 
+/// Counts the SyncStep2 replies `ws` gets until it goes quiet; panics if the socket closes.
+async fn count_step2_replies(ws: &mut Ws) -> usize {
+    let mut replies = 0;
+    loop {
+        match tokio::time::timeout(Duration::from_millis(500), ws.next()).await {
+            Err(_) => return replies,
+            Ok(Some(Ok(Message::Binary(frame)))) => {
+                if frame.get(..2) == Some(&[0, 1][..]) {
+                    replies += 1;
+                }
+            }
+            Ok(Some(Ok(Message::Close(_))) | None | Some(Err(_))) => {
+                panic!("the socket closed during a SyncStep1 flood")
+            }
+            Ok(Some(Ok(_))) => {}
+        }
+    }
+}
+
+#[tokio::test]
+async fn sync_step1_flood_is_rate_limited() {
+    let dir = TempDir::new("step1-rate");
+    let store = Arc::new(MemoryStore::new());
+    seed(&store, ITEM, Vec::new()).await;
+    let relay = Relay::start(dir.path(), store.clone(), PERSIST).await;
+
+    let mut owner = join(relay.port, ITEM, OWNER_TOKEN, Q1)
+        .await
+        .expect("owner joins");
+    let _hello = next_json(&mut owner).await;
+    let step1 = sync_step1(&StateVector::default());
+
+    // The relay clock stands still, so only the burst is answered.
+    for _ in 0..100 {
+        send_frame(&mut owner, step1.clone()).await;
+    }
+    assert_eq!(count_step2_replies(&mut owner).await, 3);
+
+    // One second later one more token has come back, and the socket is still up.
+    relay.now.fetch_add(1_000, Ordering::SeqCst);
+    for _ in 0..5 {
+        send_frame(&mut owner, step1.clone()).await;
+    }
+    assert_eq!(count_step2_replies(&mut owner).await, 1);
+}
+
+#[tokio::test]
+async fn deferred_sync_step1_is_sent_once_the_budget_allows() {
+    let dir = TempDir::new("step1-deferred");
+    let store = Arc::new(MemoryStore::new());
+    seed(&store, ITEM, Vec::new()).await;
+    let relay = Relay::start(dir.path(), store.clone(), PERSIST).await;
+
+    let mut owner = join(relay.port, ITEM, OWNER_TOKEN, Q1)
+        .await
+        .expect("owner joins");
+    let _hello = next_json(&mut owner).await;
+    let step1 = sync_step1(&StateVector::default());
+
+    // Burst of three is answered at once; the fourth is over budget and deferred.
+    for _ in 0..4 {
+        send_frame(&mut owner, step1.clone()).await;
+    }
+    assert_eq!(count_step2_replies(&mut owner).await, 3);
+
+    // The clock gives one token back. The client sends nothing more, so the reply to the
+    // deferred SyncStep1 must come from the retry tick alone.
+    relay.now.fetch_add(1_000, Ordering::SeqCst);
+    assert_eq!(count_step2_replies(&mut owner).await, 1);
+}
+
+#[tokio::test]
+async fn deferred_sync_step1_is_not_sent_after_a_silent_revoke() {
+    let dir = TempDir::new("step1-revoked");
+    let store = Arc::new(MemoryStore::new());
+    seed(&store, ITEM, Vec::new()).await;
+    let _grant = grant_edit(&store, ITEM).await;
+    let relay = Relay::start(dir.path(), store.clone(), PERSIST).await;
+    let mut guest = join(relay.port, ITEM, GUEST_TOKEN, Q1)
+        .await
+        .expect("guest joins");
+    let _hello = next_json(&mut guest).await;
+    let step1 = sync_step1(&StateVector::default());
+    for _ in 0..4 {
+        send_frame(&mut guest, step1.clone()).await;
+    }
+    assert_eq!(count_step2_replies(&mut guest).await, 3);
+    store
+        .revoke_item_grants(ITEM)
+        .await
+        .expect("revoke the item grants");
+    relay.now.fetch_add(1_000, Ordering::SeqCst);
+    let mut denied = false;
+    let mut replies = 0;
+    loop {
+        match tokio::time::timeout(Duration::from_millis(500), guest.next()).await {
+            Err(_) | Ok(None) | Ok(Some(Ok(Message::Close(_)))) | Ok(Some(Err(_))) => break,
+            Ok(Some(Ok(Message::Text(text)))) => denied |= text.as_str().contains("denied"),
+            Ok(Some(Ok(Message::Binary(frame)))) => {
+                replies += usize::from(frame.get(..2) == Some(&[0, 1][..]));
+            }
+            Ok(Some(Ok(_))) => {}
+        }
+    }
+    assert!(denied, "a revoked guest must be told it was denied");
+    assert_eq!(
+        replies, 0,
+        "a revoked guest must not get the held-back reply"
+    );
+}
+
 #[tokio::test]
 async fn lagged_client_rechecks_after_revoke() {
     let dir = TempDir::new("lagged");
@@ -825,6 +986,89 @@ async fn lagged_client_rechecks_after_revoke() {
             }
             Some(_) => {}
             None => panic!("guest socket closed without a denied frame"),
+        }
+    }
+}
+
+/// The update inside a y-sync SyncStep2 or Update frame; `None` for any other frame.
+fn sync_payload(frame: &[u8]) -> Option<&[u8]> {
+    let (&first, rest) = frame.split_first()?;
+    let (&kind, mut rest) = rest.split_first()?;
+    if first != 0 || (kind != 1 && kind != 2) {
+        return None;
+    }
+    let (mut len, mut shift) = (0usize, 0u32);
+    loop {
+        let (&byte, tail) = rest.split_first()?;
+        rest = tail;
+        len |= usize::from(byte & 0x7f) << shift;
+        if byte & 0x80 == 0 {
+            break;
+        }
+        shift += 7;
+    }
+    rest.get(..len)
+}
+
+#[tokio::test]
+async fn lagged_client_gets_the_whole_doc() {
+    let dir = TempDir::new("lagged-resync");
+    let store = Arc::new(MemoryStore::new());
+    seed(&store, ITEM, Vec::new()).await;
+    let _grant = grant_edit(&store, ITEM).await;
+    let relay = Relay::start(dir.path(), store.clone(), PERSIST).await;
+
+    let mut owner = join(relay.port, ITEM, OWNER_TOKEN, Q1)
+        .await
+        .expect("owner joins");
+    let _hello = next_json(&mut owner).await;
+    let mut guest = join(relay.port, ITEM, GUEST_TOKEN, Q1)
+        .await
+        .expect("guest joins");
+    let _hello = next_json(&mut guest).await;
+
+    // The guest does not read while the owner floods the room, so its receiver lags past the
+    // broadcast capacity and the room drops updates it never sent to the guest.
+    let big = "x".repeat(64 * 1024);
+    let count = 400;
+    for i in 0..count {
+        send_frame(&mut owner, update_frame(map_update(&format!("a{i}"), &big))).await;
+    }
+    send_frame(&mut owner, update_frame(map_update("end", "y"))).await;
+
+    // Once the guest reads again, what it receives must add up to every update. A second lag
+    // inside one resync window holds its resync back to the retry tick, so "end" can arrive
+    // first: keep reading until nothing is missing. The held-back resync waits for a token,
+    // and the relay's clock stands still, so on silence move it on by one token.
+    let doc = Doc::new();
+    let saves = doc.get_or_insert_map("saves");
+    let mut silences = 0;
+    loop {
+        let frame =
+            match tokio::time::timeout(Duration::from_millis(500), next_binary(&mut guest)).await {
+                Ok(frame) => frame,
+                Err(_) => {
+                    silences += 1;
+                    assert!(silences < 10, "the guest never got the whole doc");
+                    let _ = relay.now.fetch_add(1_000, Ordering::SeqCst);
+                    continue;
+                }
+            };
+        let Some(payload) = sync_payload(&frame) else {
+            continue;
+        };
+        let update = Update::decode_v1(payload).expect("decode update");
+        doc.transact_mut()
+            .apply_update(update)
+            .expect("apply update");
+        let txn = doc.transact();
+        if saves.get(&txn, "end").is_some() {
+            let missing = (0..count)
+                .filter(|i| saves.get(&txn, &format!("a{i}")).is_none())
+                .count();
+            if missing == 0 {
+                return;
+            }
         }
     }
 }
@@ -1164,6 +1408,159 @@ async fn room_lock_is_free_while_a_save_is_in_flight() {
     release.notify_one();
     saver.await.expect("saver joins").expect("persist succeeds");
     assert!(acquired, "room lock was held across the store save");
+}
+
+/// Delegates to a `MemoryStore`; while `gate` is set, `access` announces itself on `entered`
+/// and waits for `release`.
+struct GatedAccess {
+    inner: Arc<MemoryStore>,
+    gate: AtomicBool,
+    entered: tokio::sync::Notify,
+    release: tokio::sync::Notify,
+}
+
+impl SharedDocStore for GatedAccess {
+    fn load<'a>(&'a self, item_id: &'a str) -> BoxFut<'a, Result<Option<DocRow>, String>> {
+        self.inner.load(item_id)
+    }
+    fn seed<'a>(&'a self, row: &'a DocRow) -> BoxFut<'a, Result<(), String>> {
+        self.inner.seed(row)
+    }
+    fn save_state<'a>(
+        &'a self,
+        item_id: &'a str,
+        epoch: i64,
+        state: &'a [u8],
+    ) -> BoxFut<'a, Result<(), String>> {
+        self.inner.save_state(item_id, epoch, state)
+    }
+    fn replace_state<'a>(
+        &'a self,
+        item_id: &'a str,
+        kind: &'a str,
+        state: &'a [u8],
+    ) -> BoxFut<'a, Result<i64, String>> {
+        self.inner.replace_state(item_id, kind, state)
+    }
+    fn set_status<'a>(
+        &'a self,
+        item_id: &'a str,
+        status: DocStatus,
+    ) -> BoxFut<'a, Result<(), String>> {
+        self.inner.set_status(item_id, status)
+    }
+    fn set_writer<'a>(
+        &'a self,
+        item_id: &'a str,
+        device: Option<&'a str>,
+        until_ms: Option<i64>,
+    ) -> BoxFut<'a, Result<(), String>> {
+        self.inner.set_writer(item_id, device, until_ms)
+    }
+    fn delete<'a>(&'a self, item_id: &'a str) -> BoxFut<'a, Result<(), String>> {
+        self.inner.delete(item_id)
+    }
+    fn access<'a>(
+        &'a self,
+        item_id: &'a str,
+        user: &'a str,
+    ) -> BoxFut<'a, Result<Option<Permission>, String>> {
+        Box::pin(async move {
+            if self.gate.load(Ordering::SeqCst) {
+                self.entered.notify_one();
+                self.release.notified().await;
+            }
+            self.inner.access(item_id, user).await
+        })
+    }
+    fn create_grant<'a>(&'a self, grant: &'a NewGrant) -> BoxFut<'a, Result<GrantRow, String>> {
+        self.inner.create_grant(grant)
+    }
+    fn list_grants<'a>(
+        &'a self,
+        owner: &'a str,
+        target_id: Option<&'a str>,
+    ) -> BoxFut<'a, Result<Vec<GrantRow>, String>> {
+        self.inner.list_grants(owner, target_id)
+    }
+    fn revoke_grant<'a>(
+        &'a self,
+        owner: &'a str,
+        id: &'a str,
+    ) -> BoxFut<'a, Result<Option<String>, String>> {
+        self.inner.revoke_grant(owner, id)
+    }
+    fn revoke_item_grants<'a>(&'a self, item_id: &'a str) -> BoxFut<'a, Result<(), String>> {
+        self.inner.revoke_item_grants(item_id)
+    }
+}
+
+/// An update whose grant check is still running when the owner restores must not reach the
+/// restored doc: not through the old room, and not through the shared log file.
+#[tokio::test]
+async fn update_racing_a_restore_is_refused() {
+    let dir = TempDir::new("restore-race");
+    let mem = Arc::new(MemoryStore::new());
+    seed(&mem, ITEM, text_update("v1")).await;
+    let store = Arc::new(GatedAccess {
+        inner: mem.clone(),
+        gate: AtomicBool::new(false),
+        entered: tokio::sync::Notify::new(),
+        release: tokio::sync::Notify::new(),
+    });
+    let relay = Relay::start(dir.path(), store.clone(), Duration::from_secs(3600)).await;
+
+    let mut owner = join(relay.port, ITEM, OWNER_TOKEN, Q1)
+        .await
+        .expect("owner joins");
+    let _hello = next_json(&mut owner).await;
+
+    // The update passes the room check, then waits in its grant check while the restore runs.
+    store.gate.store(true, Ordering::SeqCst);
+    send_frame(&mut owner, update_frame(map_update("late", "x"))).await;
+    tokio::time::timeout(RECV, store.entered.notified())
+        .await
+        .expect("grant check started");
+    store.gate.store(false, Ordering::SeqCst);
+    let restored = text_update("restored");
+    let epoch = hub::restore(&relay.state, ITEM, "canvas", &restored)
+        .await
+        .expect("restore");
+    assert_eq!(epoch, 2);
+    store.release.notify_one();
+
+    let mut denied = None;
+    while let Some(text) = recv_text(&mut owner).await {
+        let value: Value = serde_json::from_str(&text).expect("json frame");
+        if value["type"] == "denied" {
+            denied = Some(value["reason"].clone());
+            break;
+        }
+    }
+    assert_eq!(
+        denied,
+        Some(json!("stale")),
+        "the late update was not refused"
+    );
+
+    let log = log_path(dir.path(), ITEM).expect("log path");
+    let logged = std::fs::metadata(&log).map_or(0, |meta| meta.len());
+    assert_eq!(logged, 0, "the late update reached the log");
+
+    let mut fresh = join(relay.port, ITEM, OWNER_TOKEN, "?epoch=2&format=1")
+        .await
+        .expect("fresh client joins");
+    assert_eq!(expect_json(&mut fresh, "hello").await["epoch"], 2);
+    let room = relay.state.hub.get(ITEM).expect("fresh room");
+    let inner = room.inner.lock().await;
+    let txn = inner.doc.transact();
+    assert_eq!(
+        txn.encode_state_as_update_v1(&StateVector::default()),
+        decode(&restored)
+            .transact()
+            .encode_state_as_update_v1(&StateVector::default()),
+        "the fresh room is not the restored doc"
+    );
 }
 
 #[tokio::test]

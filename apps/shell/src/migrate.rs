@@ -72,9 +72,70 @@ fn configured_root(old_dir: &Path) -> Option<PathBuf> {
     Some(PathBuf::from(root))
 }
 
+/// Whether the old local database was exported and checked: the 0.9.7 report in the configured
+/// workspace says so. A missing or unreadable report counts as not verified.
+#[must_use]
+pub fn local_data_verified(old_dir: &Path, device: Option<&str>) -> bool {
+    let Some(device) = device else {
+        return false;
+    };
+    configured_root(old_dir).is_some_and(|folder| report_verified_in(&folder, device))
+}
+
+/// Whether the native local database was exported to a folder whose 0.9.7 report is verified.
+/// The folder comes from `exported-to.json` in the database root.
+#[must_use]
+pub fn native_data_verified(pg_root: &Path, device: Option<&str>) -> bool {
+    let Some(device) = device else {
+        return false;
+    };
+    let Ok(text) = fs::read_to_string(pg_root.join("exported-to.json")) else {
+        return false;
+    };
+    let Ok(value) = serde_json::from_str::<serde_json::Value>(&text) else {
+        return false;
+    };
+    value["folder"]
+        .as_str()
+        .is_some_and(|folder| report_verified_in(Path::new(folder), device))
+}
+
+/// Whether this device's 0.9.7 report under `folder` is verified, removing or removed. The report
+/// is this device's own `report-<device>.json` (what the 0.9.7 exporter writes), else the legacy
+/// `report.json`; another device's file never stands in. Any unreadable report counts as not verified.
+fn report_verified_in(folder: &Path, device: &str) -> bool {
+    use crate::migrate_097::remove::{base_report, read_reports};
+    read_reports(folder, device).is_ok_and(|reports| {
+        base_report(&reports, device).is_some_and(|report| report_value_is_verified(report, device))
+    })
+}
+
+/// The report's state is `verified`, `removing` or `removed`, and the newest run whose
+/// `deviceId` is this device's id has an empty `missing`. A run without a matching `deviceId`
+/// does not count, so a workspace synced from another device never proves this one's data.
+fn report_value_is_verified(report: &serde_json::Value, device: &str) -> bool {
+    let state = report.get("state").and_then(serde_json::Value::as_str);
+    if !matches!(state, Some("verified" | "removing" | "removed")) {
+        return false;
+    }
+    crate::migrate_097::remove::own_run(report, device)
+        .ok()
+        .and_then(|run| run.get("missing"))
+        .and_then(serde_json::Value::as_array)
+        .is_some_and(Vec::is_empty)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The legacy 0.9.7 migration report, relative to the export folder.
+    const REPORT_097: &str = ".weaveforge/migration-0.9.7/report.json";
+
+    fn report_is_verified(text: &str, device: &str) -> bool {
+        serde_json::from_str::<serde_json::Value>(text)
+            .is_ok_and(|report| report_value_is_verified(&report, device))
+    }
 
     fn temp(name: &str) -> (PathBuf, PathBuf) {
         let root = std::env::temp_dir().join(format!("wf-migrate-{name}-{}", std::process::id()));
@@ -211,5 +272,222 @@ mod tests {
     fn old_state_app_db_when_root_exists_without_workspace_db() {
         let (data, _) = data_with("old-state-app", true, false);
         assert_eq!(old_db_state(&data), OldDb::Found(data.join("local-db")));
+    }
+
+    const DEVICE: &str = "11111111-2222-4333-8444-555555555555";
+    const OTHER: &str = "66666666-7777-4888-8999-aaaaaaaaaaaa";
+
+    fn report(state: &str, runs: &str) -> String {
+        format!(r#"{{"state":"{state}","runs":{runs}}}"#)
+    }
+
+    fn run(device: &str, missing: &str) -> String {
+        format!(r#"{{"deviceId":"{device}",{missing}}}"#)
+    }
+
+    #[test]
+    fn matching_newest_run_with_verified_state_and_empty_missing_is_verified() {
+        for state in ["verified", "removing", "removed"] {
+            let runs = format!("[{}]", run(DEVICE, r#""missing":[]"#));
+            assert!(report_is_verified(&report(state, &runs), DEVICE), "{state}");
+        }
+    }
+
+    #[test]
+    fn a_run_for_another_device_refuses() {
+        let runs = format!("[{}]", run(OTHER, r#""missing":[]"#));
+        assert!(!report_is_verified(&report("verified", &runs), DEVICE));
+    }
+
+    #[test]
+    fn a_run_without_a_device_id_refuses() {
+        let runs = r#"[{"missing":[]}]"#;
+        assert!(!report_is_verified(&report("verified", runs), DEVICE));
+    }
+
+    #[test]
+    fn the_newest_matching_run_decides_and_other_devices_runs_are_ignored() {
+        let older_ok = run(DEVICE, r#""missing":[]"#);
+        let newer_bad = run(DEVICE, r#""missing":["a"]"#);
+        let newest_other = run(OTHER, r#""missing":[]"#);
+        assert!(!report_is_verified(
+            &report("verified", &format!("[{older_ok},{newer_bad}]")),
+            DEVICE
+        ));
+        assert!(report_is_verified(
+            &report("verified", &format!("[{older_ok},{newest_other}]")),
+            DEVICE
+        ));
+    }
+
+    #[test]
+    fn a_matching_run_that_lists_missing_entries_refuses() {
+        let runs = format!("[{}]", run(DEVICE, r#""missing":["a"]"#));
+        assert!(!report_is_verified(&report("verified", &runs), DEVICE));
+    }
+
+    #[test]
+    fn a_matching_run_without_a_missing_array_refuses() {
+        let runs = format!("[{}]", run(DEVICE, ""));
+        assert!(!report_is_verified(&report("verified", &runs), DEVICE));
+        let runs = format!("[{}]", run(DEVICE, r#""missing":"a""#));
+        assert!(!report_is_verified(&report("verified", &runs), DEVICE));
+        let runs = format!("[{}]", run(DEVICE, r#""missing":null"#));
+        assert!(!report_is_verified(&report("verified", &runs), DEVICE));
+    }
+
+    #[test]
+    fn a_report_with_no_runs_or_another_state_or_unreadable_refuses() {
+        assert!(!report_is_verified(&report("verified", "[]"), DEVICE));
+        assert!(!report_is_verified(r#"{"state":"verified"}"#, DEVICE));
+        let runs = format!("[{}]", run(DEVICE, r#""missing":[]"#));
+        assert!(!report_is_verified(&report("incomplete", &runs), DEVICE));
+        assert!(!report_is_verified("not json", DEVICE));
+    }
+
+    #[test]
+    fn a_helper_error_refuses_local_and_native_data() {
+        let (data, _) = temp("helper-error");
+        let workspace = data.parent().unwrap_or(&data).join("ws-helper");
+        let report_file = workspace.join(REPORT_097);
+        fs::create_dir_all(report_file.parent().unwrap()).unwrap();
+        let runs = format!("[{}]", run(DEVICE, r#""missing":[]"#));
+        fs::write(&report_file, report("verified", &runs)).unwrap();
+        let prefs = serde_json::json!({ "vault-root": workspace.to_string_lossy() });
+        fs::write(data.join("preferences.json"), prefs.to_string()).unwrap();
+        assert!(!local_data_verified(&data, None));
+        assert!(local_data_verified(&data, Some(DEVICE)));
+
+        let (pg, _) = temp("helper-error-pg");
+        let link = serde_json::json!({ "folder": workspace.to_string_lossy() });
+        fs::write(pg.join("exported-to.json"), link.to_string()).unwrap();
+        assert!(!native_data_verified(&pg, None));
+        assert!(native_data_verified(&pg, Some(DEVICE)));
+    }
+
+    #[test]
+    fn local_data_is_verified_only_through_the_configured_workspace_report() {
+        let (data, _) = temp("verified-report");
+        let workspace = data.parent().unwrap_or(&data).join("ws");
+        let report_file = workspace.join(REPORT_097);
+        fs::create_dir_all(report_file.parent().unwrap()).unwrap();
+        let runs = format!("[{}]", run(DEVICE, r#""missing":[]"#));
+        fs::write(&report_file, report("verified", &runs)).unwrap();
+        assert!(
+            !local_data_verified(&data, Some(DEVICE)),
+            "no prefs yet, so no workspace"
+        );
+        let prefs = serde_json::json!({ "vault-root": workspace.to_string_lossy() });
+        fs::write(data.join("preferences.json"), prefs.to_string()).unwrap();
+        assert!(local_data_verified(&data, Some(DEVICE)));
+        assert!(!local_data_verified(&data, Some(OTHER)));
+    }
+
+    /// Writes `body` as `name` in the 0.9.7 migration folder under `folder`.
+    fn put_report(folder: &Path, name: &str, body: &str) {
+        let dir = folder.join(".weaveforge/migration-0.9.7");
+        fs::create_dir_all(&dir).unwrap();
+        fs::write(dir.join(name), body).unwrap();
+    }
+
+    fn linked_pg(name: &str, folder: &Path) -> PathBuf {
+        let (pg, _) = temp(name);
+        let link = serde_json::json!({ "folder": folder.to_string_lossy() });
+        fs::write(pg.join("exported-to.json"), link.to_string()).unwrap();
+        pg
+    }
+
+    /// The 0.9.7 exporter writes only `report-<deviceId>.json`; that file alone proves the export.
+    #[test]
+    fn this_devices_own_report_file_alone_is_verified() {
+        let (data, _) = temp("own-report");
+        let workspace = data.parent().unwrap_or(&data).join("ws-own-report");
+        let _ = fs::remove_dir_all(&workspace);
+        let runs = format!("[{}]", run(DEVICE, r#""missing":[]"#));
+        put_report(
+            &workspace,
+            &format!("report-{DEVICE}.json"),
+            &report("verified", &runs),
+        );
+        let prefs = serde_json::json!({ "vault-root": workspace.to_string_lossy() });
+        fs::write(data.join("preferences.json"), prefs.to_string()).unwrap();
+        assert!(local_data_verified(&data, Some(DEVICE)));
+        let pg = linked_pg("own-report-pg", &workspace);
+        assert!(native_data_verified(&pg, Some(DEVICE)));
+    }
+
+    /// Another device's file never stands in for this one, even when it holds this device's run.
+    #[test]
+    fn another_devices_report_file_alone_is_not_verified() {
+        let (pg, _) = temp("other-report-pg");
+        let folder = pg.parent().unwrap_or(&pg).join("export-other-report");
+        let _ = fs::remove_dir_all(&folder);
+        let runs = format!(
+            "[{},{}]",
+            run(DEVICE, r#""missing":[]"#),
+            run(OTHER, r#""missing":[]"#)
+        );
+        put_report(
+            &folder,
+            &format!("report-{OTHER}.json"),
+            &report("verified", &runs),
+        );
+        let pg = linked_pg("other-report-link", &folder);
+        assert!(!native_data_verified(&pg, Some(DEVICE)));
+        assert!(native_data_verified(&pg, Some(OTHER)));
+    }
+
+    /// The own file decides when there is one; the legacy report.json counts only without it.
+    #[test]
+    fn the_own_report_file_beats_the_legacy_report() {
+        let (pg, _) = temp("own-beats-legacy");
+        let folder = pg.parent().unwrap_or(&pg).join("export-own-beats-legacy");
+        let _ = fs::remove_dir_all(&folder);
+        let ok = format!("[{}]", run(DEVICE, r#""missing":[]"#));
+        let bad = format!("[{}]", run(DEVICE, r#""missing":["a"]"#));
+        put_report(&folder, "report.json", &report("verified", &ok));
+        let pg = linked_pg("own-beats-legacy-link", &folder);
+        assert!(
+            native_data_verified(&pg, Some(DEVICE)),
+            "legacy alone counts"
+        );
+        put_report(
+            &folder,
+            &format!("report-{DEVICE}.json"),
+            &report("verified", &bad),
+        );
+        assert!(!native_data_verified(&pg, Some(DEVICE)), "own file decides");
+    }
+
+    /// An unreadable own file is not verified, even beside a verified legacy report.
+    #[test]
+    fn an_unreadable_own_report_is_not_verified() {
+        let (pg, _) = temp("own-unreadable");
+        let folder = pg.parent().unwrap_or(&pg).join("export-own-unreadable");
+        let _ = fs::remove_dir_all(&folder);
+        let ok = format!("[{}]", run(DEVICE, r#""missing":[]"#));
+        put_report(&folder, "report.json", &report("verified", &ok));
+        put_report(&folder, &format!("report-{DEVICE}.json"), "not json");
+        let pg = linked_pg("own-unreadable-link", &folder);
+        assert!(!native_data_verified(&pg, Some(DEVICE)));
+    }
+
+    #[test]
+    fn native_data_is_verified_through_the_export_folder_it_names() {
+        let (pg, _) = temp("native-report");
+        let folder = pg.parent().unwrap_or(&pg).join("export");
+        let report_file = folder.join(REPORT_097);
+        fs::create_dir_all(report_file.parent().unwrap()).unwrap();
+        let runs = format!("[{}]", run(DEVICE, r#""missing":[]"#));
+        fs::write(&report_file, report("verified", &runs)).unwrap();
+        assert!(
+            !native_data_verified(&pg, Some(DEVICE)),
+            "no exported-to.json yet"
+        );
+        let link = serde_json::json!({ "folder": folder.to_string_lossy() });
+        fs::write(pg.join("exported-to.json"), link.to_string()).unwrap();
+        assert!(native_data_verified(&pg, Some(DEVICE)));
+        fs::write(&report_file, report("incomplete", &runs)).unwrap();
+        assert!(!native_data_verified(&pg, Some(DEVICE)));
     }
 }

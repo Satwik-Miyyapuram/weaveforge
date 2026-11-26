@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  acceptCompletion,
   autocompletion,
   closeBrackets,
   closeBracketsKeymap,
@@ -8,7 +9,7 @@ import {
   type CompletionContext,
   type CompletionResult,
 } from "@codemirror/autocomplete";
-import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
+import { defaultKeymap, history, historyKeymap, indentLess, indentMore } from "@codemirror/commands";
 import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
 import { languages } from "@codemirror/language-data";
 import { search, searchKeymap } from "@codemirror/search";
@@ -18,6 +19,7 @@ import {
   drawSelection,
   highlightActiveLine,
   highlightActiveLineGutter,
+  type KeyBinding,
   keymap,
   lineNumbers,
   placeholder as cmPlaceholder,
@@ -35,6 +37,12 @@ import type { EditorCitationFormat } from "@/lib/parts";
 import { type Paper } from "@weaveforge/core";
 import type { PasteSettings } from "@weaveforge/wasm";
 import { readyCore } from "@/lib/rust-core";
+
+/** Tab stays in the editor: it takes the open suggestion, else indents; Shift-Tab outdents. */
+export const markdownTabKeymap: readonly KeyBinding[] = [
+  { key: "Tab", run: acceptCompletion },
+  { key: "Tab", run: indentMore, shift: indentLess },
+];
 
 /** Characters that may precede `@` for cite autocomplete (not email local-parts). */
 const AT_BOUNDARY = /[^A-Za-z0-9._%+-]/;
@@ -301,7 +309,7 @@ export function markdownEditorExtensions(opts: MarkdownEditorExtensionOptions): 
     keymap.of(markdownFormatKeymap()),
     markdownContextMenu,
     spellcheck,
-    keymap.of([...closeBracketsKeymap, ...defaultKeymap, ...historyKeymap, ...searchKeymap]),
+    keymap.of([...markdownTabKeymap, ...closeBracketsKeymap, ...defaultKeymap, ...historyKeymap, ...searchKeymap]),
     drawSelection(),
     EditorView.lineWrapping,
     opts.editableCompartment.of(EditorView.editable.of(!opts.disabled)),

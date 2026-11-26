@@ -9,6 +9,8 @@ import { getContainer } from "@/bootstrap";
 import { deletedMessage, removeLater } from "@/lib/toast/index";
 import { readyCore } from "@/lib/rust-core";
 import { noteKey } from "./note-key";
+import { toastLinkRewriteFailed } from "../../application/rename-link-toast";
+import type { RenamedVaultPage } from "../../application/rename-updates-links";
 import type { EditorHandle } from "@/components/editor-handle";
 import { CommentsIcon, DeleteIcon, OpenIcon } from "@/components/view-icons";
 import { RecordEmpty, RecordFacts, RecordSection, recordDate, wordCount } from "@/components/record";
@@ -26,11 +28,13 @@ import { WORKSPACE_PATH } from "@/lib/hooks/parts";
 import { materializeBlobImagesInBody } from "../../lib/materialize-blob-images";
 import { holdOpenNotes } from "@/features/workspace/application/parts-3";
 import { NoteSaves } from "@/features/editor-workspace/application/parts";
+import { handBackRenamedBody } from "@/features/editor-workspace/application/rename-hand-back";
 import { LazyCanvasEditor } from "@/features/canvas";
 import { canvasImages } from "@/features/canvas/application/canvas-images";
 import { resolveCanvasFile } from "@/features/canvas/application/canvas-files";
 import { NoteTagEditor } from "./note-tag-editor";
 import { runNoteAction } from "./run-note-action";
+import { refreshOnModeChange } from "./note-mode-refresh";
 import { RowButton } from "@/components/controls";
 import { Button, IconButton, IconLink } from "@/components/button";
 
@@ -86,6 +90,20 @@ export function PageEditor({
   const [mode, setMode] = useState<NoteMode>(() => openMode(page.body));
   const modeRef = useRef<NoteMode>(mode);
   modeRef.current = mode;
+  /** A body was stored since the list last reloaded. */
+  const savedRef = useRef(false);
+  const onChangedRef = useRef(onChanged);
+  onChangedRef.current = onChanged;
+  // A note put away from Text or Ink with a save the list has not seen reloads it on close.
+  useEffect(
+    () => () => {
+      if (savedRef.current) {
+        savedRef.current = false;
+        void onChangedRef.current();
+      }
+    },
+    [page.id],
+  );
   /** The rendered note, which margin comments select from and light up. */
   const noteTextRef = useRef<HTMLDivElement>(null);
   const [busy, setBusy] = useState(false);
@@ -115,7 +133,8 @@ export function PageEditor({
   const canvas = page.kind === "canvas";
   const readBody = useMemo(() => readyCore().readableText(page.body), [page.body]);
   const canEditBody = !readOnly;
-  const canEditTitle = canEditBody && !ink && !sharedPage;
+  // An ink note's title is its frontmatter title like any note's; a rename moves its strokes with it.
+  const canEditTitle = canEditBody && !sharedPage;
   const view: NoteMode = canEditBody ? mode : "read";
   const hasBody = !!readBody.trim();
   const inkFocus = useInkFocus(view === "ink");
@@ -126,7 +145,7 @@ export function PageEditor({
    * Every body write, from any mode — the host saves as it goes, the way it
    * does in the Editor. The list is refreshed from Read only: a new body
    * arriving mid-edit or mid-stroke would shut the surface under the writer,
-   * so Edit and Ink refresh once they are put away (`chooseMode`).
+   * so a saved body reaches the list on Read or when the note closes.
    */
   // The body the store last held: a save names it, so an edit someone else
   // saved since is merged in or kept as a copy. Saves of a note run one at a
@@ -155,6 +174,7 @@ export function PageEditor({
           ...(meta?.sessionDigests ? { sessionDigests: meta.sessionDigests } : {}),
         });
         conflictCopyId = saved.conflictCopyId ?? undefined;
+        savedRef.current = true;
         return saved.body;
       });
       if (conflictCopyId) {
@@ -176,7 +196,10 @@ export function PageEditor({
           vault.uploadAsset(id, blob, ext),
         );
         await storeBody(body, meta);
-        if (modeRef.current === "read") await onChanged();
+        if (modeRef.current === "read") {
+          savedRef.current = false;
+          await onChanged();
+        }
         // The text is saved; a failed upload is still said out loud.
         if (uploadError) throw uploadError;
       } catch (err) {
@@ -231,7 +254,18 @@ export function PageEditor({
     setBusy(true);
     setSaveError(null);
     try {
-      await getContainer().vault.manageVaultPage.update(page.id, { title: next });
+      const renamed: RenamedVaultPage = await getContainer().vault.manageVaultPage.update(page.id, { title: next });
+      toastLinkRewriteFailed(renamed);
+      // The note's own `[[Old]]` self-links are rewritten from the editor's
+      // current text (unsaved typing included), and its autosave stores it.
+      const core = readyCore();
+      const renames = new Map([[core.normalizeTitleKey(page.title), renamed.title]]);
+      await handBackRenamedBody(
+        renamed,
+        editorHandle.current,
+        (body) => storeBody(body),
+        (text) => core.rewriteWikilinksOutsideCode(text, renames),
+      );
       await onChanged();
     } catch (err) {
       setSaveError(formatError(err));
@@ -252,11 +286,14 @@ export function PageEditor({
     });
   }
 
-  /** The switch in the section head. Leaving Edit or Ink refreshes the list. */
+  /** The switch in the section head. Text and Ink swap at once; Read takes a saved body into the list. */
   function chooseMode(next: NoteMode) {
     if (next === mode) return;
     setSaveError(null);
-    if (mode !== "read") void onChanged();
+    if (refreshOnModeChange(next, savedRef.current)) {
+      savedRef.current = false;
+      void onChanged();
+    }
     setMode(next);
   }
 
@@ -314,7 +351,12 @@ export function PageEditor({
             onChange={(e) => setTitle(e.target.value)}
             onBlur={() => void saveTitle()}
             onKeyDown={(e) => {
-              if (e.key === "Enter") e.currentTarget.blur();
+              // Enter saves the title and carries on into the body, as in a new document.
+              if (e.key === "Enter") {
+                e.preventDefault();
+                e.currentTarget.blur();
+                editorHandle.current?.focus();
+              }
               if (e.key === "Escape") setTitle(page.title);
             }}
             aria-label="Note title"

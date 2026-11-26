@@ -12,13 +12,19 @@
  * - A save never overwrites a file changed since it was read.
  */
 import type {
+  ComputeNeed,
+  EditMilestoneInput,
+  IMilestoneManager,
   IMilestoneRepository,
   IWorkspaceFs,
   Milestone,
+  MilestoneDependency,
   MilestoneFilter,
   MilestoneStatus,
+  NewMilestoneInput,
 } from "@weaveforge/core";
 import { readyCore } from "@/lib/rust-core";
+import { moveToTrash } from "@/lib/workspace-trash";
 
 /** A milestone as the published feed carries it (Rust `FeedMilestone`). */
 export interface FeedItem {
@@ -46,8 +52,18 @@ export function hasBadDate(milestone: Milestone): boolean {
   return milestone.targetDate !== undefined && !readyCore().isIsoDay(milestone.targetDate);
 }
 
+/** The frontmatter codec keeps list items as text, so each object comes back as JSON. */
 function asList<T>(value: unknown): T[] {
-  return Array.isArray(value) ? (value as T[]) : [];
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((item): T[] => {
+    if (typeof item !== "string") return [item as T];
+    try {
+      const parsed: unknown = JSON.parse(item);
+      return parsed !== null && typeof parsed === "object" ? [parsed as T] : [];
+    } catch {
+      return [];
+    }
+  });
 }
 
 function parse(path: string, text: string): Found | null {
@@ -72,7 +88,42 @@ function parse(path: string, text: string): Found | null {
   return { path, text, milestone };
 }
 
-export class FileMilestoneRepository implements IMilestoneRepository {
+/** Same rules as Rust `validate_dependencies` (crates/wf-core/src/plan/milestone.rs). */
+function checkDependencies(deps: MilestoneDependency[]): void {
+  for (const dep of deps) {
+    if (dep.kind === "external") {
+      if (!(dep.label ?? "").trim()) throw new Error("External dependencies need a label.");
+    } else if (!(dep.refId ?? "").trim()) {
+      throw new Error(`A ${dep.kind} dependency needs a refId.`);
+    }
+  }
+}
+
+/** Same rules as Rust `validate_compute`. */
+function checkCompute(compute: ComputeNeed[]): void {
+  for (const need of compute) {
+    if (!need.resource.trim()) throw new Error("Compute needs a resource name.");
+    if (need.count !== undefined && (!Number.isFinite(need.count) || need.count <= 0)) {
+      throw new Error("Compute count must be a positive number.");
+    }
+    if (need.hours !== undefined && (!Number.isFinite(need.hours) || need.hours < 0)) {
+      throw new Error("Compute hours cannot be negative.");
+    }
+  }
+}
+
+/** Title and date rules shared by add and update (Rust `validate_new_milestone`, `update`). */
+function checkTitle(title: string): string {
+  const trimmed = title.trim();
+  if (!trimmed) throw new Error("Milestone title is required.");
+  return trimmed;
+}
+
+function checkDate(date: string | undefined): void {
+  if (date && !readyCore().isIsoDay(date)) throw new Error("Target date must be yyyy-mm-dd.");
+}
+
+export class FileMilestoneRepository implements IMilestoneRepository, IMilestoneManager {
   constructor(
     private readonly fs: IWorkspaceFs,
     /** Project folder the `plan/` folder sits in ("" for the workspace root). */
@@ -89,7 +140,15 @@ export class FileMilestoneRepository implements IMilestoneRepository {
     const found: Found[] = [];
     for await (const entry of this.fs.walk(this.dir)) {
       if (!entry.path.endsWith(`.${TYPE}.md`)) continue;
-      const parsed = parse(entry.path, await this.fs.readText(entry.path));
+      // One unreadable file is skipped and reported, not fatal to the list (F97-P2-23).
+      let text: string;
+      try {
+        text = await this.fs.readText(entry.path);
+      } catch (error) {
+        console.warn(`Skipped milestone ${entry.path}: could not read it.`, error);
+        continue;
+      }
+      const parsed = parse(entry.path, text);
       if (parsed) found.push(parsed);
     }
     return found.sort((a, b) => a.path.localeCompare(b.path));
@@ -129,14 +188,77 @@ export class FileMilestoneRepository implements IMilestoneRepository {
     await this.publishAll();
   }
 
+  async add(input: NewMilestoneInput): Promise<Milestone> {
+    const title = checkTitle(input.title);
+    checkDate(input.targetDate || undefined);
+    const dependencies = input.dependencies ?? [];
+    const compute = input.compute ?? [];
+    checkDependencies(dependencies);
+    checkCompute(compute);
+    const milestone: Milestone = {
+      id: crypto.randomUUID(),
+      title,
+      status: input.status ?? "planned",
+      dependencies,
+      compute,
+      createdAt: new Date().toISOString(),
+    };
+    if (input.description) milestone.description = input.description;
+    if (input.targetDate) milestone.targetDate = input.targetDate;
+    await this.save(milestone);
+    return milestone;
+  }
+
+  async setStatus(id: string, status: MilestoneStatus): Promise<Milestone> {
+    if (!STATUSES.includes(status)) throw new Error(`Unknown milestone status: ${String(status)}`);
+    return this.change(id, (m) => ({ ...m, status }));
+  }
+
+  async update(id: string, input: EditMilestoneInput): Promise<Milestone> {
+    const title = input.title === undefined ? undefined : checkTitle(input.title);
+    checkDate(input.targetDate || undefined);
+    if (input.dependencies) checkDependencies(input.dependencies);
+    if (input.compute) checkCompute(input.compute);
+    return this.change(id, (m) => {
+      const next: Milestone = {
+        ...m,
+        title: title ?? m.title,
+        status: input.status ?? m.status,
+        dependencies: input.dependencies ?? m.dependencies,
+        compute: input.compute ?? m.compute,
+      };
+      const description = input.description ?? m.description;
+      const targetDate = input.targetDate === undefined ? m.targetDate : input.targetDate || undefined;
+      delete next.description;
+      delete next.targetDate;
+      if (description) next.description = description;
+      if (targetDate) next.targetDate = targetDate;
+      return next;
+    });
+  }
+
+  async remove(id: string): Promise<void> {
+    await this.delete(id);
+  }
+
+  /** Reads milestone `id`, applies `change`, saves it and returns the saved milestone. */
+  private async change(id: string, change: (m: Milestone) => Milestone): Promise<Milestone> {
+    const current = await this.getById(id);
+    if (!current) throw new Error(`No milestone with id "${id}".`);
+    const next = change(current);
+    await this.save(next);
+    return next;
+  }
+
+  /** Moves the milestone's file to `.weaveforge/trash/<day>/<path>`; never unlinks it. */
   async delete(id: string): Promise<void> {
     const found = (await this.readAll()).find((f) => f.milestone.id === id);
-    if (found) await this.fs.remove(found.path);
+    if (found) await moveToTrash(this.fs, found.path, Date.now());
     await this.publishAll();
   }
 
   private async write(path: string, text: string, expected: string | null): Promise<void> {
-    if (!this.fs.writeTextIf) return this.fs.writeFile(path, text);
+    if (!this.fs.writeTextIf) throw new Error(`${path}: this workspace cannot save without overwriting outside edits.`);
     if (!(await this.fs.writeTextIf(path, text, expected))) {
       throw new Error(`${path} changed on disk; reload before saving.`);
     }

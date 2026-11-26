@@ -50,7 +50,9 @@ pub fn digest_text(text: &str) -> String {
 /// Who changed the file since the two sides last agreed.
 ///
 /// `Unknown` where there is no base, so the caller shows the difference and
-/// lets the user decide, as it did before this check existed.
+/// lets the user decide, as it did before this check existed. A file the app
+/// last wrote, untouched since, that the workspace no longer has was deleted
+/// in the app: `Workspace`.
 #[must_use]
 pub fn changed_side(origin: ChangeOrigin<'_>) -> ChangeSide {
     let ChangeOrigin {
@@ -61,6 +63,9 @@ pub fn changed_side(origin: ChangeOrigin<'_>) -> ChangeSide {
     // The folder already holds what the mirror would write: nothing to import.
     if folder.is_some() && folder == workspace {
         return ChangeSide::Neither;
+    }
+    if workspace.is_none() && base.is_some() && folder == base {
+        return ChangeSide::Workspace;
     }
     let (Some(base), Some(folder), Some(workspace)) = (base, folder, workspace) else {
         return ChangeSide::Unknown;

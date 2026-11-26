@@ -22,7 +22,15 @@ import type {
   DesktopZoteroReply,
 } from "@/lib/desktop/desktop-bridge";
 import { fromBase64, toBase64, unwrap } from "./bridge";
-import type { AppUpdateStatus, AppUpdateStatus_Serialize, commands } from "./bindings";
+import type {
+  AppUpdateStatus,
+  AppUpdateStatus_Serialize,
+  commands,
+  MigrationBackup,
+  MigrationStatus,
+  MigrationStatus_Serialize,
+  RowCounts,
+} from "./bindings";
 
 /** Compiles only while the generated commands still fit what this shim expects. */
 export type GeneratedCommandsFit = typeof commands extends DesktopCommands
@@ -85,6 +93,8 @@ export interface DesktopCommands {
   vaultList(path: string | null): Promise<Result<DesktopVaultEntry[]>>;
   vaultStat(path: string): Promise<Result<DesktopVaultEntry | null>>;
   vaultRemove(path: string): Promise<Result<null>>;
+  vaultRename(from: string, to: string): Promise<Result<null>>;
+  fileDelete(path: string): Promise<Result<{ trashedTo: string }>>;
   localFileRead(bucket: string, path: string): Promise<Result<string | null>>; // base64
   localFileWrite(
     bucket: string,
@@ -132,6 +142,18 @@ export interface DesktopCommands {
   secretRead(name: DesktopSecretName): Promise<Result<string | null>>;
   secretWrite(name: DesktopSecretName, value: string): Promise<Result<null>>;
   secretClear(name: DesktopSecretName): Promise<Result<null>>;
+  migrate097MoveSecrets(): Promise<Result<string[]>>;
+  migrate097Status(folder: string): Promise<Result<MigrationStatus>>;
+  migrate097Counts(): Promise<Result<RowCounts>>;
+  migrate097Backup(folder: string): Promise<Result<MigrationBackup>>;
+  migrate097Read(
+    kind: string,
+    after: unknown[] | null,
+    limit: number,
+  ): Promise<Result<unknown[]>>;
+  migrate097RemoveOld(folder: string): Promise<Result<null>>;
+  markExported097(folder: string): Promise<Result<null>>;
+  legacyDbPresent(): Promise<boolean>;
   planWidgetState(): Promise<Result<DesktopPlanWidget>>;
   planWidgetSet(on: boolean): Promise<Result<DesktopPlanWidget>>;
   planWidgetTheme(palette: unknown): Promise<Result<null>>;
@@ -307,6 +329,8 @@ export type DesktopShim = Pick<
   | "listVaultFiles"
   | "statVaultFile"
   | "removeVaultFile"
+  | "trashVaultFile"
+  | "renameVaultFile"
   | "readLocalFile"
   | "writeLocalFile"
   | "removeLocalFile"
@@ -337,6 +361,14 @@ export type DesktopShim = Pick<
   | "readSecret"
   | "writeSecret"
   | "clearSecret"
+  | "migrate097MoveSecrets"
+  | "migrate097Status"
+  | "migrate097Counts"
+  | "migrate097Backup"
+  | "migrate097Read"
+  | "migrate097RemoveOld"
+  | "migrate097MarkExported"
+  | "legacyDbPresent"
   | "planWidgetState"
   | "setPlanWidget"
   | "setPlanWidgetTheme"
@@ -560,6 +592,12 @@ export function desktopShim(
     removeVaultFile: async (path) => {
       unwrap(await cmds.vaultRemove(path));
     },
+    trashVaultFile: async (path) => {
+      unwrap(await cmds.fileDelete(path));
+    },
+    renameVaultFile: async (from, to) => {
+      unwrap(await cmds.vaultRename(from, to));
+    },
     readLocalFile: async (bucket, path) => {
       const data = unwrap(await cmds.localFileRead(bucket, path));
       return data === null ? null : fromBase64(data);
@@ -663,6 +701,22 @@ export function desktopShim(
     clearSecret: async (name) => {
       unwrap(await cmds.secretClear(name));
     },
+    migrate097MoveSecrets: async () => unwrap(await cmds.migrate097MoveSecrets()),
+    // The shell serializes the status, skipping absent fields, so it never sends null.
+    migrate097Status: async (folder) =>
+      unwrap(await cmds.migrate097Status(folder)) as MigrationStatus_Serialize,
+    migrate097Counts: async () => unwrap(await cmds.migrate097Counts()),
+    migrate097Backup: async (folder) => unwrap(await cmds.migrate097Backup(folder)),
+    // The shell returns JSON objects; the page reads them as rows.
+    migrate097Read: async (kind, after, limit) =>
+      unwrap(await cmds.migrate097Read(kind, after ? [...after] : null, limit)) as Record<string, unknown>[],
+    migrate097RemoveOld: async (folder) => {
+      unwrap(await cmds.migrate097RemoveOld(folder));
+    },
+    migrate097MarkExported: async (folder) => {
+      unwrap(await cmds.markExported097(folder));
+    },
+    legacyDbPresent: () => cmds.legacyDbPresent(),
     planWidgetState: async () => unwrap(await cmds.planWidgetState()),
     setPlanWidget: async (on) => unwrap(await cmds.planWidgetSet(on)),
     setPlanWidgetTheme: (palette) => {

@@ -22,8 +22,15 @@ export class PaperFieldsFacade {
   constructor(
     private readonly deps: {
       paperFields: ManagePaperFieldsUseCase;
+      /** Re-tags a project's definitions when its folder moves (file backend only). */
+      moveProjectFolder?: (from: string, to: string) => Promise<void>;
     },
   ) {}
+
+  /** Called after a project rename moves its folder; the rename itself is in `renameProject`. */
+  moveProjectFolder(from: string, to: string): Promise<void> {
+    return this.deps.moveProjectFolder?.(from, to) ?? Promise.resolve();
+  }
 
   listPaperFieldDefs() {
     return this.deps.paperFields.listDefs();

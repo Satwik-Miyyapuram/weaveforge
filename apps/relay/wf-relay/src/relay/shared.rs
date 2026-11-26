@@ -53,6 +53,17 @@ pub fn upstream_failed(
     refuse(status, refusal)
 }
 
+/// The refusal for a non-success status from a site. 401, 403 and 451 mean the site
+/// refused the page, relayed as 403 so the reader shows it as blocked. Any other
+/// status is 502.
+#[must_use]
+pub fn upstream_refusal(status: u16) -> Refusal {
+    if matches!(status, 401 | 403 | 451) {
+        return refuse(403, "Upstream refused the page");
+    }
+    refuse(502, &format!("Upstream returned {status}"))
+}
+
 /// An https address with no username or password, on a host that is not private.
 #[must_use]
 pub fn is_public_https_url(raw: &str) -> bool {
@@ -127,11 +138,38 @@ pub const RELAY_READ_TIMEOUT: Duration = Duration::from_secs(120);
 /// # Errors
 /// When reqwest cannot build the client (TLS backend failed to load).
 pub fn relay_client() -> Result<reqwest::Client, reqwest::Error> {
+    relay_builder().build()
+}
+
+/// `relay_client` for addresses a page names: every host name must resolve to public
+/// addresses only, and the address checked is the one dialled. No proxy, since a proxy
+/// would resolve the name itself.
+/// # Errors
+/// When reqwest cannot build the client (TLS backend failed to load).
+pub fn public_relay_client() -> Result<reqwest::Client, reqwest::Error> {
+    let resolver = crate::fetch::safe::PublicResolver::new(crate::fetch::safe::PublicNetwork);
+    relay_builder()
+        .no_proxy()
+        .dns_resolver(std::sync::Arc::new(resolver))
+        .build()
+}
+
+/// The `public_relay_client` the page relays share, built once it builds. A failed
+/// build is not kept, so the next request tries again.
+pub(crate) fn shared_public_client() -> Option<&'static reqwest::Client> {
+    static CLIENT: std::sync::OnceLock<reqwest::Client> = std::sync::OnceLock::new();
+    if let Some(client) = CLIENT.get() {
+        return Some(client);
+    }
+    let built = public_relay_client().ok()?;
+    Some(CLIENT.get_or_init(|| built))
+}
+
+fn relay_builder() -> reqwest::ClientBuilder {
     crate::tls::with_roots(reqwest::Client::builder())
         .redirect(reqwest::redirect::Policy::none())
         .connect_timeout(RELAY_CONNECT_TIMEOUT)
         .read_timeout(RELAY_READ_TIMEOUT)
-        .build()
 }
 
 #[cfg(test)]
@@ -152,6 +190,29 @@ mod tests {
     #[test]
     fn relay_client_builds() {
         assert!(relay_client().is_ok());
+    }
+
+    #[test]
+    fn upstream_refusal_relays_a_refused_page_as_blocked() {
+        for status in [401, 403, 451] {
+            assert_eq!(upstream_refusal(status).status, 403, "upstream {status}");
+        }
+    }
+
+    #[test]
+    fn upstream_refusal_keeps_other_statuses_bad_gateway() {
+        for status in [404, 429, 500] {
+            let refusal = upstream_refusal(status);
+            assert_eq!(refusal.status, 502, "upstream {status}");
+            assert_eq!(refusal.error, format!("Upstream returned {status}"));
+        }
+    }
+
+    #[test]
+    fn shared_public_client_is_built_once() {
+        let first = shared_public_client().expect("builds");
+        let second = shared_public_client().expect("builds");
+        assert!(std::ptr::eq(first, second));
     }
 }
 

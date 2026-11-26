@@ -108,6 +108,10 @@
   outline-style: dashed;
   outline-offset: 4px;
 }
+/* A text editor shows focus by its caret; a ring there covers the line numbers. */
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .cm-content:focus-visible {
+  outline: none;
+}
 
 /* ---- Surfaces ------------------------------------------------------------ */
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(

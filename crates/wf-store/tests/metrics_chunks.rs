@@ -178,6 +178,84 @@ fn ack_lost_refetch() {
 }
 
 #[test]
+fn f97_p2_10_two_batches_with_one_id_both_keep_their_points() {
+    let tmp = TempDir::new();
+    experiment_file(tmp.path(), &format!("{EXP}.md"), "exp-1");
+    let vault = vault_in(tmp.path());
+    let dirs = experiment_dirs(&vault).unwrap();
+    // Same row id from two sources (another relay, a reset sequence).
+    let first = apply_inbox_rows(&vault, &[inbox_row(7, "exp-1", 0..3)], &dirs);
+    let second = apply_inbox_rows(&vault, &[inbox_row(7, "exp-1", 3..5)], &dirs);
+    assert_eq!((first.written, second.written), (1, 1));
+    assert_eq!(read_metrics(&vault, EXP).unwrap().rows.len(), 5);
+    // The same row fetched again is still one chunk.
+    let again = apply_inbox_rows(&vault, &[inbox_row(7, "exp-1", 3..5)], &dirs);
+    assert_eq!((again.written, again.duplicates), (0, 1));
+}
+
+#[test]
+fn f97_r1_row_drained_by_0_9_6_is_not_stored_twice() {
+    let tmp = TempDir::new();
+    experiment_file(tmp.path(), &format!("{EXP}.md"), "exp-1");
+    let vault = vault_in(tmp.path());
+    let dirs = experiment_dirs(&vault).unwrap();
+    // 0.9.6 named the chunk `b7`; the same row fetched again in 0.9.7.
+    let row = inbox_row(7, "exp-1", 0..3);
+    let points = row["payload"]["points"].as_array().unwrap();
+    let _ = store_metric_points(&vault, "b7", points, &dirs).unwrap();
+    let again = apply_inbox_rows(&vault, &[row], &dirs);
+    assert_eq!(again.ack, vec![7], "the row is still acked");
+    assert_eq!((again.written, again.duplicates), (0, 1));
+    assert_eq!(read_metrics(&vault, EXP).unwrap().rows.len(), 3);
+}
+
+#[test]
+fn f97_r1_legacy_chunk_with_other_points_does_not_hide_new_points() {
+    let tmp = TempDir::new();
+    experiment_file(tmp.path(), &format!("{EXP}.md"), "exp-1");
+    let vault = vault_in(tmp.path());
+    let dirs = experiment_dirs(&vault).unwrap();
+    // Another source reused id 7 for different points: both must be kept.
+    let old = inbox_row(7, "exp-1", 0..3);
+    let old_points = old["payload"]["points"].as_array().unwrap();
+    let _ = store_metric_points(&vault, "b7", old_points, &dirs).unwrap();
+    let report = apply_inbox_rows(&vault, &[inbox_row(7, "exp-1", 3..5)], &dirs);
+    assert_eq!(report.written, 1);
+    assert_eq!(read_metrics(&vault, EXP).unwrap().rows.len(), 5);
+}
+
+/// A 0.9.6 chunk as that version wrote it, frozen as a literal: the same rows as
+/// `inbox_row(7, "exp-1", 0..3)`, with `0.50` and an empty time cell.
+const FROZEN_096_CHUNK: &str =
+    "run,step,metric,value,time\nmain,0,loss,0.50,\nmain,1,loss,0.50,\nmain,2,loss,0.50,\n";
+
+#[test]
+fn f97_r1_frozen_0_9_6_chunk_counts_as_stored_whatever_its_bytes() {
+    // The legacy chunk may differ from 0.9.7's bytes (CRLF, quoted cells, other number
+    // formats). Rows are compared, so each variant still counts as the stored batch.
+    let variants = [
+        FROZEN_096_CHUNK.to_owned(),
+        FROZEN_096_CHUNK.replace('\n', "\r\n"),
+        "run,step,metric,value,time\n\"main\",\"0\",\"loss\",\"0.5\",\"\"\n\"main\",\"1\",\"loss\",\"0.5\",\"\"\n\"main\",\"2\",\"loss\",\"0.5\",\"\"\n".to_owned(),
+    ];
+    for legacy in variants {
+        let tmp = TempDir::new();
+        experiment_file(tmp.path(), &format!("{EXP}.md"), "exp-1");
+        let vault = vault_in(tmp.path());
+        let dirs = experiment_dirs(&vault).unwrap();
+        let path = wf_core::sync::folder_layout::metrics_chunk_path(EXP, "main", "b7");
+        let full = tmp.path().join(&path);
+        std::fs::create_dir_all(full.parent().unwrap()).unwrap();
+        std::fs::write(&full, legacy.as_bytes()).unwrap();
+
+        let report = apply_inbox_rows(&vault, &[inbox_row(7, "exp-1", 0..3)], &dirs);
+        assert_eq!(report.ack, vec![7]);
+        assert_eq!((report.written, report.duplicates), (0, 1), "{legacy:?}");
+        assert_eq!(read_metrics(&vault, EXP).unwrap().rows.len(), 3);
+    }
+}
+
+#[test]
 fn rows_that_cannot_be_stored_are_not_acked() {
     let tmp = TempDir::new();
     let vault = vault_in(tmp.path());

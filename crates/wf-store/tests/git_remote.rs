@@ -343,6 +343,21 @@ fn resolving_keep_both_picks_a_free_name() {
 }
 
 #[test]
+fn f97_p2_7_keep_both_never_overwrites_an_untracked_file() {
+    let (_bare, url, _b_dir, b) = conflicted();
+    std::fs::write(b.root().join("notes/a (remote).md"), "untracked\n").unwrap();
+    let _ = pull_resolving(&b, &cfg(&url), PullChoice::KeepBoth).unwrap();
+    assert_eq!(
+        read(&b, "notes/a (remote).md").as_deref(),
+        Some("untracked\n")
+    );
+    assert_eq!(
+        read(&b, "notes/a (remote 2).md").as_deref(),
+        Some("from a\n")
+    );
+}
+
+#[test]
 fn resolving_when_one_side_deleted() {
     let (_bare, url) = bare();
     let (_a_dir, a) = folder();

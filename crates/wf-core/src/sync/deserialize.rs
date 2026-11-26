@@ -456,7 +456,14 @@ fn diff_entity(
         .filter(|id| !id.is_empty())
         .and_then(|id| by_id.get(id).copied())
     else {
-        return action(entity, ImportAction::Created);
+        // The app wrote this file and has since deleted its note: not a new note.
+        let deleted_in_app = origin.is_some_and(|f| f(&entity.path) == ChangeSide::Workspace);
+        let created = if deleted_in_app {
+            ImportAction::Unchanged
+        } else {
+            ImportAction::Created
+        };
+        return action(entity, created);
     };
     if current.entity_type != entity.entity_type {
         return conflict(

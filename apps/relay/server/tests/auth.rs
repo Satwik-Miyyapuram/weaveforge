@@ -144,6 +144,42 @@ async fn session_jwt_refused_by_get_user_is_invalid_session() {
 }
 
 #[tokio::test]
+async fn f97_p2_4_a_supabase_outage_is_503_not_invalid_session() {
+    let client = reqwest::Client::new();
+    for status in [500, 502, 503, 429] {
+        let up = serve(vec![(GET_USER, vec![json_reply(status, "{}")])]).await;
+        let cfg = config(&up, Some(SECRET));
+        assert_eq!(
+            require_user(&client, &cfg, Some("Bearer a.b.c")).await,
+            Err(refused(
+                503,
+                "Sign-in could not be checked right now. Try again shortly."
+            )),
+            "{status}"
+        );
+    }
+    for status in [401, 403] {
+        let up = serve(vec![(GET_USER, vec![json_reply(status, "{}")])]).await;
+        let cfg = config(&up, Some(SECRET));
+        assert_eq!(
+            require_session(&client, &cfg, Some("Bearer a.b.c")).await,
+            Err(refused(401, "Invalid session.")),
+            "{status}"
+        );
+    }
+    // Nothing listening: a network error.
+    let gone = serve(vec![]).await;
+    let mut cfg = config(&gone, Some(SECRET));
+    cfg.supabase_url = "http://127.0.0.1:1".to_owned();
+    assert_eq!(
+        require_user(&client, &cfg, Some("Bearer a.b.c"))
+            .await
+            .map_err(|e| e.status),
+        Err(503)
+    );
+}
+
+#[tokio::test]
 async fn api_token_is_exchanged_then_checked_with_get_user() {
     let up = serve(vec![
         (SCOPES, vec![json_reply(200, r#"["mcp_relay","sdk"]"#)]),

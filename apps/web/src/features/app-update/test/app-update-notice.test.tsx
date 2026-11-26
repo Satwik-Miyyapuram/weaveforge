@@ -103,7 +103,9 @@ test("a failed install is an alert with a retry that installs again", async () =
   await act(async () => tree.unmount());
 });
 
-test("an unreachable shell is a retryable failure, never a stalled checking state", async () => {
+// A check runs on its own at every start, so a failed check (no release found) shows no banner:
+// the update settings show the error and a check button. Only a release that did not install alerts.
+test("an unreachable shell shows no banner, never a stalled checking state", async () => {
   g.window = {
     weaveforge: {
       fetchTitle: () => Promise.resolve({}),
@@ -114,10 +116,27 @@ test("an unreachable shell is a retryable failure, never a stalled checking stat
     },
   };
   const tree = await mount();
-  const banner = findBanner(tree)[0];
-  assert.ok(banner, "an unreachable shell shows a banner");
-  assert.equal(banner.props.role, "alert");
-  assert.match(textOf(banner), /Could not reach the updater\. Try again\./);
+  assert.equal(findBanner(tree).length, 0, "a failed background check is silent here");
+  await act(async () => tree.unmount());
+});
+
+test("a failed check shows no banner", async () => {
+  stubWindow(status({ phase: "failed", error: "Could not check for an update." }));
+  const tree = await mount();
+  assert.equal(findBanner(tree).length, 0);
+  await act(async () => tree.unmount());
+});
+
+test("a failed install can be dismissed, and a later failure shows again", async () => {
+  const failed = status({ phase: "failed", version: "0.9.2", error: "The update did not install. Try again." });
+  const { push } = stubWindow(failed);
+  const tree = await mount();
+  assert.equal(findBanner(tree).length, 1, "the failed install shows a banner");
+  await act(async () => buttonLabelled(tree, "Dismiss").props.onClick());
+  assert.equal(findBanner(tree).length, 0, "Dismiss hides it");
+  await act(async () => push(status({ phase: "checking" })));
+  await act(async () => push({ ...failed }));
+  assert.equal(findBanner(tree).length, 1, "a new failure after another try shows again");
   await act(async () => tree.unmount());
 });
 

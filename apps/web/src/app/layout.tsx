@@ -3,11 +3,13 @@ import { FONT_VARIABLES } from "./fonts";
 import "./globals.css";
 import { AuthProvider } from "@/features/auth/ui/auth-provider";
 import { AppShell } from "./app-shell";
+import { Migrate097 } from "@/lib/desktop/migrate-097-lazy";
 import { BootSnapshot } from "./boot-snapshot";
 import { THEME_BOOT_SCRIPT } from "@/lib/theme/theme";
 import { ThemeColorMeta } from "./theme-color-meta";
 import { WindowScrollbar } from "@/components/window-scrollbar";
-import { DesktopTitleBar, TITLE_BAR_BOOT_SCRIPT } from "@/components/desktop-title-bar";
+import { TITLE_BAR_BOOT_SCRIPT } from "@/lib/theme/title-bar-boot-script";
+import { DesktopTitleBar } from "@/components/desktop-title-bar";
 import { DesktopWindowIcon } from "@/features/desktop-window-icon";
 import { PlanWidgetTheme } from "@/components/plan-widget-theme";
 import { ReactiveMotion } from "./reactive-motion";
@@ -95,6 +97,7 @@ export default function RootLayout({
         <AuthProvider>
           <BootSnapshot />
           <AppShell>{children}</AppShell>
+          <Migrate097 />
         </AuthProvider>
       </body>
     </html>

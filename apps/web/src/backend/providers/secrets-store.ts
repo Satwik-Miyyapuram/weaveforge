@@ -31,7 +31,6 @@ export function secretsStoreFor(
   hasServerRoutes: boolean = !isOfflineBuild(),
 ): SecretsStore {
   if (hasServerRoutes) return new RouteSecretsStore(db);
-  // The shell applies `db/migrations-local` on every launch, so this table
-  // is there whether or not the window is signed in.
+  // Saves go to the OS keychain; until the 0.9.7 move runs, load still reads the old device row. (local/parts.ts)
   return new DeviceSecretsStore();
 }

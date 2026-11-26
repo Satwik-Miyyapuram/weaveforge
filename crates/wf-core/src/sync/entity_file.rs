@@ -103,21 +103,32 @@ pub fn set_field(text: &str, key: &str, value: &Value) -> Option<String> {
     let (head, tail) = block.split_at(close);
     let prefix = format!("{key}:");
     let mut found = false;
-    let mut lines: Vec<&str> = head
-        .split('\n')
-        .map(|current| {
-            if !found && current.starts_with(&prefix) {
-                found = true;
-                line
-            } else {
-                current
-            }
-        })
-        .collect();
+    // After the replaced line, its old block (indented lines and `- ` items)
+    // goes too, or a list would outlive the new value (F97-P2-13).
+    let mut skipping = false;
+    let mut lines: Vec<&str> = Vec::new();
+    for current in head.split('\n') {
+        if skipping && is_block_line(current) {
+            continue;
+        }
+        skipping = false;
+        if !found && current.starts_with(&prefix) {
+            found = true;
+            skipping = true;
+            lines.push(line);
+        } else {
+            lines.push(current);
+        }
+    }
     if !found {
         lines.push(line);
     }
     Some(format!("---\n{}{tail}", lines.join("\n")))
+}
+
+/// A line that belongs to the field above it: indented, or a `- ` list item.
+fn is_block_line(line: &str) -> bool {
+    line.starts_with([' ', '\t']) || line.starts_with("- ") || line == "-"
 }
 
 /// `text` with its body swapped for `body`; the frontmatter bytes are kept
@@ -127,4 +138,35 @@ pub fn replace_body(text: &str, body: &str) -> String {
     let old_body_len = read_frontmatter(text).body.len();
     let head = text.get(..text.len() - old_body_len).unwrap_or_default();
     canonical_text(&format!("{head}{body}"))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn f97_p2_13_set_field_drops_the_old_block_list() {
+        let text = "---\nweaveforge-id: a\norder:\n  - 1\n  - 3\ntitle: x\n---\nbody\n";
+        let out = set_field(text, "order", &json!([2])).expect("has frontmatter");
+        // The old block items must be gone; the flow list reads back as text.
+        assert!(!out.contains("- 1") && !out.contains("- 3"), "{out}");
+        let parsed = read_frontmatter(&out);
+        assert_eq!(
+            parsed.frontmatter.get("order"),
+            Some(&json!(["2"])),
+            "{out}"
+        );
+        assert_eq!(parsed.frontmatter.get("title"), Some(&json!("x")), "{out}");
+        assert_eq!(parsed.body, "body\n");
+    }
+
+    #[test]
+    fn f97_p2_13_set_field_keeps_the_next_field_after_a_scalar() {
+        let text = "---\norder: 1\ntitle: x\n---\n";
+        let out = set_field(text, "order", &json!(2)).expect("has frontmatter");
+        let parsed = read_frontmatter(&out);
+        assert_eq!(parsed.frontmatter.get("order"), Some(&json!(2)));
+        assert_eq!(parsed.frontmatter.get("title"), Some(&json!("x")));
+    }
 }

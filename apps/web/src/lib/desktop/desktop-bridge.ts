@@ -15,6 +15,10 @@
  * the machine, and one that has to be reviewed on both sides forever.
  */
 
+import type { DesktopStorageArea, DesktopAppLog, DesktopPlanWidget, DesktopMenuGroup, DesktopInkHaptics, DesktopInkRequest, DesktopInkResult, DesktopOverleafSource } from "./desktop-bridge-types";
+
+export type * from "./desktop-bridge-types";
+
 export interface DesktopImage {
   /**
    * The picture's bytes. An `ArrayBuffer` rather than a typed array because
@@ -143,6 +147,17 @@ export interface DesktopBridge {
   clearSecret(name: DesktopSecretName): Promise<void>;
 
   /**
+   * One-time move of the old local database secrets row into the keychain, for the
+   * 0.9.7 upgrade. Reads the row read-only, stores each field, and records the move in
+   * `<folder>/.weaveforge/migration-0.9.7/secrets-moved-<deviceId>.json`. Rejects when any part fails
+   * (no keychain, locked keychain, unreadable row), so the caller shows the move as not done.
+   * Resolves with the NAMES of write-only fields the move did not copy (never values).
+   */
+  migrate097MoveSecrets(): Promise<string[]>;
+  /** True when the old local database folder exists. Metadata only: the database is never opened. */
+  legacyDbPresent(): Promise<boolean>;
+
+  /**
    * Run one statement against the local database and get its rows.
    *
    * Present only on the desktop, and only meaningful there: the local database
@@ -198,6 +213,25 @@ export interface DesktopBridge {
    * Absent on the Electron shell.
    */
   missingVaultRoot?(): Promise<string | null>;
+
+  /**
+   * 0.9.7 export, desktop only: dumps the old local database before any export
+   * read, and never overwrites an existing dump. Rejects when the dump cannot be
+   * written, and the export then does not run. Answers with this install's id
+   * and the dump path, kept in `folder`'s migration dir where the rotation never
+   * prunes it (the shell's `migrate_097_backup`).
+   */
+  migrate097Backup?(folder: string): Promise<{ deviceId: string; dumpPath: string }>;
+  /**
+   * 0.9.7 export, desktop only: one read-only page of an exporter kind from the
+   * old local database. `after` is the last row's key values (null for the first
+   * page). The shell refuses unknown kinds and `ink`, and caps `limit` at 1000.
+   */
+  migrate097Read?(kind: string, after: readonly unknown[] | null, limit: number): Promise<Record<string, unknown>[]>;
+  /** 0.9.7 export, desktop only: records a verified export. Never called otherwise. */
+  migrate097MarkExported?(folder: string): Promise<void>;
+  /** 0.9.7, desktop only: row counts per old local table, plus the CRDT tail past each snapshot. */
+  migrate097Counts?(): Promise<{ counts: Record<string, number>; crdtTail: Record<string, number> }>;
   /** Try the remembered folder again; rejects with why it still cannot be used. */
   retryVaultRoot?(): Promise<DesktopVaultRoot | null>;
   /** Stop using, watching and remembering the folder; answers any warnings. The files stay. */
@@ -229,6 +263,10 @@ export interface DesktopBridge {
   statVaultFile(path: string): Promise<DesktopVaultEntry | null>;
   /** Remove one file the mirror owns. Never used on anything else. */
   removeVaultFile(path: string): Promise<void>;
+  /** Move a file or folder to `.weaveforge/trash/<day>/`; absent on shells without it (Electron). */
+  trashVaultFile?(path: string): Promise<void>;
+  /** Move one file in one step, replacing a file already at `to` (the workspace port's rename). */
+  renameVaultFile?(from: string, to: string): Promise<void>;
   /**
    * Commit what the mirror wrote, if folder history is switched on.
    *
@@ -444,6 +482,34 @@ export interface DesktopBridge {
   menuModel?(): Promise<DesktopMenuGroup[] | null>;
   invokeMenuItem?(id: string): Promise<void>;
   onMenuChange?(cb: () => void): () => void;
+
+  /**
+   * The 0.9.7 move of a workspace folder from the local database to files.
+   *
+   * Optional because an installed shell may predate it; without them the page
+   * keeps the database backend, which is exactly what it does today. `status`
+   * reads the folder's report, `run` performs the move and returns the report
+   * it wrote. `run` is the TS exporter (WEB-EXPORT) and reports progress
+   * in-process, so the bridge carries no progress event.
+   */
+  migrate097Status?(folder: string): Promise<{
+    /** A Migrate097StateName, or a state the shell added later (`unexported`, `unavailable`). */
+    state: string;
+    removedAt?: string;
+    verifiedAt?: string;
+    exportedTo?: string;
+    ownRunVerified?: boolean;
+    reason?: string;
+    step?: string;
+    /** True when the export went to the open folder (EXPORT lands it; missing means false). */
+    exportedHere?: boolean;
+    backupPath?: string;
+    missing?: string[];
+    removingDeviceId?: string;
+    deviceId?: string;
+  }>;
+  /** Deletes the old local data after a verified migration; the user confirms first. */
+  migrate097RemoveOld?(folder: string): Promise<void>;
   /** Tint the system's window buttons to the page: two `#rrggbb` colours. */
   setTitleBarColors?(colors: { background: string; ink: string }): void;
   /** Whether the OS taskbar is in light mode. Optional: an installed shell may predate it. */
@@ -485,7 +551,8 @@ export type DesktopAppUpdatePhase =
   | "available"
   | "downloading"
   | "installing"
-  | "failed";
+  | "failed"
+  | "held";
 
 export interface DesktopAppUpdate {
   phase: DesktopAppUpdatePhase;
@@ -497,94 +564,6 @@ export interface DesktopAppUpdate {
   percent: number | null;
   /** Why the last check or install failed, fit to show. */
   error: string | null;
-}
-
-/** One of the app's own folders: `artifacts`, `models` or `log`. */
-export interface DesktopStorageArea {
-  id: string;
-  bytes: number;
-  files: number;
-  /** The most the folder may hold before downloads into it are refused; null when uncapped. */
-  limit?: number | null;
-}
-
-/**
- * The application log as the page receives it.
- *
- * `text` is the entries already formatted, one line each and oldest first, so
- * the page can show them without a second parser and a second answer to "what
- * does a log line look like". `file` is where they are also written, so the
- * reader can open the same record in an editor.
- */
-export interface DesktopAppLog {
-  file: string;
-  text: string;
-  /** False when the in-memory ring dropped older entries than `text` holds. */
-  complete: boolean;
-}
-
-/** The plan widget, as the Settings panel sees it. The shell's `PlanWidgetStatePayload`. */
-export interface DesktopPlanWidget {
-  /** False where the shell cannot put a window on the desktop (not Windows). */
-  supported: boolean;
-  enabled: boolean;
-}
-
-/** One entry of the window's menu, as the page's menu bar draws it. */
-export interface DesktopMenuItem {
-  id: string;
-  kind: "item" | "check" | "separator";
-  label: string;
-  /** The shortcut as the platform writes it (`Ctrl+Shift+I`), or null. */
-  accelerator: string | null;
-  enabled: boolean;
-  checked?: boolean;
-  /** Set when the entry only opens a route: the page navigates itself. */
-  route?: string;
-  /** A page action (`search`) the page runs itself. */
-  command?: string;
-}
-
-export interface DesktopMenuGroup {
-  label: string;
-  items: DesktopMenuItem[];
-}
-
-/** One message to the pen's actuator: velocity in CSS px/ms, pressure in [0, 1]. */
-export type DesktopInkHaptics =
-  | { type: "tool"; tool: "pen" | "highlighter" | "eraser" }
-  | { type: "update"; pressure: number; velocity: number }
-  | { type: "stop" };
-
-/** One page's lines for the recogniser: flat `[x, y, pressure, …]` per stroke. */
-export interface DesktopInkRequest {
-  lines: { strokes: number[][] }[];
-  vocabulary?: string[];
-  lang?: string;
-}
-
-export interface DesktopInkResult {
-  engine: string;
-  lines: {
-    text: string;
-    confidence: number;
-    alternatives?: string[];
-    /** Each word's readings and the OS dictionary's verdict on each; see `decodeInkWords`. */
-    words?: {
-      candidates: string[];
-      known?: boolean[] | null;
-      join?: string | null;
-    }[];
-  }[];
-  ms: number;
-}
-
-/** One Overleaf checkout, flattened for the wire. */
-export interface DesktopOverleafSource {
-  projectId: string;
-  entryFile: string;
-  files: { path: string; content: string }[];
-  overleafUrl: string;
 }
 
 /** A local Zotero response, flattened for the wire. */
@@ -729,7 +708,12 @@ export interface DesktopVaultEntry {
  * (`PAGE_WRITABLE`), which also keeps `local-api-token` for the shell alone, and lets the page
  * write but never read back `overleaf-token` or `git-sync-token`.
  */
-export type DesktopSecretName = "ai-provider" | "overleaf-token" | "git-sync-token";
+export type DesktopSecretName =
+  | "ai-provider"
+  | "overleaf-token"
+  | "git-sync-token"
+  | "device-secrets"
+  | `device-secrets/${string}`;
 
 /**
  * The shell preferences the page may write. Equal to `PAGE_WRITABLE` in
@@ -745,6 +729,16 @@ export interface DesktopWorkspaceSetup {
   defaultFolder: string | null;
 }
 export type DesktopPreferenceValue = string | boolean | null;
+
+/** A folder's 0.9.7 migration state, as the shell's report records it. */
+export type Migrate097StateName = "none" | "verified" | "incomplete" | "removing" | "removed";
+
+/** One step of a running migration; `done` of `total` items are through. */
+export interface Migrate097Progress {
+  kind: string;
+  done: number;
+  total: number;
+}
 
 export interface DesktopUpdate {
   /** The newer version, as `0.6.0`. */

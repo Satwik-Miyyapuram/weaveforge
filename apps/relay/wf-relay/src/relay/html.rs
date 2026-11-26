@@ -8,7 +8,7 @@ use tokio::time::{Instant, timeout_at};
 
 use super::shared::{
     Answer, Refusal, fetch_checked_hops, header_latin1, is_public_https_url, read_capped, refuse,
-    upstream_failed,
+    shared_public_client, upstream_failed, upstream_refusal,
 };
 
 /// Path the page requests.
@@ -66,8 +66,9 @@ pub fn decode_html_bytes(bytes: &[u8], content_type: Option<&str>) -> String {
     encoding.decode_with_bom_removal(bytes).0.into_owned()
 }
 
-/// Answer the reader's HTML request: `?url=` must be an https address.
-pub async fn proxy_html(client: &reqwest::Client, request_url: &Url) -> Answer {
+/// Answer the reader's HTML request: `?url=` must be an https address whose host
+/// resolves to public addresses only.
+pub async fn proxy_html(request_url: &Url) -> Answer {
     let raw = request_url
         .query_pairs()
         .find(|(k, _)| *k == "url")
@@ -82,6 +83,9 @@ pub async fn proxy_html(client: &reqwest::Client, request_url: &Url) -> Answer {
     }
     let Ok(target) = Url::parse(&raw) else {
         return Answer::from(not_https);
+    };
+    let Some(client) = shared_public_client() else {
+        return Answer::from(refuse(502, "Upstream fetch failed"));
     };
     relay_html(
         client,
@@ -150,10 +154,7 @@ fn page_headers() -> HeaderMap {
 fn page_refusal(response: &reqwest::Response, max: usize) -> Option<Refusal> {
     let status = response.status();
     if !status.is_success() {
-        return Some(refuse(
-            502,
-            &format!("Upstream returned {}", status.as_u16()),
-        ));
+        return Some(upstream_refusal(status.as_u16()));
     }
     let content_type = header_latin1(response.headers(), CONTENT_TYPE);
     if !is_html_content_type(content_type.as_deref()) {
@@ -275,4 +276,66 @@ fn charset_in_tag(rest: &[u8]) -> Option<String> {
         .rev()
         .filter(|&i| i >= 1)
         .find_map(|i| label_at(tag, i + "charset".len(), b"\"'"))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    use tokio::net::TcpListener;
+
+    /// Serves one HTTP response with `status_line` to the next connection, and
+    /// returns the address of that page.
+    async fn serve_once(status_line: &'static str) -> Url {
+        let listener = TcpListener::bind("127.0.0.1:0").await.expect("bind");
+        let addr = listener.local_addr().expect("addr");
+        drop(tokio::spawn(async move {
+            if let Ok((mut socket, _)) = listener.accept().await {
+                let mut request = [0u8; 4096];
+                let _ = socket.read(&mut request).await;
+                let response = format!(
+                    "HTTP/1.1 {status_line}\r\ncontent-type: text/html\r\ncontent-length: 0\r\nconnection: close\r\n\r\n"
+                );
+                let _ = socket.write_all(response.as_bytes()).await;
+            }
+        }));
+        Url::parse(&format!("http://{addr}/post")).expect("url")
+    }
+
+    /// The status the relay answers with for a page the upstream answers with `status_line`.
+    async fn relayed_status(status_line: &'static str) -> u16 {
+        let target = serve_once(status_line).await;
+        let client = reqwest::Client::new();
+        relay_html(
+            &client,
+            &target,
+            &|_: &Url| true,
+            HTML_PROXY_MAX_BYTES,
+            HTML_TIMEOUT,
+        )
+        .await
+        .status
+    }
+
+    #[tokio::test]
+    async fn a_site_that_refuses_the_page_is_relayed_as_blocked() {
+        for status_line in [
+            "401 Unauthorized",
+            "403 Forbidden",
+            "451 Unavailable For Legal Reasons",
+        ] {
+            assert_eq!(
+                relayed_status(status_line).await,
+                403,
+                "upstream {status_line}"
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn other_upstream_failures_stay_bad_gateway() {
+        assert_eq!(relayed_status("429 Too Many Requests").await, 502);
+        assert_eq!(relayed_status("500 Internal Server Error").await, 502);
+        assert_eq!(relayed_status("404 Not Found").await, 502);
+    }
 }

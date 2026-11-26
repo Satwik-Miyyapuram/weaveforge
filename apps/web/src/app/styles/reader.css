@@ -431,10 +431,11 @@ body > canvas.hiddenCanvasElement { display: none; }
 /* A pen sits on top of the page; a highlighter tints what is under it. Multiply
    is what makes a broad stroke read as a marker over a page image rather than a
    printed block covering the words, and it is the reader's own rule: the note's
-   sheet is the app's paper, a PDF page is somebody else's. */
+   sheet is the app's paper, a PDF page is somebody else's. The alpha is the
+   notes' HIGHLIGHTER_ALPHA (features/ink/render/canvas-renderer). */
 .pdf-reader-ink--highlighter {
   mix-blend-mode: multiply;
-  opacity: 0.45;
+  opacity: 0.35;
 }
 /* The create bar and mark popover: raised over a selection or mark, in the
    scroller's content so they scroll with the words (`selection-create-bar.tsx`). */

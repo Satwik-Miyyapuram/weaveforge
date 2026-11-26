@@ -2,7 +2,7 @@
 covers:
   - apps/web/src/features/editor-workspace
   - crates/wf-core/src/editor_workspace
-checked: 2026-11-14
+checked: 2026-11-21
 ---
 # The workspace editor
 
@@ -21,6 +21,11 @@ make, open or switch projects, see [Projects](projects.md).
 
 Want the explorer out of the way? Click **Hide explorer**, or press Ctrl+B
 (Cmd+B on a Mac). Press it again to bring it back.
+
+Want it wider or narrower? Drag the explorer's right edge. It goes from 180 to
+600 pixels wide; double-click the edge to put it back to 260. With the edge
+focused, the arrow keys move it a step at a time. The width is kept on this
+device.
 
 ### Make a new note or folder
 

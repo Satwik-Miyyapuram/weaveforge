@@ -30,6 +30,16 @@ describe("the outbox", () => {
     assert.ok(pending[0]!.seq < pending[1]!.seq);
   });
 
+  it("counts every unsent op, dead ones included, so an export can refuse while work is pending", async () => {
+    const { box } = await outbox();
+    assert.equal(await box.count(), 0);
+    const first = await box.append({ table: "papers", rowId: ROW, op: "insert" });
+    await box.append({ table: "papers", rowId: ROW, op: "update", baseVersion: 1 });
+    assert.equal(await box.count(), 2);
+    await box.settle(first.opId);
+    assert.equal(await box.count(), 1, "a settled (sent) op leaves the count");
+  });
+
   it("gives every op an id, so sending it twice is safe", async () => {
     const { box } = await outbox();
     const first = await box.append({ table: "papers", rowId: ROW, op: "insert" });

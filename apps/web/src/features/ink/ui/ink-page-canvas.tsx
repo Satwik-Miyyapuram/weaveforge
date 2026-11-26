@@ -26,6 +26,29 @@ export interface InkPageCanvasProps {
 // An outline is kept with its shape key, so a changed tuning rebuilds it.
 const pathCaches = new WeakMap<readonly number[], { key: string; path: Path2D }>();
 
+// The render strokes last made per decoded page, so a remount (a Text/Ink switch) gets the
+// same `points` arrays back and finds its outlines in `pathCaches`, not rebuilt.
+const renderCaches = new WeakMap<
+  readonly InkStroke[],
+  { palette: string; hidden: ReadonlySet<number> | undefined; drawn: readonly InkRenderStroke[] }
+>();
+
+/** `toRenderStrokes`, kept per decoded page while the palette and hidden set stay the same. */
+export function renderStrokesFor(
+  strokes: readonly InkStroke[] | undefined,
+  palette: InkPalette,
+  hidden?: ReadonlySet<number>,
+): readonly InkRenderStroke[] {
+  if (!strokes) return readyCore().toRenderStrokes(strokes, palette, hidden);
+  // The theme is read again on each mount, so the palette is compared by value.
+  const key = JSON.stringify(palette);
+  const hit = renderCaches.get(strokes);
+  if (hit && hit.palette === key && hit.hidden === hidden) return hit.drawn;
+  const drawn = readyCore().toRenderStrokes(strokes, palette, hidden);
+  renderCaches.set(strokes, { palette: key, hidden, drawn });
+  return drawn;
+}
+
 const FILL: React.CSSProperties = {
   position: "absolute",
   inset: 0,
@@ -149,7 +172,7 @@ export const InkPageCanvas = memo(function InkPageCanvas({
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const modeRef = useRef<InkCanvasMode | null>(null);
 
-  const drawn = useMemo(() => readyCore().toRenderStrokes(strokes, palette, hidden), [strokes, palette, hidden]);
+  const drawn = useMemo(() => renderStrokesFor(strokes, palette, hidden), [strokes, palette, hidden]);
 
   const hasDrawn = drawn.length > 0;
 

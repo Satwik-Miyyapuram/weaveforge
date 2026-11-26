@@ -41,6 +41,7 @@ import { INK_RENDER_COLOURS, type InkPalette } from "../render/parts-1";
 import type { InkWorkerMessage } from "../application/capture-protocol";
 import type { InkStoredPage } from "../application/parts-1";
 import { InkBar } from "./ink-bar";
+import { InkFileInputs } from "./ink-file-inputs";
 import { InkTuningPanel } from "./ink-tuning-panel";
 import { InkSelectionChip } from "./ink-selection-chip";
 import { InkFigures } from "./ink-figures";
@@ -211,6 +212,7 @@ export function InkHost({
     onAddPage,
     goToPage,
     loadError,
+    canInk,
   } = useInkNoteStore({
       noteId,
       onSave,
@@ -453,7 +455,7 @@ export function InkHost({
     penOnly: pen.penOnly,
     handedness: hand,
     pageIndex,
-    cursorMode,
+    cursorMode: cursorMode || !canInk,
   });
 
   /** A recognised page becomes the worker's page, the column's lines and the body's text. */
@@ -483,6 +485,7 @@ export function InkHost({
     root: wrapRef,
     scale,
     paper,
+    onError: setUnavailable,
   });
 
   // Both image layers of the sheet, from the one module that knows both stores: the
@@ -515,6 +518,7 @@ export function InkHost({
       sheetInk,
       pageSize,
       wrapRef,
+      onError: setUnavailable,
     });
 
   /** Pan, pinch, erase, undo, redo (§use-ink-edit-actions). */
@@ -580,29 +584,11 @@ export function InkHost({
         (own ?? wrapRef.current)?.focus({ preventScroll: true });
       }}
     >
-      <input
-        ref={pdfInputRef}
-        type="file"
-        accept="application/pdf,.pdf,image/*"
-        hidden
-        data-ink-page-input=""
-        onChange={(event) => {
-          const file = event.target.files?.[0];
-          event.target.value = "";
-          if (file) void onInsertPage(file);
-        }}
-      />
-      <input
-        ref={imageInputRef}
-        type="file"
-        accept="image/*,application/pdf,.pdf"
-        hidden
-        data-ink-image-input=""
-        onChange={(event) => {
-          const file = event.target.files?.[0];
-          event.target.value = "";
-          if (file) onImageFile(file);
-        }}
+      <InkFileInputs
+        pdfInputRef={pdfInputRef}
+        imageInputRef={imageInputRef}
+        onPageFile={(file) => void onInsertPage(file)}
+        onImageFile={onImageFile}
       />
       <ToolbarSlot>
         <InkBar
@@ -690,7 +676,7 @@ export function InkHost({
           scale={scale}
           paper={page.paper}
           tool={tool}
-          cursorMode={cursorMode}
+          cursorMode={cursorMode || !canInk}
           ink={{ hex: readyCore().paletteHex(palette, colour), diameterPx: nib * scale }}
           project={project}
           penHandlers={penHandlers}

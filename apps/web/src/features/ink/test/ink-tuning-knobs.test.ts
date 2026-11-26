@@ -8,7 +8,6 @@ import {
   inkFreedrawPath,
   type FreedrawShape,
 } from "../render/excalidraw-freedraw";
-import { liveRepackFrom } from "../render/parts-1";
 import { InkInputFilter, inkInputFilter, liveForRenderer, type LiveStroke } from "../worker/live-stroke";
 import { predictedWithin } from "../application/pen-capture-session";
 import type { PenPointerEvent } from "../application/use-pen-capture";
@@ -117,39 +116,4 @@ test("a live stroke reports where its new samples start", () => {
   stroke.points.push(4, 4, 5, 5);
   stroke.realSamples = 6;
   assert.equal(liveForRenderer(stroke).changedFrom, 4);
-});
-
-// A reference repacker with the same locality: segment k (point k to k+1)
-// reads points k-1..k+2 (its end tangents), so moving point c changes segments
-// c-2..c+1.
-function segment(xs: number[], k: number): string {
-  const at = (i: number) => xs[Math.max(0, Math.min(xs.length - 1, i))]!;
-  return [at(k - 1), at(k), at(k + 1), at(k + 2)].join(",");
-}
-function fullPack(xs: number[]): string[] {
-  return Array.from({ length: Math.max(0, xs.length - 1) }, (_, k) => segment(xs, k));
-}
-function repack(packed: string[], xs: number[], from: number): string[] {
-  const out = packed.slice(0, from);
-  for (let k = from; k < xs.length - 1; k += 1) out.push(segment(xs, k));
-  return out;
-}
-
-test("a streamline rewrite of earlier points repacks the same as a full repack", () => {
-  const before = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
-  const packed = fullPack(before);
-  // The next frame appends one point and smoothing moved point 3.
-  const after = [0, 1, 2, 3.5, 4, 5, 6, 7, 8, 9, 10];
-  const segments = after.length - 1;
-  const incremental = repack(packed, after, liveRepackFrom(packed.length, segments, 3));
-  assert.deepEqual(incremental, fullPack(after));
-  // Assuming only the last two segments change (the old rule) leaves stale ones.
-  const assumed = repack(packed, after, liveRepackFrom(packed.length, segments));
-  assert.notDeepEqual(assumed, fullPack(after));
-});
-
-test("with no change reported the repack keeps the last-two-segments rule", () => {
-  assert.equal(liveRepackFrom(9, 10), 7);
-  assert.equal(liveRepackFrom(9, 10, 100), 7);
-  assert.equal(liveRepackFrom(9, 10, 0), 0);
 });

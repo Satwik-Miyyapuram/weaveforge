@@ -284,6 +284,8 @@ export async function followProjectRename(
   // The pick is in Rust; two folders sharing the id suffix have no safe pick.
   const old = typedCore().pickRenamedFolder(dirs, tail);
   if (old === undefined) return null;
+  // A files-mode folder keeps its name: the project reads it from there.
+  if (await fs.stat(`${typedCore().projectMetaDir(old)}/project.json`)) return null;
   const moved = (path: string) => core.movedPath(old, root, path);
   const newManifest = mirrorManifestPath(root);
 

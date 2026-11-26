@@ -188,8 +188,12 @@ export class PostgrestTransport implements SyncTransport {
   /** Sends one request built by wf-core and returns its reply. The fetch and its network failure stay here. */
   private async fetchReply(spec: RequestSpec): Promise<Reply> {
     const token = await this.config.accessToken();
+    // No session: send nothing. An anon-key request would be read as a server
+    // answer about the row, not as "not signed in". Raised as a NetworkFailure so
+    // the op stays owed and no fault is logged.
+    if (token === null) throw new NetworkFailure("no session");
     const doFetch = this.config.fetchImpl ?? fetch;
-    const init = readyCore().postgrestRequestInit(spec, this.config.apiKey, token ?? undefined) as RequestInit;
+    const init = readyCore().postgrestRequestInit(spec, this.config.apiKey, token) as RequestInit;
     let response: Response;
     let text: string;
     try {

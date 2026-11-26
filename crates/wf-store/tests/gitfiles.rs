@@ -22,7 +22,8 @@ fn gitfiles_appends_missing_lines_only() {
     fs::write(dir.path().join(".gitignore"), existing).unwrap();
 
     let report = ensure_gitfiles(dir.path()).unwrap();
-    assert_eq!(report.gitignore_added, 6);
+    // Every wanted line except the one already present.
+    assert_eq!(report.gitignore_added, GITIGNORE_LINES.len() - 1);
     let text = fs::read_to_string(dir.path().join(".gitignore")).unwrap();
     assert!(text.starts_with(existing));
     for line in GITIGNORE_LINES {
@@ -63,4 +64,39 @@ fn gitfiles_no_trailing_newline() {
         fs::read_to_string(dir.path().join(".gitignore")).unwrap(),
         format!("a\n{}", block(GITIGNORE_LINES))
     );
+}
+
+/// A link named `.gitignore`, when this machine lets the test make one.
+fn link_file(target: &std::path::Path, link: &std::path::Path) -> bool {
+    #[cfg(unix)]
+    return std::os::unix::fs::symlink(target, link).is_ok();
+    #[cfg(windows)]
+    return std::os::windows::fs::symlink_file(target, link).is_ok();
+}
+
+#[test]
+fn f97_p2_9_gitfiles_never_write_through_a_link() {
+    let dir = TempDir::new();
+    let outside = TempDir::new();
+    let target = outside.path().join("victim.txt");
+    fs::write(&target, "keep\n").unwrap();
+    if !link_file(&target, &dir.path().join(".gitignore")) {
+        eprintln!("skipped: this machine cannot make a file link");
+        return;
+    }
+    assert!(ensure_gitfiles(dir.path()).is_err());
+    assert_eq!(fs::read_to_string(&target).unwrap(), "keep\n");
+}
+
+#[test]
+fn gitfiles_ignores_the_migration_folder_with_the_pre_migration_dump() {
+    // pre-migration.dump holds plaintext secrets; GitHub sync must never commit it.
+    assert!(
+        GITIGNORE_LINES.contains(&".weaveforge/migration-0.9.7/"),
+        "migration folder missing from GITIGNORE_LINES"
+    );
+    let dir = TempDir::new();
+    let _ = ensure_gitfiles(dir.path()).unwrap();
+    let text = fs::read_to_string(dir.path().join(".gitignore")).unwrap();
+    assert!(text.lines().any(|l| l == ".weaveforge/migration-0.9.7/"));
 }

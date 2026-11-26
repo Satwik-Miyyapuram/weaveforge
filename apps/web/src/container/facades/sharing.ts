@@ -42,7 +42,7 @@ export class SharingFacade {
       libraryPins: ILibraryPinRepository;
       papers: IPaperRepository;
       experiments: IExperimentRepository;
-      loadSharedWithMe: LoadSharedWithMeScreenUseCase;
+      loadSharedWithMe: Pick<LoadSharedWithMeScreenUseCase, "execute">;
     },
   ) {}
 

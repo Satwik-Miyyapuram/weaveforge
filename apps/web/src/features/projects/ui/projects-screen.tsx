@@ -10,7 +10,6 @@ import { ScreenHead } from "@/components/screen-head";
 import { FormError } from "@/components/form-error";
 import { EmptyState } from "@/components/empty-state";
 import { WeaveForgeLogo } from "@/components/weave-forge-logo";
-import { isLocalMode } from "@/backend/providers/local/local-identity";
 import dynamic from "next/dynamic";
 import { Button } from "@/components/button";
 import { RowButton } from "@/components/controls";
@@ -41,7 +40,6 @@ export function ProjectsScreen() {
   useEffect(() => {
     openCreateOnMount = false;
   }, []);
-  const local = isLocalMode();
 
   const { busy, error, submit: create } = useSubmit(async () => {
     const p = await getContainer().projects.manageProject.create({ name });
@@ -55,7 +53,7 @@ export function ProjectsScreen() {
   const { busy: removeBusy, error: removeError, submit: remove } = useSubmit(async () => {
     if (!removing) return;
     await getContainer().projects.manageProject.remove(removing.id);
-    await removeLocalFolder(removing);
+    await removeLocalFolder(removing, projects.filter((p) => p.id !== removing.id));
     if (current?.id === removing.id) setProject(null);
     setRemoving(null);
     await refresh();
@@ -73,34 +71,18 @@ export function ProjectsScreen() {
     await renameProject(renaming, newName, {
       save: (p) => projects.saveProject(p),
       fs: activeWorkspaceFs(),
+      onFolderMoved: (from, to) => getContainer().paperFields.moveProjectFolder(from, to),
     });
     setRenaming(null);
     await refresh();
   });
 
-  // The no-account copy starts empty. A filled workspace shows what every
-  // screen looks like without the visitor first entering thirty papers.
-  const { busy: demoBusy, error: demoError, submit: loadDemo } = useSubmit(async () => {
-    // Lazy: the seeder carries the whole showcase data set.
-    const { loadLocalDemoWorkspace } = await import("@/features/showcase/application/load-local-demo");
-    const { projectId } = await loadLocalDemoWorkspace();
-    await refresh();
-    setProject(projectId);
-  });
-  const demoButton = local ? (
-    <Button disabled={demoBusy} onClick={() => void loadDemo()}>
-      {demoBusy ? "Loading demo…" : "Load demo workspace"}
-    </Button>
-  ) : null;
-
   return (
     <section className="screen">
       <ScreenHead>
-        {demoButton}
         <Button variant="primary" data-help-id="projects-new" onClick={() => setAddOpen(true)}>New project</Button>
       </ScreenHead>
 
-      {demoError && <FormError>{demoError}</FormError>}
       {removeError && <FormError>{removeError}</FormError>}
       {removing && (
         <ConfirmDialog
@@ -162,12 +144,9 @@ export function ProjectsScreen() {
           title="No projects yet"
           body="A project is one piece of research: a thesis, a paper, a lab rotation. Everything you add — papers, notes, runs, the report — belongs to one, and switching projects switches the whole workspace."
           action={
-            <>
-              <Button variant="primary" onClick={() => setAddOpen(true)}>
-                + New project
-              </Button>
-              {demoButton}
-            </>
+            <Button variant="primary" onClick={() => setAddOpen(true)}>
+              + New project
+            </Button>
           }
         />
       )}
@@ -213,13 +192,19 @@ export function ProjectsScreen() {
   );
 }
 
-/** Delete the project's workspace folder too; the row is already gone, so a failure only warns. */
-async function removeLocalFolder(project: { id: string; name: string }): Promise<void> {
+/**
+ * Move the project's workspace folder to the trash too; the row is already gone, so a failure only
+ * warns. `others` are the remaining projects, whose folders must never be taken for this one.
+ */
+async function removeLocalFolder(
+  project: { id: string; name: string },
+  others: readonly { id: string; name: string }[],
+): Promise<void> {
   const [{ activeWorkspaceFs }, { removeProjectFolder }] = await Promise.all([
     import("@/features/workspace/application/workspace-folder"),
     import("@/features/workspace/application/parts"),
   ]);
   const fs = activeWorkspaceFs();
   if (!fs) return;
-  await removeProjectFolder(fs, project).catch((e) => console.warn("project folder not removed", e));
+  await removeProjectFolder(fs, project, others).catch((e) => console.warn("project folder not removed", e));
 }

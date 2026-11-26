@@ -49,7 +49,7 @@ function stub(over: Record<string, unknown> = {}): unknown {
     get: (_t, key) => {
       if (key === "then") return undefined;
       const hit = over[key as string];
-      if (typeof hit === "function") return hit;
+      if (typeof hit === "function" || typeof hit === "boolean") return hit;
       return stub((hit ?? {}) as Record<string, unknown>);
     },
     apply: () => Promise.resolve([]),
@@ -60,6 +60,7 @@ const settle = () => new Promise((resolve) => setTimeout(resolve, 20));
 
 test("a second share request does not inherit the first one's picks (P2-242)", async () => {
   setContainerForTests(stub({
+    workspace: { filesMode: false },
     sharing: {
       listDirectory: async () => ["a", "b"].map((id) => ({ id, fullName: `Person ${id}` })),
       shareLinksEnabled: () => false,

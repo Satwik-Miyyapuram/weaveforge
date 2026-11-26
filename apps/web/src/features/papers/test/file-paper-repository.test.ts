@@ -219,6 +219,24 @@ test("failures() names each file that is not a paper; list still skips it", asyn
   assert.equal((await repo.list()).length, 1);
 });
 
+test("one unreadable file in a folder of 3: list keeps the other 2, failures() reports it", async () => {
+  const { fs, repo } = setup();
+  await repo.save(paper({ id: "p-1", title: "One" }));
+  await repo.save(paper({ id: "p-2", title: "Two" }));
+  await repo.save(paper({ id: "p-3", title: "Three" }));
+  const bad = (await repo.list()).find((p) => p.id === "p-2")!;
+  const badPath = await repo.pathOf(bad.id);
+  const readText = fs.readText.bind(fs);
+  fs.readText = async (path: string) => {
+    if (path === badPath) throw new Error("EACCES: permission denied");
+    return readText(path);
+  };
+  assert.deepEqual((await repo.list()).map((p) => p.id).sort(), ["p-1", "p-3"]);
+  const failures = await repo.failures();
+  assert.deepEqual(failures.map((f) => f.path), [badPath]);
+  assert.match(failures[0]!.error, /EACCES/);
+});
+
 test("a CRLF file stays CRLF after setTags", async () => {
   const { fs, repo } = setup();
   await repo.save(paper());
@@ -314,6 +332,30 @@ test("setTags racing an outside edit keeps that edit", async () => {
   assert.deepEqual((await repo.getById("p-1"))?.tags, ["ml"]);
 });
 
+test("save racing a trash of the paper file throws ConflictError and does not bring the paper back", async () => {
+  const fs = new RacingFs();
+  const repo = new FilePaperRepository(fs, ROOT);
+  await repo.save(paper());
+  const path = await onlyFile(fs);
+  fs.race = async () => {
+    await repo.delete("p-1");
+  };
+  await assert.rejects(repo.save(paper({ title: "Edited" })), ConflictError);
+  assert.equal(await fs.stat(path), null);
+  assert.equal(await repo.getById("p-1"), null);
+});
+
+test("setTags racing a trash of the paper file throws ConflictError and writes nothing", async () => {
+  const fs = new RacingFs();
+  const repo = new FilePaperRepository(fs, ROOT);
+  await repo.save(paper());
+  fs.race = async () => {
+    await repo.delete("p-1");
+  };
+  await assert.rejects(repo.setTags("p-1", ["ml"], "2026-03-01"), ConflictError);
+  assert.equal(await repo.getById("p-1"), null);
+});
+
 // ---- Laws (fast-check) ----
 
 const text = fc.string({ maxLength: 20 });
@@ -382,3 +424,146 @@ test("law: delete moves exactly that paper's file to the trash and changes no ot
 function stripUndefined(row: Record<string, unknown>): Record<string, unknown> {
   return Object.fromEntries(Object.entries(row).filter(([, v]) => v !== undefined));
 }
+
+test("setPinned writes pinned into the file; listPinnedIds reads it back; clearing removes it", async () => {
+  const { fs, repo } = setup();
+  await repo.save(paper({ id: "p-1", title: "One" }));
+  await repo.save(paper({ id: "p-2", title: "Two" }));
+  const before = await repo.getById("p-1");
+  assert.deepEqual(await repo.listPinnedIds(), []);
+  assert.equal(await repo.setPinned("p-1", true), true);
+  assert.deepEqual(await repo.listPinnedIds(), ["p-1"]);
+  assert.match(await fs.readText((await repo.pathOf("p-1"))!), /pinned: true/);
+  assert.deepEqual(await repo.getById("p-1"), before);
+  assert.equal(await repo.setPinned("p-1", false), true);
+  assert.deepEqual(await repo.listPinnedIds(), []);
+});
+
+test("setPinned keeps the body and the keys the app does not own", async () => {
+  const { fs, repo } = setup();
+  await repo.save(paper());
+  const path = (await repo.pathOf("p-1"))!;
+  await fs.writeFile(path, (await fs.readText(path)).replace("---\n", "---\nmy-key: kept\n") + "\nMy notes.\n");
+  await repo.setPinned("p-1", true);
+  const text = await fs.readText(path);
+  assert.match(text, /my-key: kept/);
+  assert.match(text, /My notes\./);
+  assert.match(text, /pinned: true/);
+});
+
+test("setPinned on an unknown id returns false and writes nothing", async () => {
+  const { fs, repo } = setup();
+  await repo.save(paper());
+  const path = (await repo.pathOf("p-1"))!;
+  const before = await fs.readText(path);
+  assert.equal(await repo.setPinned("missing", true), false);
+  assert.equal(await fs.readText(path), before);
+  assert.deepEqual(await repo.listPinnedIds(), []);
+});
+
+test("one unreadable file: listPinnedIds keeps the readable pinned paper and skips the bad one", async () => {
+  const { fs, repo } = setup();
+  await repo.save(paper({ id: "p-1", title: "One" }));
+  await repo.save(paper({ id: "p-2", title: "Two" }));
+  await repo.setPinned("p-1", true);
+  await repo.setPinned("p-2", true);
+  const badPath = (await repo.pathOf("p-2"))!;
+  const readText = fs.readText.bind(fs);
+  fs.readText = async (path: string) => {
+    if (path === badPath) throw new Error("EACCES: permission denied");
+    return readText(path);
+  };
+  assert.deepEqual(await repo.listPinnedIds(), ["p-1"]);
+  assert.deepEqual((await repo.failures()).map((f) => f.path), [badPath]);
+});
+
+test("setPinned on an unreadable paper file returns false and leaves the file untouched", async () => {
+  const { fs, repo } = setup();
+  await repo.save(paper({ id: "p-1", title: "One" }));
+  await repo.save(paper({ id: "p-2", title: "Two" }));
+  const badPath = (await repo.pathOf("p-2"))!;
+  const original = await fs.readText(badPath);
+  const readText = fs.readText.bind(fs);
+  const writeFile = fs.writeFile.bind(fs);
+  let written = 0;
+  fs.readText = async (path: string) => {
+    if (path === badPath) throw new Error("EACCES: permission denied");
+    return readText(path);
+  };
+  fs.writeFile = async (path: string, text: string) => {
+    if (path === badPath) written += 1;
+    return writeFile(path, text);
+  };
+  assert.equal(await repo.setPinned("p-2", true), false);
+  assert.equal(written, 0);
+  assert.equal(await readText(badPath), original);
+  assert.doesNotMatch(original, /pinned: true/);
+});
+
+test("files() lists each paper's id with its file, in one scan", async () => {
+  const { fs, repo } = setup();
+  await repo.save(paper({ id: "p-1", title: "One" }));
+  await repo.save(paper({ id: "p-2", title: "Two" }));
+  const expected = [
+    { paperId: "p-1", path: (await repo.pathOf("p-1"))! },
+    { paperId: "p-2", path: (await repo.pathOf("p-2"))! },
+  ];
+  let reads = 0;
+  const readText = fs.readText.bind(fs);
+  fs.readText = async (path: string) => {
+    reads += 1;
+    return readText(path);
+  };
+  const files = (await repo.files()).sort((a, b) => a.paperId.localeCompare(b.paperId));
+  assert.deepEqual(files, expected);
+  assert.equal(reads, 2);
+});
+test("save with seen refuses when the summary on disk changed since; the outside edit is kept", async () => {
+  const { fs, repo } = setup();
+  await repo.save(paper({ summary: "  opened\n\nwith a blank line\n\n" }));
+  const opened = (await repo.getById("p-1"))!;
+  const path = await onlyFile(fs);
+  await repo.save(paper({ summary: "outside edit", status: "read" }));
+  const outside = await fs.readText(path);
+  await assert.rejects(repo.save(paper({ summary: "mine" }), opened), ConflictError);
+  assert.equal(await fs.readText(path), outside, "the outside edit is kept");
+});
+
+test("a refused save keeps the user's summary in one conflict copy beside the paper, not listed as a paper", async () => {
+  const { fs, repo } = setup();
+  await repo.save(paper({ summary: "opened" }));
+  const opened = (await repo.getById("p-1"))!;
+  const path = await onlyFile(fs);
+  await repo.save(paper({ summary: "outside edit" }));
+  await assert.rejects(repo.save(paper({ summary: "mine" }), opened), ConflictError);
+  await assert.rejects(repo.save(paper({ summary: "mine, more" }), opened), ConflictError);
+  const copies: string[] = [];
+  for await (const entry of fs.walk(`${ROOT}/papers`)) if (entry.path !== path) copies.push(entry.path);
+  assert.equal(copies.length, 1, `one copy per base, got ${copies.join(", ")}`);
+  const copy = await fs.readText(copies[0]!);
+  assert.match(copy, /mine, more/, "the copy holds the user's latest summary");
+  assert.doesNotMatch(copy, /^weaveforge-id:/m, "the copy does not claim the paper's id");
+  assert.equal((await repo.list()).length, 1, "the copy is not read as a second paper");
+  assert.equal((await repo.getById("p-1"))?.summary, "outside edit");
+});
+
+test("save with seen goes through when the summary on disk is what it was based on, indent and blank lines too", async () => {
+  const { repo } = setup();
+  await repo.save(paper({ summary: "  opened\n\nwith a blank line\n\n" }));
+  const opened = (await repo.getById("p-1"))!;
+  await repo.save(paper({ summary: "mine" }), opened);
+  const first = (await repo.getById("p-1"))!;
+  assert.equal(first.summary, "mine");
+  await repo.save(paper({ summary: "mine, again" }), first);
+  assert.equal((await repo.getById("p-1"))?.summary, "mine, again");
+  // No summary on disk and a base of none: not a conflict.
+  await repo.save(paper({ summary: undefined }), (await repo.getById("p-1"))!);
+  await repo.save(paper({ summary: "new" }), paper({ summary: undefined }));
+  assert.equal((await repo.getById("p-1"))?.summary, "new");
+});
+
+test("save with seen never brings back a paper whose file is gone", async () => {
+  const { fs, repo } = setup();
+  await assert.rejects(repo.save(paper({ summary: "mine" }), paper()), ConflictError);
+  for await (const entry of fs.walk(`${ROOT}/papers`)) assert.fail(`wrote ${entry.path}`);
+});

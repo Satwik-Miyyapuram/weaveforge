@@ -12,7 +12,14 @@ import { parseHex } from "culori";
 import { loadTestCore } from "@/lib/test/load-test-core";
 import { INK_RENDER_COLOURS, type InkPalette } from "@/features/ink/render/parts-1";
 import { inkThemeOf, resolveInkColour } from "@/features/ink/render/resolve-ink-colour";
-import { DEFAULT_PEN_COLOUR, penColourFrom } from "../application/pen-colour";
+import {
+  CANVAS_PEN_WIDTH_KEY,
+  DEFAULT_PEN_COLOUR,
+  DEFAULT_PEN_WIDTH,
+  PEN_WIDTHS,
+  penColourFrom,
+  penWidthFrom,
+} from "../application/pen-colour";
 
 before(loadTestCore);
 
@@ -35,4 +42,14 @@ test("on a dark theme the default pen draws as the theme's light text colour", (
   const palette: InkPalette = { ...INK_RENDER_COLOURS, text: [c.r, c.g, c.b] };
   const drawn = resolveInkColour(DEFAULT_PEN_COLOUR, { palette, theme: inkThemeOf(palette, "#14171c") });
   assert.equal(drawn, "#e7ebf1");
+});
+
+test("a freeform page's pen starts 2 px wide, like the notes' pen", () => {
+  assert.equal(DEFAULT_PEN_WIDTH, 2);
+  assert.deepEqual(CANVAS_PEN_WIDTH_KEY, ["canvas", "penWidth"]);
+});
+
+test("a stored pen width is kept only when it is one of the offered widths", () => {
+  for (const w of PEN_WIDTHS) assert.equal(penWidthFrom(w), w);
+  for (const raw of [undefined, null, "4", 3, 0, -2, Number.NaN, 64]) assert.equal(penWidthFrom(raw), DEFAULT_PEN_WIDTH);
 });

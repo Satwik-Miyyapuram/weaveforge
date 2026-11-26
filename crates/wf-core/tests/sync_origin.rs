@@ -99,7 +99,8 @@ fn side_cases() {
     let cases = [
         (None, None, None, ChangeSide::Unknown),
         (Some("a"), None, None, ChangeSide::Unknown),
-        (Some("a"), Some("a"), None, ChangeSide::Unknown),
+        (Some("a"), Some("a"), None, ChangeSide::Workspace),
+        (Some("a"), Some("b"), None, ChangeSide::Unknown),
         (Some("a"), None, Some("a"), ChangeSide::Unknown),
         (None, Some("a"), Some("a"), ChangeSide::Neither),
         (None, Some("a"), Some("b"), ChangeSide::Unknown),

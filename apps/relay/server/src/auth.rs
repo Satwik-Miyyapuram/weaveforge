@@ -19,6 +19,7 @@ const PLAN_FEED_REFUSED: &str = "Unknown or revoked feed link.";
 const MCP_RELAY_REFUSED: &str = "Invalid or expired MCP token.";
 const MISSING_SECRET: &str = "Server is missing SUPABASE_JWT_SECRET for API token auth.";
 const SERVER_ERROR: &str = "Something went wrong on the server.";
+const AUTH_UNAVAILABLE: &str = "Sign-in could not be checked right now. Try again shortly.";
 
 /// A refused caller: the HTTP status and the `error` text to answer with.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -84,7 +85,7 @@ pub async fn require_caller(
         return Err(AuthError::new(401, SESSION_REFUSED));
     }
     let user_id = get_user(client, config, token)
-        .await
+        .await?
         .ok_or_else(|| AuthError::new(401, SESSION_REFUSED))?;
     Ok(Caller {
         user_id,
@@ -104,7 +105,7 @@ pub async fn require_session(
         return Err(AuthError::new(401, SESSION_REFUSED));
     }
     let user_id = get_user(client, config, token)
-        .await
+        .await?
         .ok_or_else(|| AuthError::new(401, SESSION_REFUSED))?;
     Ok(Caller {
         user_id,
@@ -188,7 +189,7 @@ async fn scoped_token_user(
         .ok_or_else(|| AuthError::new(401, refused))?;
     let jwt = mint_jwt(secret, user_id, now_seconds());
     let verified = get_user(client, config, &jwt)
-        .await
+        .await?
         .ok_or_else(|| AuthError::new(401, refused))?;
     Ok(Caller {
         user_id: verified,
@@ -315,19 +316,34 @@ async fn rpc(
     serde_json::from_str(&text).map_err(|_| server_error())
 }
 
-/// The Supabase user behind a JWT, or `None` when Supabase refuses it (`auth.getUser`).
-async fn get_user(client: &reqwest::Client, config: &Config, token: &str) -> Option<String> {
+/// The Supabase user behind a JWT (`auth.getUser`): `None` when Supabase refuses the token.
+/// An outage (network error, 5xx, 429) is a 503, never a refusal,
+/// so clients do not take it for a bad session (F97-P2-4).
+async fn get_user(
+    client: &reqwest::Client,
+    config: &Config,
+    token: &str,
+) -> Result<Option<String>, AuthError> {
+    let unavailable = || AuthError::new(503, AUTH_UNAVAILABLE);
     let response = client
         .get(format!("{}/auth/v1/user", config.supabase_url))
         .header("apikey", config.anon_key.as_str())
         .header(reqwest::header::AUTHORIZATION, format!("Bearer {token}"))
         .send()
         .await
-        .ok()?;
-    if !response.status().is_success() {
-        return None;
+        .map_err(|_| unavailable())?;
+    let status = response.status();
+    if status.is_client_error() && status != reqwest::StatusCode::TOO_MANY_REQUESTS {
+        return Ok(None);
     }
-    let text = response.text().await.ok()?;
-    let value: serde_json::Value = serde_json::from_str(&text).ok()?;
-    value.get("id")?.as_str().map(str::to_owned)
+    if !status.is_success() {
+        return Err(unavailable());
+    }
+    let text = response.text().await.map_err(|_| unavailable())?;
+    let value: Option<serde_json::Value> = serde_json::from_str(&text).ok();
+    Ok(value
+        .as_ref()
+        .and_then(|value| value.get("id"))
+        .and_then(serde_json::Value::as_str)
+        .map(str::to_owned))
 }

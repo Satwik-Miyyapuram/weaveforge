@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import type { Milestone } from "@weaveforge/core";
 import { MemoryWorkspaceFs } from "@core-test/memory-workspace-fs";
 import { loadTestCore } from "@/lib/test/load-test-core";
+import { readyCore } from "@/lib/rust-core";
 import { FileMilestoneRepository, hasBadDate, type FeedItem } from "../file-milestone-repo";
 
 before(loadTestCore);
@@ -43,6 +44,20 @@ test("a saved milestone reads back unchanged", async () => {
   assert.deepEqual(await repo.list(), [saved]);
 });
 
+test("dependencies and compute survive a save, and an unreadable item is dropped", async () => {
+  const { fs, repo } = setup();
+  const saved = milestone({
+    dependencies: [{ kind: "milestone", label: 'Say "hi", then go' }, { kind: "paper", refId: "p-1" }],
+    compute: [{ resource: "A100", count: 2, hours: 80, notes: "sweep β ∈ {1,2}" }],
+  });
+  await repo.save(saved);
+  assert.deepEqual(await repo.getById("ms-1"), saved);
+  const [path] = await files(fs);
+  const text = await fs.readText(path!);
+  await fs.writeFile(path!, text.replace("compute: [", 'compute: ["not json", '));
+  assert.deepEqual((await repo.getById("ms-1"))?.compute, saved.compute);
+});
+
 test("milestone_change_publishes_feed: every save and delete publishes the whole feed", async () => {
   const { repo, published } = setup();
   await repo.save(milestone());
@@ -51,6 +66,47 @@ test("milestone_change_publishes_feed: every save and delete publishes the whole
   assert.equal(published.length, 3);
   assert.equal(published[1]?.[0]?.status, "done");
   assert.deepEqual(published[2], []);
+});
+
+test("F97-P2-24: a deleted milestone moves to .weaveforge/trash/<day>/, never unlinked", async () => {
+  const { fs, repo } = setup();
+  await repo.save(milestone());
+  const [path] = await files(fs);
+  await repo.delete("ms-1");
+  const after = await files(fs);
+  assert.equal(after.length, 1);
+  const [trashed] = after;
+  assert.match(trashed ?? "", /^\.weaveforge\/trash\/\d{4}-\d{2}-\d{2}\//);
+  assert.ok(trashed?.endsWith(path ?? "missing"), trashed);
+  assert.equal(await repo.getById("ms-1"), null);
+  // A second delete of the same name the same day takes a free name, not the first one.
+  await repo.save(milestone());
+  await repo.delete("ms-1");
+  assert.equal((await files(fs)).length, 2);
+});
+
+test("F97-P2-23: one unreadable milestone file is skipped and reported; the rest still list", async () => {
+  const { fs, repo } = setup();
+  await repo.save(milestone({ id: "ms-1", title: "One" }));
+  await repo.save(milestone({ id: "ms-2", title: "Two" }));
+  await repo.save(milestone({ id: "ms-3", title: "Three" }));
+  const bad = (await files(fs)).find((p) => p.includes("two"));
+  assert.ok(bad);
+  const readText = fs.readText.bind(fs);
+  fs.readText = async (path: string) => {
+    if (path === bad) throw new Error("EACCES");
+    return readText(path);
+  };
+  const warned: unknown[] = [];
+  const warn = console.warn;
+  console.warn = (...args: unknown[]) => void warned.push(args);
+  try {
+    const listed = (await repo.list()).map((m) => m.id).sort();
+    assert.deepEqual(listed, ["ms-1", "ms-3"]);
+    assert.equal(warned.length, 1);
+  } finally {
+    console.warn = warn;
+  }
 });
 
 test("no_milestones_valid_calendar: an empty folder lists nothing and publishes an empty feed", async () => {
@@ -118,9 +174,100 @@ test("a file changed between read and write is not overwritten", async () => {
   assert.match(await fs.readText(path ?? ""), /Theirs/);
 });
 
+test("a filesystem without a checked write refuses the save rather than overwrite unchecked", async () => {
+  const { fs, repo } = setup();
+  await repo.save(milestone());
+  const [path] = await files(fs);
+  const before = await fs.readText(path ?? "");
+  (fs as { writeTextIf?: unknown }).writeTextIf = undefined;
+  await assert.rejects(repo.save(milestone({ title: "Mine" })));
+  assert.equal(await fs.readText(path ?? ""), before);
+});
+
 test("non-milestone files in the plan folder are ignored", async () => {
   const { fs, repo } = setup();
   await fs.writeFile("thesis/plan/readme.md", "# Plan\n");
   await fs.writeFile("thesis/plan/n--a.note.md", "---\nweaveforge-id: n\nweaveforge-type: note\n---\n");
   assert.deepEqual(await repo.list(), []);
+});
+
+test("add: builds the milestone with planned status, a trimmed title and a new id, and saves it", async () => {
+  const { repo, published } = setup();
+  const made = await repo.add({ title: "  Draft chapter 2 " });
+  assert.equal(made.title, "Draft chapter 2");
+  assert.equal(made.status, "planned");
+  assert.match(made.id, /^[0-9a-f-]{36}$/);
+  assert.deepEqual(await repo.getById(made.id), made);
+  assert.equal(published.at(-1)?.[0]?.title, "Draft chapter 2");
+});
+
+test("add: refuses an empty title and a target date that is not a calendar day, saving nothing", async () => {
+  const { repo, fs } = setup();
+  await assert.rejects(repo.add({ title: "   " }), /Milestone title is required\./);
+  await assert.rejects(repo.add({ title: "Bad", targetDate: "2026-02-30" }), /Target date must be yyyy-mm-dd\./);
+  assert.deepEqual(await files(fs), []);
+});
+
+test("setStatus: changes only the status", async () => {
+  const { repo } = setup();
+  await repo.save(milestone());
+  const changed = await repo.setStatus("ms-1", "done");
+  assert.deepEqual(changed, { ...milestone(), status: "done" });
+  assert.deepEqual(await repo.getById("ms-1"), changed);
+});
+
+test("update: applies the present fields and an empty targetDate clears the date", async () => {
+  const { repo } = setup();
+  await repo.save(milestone());
+  const renamed = await repo.update("ms-1", { title: " Submit thesis " });
+  assert.equal(renamed.title, "Submit thesis");
+  assert.equal(renamed.targetDate, "2026-12-01");
+  const cleared = await repo.update("ms-1", { targetDate: "" });
+  assert.equal(cleared.targetDate, undefined);
+});
+
+test("update: an empty title is refused and the stored milestone is unchanged", async () => {
+  const { repo } = setup();
+  await repo.save(milestone());
+  await assert.rejects(repo.update("ms-1", { title: "  " }), /Milestone title is required\./);
+  assert.equal((await repo.getById("ms-1"))?.title, "Submit draft");
+});
+
+test("setStatus: an unknown status is refused and the stored milestone is unchanged", async () => {
+  const { repo } = setup();
+  await repo.save(milestone());
+  await assert.rejects(repo.setStatus("ms-1", "bogus" as never), /Unknown milestone status/);
+  assert.equal((await repo.getById("ms-1"))?.status, "planned");
+});
+
+test("remove: moves the milestone to the trash like delete", async () => {
+  const { repo, fs } = setup();
+  await repo.save(milestone());
+  await repo.remove("ms-1");
+  assert.equal(await repo.getById("ms-1"), null);
+  assert.ok((await files(fs)).some((path) => path.includes(".weaveforge/trash/")));
+});
+
+test("a file that appears at the trash name during a delete is kept beside the trashed milestone", async () => {
+  const { repo, fs } = setup();
+  await repo.save(milestone());
+  const [source] = await files(fs);
+  assert.ok(source);
+  const mine = await fs.readText(source);
+  // Another delete lands on the first free trash name after this one looked.
+  const target = readyCore().trashPathFor(source, Date.now(), 1);
+  const mkdirp = fs.mkdirp.bind(fs);
+  let raced = false;
+  fs.mkdirp = async (dir) => {
+    await mkdirp(dir);
+    if (!raced) {
+      raced = true;
+      await fs.writeTextIf!(target, "the other delete", null);
+    }
+  };
+  await repo.delete("ms-1");
+  const all = await files(fs);
+  assert.equal(all.length, 2, all.join());
+  const texts = await Promise.all(all.map((p) => fs.readText(p)));
+  assert.deepEqual(texts.sort(), [mine, "the other delete"].sort());
 });

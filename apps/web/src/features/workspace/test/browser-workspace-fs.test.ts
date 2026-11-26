@@ -63,14 +63,17 @@ class FakeDir {
   /** Set to make the next removeEntry fail this way. */
   refuse: DOMException | null = null;
 
+  // As in the browser: a name that is the other kind throws TypeMismatchError, an absent name NotFoundError.
   async getDirectoryHandle(name: string, options?: { create?: boolean }) {
     let entry = this.children.get(name);
+    if (entry instanceof FakeFile) throw new DOMException("Type mismatch.", "TypeMismatchError");
     if (!entry && options?.create) this.children.set(name, (entry = new FakeDir()));
     if (!(entry instanceof FakeDir)) throw notFound();
     return entry;
   }
   async getFileHandle(name: string, options?: { create?: boolean }) {
     let entry = this.children.get(name);
+    if (entry instanceof FakeDir) throw new DOMException("Type mismatch.", "TypeMismatchError");
     if (!entry && options?.create) this.children.set(name, (entry = new FakeFile()));
     if (!(entry instanceof FakeFile)) throw notFound();
     return entry;
@@ -153,6 +156,108 @@ test("writeTextIf with expected null writes only while the file is still missing
   assert.equal(await fs.readText("notes/new.md"), "app");
 });
 
+/** Stand-in for the Web Locks API: one holder per name at a time, in request order. */
+function fakeLocks() {
+  const tails = new Map<string, Promise<unknown>>();
+  const names: string[] = [];
+  return {
+    names,
+    request<T>(name: string, callback: () => Promise<T>): Promise<T> {
+      names.push(name);
+      const run = (tails.get(name) ?? Promise.resolve()).then(callback);
+      tails.set(name, run.catch(() => undefined));
+      return run;
+    },
+  };
+}
+
+// Two tabs saving the same note both read the old text before either writes; a lock
+// per path makes the read, compare and write one step, so only one of them wins.
+test("concurrent writeTextIf calls on one path let exactly one through (Web Lock per path)", async () => {
+  const locks = fakeLocks();
+  const original = Object.getOwnPropertyDescriptor(globalThis, "navigator");
+  Object.defineProperty(globalThis, "navigator", { value: { locks }, configurable: true, writable: true });
+  try {
+    const { fs } = workspace();
+    await fs.writeFile("notes/a.md", "base");
+    const results = await Promise.all([
+      fs.writeTextIf("notes/a.md", "tab one", "base"),
+      fs.writeTextIf("notes/a.md", "tab two", "base"),
+    ]);
+    assert.deepEqual(results.sort(), [false, true]);
+    assert.equal(locks.names.length, 2);
+    assert.equal(new Set(locks.names).size, 1);
+    assert.ok(locks.names[0]?.includes("notes/a.md"));
+  } finally {
+    if (original) Object.defineProperty(globalThis, "navigator", original);
+    else delete (globalThis as { navigator?: unknown }).navigator;
+  }
+});
+
+test("a read the browser refuses is not reported as a missing file", async () => {
+  const { root, fs } = workspace();
+  await fs.writeFile("a.md", "x");
+  root.getFileHandle = async () => {
+    throw new DOMException("Not allowed.", "NotAllowedError");
+  };
+  await assert.rejects(() => fs.readText("a.md"), { name: "NotAllowedError" });
+});
+
+test("a read of a file that is really absent still reports ENOENT", async () => {
+  const { fs } = workspace();
+  await assert.rejects(() => fs.readText("missing.md"), { message: /^ENOENT/ });
+});
+
+test("a folder the browser refuses to open is not reported as a missing folder", async () => {
+  const { root, fs } = workspace();
+  await fs.writeFile("notes/a.md", "x");
+  root.getDirectoryHandle = async () => {
+    throw new DOMException("Not allowed.", "NotAllowedError");
+  };
+  await assert.rejects(() => fs.readText("notes/a.md"), { name: "NotAllowedError" });
+  await assert.rejects(() => fs.list("notes"), { name: "NotAllowedError" });
+});
+
+test("a read under a path that is a file, not a folder, reports the path as absent", async () => {
+  const { root, fs } = workspace();
+  await fs.writeFile("a.md", "x");
+  root.getDirectoryHandle = async () => {
+    throw new DOMException("Type mismatch.", "TypeMismatchError");
+  };
+  await assert.rejects(() => fs.readText("a.md/inner.md"), { message: /^ENOENT/ });
+  assert.deepEqual(await fs.list("a.md"), []);
+});
+
+test("stat on a folder returns the folder's stat, not null or a thrown clash", async () => {
+  const { fs } = workspace();
+  await fs.writeFile("notes/a.md", "x");
+  const stat = await fs.stat("notes");
+  assert.equal(stat?.kind, "dir");
+});
+
+test("readText on a folder reports the path as absent, as before", async () => {
+  const { fs } = workspace();
+  await fs.writeFile("notes/a.md", "x");
+  await assert.rejects(() => fs.readText("notes"), { message: /^ENOENT/ });
+});
+
+test("stat on a path the browser refuses reaches the caller (NotAllowedError)", async () => {
+  const { root, fs } = workspace();
+  await fs.writeFile("a.md", "x");
+  root.getFileHandle = async () => {
+    throw new DOMException("Not allowed.", "NotAllowedError");
+  };
+  await assert.rejects(() => fs.stat("a.md"), { name: "NotAllowedError" });
+});
+
+test("a write under a path that is a file is refused with the clash, not a generic error", async () => {
+  const { root, fs } = workspace();
+  root.getDirectoryHandle = async () => {
+    throw new DOMException("Type mismatch.", "TypeMismatchError");
+  };
+  await assert.rejects(() => fs.writeFile("a.md/inner.md", "x"), { name: "TypeMismatchError" });
+});
+
 test("recursive remove still clears a folder", async () => {
   const { fs } = workspace();
   await fs.writeFile("project/notes/a.md", "x");
@@ -179,4 +284,76 @@ test("law: the last write to each path is what a read returns", async () => {
       for (const [at, bytes] of last) assert.deepEqual([...(await fs.readFile(at))], [...bytes]);
     }),
   );
+});
+
+test("a rename of a file onto itself keeps the file", async () => {
+  const { fs } = workspace();
+  await fs.writeFile("notes/a.md", "body");
+  await fs.rename("notes/a.md", "notes/a.md");
+  assert.equal(await fs.readText("notes/a.md"), "body");
+});
+
+test("a rename whose copy does not read back the same keeps the source", async () => {
+  const { fs } = workspace();
+  await fs.writeFile("old.md", "the whole body");
+  const write = fs.writeFile.bind(fs);
+  fs.writeFile = (path, data) => write(path, path === "new.md" ? "the wh" : data);
+  await assert.rejects(() => fs.rename("old.md", "new.md"), /old\.md kept/);
+  assert.equal(await fs.readText("old.md"), "the whole body");
+});
+
+test("a rename whose copy does not read back removes the bad copy when the new name was free", async () => {
+  const { fs } = workspace();
+  await fs.writeFile("old.md", "the whole body");
+  const write = fs.writeFile.bind(fs);
+  fs.writeFile = (path, data) => write(path, path === "new.md" ? "the wh" : data);
+  await assert.rejects(() => fs.rename("old.md", "new.md"), /old\.md kept/);
+  assert.equal(await fs.stat("new.md"), null, "no half copy is left at the new name");
+  assert.equal(await fs.readText("old.md"), "the whole body");
+});
+
+test("a rename whose copy does not read back puts back the file that was at the new name", async () => {
+  const { fs } = workspace();
+  await fs.writeFile("old.md", "the whole body");
+  await fs.writeFile("new.md", "what was there");
+  const write = fs.writeFile.bind(fs);
+  let bad = true;
+  fs.writeFile = (path, data) => {
+    if (path !== "new.md" || !bad) return write(path, data);
+    bad = false;
+    return write(path, "the wh");
+  };
+  await assert.rejects(() => fs.rename("old.md", "new.md"), /old\.md kept/);
+  assert.equal(await fs.readText("new.md"), "what was there");
+  assert.equal(await fs.readText("old.md"), "the whole body");
+});
+
+test("a rename still replaces the file at the new name (a temp file saved over its target)", async () => {
+  const { fs } = workspace();
+  await fs.writeFile("a.md", "old");
+  await fs.writeFile("a.md.wftmp", "new");
+  await fs.rename("a.md.wftmp", "a.md");
+  assert.equal(await fs.readText("a.md"), "new");
+  assert.equal(await fs.stat("a.md.wftmp"), null);
+});
+
+// Without the locks a checked save of the source lands between the copy and the delete,
+// reports success, and is then deleted with the source.
+test("a checked save of the source during a rename waits for it instead of being lost (Web Lock on both paths)", async () => {
+  const locks = fakeLocks();
+  const original = Object.getOwnPropertyDescriptor(globalThis, "navigator");
+  Object.defineProperty(globalThis, "navigator", { value: { locks }, configurable: true, writable: true });
+  try {
+    const { fs } = workspace();
+    await fs.writeFile("old.md", "body");
+    const [, saved] = await Promise.all([fs.rename("old.md", "new.md"), fs.writeTextIf("old.md", "edit", "body")]);
+    // Either order is fine; what is ruled out is a save reported as done that the rename then drops.
+    assert.equal(await fs.readText("new.md"), saved ? "edit" : "body");
+    assert.equal(await fs.stat("old.md"), null);
+    assert.ok(locks.names.some((name) => name.endsWith(":old.md")));
+    assert.ok(locks.names.some((name) => name.endsWith(":new.md")));
+  } finally {
+    if (original) Object.defineProperty(globalThis, "navigator", original);
+    else delete (globalThis as { navigator?: unknown }).navigator;
+  }
 });

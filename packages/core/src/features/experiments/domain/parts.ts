@@ -177,7 +177,8 @@ export interface IExperimentManager {
   setStatus(id: string, status: ExperimentStatus): Promise<Experiment>;
   recordMetrics(id: string, metrics: Record<string, unknown>): Promise<Experiment>;
   addArtifacts(id: string, entries: readonly string[]): Promise<Experiment>;
-  setResultNote(id: string, note: string): Promise<Experiment>;
+  /** `base`: the note the editor started from; a note changed since is kept and this save is refused (ConflictError). */
+  setResultNote(id: string, note: string, base?: string): Promise<Experiment>;
   remove(id: string): Promise<void>;
 }
 

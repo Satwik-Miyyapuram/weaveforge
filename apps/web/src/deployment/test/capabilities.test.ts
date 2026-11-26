@@ -38,7 +38,7 @@ describe("capabilities", () => {
     }
   });
 
-  it("refuses the account-only capabilities in local mode", async () => {
+  it("refuses every account-only capability in offline mode (0.9.7, files only)", async () => {
     store.set("weaveforge.local-mode", "1");
     const { can, hasAccount } = await load();
     assert.equal(hasAccount(), false);

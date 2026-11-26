@@ -300,6 +300,29 @@ fn remove_handles_files_missing_and_folders() {
 }
 
 #[test]
+fn remove_refusing_a_non_empty_folder_reports_a_real_error_not_not_found() {
+    let dir = TempDir::new();
+    let v = vault_in(&dir);
+
+    v.write_file("full/a.md", b"x").unwrap();
+    let err = v.remove("full", false).unwrap_err();
+    // The refusal is a removal failure (not a silent success, not "missing").
+    assert!(matches!(err, VaultError::Io { .. }), "got {err:?}");
+    assert_ne!(err.io_kind(), Some(std::io::ErrorKind::NotFound));
+    assert_eq!(fs::read(dir.path().join("full/a.md")).unwrap(), b"x");
+}
+
+#[test]
+fn remove_of_a_file_without_recursive_still_deletes_it() {
+    let dir = TempDir::new();
+    let v = vault_in(&dir);
+
+    v.write_file("plain.md", b"x").unwrap();
+    v.remove("plain.md", false).unwrap();
+    assert!(!dir.path().join("plain.md").exists());
+}
+
+#[test]
 fn mkdirp_creates_nested_folders_and_is_repeatable() {
     let dir = TempDir::new();
     let v = vault_in(&dir);
@@ -338,6 +361,39 @@ fn rename_moves_creates_parents_and_refuses_existing_targets() {
         Err(VaultError::UnsafePath(_))
     ));
     assert!(dir.path().join("src.md").exists());
+}
+
+#[test]
+fn rename_replacing_moves_in_one_step_and_replaces_the_target() {
+    let dir = TempDir::new();
+    let v = vault_in(&dir);
+
+    v.write_file("a.md", b"keep me").unwrap();
+    v.rename_replacing("a.md", "x/y/b.md").unwrap();
+    assert!(!dir.path().join("a.md").exists());
+    assert_eq!(v.read_text("x/y/b.md").unwrap(), "keep me");
+
+    // The port's rename replaces: a temp file renamed over the real one is an atomic write.
+    v.write_file("p.md", b"old").unwrap();
+    v.write_file("p.md.tmp", b"new").unwrap();
+    v.rename_replacing("p.md.tmp", "p.md").unwrap();
+    assert_eq!(v.read_text("p.md").unwrap(), "new");
+    assert!(!dir.path().join("p.md.tmp").exists());
+
+    assert_eq!(
+        v.rename_replacing("nope.md", "z.md").unwrap_err().io_kind(),
+        Some(std::io::ErrorKind::NotFound)
+    );
+    v.write_file("src.md", b"s").unwrap();
+    assert!(matches!(
+        v.rename_replacing("src.md", "../out.md"),
+        Err(VaultError::UnsafePath(_))
+    ));
+    assert!(matches!(
+        v.rename_replacing("../out.md", "src.md"),
+        Err(VaultError::UnsafePath(_))
+    ));
+    assert_eq!(v.read_text("src.md").unwrap(), "s");
 }
 
 #[test]
@@ -578,4 +634,22 @@ fn rename_case_only_keeps_the_file() {
     // On a case-insensitive file system `to` already exists, but it is the same file.
     v.rename("Notes.md", "notes.md").unwrap();
     assert_eq!(v.read_text("notes.md").unwrap(), "same file");
+}
+
+#[test]
+fn remove_without_recursive_deletes_only_an_empty_folder() {
+    let dir = TempDir::new();
+    let v = vault_in(&dir);
+
+    fs::create_dir(dir.path().join("empty")).unwrap();
+    v.remove("empty", false).unwrap();
+    assert!(!dir.path().join("empty").exists());
+
+    v.write_file("full/a.md", b"keep").unwrap();
+    assert!(v.remove("full", false).is_err());
+    assert_eq!(fs::read(dir.path().join("full/a.md")).unwrap(), b"keep");
+
+    v.write_file("b.md", b"x").unwrap();
+    v.remove("b.md", false).unwrap();
+    assert!(!dir.path().join("b.md").exists());
 }

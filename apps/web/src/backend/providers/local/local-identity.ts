@@ -39,8 +39,15 @@ export const LOCAL_USER: AuthUser = {
   providers: ["local"],
 };
 
+/**
+ * 0.9.7 offline mode: no account, personal data in the folder's files. The local
+ * database (PGlite) is never opened; DEL-WEB removes its code in 0.9.8.
+ */
+export const LOCAL_MODE_IN_BUILD = true;
+
 /** Whether this window is working on the computer rather than on an account. */
 export function isLocalMode(): boolean {
+  if (!LOCAL_MODE_IN_BUILD) return false;
   // A window with storage denied cannot remember a choice, so it has none.
   return readyCore().localIsLocalMode(readStored(choiceKey()) ?? undefined);
 }
@@ -48,11 +55,31 @@ export function isLocalMode(): boolean {
 /** Remember the choice. Reloading is the caller's job: the wiring is built once. */
 export function setLocalMode(on: boolean): void {
   // Storage denied: the window simply starts on the sign-in screen next time.
+  removeStored(parkedKey());
   if (on) writeStored(choiceKey(), "1");
   else removeStored(choiceKey());
 }
 
-const NEEDS_ACCOUNT =
+/** Where a local-mode choice waits while its folder is still on the database. */
+const parkedKey = (): string => `${choiceKey()}-after-upgrade`;
+
+/**
+ * Set the local-mode choice aside: it cannot run until the folder is on files, so
+ * the window starts on sign-in, where the upgrade runs. resumeParkedLocalMode puts it back.
+ */
+export function parkLocalMode(): void {
+  setLocalMode(false);
+  writeStored(parkedKey(), "1");
+}
+
+/** True, with the choice restored, when it was set aside and the folder is now on files. */
+export function resumeParkedLocalMode(onFiles: boolean): boolean {
+  if (!onFiles || readStored(parkedKey()) !== "1") return false;
+  setLocalMode(true);
+  return true;
+}
+
+export const NEEDS_ACCOUNT =
   "This copy is working on your computer, with no account. Sign in to use that.";
 
 export class LocalAuthService implements IAuthService {

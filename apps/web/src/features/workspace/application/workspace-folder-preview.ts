@@ -31,8 +31,10 @@ export type FolderPreview = FolderDiff & { json: JsonDiff; skipped: SkippedFile[
 export async function previewConnectedFolder(
   fs: IWorkspaceFs,
   only?: ReadonlySet<string>,
+  filesMode = false,
 ): Promise<FolderPreview> {
   const project = await activeProject();
+  if (filesMode) return { ...(await diffAgainstWorkspace({}, new Map(), project, {}, {})), skipped: [] };
   await followProjectRename(fs, project);
   const core = await loadCore();
   const projectRoot = core.projectDir(project);

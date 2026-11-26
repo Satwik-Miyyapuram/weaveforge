@@ -8,7 +8,14 @@ import type {
 } from "@weaveforge/core";
 import { ConflictError, isSafeWorkspacePath } from "@weaveforge/core";
 import { typedCore } from "@/lib/rust-core";
+import { ConflictCopies, retryGuarded } from "@/lib/guarded-save";
 import { moveToTrash } from "@/lib/workspace-trash";
+
+/** A paper file's `relations` (outgoing, `to` a `[[link]]` or id) and custom `fields`. */
+export interface PaperExtras {
+  relations: { to: string; type: string; [key: string]: unknown }[];
+  fields: Record<string, unknown>;
+}
 
 /** A paper file as read from the folder. */
 interface PaperFileRead {
@@ -57,6 +64,8 @@ const PAPER_SUFFIX = ".paper.md";
  */
 export class FilePaperRepository implements IPaperRepository {
   private readonly writeIds: boolean;
+  /** Per paper, the conflict copy a refused save last wrote. */
+  private readonly copies: ConflictCopies;
 
   constructor(
     private readonly fs: IWorkspaceFs,
@@ -64,6 +73,7 @@ export class FilePaperRepository implements IPaperRepository {
     options: FilePaperRepositoryOptions = {},
   ) {
     this.writeIds = options.writeIds ?? true;
+    this.copies = new ConflictCopies(fs);
   }
 
   async getById(id: string): Promise<Paper | null> {
@@ -116,17 +126,90 @@ export class FilePaperRepository implements IPaperRepository {
     return (await this.findById(id))?.path ?? null;
   }
 
+  /** Each paper's id with the file that holds it, from one scan of the papers folder. */
+  async files(): Promise<{ paperId: string; path: string }[]> {
+    return (await this.readAll()).map((read) => ({ paperId: read.paper.id, path: read.path }));
+  }
+
   /** Every `.paper.md` file that could not be read as a paper, with the reason. */
   async failures(): Promise<PaperFileFailure[]> {
     return (await this.scan()).failures;
   }
 
-  async save(entity: Paper): Promise<void> {
-    await this.write(entity.id, () => toRow(entity), true);
+  /**
+   * With `seen`, the save is refused (ConflictError) when the file is gone or its summary is no
+   * longer `seen.summary`: an outside edit to the summary since the editor opened is kept, and
+   * this save goes to a conflict copy beside the file (one per base: a retry updates it).
+   */
+  async save(entity: Paper, seen?: Paper): Promise<void> {
+    let refused = null as PaperFileRead | null;
+    try {
+      await this.write(
+        entity.id,
+        (current, read) => {
+          if (seen && !current) throw new ConflictError(`Paper ${entity.id} is not on disk; not saved.`);
+          if (seen && (current?.summary || undefined) !== (seen.summary || undefined)) {
+            refused = read;
+            throw new ConflictError(`Paper ${entity.id}'s summary changed on disk; not saved. Reload before saving.`);
+          }
+          return toRow(entity);
+        },
+        true,
+      );
+    } catch (error) {
+      if (!refused || !seen) throw error;
+      const mine = typedCore().writePaperRow(refused.text, toRow(entity));
+      const copy = await this.copies.keep(entity.id, seen.summary ?? "", refused.path, mine);
+      throw new ConflictError(`${refused.path}'s summary changed on disk; your version was kept in ${copy}. Reload before saving.`);
+    }
+    this.copies.forget(entity.id);
   }
 
   async setTags(id: string, tags: string[], updatedAt: string): Promise<void> {
     await this.write(id, (current) => current && { ...toRow(current), tags: [...tags], updatedAt }, false);
+  }
+
+  /** Every paper's `relations` and `fields` frontmatter (Rust `paperExtrasFromFile`). */
+  async listExtras(): Promise<{ paperId: string; extras: PaperExtras }[]> {
+    const core = typedCore();
+    return (await this.readAll()).map((read) => ({ paperId: read.paper.id, extras: core.paperExtrasFromFile(read.text) }));
+  }
+
+  /** The ids of the papers whose frontmatter says `pinned: true`. */
+  async listPinnedIds(): Promise<string[]> {
+    const core = typedCore();
+    return (await this.readAll()).filter((read) => core.paperPinnedFromFile(read.text)).map((read) => read.paper.id);
+  }
+
+  /** Sets or clears paper `id`'s `pinned` flag; false when no file holds the paper. */
+  async setPinned(id: string, pinned: boolean): Promise<boolean> {
+    const core = typedCore();
+    for (let attempt = 0; attempt < WRITE_ATTEMPTS; attempt += 1) {
+      const read = await this.findById(id);
+      if (!read) return false;
+      const text = core.writePaperPinned(read.text, pinned);
+      if (text === read.text || (await this.writeIf(read.path, text, read.text))) return true;
+    }
+    throw new ConflictError(`Paper ${id} kept changing on disk; not pinned.`);
+  }
+
+  /**
+   * Rewrites paper `id`'s `relations` and/or `fields` to what `change` returns from
+   * the current ones; every other key and the body are kept. False when no file
+   * holds the paper. Re-reads and re-applies when the file changed under it.
+   */
+  async updateExtras(
+    id: string,
+    change: (current: PaperExtras) => Partial<PaperExtras> | Promise<Partial<PaperExtras>>,
+  ): Promise<boolean> {
+    const core = typedCore();
+    for (let attempt = 0; attempt < WRITE_ATTEMPTS; attempt += 1) {
+      const read = await this.findById(id);
+      if (!read) return false;
+      const text = core.writePaperExtras(read.text, await change(core.paperExtrasFromFile(read.text)));
+      if (text === read.text || (await this.writeIf(read.path, text, read.text))) return true;
+    }
+    throw new ConflictError(`Paper ${id} kept changing on disk; not saved.`);
   }
 
   async replaceSummary(
@@ -172,20 +255,19 @@ export class FilePaperRepository implements IPaperRepository {
    */
   private async write(
     id: string,
-    rowFor: (current: Paper | null) => Record<string, unknown> | null,
+    rowFor: (current: Paper | null, read: PaperFileRead | null) => Record<string, unknown> | null,
     create: boolean,
   ): Promise<void> {
-    for (let attempt = 0; attempt < WRITE_ATTEMPTS; attempt += 1) {
-      const read = await this.findById(id);
-      if (!read && !create) return;
-      const row = rowFor(read?.paper ?? null);
-      if (!row) return;
+    // A file read on an earlier attempt and gone now was trashed or moved mid-save: never recreated.
+    await retryGuarded(`Paper ${id}`, WRITE_ATTEMPTS, () => this.findById(id), async (read) => {
+      if (!read && !create) return { value: undefined };
+      const row = rowFor(read?.paper ?? null, read);
+      if (!row) return { value: undefined };
       if (!read && !this.writeIds) delete row.id;
       const text = typedCore().writePaperRow(read?.text ?? null, stripUndefined(row));
       const path = read?.path ?? (await this.newPath(String(row.title ?? "")));
-      if (await this.writeIf(path, text, read?.text ?? null)) return;
-    }
-    throw new ConflictError(`Paper ${id} kept changing on disk; not saved.`);
+      return (await this.writeIf(path, text, read?.text ?? null)) ? { value: undefined } : null;
+    });
   }
 
   /** `<papers>/<title slug>.paper.md`, or the first free `-n` name. */
@@ -227,7 +309,10 @@ export class FilePaperRepository implements IPaperRepository {
     return (await this.scan()).reads;
   }
 
-  /** Every `.paper.md` under `<project>/papers/`, in walk order: read, or why not. */
+  /**
+   * Every `.paper.md` under `<project>/papers/`, in walk order: read, or why not.
+   * A file that cannot be read is a failure too, so it never empties the list.
+   */
   private async scan(): Promise<{ reads: PaperFileRead[]; failures: PaperFileFailure[] }> {
     const core = typedCore();
     const dir = core.entityDir("paper", this.projectRoot);
@@ -236,8 +321,8 @@ export class FilePaperRepository implements IPaperRepository {
     if (!(await this.fs.stat(dir))) return { reads, failures };
     for await (const entry of this.fs.walk(dir)) {
       if (!entry.path.endsWith(PAPER_SUFFIX)) continue;
-      const text = await this.fs.readText(entry.path);
       try {
+        const text = await this.fs.readText(entry.path);
         reads.push({ path: entry.path, text, paper: fromRow(core.paperRowFromFile(text), entry.path) });
       } catch (error) {
         failures.push({ path: entry.path, error: error instanceof Error ? error.message : String(error) });

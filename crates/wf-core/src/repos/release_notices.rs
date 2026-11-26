@@ -50,10 +50,29 @@ impl From<NoticeRow> for Notice {
 /// The next step of `method`, or `None` for an unknown method.
 #[must_use]
 pub fn step(method: &str, call: &RepoCall) -> Option<RepoStep> {
-    if method == "unseen" {
-        Some(unseen(call))
-    } else {
-        None
+    match method {
+        "unseen" => Some(unseen(call)),
+        "latest" => Some(latest(call)),
+        _ => None,
+    }
+}
+
+/// `latest()`: the newest notice whether or not the caller dismissed it, else `null`.
+/// The dismissal is kept on the device now, so this reads no account row.
+fn latest(call: &RepoCall) -> RepoStep {
+    if call.replies.is_empty() {
+        return RepoStep::Send {
+            queries: vec![
+                RepoQuery::select(TABLE, NOTICE_COLUMNS)
+                    .order("published_at", false)
+                    .limit(1),
+            ],
+        };
+    }
+    match latest_notice(call) {
+        Ok(Some(notice)) => RepoStep::done(&notice),
+        Ok(None) => RepoStep::unit(),
+        Err(step) => step,
     }
 }
 
@@ -219,8 +238,34 @@ mod tests {
     }
 
     #[test]
+    fn latest_sends_only_the_notice_query() {
+        let RepoStep::Send { queries } = latest(&call(vec![], None)) else {
+            panic!("expected send");
+        };
+        assert_eq!(queries.len(), 1);
+        assert_eq!(queries[0].table, "release_notices");
+        assert_eq!(queries[0].limit, Some(1));
+    }
+
+    #[test]
+    fn latest_returns_the_newest_notice_even_when_dismissed() {
+        let v = done(latest(&call(vec![notice_row()], None)));
+        assert_eq!(v["version"], "1.2.0");
+        assert_eq!(done(latest(&call(vec![json!([])], None))), Value::Null);
+    }
+
+    #[test]
+    fn latest_fails_on_a_bad_reply() {
+        assert!(matches!(
+            latest(&call(vec![json!({ "version": 1 })], None)),
+            RepoStep::Fail { .. }
+        ));
+    }
+
+    #[test]
     fn unknown_method_is_none() {
         assert!(step("nope", &call(vec![], Some("u1"))).is_none());
         assert!(step("unseen", &call(vec![], Some("u1"))).is_some());
+        assert!(step("latest", &call(vec![], None)).is_some());
     }
 }

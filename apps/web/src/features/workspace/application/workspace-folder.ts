@@ -13,6 +13,8 @@ import {
 } from "../infrastructure/parts";
 import { folderLock } from "./folder-lock";
 import { LOST_DB_SYNC_MESSAGE, folderWriteBlockedByLostDb } from "./folder-lost-db-guard";
+import { markFolderRestored } from "./workspace-folder-restore";
+export { folderRestored, markFolderRestored } from "./workspace-folder-restore";
 // Type-only: the import, restore and table modules load on first use, so they stay
 // out of the first-load bundle of every route that reaches the app container.
 import type { FolderImportDiff, FolderImportPicks, FolderImportResult, ImportSeams } from "./workspace-folder-tables";
@@ -47,7 +49,7 @@ import {
   writeMirrorManifest,
 } from "./parts-3";
 import { activeProject, activeProjectOrNull, isNoActiveProject, watchForLoss } from "./parts";
-import { mirrorWorkspace } from "./parts-2";
+import { mirrorWorkspace, type WebMirrorResult } from "./parts-2";
 import { recordSessionSeen, sessionGeneration, sessionSeen } from "./folder-session-seen";
 import type { FolderPreview } from "./workspace-folder-preview";
 import type { SyncOutcome } from "./workspace-folder-sync-report";
@@ -71,36 +73,6 @@ let activeGit: IWorkspaceGit = new NoOpWorkspaceGit();
  */
 export function activeWorkspaceFs(): IWorkspaceFs | null {
   return activeFs;
-}
-
-/**
- * Settles once the launch-time folder restore has had its answer.
- *
- * Something that reads through `activeWorkspaceFs` in the first moments of a
- * session — an ink note opened straight from a link — would otherwise see no
- * folder, read the bucket instead, and show the note empty. A browser has no
- * remembered folder, so there is nothing to wait for; on the desktop the wait
- * is capped, so a restore that never reports cannot hold the reader forever.
- */
-const FOLDER_RESTORE_WAIT_MS = 10_000;
-let settleRestore!: () => void;
-const restoreSettled = new Promise<void>((resolve) => {
-  settleRestore = resolve;
-});
-let restoreWait: Promise<void> | null = null;
-
-export function folderRestored(): Promise<void> {
-  if (!desktop()) return Promise.resolve();
-  restoreWait ??= Promise.race([
-    restoreSettled,
-    new Promise<void>((resolve) => setTimeout(resolve, FOLDER_RESTORE_WAIT_MS)),
-  ]);
-  return restoreWait;
-}
-
-/** Called by the launch-time restore when it has connected, or given up. */
-export function markFolderRestored(): void {
-  settleRestore();
 }
 
 
@@ -157,6 +129,8 @@ export async function chooseFolder(options: { git: boolean }): Promise<boolean> 
 
 /** Take up a browser folder: its git, following edits, a first sync, the news. */
 function adoptBrowserFolder(fs: BrowserWorkspaceFs, git: boolean): void {
+  // F97-P2-19: let go of the old folder first, so its watcher and syncs stop.
+  if (activeFs) closeFolder();
   activeFs = fs;
   activeGit = git ? new IsomorphicWorkspaceGit(fs) : new NoOpWorkspaceGit();
   watchForChanges();
@@ -332,10 +306,30 @@ export async function applyReviewedImport(
   return applyReviewedFolderImport(diff, picks, seams ?? (await liveImportSeams()));
 }
 
+/** In files mode the folder is the data itself, so it is neither mirrored into nor imported from. */
+function inFilesMode(): boolean {
+  try {
+    return getContainer().workspace.filesMode;
+  } catch {
+    return false;
+  }
+}
+
+const NOTHING_MIRRORED: WebMirrorResult = {
+  written: [],
+  removed: [],
+  unchanged: 0,
+  mirrored: {},
+  heldBack: [],
+  bases: {},
+  served: {},
+};
+
 async function runSyncToFolder(): Promise<SyncOutcome> {
   // Read before the first await: a DB replace at any point during this run makes it stale.
   const startedAt = sessionGeneration();
   if (!activeFs) throw new Error("No folder is connected.");
+  if (inFilesMode()) return commitFolder(NOTHING_MIRRORED);
   if (folderWriteBlockedByLostDb(await desktop()?.localDbState())) throw new Error(LOST_DB_SYNC_MESSAGE);
   const fs = activeFs;
   const container = getContainer();
@@ -344,6 +338,11 @@ async function runSyncToFolder(): Promise<SyncOutcome> {
   const core = await loadCore();
   const projectRoot = core.projectDir(project);
   const snapshot = await container.workspace.snapshot();
+  // F97-P2-20: a folder switched mid-run must not get this run's writes.
+  const stillOurs = () => {
+    if (activeFs !== fs) throw new Error("The folder was switched during the sync; it stopped.");
+  };
+  stillOurs();
   // This project's manifest, and only this project's: the paths last synced. Sync never removes.
   const base = await readMirrorBase(fs, projectRoot);
   const previousPaths = Object.keys(base);
@@ -353,6 +352,7 @@ async function runSyncToFolder(): Promise<SyncOutcome> {
   const [{ exportSyncTablesStable, syncTableFolderFiles }, { restTableReader }] =
     await Promise.all([import("./sync-tables"), import("./workspace-folder-tables")]);
   const tableFiles = syncTableFolderFiles(await exportSyncTablesStable(restTableReader(getDataClient())));
+  stillOurs();
 
   const mirror = await mirrorWorkspace(core, snapshot, fs, {
     project,
@@ -376,6 +376,7 @@ async function runSyncToFolder(): Promise<SyncOutcome> {
     mirror.mirrored,
     mirror.bases,
   );
+  stillOurs();
 
   // Files left as the folder has them, because they changed since the app wrote
   // them. They belong in the same list the folder watcher feeds — they are
@@ -385,7 +386,10 @@ async function runSyncToFolder(): Promise<SyncOutcome> {
     for (const path of mirror.heldBack) external.add(path);
     announceExternal();
   }
+  return commitFolder(mirror);
+}
 
+async function commitFolder(mirror: WebMirrorResult): Promise<SyncOutcome> {
   let commit: WorkspaceCommit | null = null;
   let commitError: string | undefined;
   const shell = folderSession()?.kind === "desktop" ? desktop() : null;
@@ -693,7 +697,7 @@ function reportFolderChanges(paths: readonly string[]): void {
 
   if (external.size !== before) announceExternal();
   if (drafts) for (const listener of [...draftListeners]) listener();
-  if (candidates.length === 0) return;
+  if (candidates.length === 0 || inFilesMode()) return;
 
   void (async () => {
     // A mirror run writes its files before its manifest, and a pull puts this
@@ -769,7 +773,7 @@ export async function previewFolderImport(only?: ReadonlySet<string>): Promise<F
   const fs = activeFs;
   if (!fs) throw new Error("No folder is connected.");
   const { previewConnectedFolder } = await import("./workspace-folder-preview");
-  return previewConnectedFolder(fs, only);
+  return previewConnectedFolder(fs, only, inFilesMode());
 }
 
 /** Diff a workspace archive against the workspace. Preview only. */

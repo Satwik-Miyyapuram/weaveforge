@@ -59,6 +59,8 @@ import { useScreenActive } from "@/lib/hooks/use-screen-active";
 import { FocusGlyph } from "@/components/focus-glyph";
 import { ToolbarSlot } from "@/components/toolbar-slot";
 import { DraftShapeOverlay, PageMargin, SafeExternalLink } from "./overlays";
+import { PdfInkPen } from "./pdf-ink-pen";
+import { pdfPenMounts, pdfPenPages } from "../../application/pdf-ink-pen";
 import { readWritingPage, writeWritingPage } from "./writing-page";
 import { hasSidePanel } from "./side-panel";
 import { canvasSize } from "./canvas-size";
@@ -509,6 +511,8 @@ export function PdfReader({
     pendingTextBox,
     setPendingTextBox,
     pageProjection,
+    persistInkStroke,
+    registerPenCancel,
     onPagePointerDown,
     onPagePointerMove,
     onPagePointerUp,
@@ -519,8 +523,6 @@ export function PdfReader({
     createTool,
     createColor,
     inkEditable,
-    inkWidth: penWidth,
-    highlighterWidth: markerWidth,
     selectedAnnId,
     pageSize,
     scale,
@@ -531,6 +533,7 @@ export function PdfReader({
     persistDraft,
     removeLocal,
     saveAnchor,
+    inkUndoSteps: inkUndo.steps,
   });
 
   // Select and the Insert tools work on the paper, not with the pen, so
@@ -886,6 +889,17 @@ export function PdfReader({
   const cancelStrokeRef = useRef(cancelStroke);
   cancelStrokeRef.current = cancelStroke;
 
+  /** The mounted scroll container, as state, so the pinch effect below re-runs when it
+   * mounts again (the error screen cleared) instead of keeping a listener-less div. */
+  const [scrollerEl, setScrollerEl] = useState<HTMLDivElement | null>(null);
+  const setScrollerRef = useCallback(
+    (el: HTMLDivElement | null) => {
+      containerRef.current = el;
+      setScrollerEl(el);
+    },
+    [containerRef],
+  );
+
   /**
    * Two-finger pinch on trackpad/mousepad, or Ctrl/Cmd + mouse wheel scroll.
    * Browsers emit trackpad pinch as WheelEvents with ctrlKey = true.
@@ -893,7 +907,7 @@ export function PdfReader({
    * once the gesture pauses (140ms debounce), commitZoom scales the pages and fixes the anchor.
    */
   useEffect(() => {
-    const scroller = containerRef.current;
+    const scroller = scrollerEl;
     if (!scroller) return;
 
     let commitTimer: number | null = null;
@@ -1002,7 +1016,7 @@ export function PdfReader({
       scroller.removeEventListener("gesturechange", onGestureChange);
       scroller.removeEventListener("gestureend", onGestureEnd);
     };
-  }, [containerRef]);
+  }, [scrollerEl]);
 
   /**
    * The size a page takes at a scale, rotation included.
@@ -1133,8 +1147,15 @@ export function PdfReader({
     [pdf, locus, scale, rotation, containerRef],
   );
 
+  // The pages on screen, for the pen (`pdfPenPages`).
+  const [visibleRatios, setVisibleRatios] = useState<ReadonlyMap<number, number>>(() => new Map());
+  const penPages = useMemo(
+    () => pdfPenPages(visibleRatios, viewport.page, numPages),
+    [visibleRatios, viewport.page, numPages],
+  );
   const onVisibleChange = useCallback(
     (ratios: ReadonlyMap<number, number>) => {
+      setVisibleRatios(new Map(ratios));
       let bestPage = 0;
       let bestRatio = 0;
       for (const [n, ratio] of ratios) {
@@ -1577,6 +1598,7 @@ export function PdfReader({
           viewOnly={viewOnly}
           tool={barToolFor(pen.prefs.tool)}
           colour={drawColour}
+          palette={inkPalette}
           width={inkWidth}
           highlighterWidth={markerWidth}
           canUndo={inkUndo.canUndo}
@@ -1680,7 +1702,8 @@ export function PdfReader({
             <div className="pdf-reader-pill-colours" role="group" aria-label="Annotation colour">
               {quickColours.slice(0, 4).map((colour, i) => (
                 <Swatch
-                  key={colour}
+                  // By slot: two slots may hold one colour, and a shared key drops one.
+                  key={i}
                   label={`Colour ${colour}`}
                   colour={quickHexes[i]}
                   selected={drawColour === colour}
@@ -1755,7 +1778,7 @@ export function PdfReader({
         />
         <div
           className="pdf-reader-scroll"
-          ref={containerRef}
+          ref={setScrollerRef}
           onPointerUp={onSelectionEnd}
           // A press anywhere else puts the mark popover away; its own presses stop short of here.
           onPointerDown={(e) => {
@@ -1935,6 +1958,24 @@ export function PdfReader({
                   />
                 )}
               </div>
+              {/* The notes' pen, over the row (page and margin strip), on the
+                  pages on screen only: each one is a worker and a canvas context. */}
+              {pageSize && pdfPenMounts(canCreate, true, createTool) && penPages.has(n) && (
+                <PdfInkPen
+                  pageNumber={n}
+                  scale={scale}
+                  projection={pageProjection(n)}
+                  pageHeight={pageGeometries.current.get(n)?.pageHeight ?? pageSize.height}
+                  tool={createTool === "highlighter" ? "highlighter" : "pen"}
+                  width={inkWidth}
+                  highlighterWidth={markerWidth}
+                  colour={drawColour}
+                  palette={inkPalette}
+                  nibPoints={nibPoints}
+                  persistInkStroke={persistInkStroke}
+                  registerCancel={registerPenCancel}
+                />
+              )}
               {writingPage && pageSize && (
                 <PageMargin
                   notes={layoutMarginNotes(pageAnnotations(n), pageProjection(n))}

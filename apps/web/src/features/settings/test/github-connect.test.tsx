@@ -77,6 +77,8 @@ function stubWindow(
     open: (u: string) => void calls.opened.push(u),
     weaveforge: {
       fetchTitle: () => Promise.resolve({}),
+      writePreference: () => Promise.resolve(),
+      clearSecret: () => Promise.resolve(),
       vaultSync: (action: string) => {
         calls.sync.push(action);
         return (
@@ -409,4 +411,60 @@ test("onboarding stays away when a remote is already set or the shell is older",
   assert.equal((await mount(createElement(GithubOnboarding))).toJSON(), null);
   stubWindow({ github: false });
   assert.equal((await mount(createElement(GithubOnboarding))).toJSON(), null);
+});
+
+const isBackupLine = (n: ReactTestInstance) => n.type === "p" && textOf(n).startsWith("Backs up to");
+const backsUp = (tree: ReactTestRenderer) => tree.root.findAll(isBackupLine);
+const backupLine = (tree: ReactTestRenderer) => tree.root.find(isBackupLine);
+
+test("a saved GitHub remote shows Backs up to owner/repo above Advanced, linked to the repo", async () => {
+  stubWindow({ url: CONNECTED.url });
+  const tree = await mount(createElement(FolderRemoteSyncPanel));
+  const line = backupLine(tree);
+  assert.equal(textOf(line), "Backs up to octo/weaveforge-notes");
+  const link = line.find((n) => n.type === "a");
+  assert.equal(link.props.href, "https://github.com/octo/weaveforge-notes");
+  assert.equal(link.props.target, "_blank");
+  const details = tree.root.find((n) => n.type === "details");
+  assert.equal(details.findAll((n) => n === line).length, 0);
+});
+
+test("the backup line never shows a token or user name from the URL", async () => {
+  stubWindow({ url: "https://x-access-token:ghp_SECRET@github.com/octo/notes.git" });
+  const tree = await mount(createElement(FolderRemoteSyncPanel));
+  const line = backupLine(tree);
+  assert.equal(textOf(line), "Backs up to octo/notes");
+  const href = String(line.find((n) => n.type === "a").props.href);
+  assert.equal(href, "https://github.com/octo/notes");
+  assert.ok(!href.includes("SECRET") && !href.includes("x-access-token"));
+});
+
+test("another git host shows its host and path, without the token", async () => {
+  stubWindow({ url: "https://me:tok123@gitlab.example.org/team/notes.git" });
+  const tree = await mount(createElement(FolderRemoteSyncPanel));
+  const line = backupLine(tree);
+  assert.equal(textOf(line), "Backs up to gitlab.example.org/team/notes");
+  const href = String(line.find((n) => n.type === "a").props.href);
+  assert.equal(href, "https://gitlab.example.org/team/notes");
+  assert.ok(!textOf(tree.root).includes("tok123") && !href.includes("tok123"));
+});
+
+test("no backup line without a saved remote, or with one that is not a URL", async () => {
+  stubWindow();
+  assert.equal(backsUp(await mount(createElement(FolderRemoteSyncPanel))).length, 0);
+  stubWindow({ url: "not a url" });
+  assert.equal(backsUp(await mount(createElement(FolderRemoteSyncPanel))).length, 0);
+});
+
+test("the backup line appears after Connect GitHub and goes on Disconnect", async () => {
+  const { release } = stubWindow();
+  const tree = await mount(createElement(FolderRemoteSyncPanel));
+  await click(tree, "Connect GitHub");
+  await act(async () => {
+    release(CONNECTED);
+    await settle();
+  });
+  assert.equal(textOf(backupLine(tree)), "Backs up to octo/weaveforge-notes");
+  await click(tree, "Disconnect");
+  assert.equal(backsUp(tree).length, 0);
 });

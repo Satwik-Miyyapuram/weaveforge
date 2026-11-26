@@ -281,7 +281,7 @@ fn merge_into_head(
     let mut index = r.merge_commits(&our_commit, &their_commit, None)?;
     if index.has_conflicts() {
         match choice {
-            Some(choice) => resolve_conflicts(&mut index, choice)?,
+            Some(choice) => resolve_conflicts(&mut index, r.workdir(), choice)?,
             None => {
                 return Ok(PullOutcome::Conflict {
                     files: conflict_paths(&index)?,
@@ -637,7 +637,11 @@ fn tree_files(tree: &Tree<'_>) -> Result<BTreeSet<String>, git2::Error> {
 const STAGE_MASK: u16 = 0x3000;
 
 /// Replaces every conflict in `index` with the side(s) `choice` keeps.
-fn resolve_conflicts(index: &mut Index, choice: PullChoice) -> Result<(), RepoError> {
+fn resolve_conflicts(
+    index: &mut Index,
+    workdir: Option<&Path>,
+    choice: PullChoice,
+) -> Result<(), RepoError> {
     let conflicts = index
         .conflicts()?
         .collect::<Result<Vec<IndexConflict>, git2::Error>>()?;
@@ -664,7 +668,7 @@ fn resolve_conflicts(index: &mut Index, choice: PullChoice) -> Result<(), RepoEr
             index.add(&unstaged(entry))?;
         }
         if let Some(mut entry) = beside {
-            entry.path = free_name(index, &path).into_bytes();
+            entry.path = free_name(index, workdir, &path).into_bytes();
             index.add(&unstaged(entry))?;
         }
     }
@@ -676,8 +680,9 @@ fn unstaged(mut entry: IndexEntry) -> IndexEntry {
     entry
 }
 
-/// `dir/name (remote).ext`, numbered when that name is taken.
-fn free_name(index: &Index, path: &str) -> String {
+/// `dir/name (remote).ext`, numbered when that name is taken in the index or, as an
+/// untracked file, on disk (F97-P2-7).
+fn free_name(index: &Index, workdir: Option<&Path>, path: &str) -> String {
     let (dir, file) = path.rsplit_once('/').map_or(("", path), |(d, f)| (d, f));
     let (stem, ext) = match file.rfind('.') {
         Some(dot) if dot > 0 => (&file[..dot], &file[dot..]),
@@ -697,7 +702,10 @@ fn free_name(index: &Index, path: &str) -> String {
             };
             format!("{prefix}{stem} ({tag}){ext}")
         })
-        .find(|candidate| index.get_path(Path::new(candidate), 0).is_none())
+        .find(|candidate| {
+            index.get_path(Path::new(candidate), 0).is_none()
+                && !workdir.is_some_and(|dir| dir.join(candidate).symlink_metadata().is_ok())
+        })
         .unwrap_or_default()
 }
 

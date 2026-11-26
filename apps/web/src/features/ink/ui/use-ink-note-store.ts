@@ -13,12 +13,13 @@
  * so a body built anywhere else would count a different one.
  */
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 
+import { flushWhenHidden, holdCloseWhile } from "@/lib/desktop/close-flush";
 import { logToApp } from "@/lib/error-report/app-log";
 import { readyCore, typedCore } from "@/lib/rust-core";
 
-import { awaitInkWrites, beginInkSave, trackInkWrite } from "../application/parts";
+import { awaitInkWrites, beginInkSave, getInkSaveStatus, trackInkWrite } from "../application/parts";
 import { decideInkWrite } from "./ink-save-decision";
 import type { InkSave } from "./use-ink-worker-rpc";
 import { type InkNoteMeta } from "@weaveforge/core";
@@ -110,6 +111,12 @@ export function useInkNoteStore(deps: InkNoteStoreDeps) {
 
   /** Why the note's ink is not all there, or not all saved, when it is not. */
   const [loadError, setLoadError] = useState<string | null>(null);
+  /**
+   * Whether a stroke drawn now can be saved: only once the pages are known.
+   * Until then (no folder, a failed load) the host takes no strokes, since
+   * any it took would show as drawn and then be lost on reopen.
+   */
+  const [canInk, setCanInk] = useState(false);
   /** A save that failed: logged and shown, never dropped (21-18, 21-24). */
   const reportSaveFailure = useCallback(
     (err: unknown) => {
@@ -203,7 +210,10 @@ export function useInkNoteStore(deps: InkNoteStoreDeps) {
     trackInkWrite(noteId, write);
     await write;
   }, [chunks, noteId, pageIndex, requestSave, saveBodyOk, pagesRef, takeSaveTicket, reportSaveFailure]);
-  persistRef.current = persist;
+  // Moved to a new note's save only after the old note's pending save was flushed (F97-P1-3).
+  useLayoutEffect(() => {
+    persistRef.current = persist;
+  }, [persist]);
 
   /**
    * Flush a pending save before the page changes or the host goes away.
@@ -218,7 +228,28 @@ export function useInkNoteStore(deps: InkNoteStoreDeps) {
     saveTimer.current = null;
     runPersist();
   }, [runPersist]);
-  useEffect(() => () => flushSave(), [flushSave]);
+  // A layout cleanup runs before the ref above moves on, so a note switch (not only an
+  // unmount) writes the pending save into the note it was made on (F97-P1-3).
+  useLayoutEffect(() => () => flushSave(), [flushSave, noteId]);
+  // Closing or quitting the window runs no unmount, so the last strokes inside
+  // INK_SAVE_DELAY_MS are written here.
+  useEffect(() => {
+    const win = typeof window === "undefined" ? undefined : window;
+    if (typeof win?.addEventListener !== "function") return;
+    const flush = () => flushSave();
+    win.addEventListener("pagehide", flush);
+    win.addEventListener("beforeunload", flush);
+    // Android can kill a backgrounded app with no pagehide.
+    const stopHidden = flushWhenHidden(flush);
+    // The desktop close waits until the write that flush started has landed.
+    const stopHold = holdCloseWhile(() => getInkSaveStatus().pending > 0);
+    return () => {
+      stopHidden();
+      stopHold();
+      win.removeEventListener("pagehide", flush);
+      win.removeEventListener("beforeunload", flush);
+    };
+  }, [flushSave]);
 
   /**
    * Load the sidecar once; a note with nothing written gets one blank page.
@@ -227,6 +258,7 @@ export function useInkNoteStore(deps: InkNoteStoreDeps) {
   useEffect(() => {
     let live = true;
     setLoadError(null);
+    setCanInk(false);
     void awaitInkWrites(noteId)
       .then(() => loadInkPages(chunks, noteId, metaRef.current))
       .then((pages) => {
@@ -234,6 +266,7 @@ export function useInkNoteStore(deps: InkNoteStoreDeps) {
         pagesRef.current = pages;
         setPageCount(pages.length);
         setPageIndex((index) => Math.min(index, pages.length - 1));
+        setCanInk(true);
         if (pages.some((page) => page.unreadable)) setLoadError(INK_PAGES_UNREADABLE);
       })
       .catch((err: unknown) => {
@@ -316,5 +349,6 @@ export function useInkNoteStore(deps: InkNoteStoreDeps) {
     onAddPage,
     goToPage,
     loadError,
+    canInk,
   };
 }

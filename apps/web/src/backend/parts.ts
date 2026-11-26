@@ -14,11 +14,14 @@ import {
 } from "@weaveforge/core";
 import type { BackendConfigField } from "@weaveforge/wasm";
 import { isLocalMode, LocalAuthService } from "./providers/local/local-identity";
-import { localBackendParts } from "./providers/local/parts";
+import { DeviceSecretsStore } from "./providers/local/parts";
+import { FileSettingsRepository } from "./providers/files/file-settings-repos";
+import { workspaceSettings } from "@/features/settings/application/workspace-settings";
 import { createDataClient } from "./providers/postgrest/parts-1";
 import { rustRepository } from "./providers/postgrest/rust-repository";
 import { secretsStoreFor } from "./providers/secrets-store";
 import { SupabaseSessionProvider } from "./providers/supabase-auth/parts";
+import { guardPersonalSettings } from "./light-write-guard";
 
 // --- config ---
 /** Active persistence + auth backend — swap by env without touching features. */
@@ -201,11 +204,14 @@ export function wireLightBackend(config: BackendConfig = readBackendConfig()): L
   // first settings write, so on a build with no routes of its own it must not
   // reach for `/api/settings/credentials` either.
   const settingsRepository = new PostgrestSettingsRepository(db, session, secretsStoreFor(db));
-  const manageSettings = new ManageSettingsUseCaseClass({ repository: settingsRepository, clock: systemClock });
+  // Personal settings writes are refused in a read-only folder (see light-write-guard).
+  // Account rows (acceptDisclaimer, ensureProvisioned) are server rows and are never guarded.
+  const guardedSettings = guardPersonalSettings(settingsRepository);
+  const manageSettings = new ManageSettingsUseCaseClass({ repository: guardedSettings, clock: systemClock });
   return {
     auth,
     manageSettings,
-    preferences: settingsRepository,
+    preferences: guardedSettings,
     selfProvisioner: new PostgrestSelfProvisioner(db),
   };
 }
@@ -213,16 +219,17 @@ export function wireLightBackend(config: BackendConfig = readBackendConfig()): L
 /**
  * Auth and settings for a copy with no account.
  *
- * Provisioning is a no-op rather than an error: the local user's rows are
- * created by the shell when it opens the database, so there is nothing left
- * for the app to ask for.
+ * Settings are the workspace settings file and the OS keychain, as in files
+ * mode; no local database is opened. Provisioning is a no-op: there is no
+ * server account to create.
  */
 function wireLocalLightBackend(): LightBackend {
-  const { settingsRepository } = localBackendParts();
+  const settingsRepository = new FileSettingsRepository(workspaceSettings, new DeviceSecretsStore());
+  const guardedSettings = guardPersonalSettings(settingsRepository);
   return {
     auth: new LocalAuthService(),
-    manageSettings: new ManageSettingsUseCaseClass({ repository: settingsRepository, clock: systemClock }),
-    preferences: settingsRepository,
+    manageSettings: new ManageSettingsUseCaseClass({ repository: guardedSettings, clock: systemClock }),
+    preferences: guardedSettings,
     selfProvisioner: { ensureProvisioned: async () => {} },
   };
 }

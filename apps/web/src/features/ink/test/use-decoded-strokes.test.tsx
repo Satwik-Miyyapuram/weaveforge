@@ -6,6 +6,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createElement } from "react";
 import { act, create } from "react-test-renderer";
+import type { InkStroke } from "@weaveforge/core";
 
 
 
@@ -51,4 +52,30 @@ test("a corrupt chunk is logged once and shows empty (21-21)", async () => {
   } finally {
     g.window = original;
   }
+});
+
+test("the worker's fresh copy of the live page keeps the strokes already shown, so the rail keeps its outlines", async () => {
+  const pages: InkStoredPage[] = [{ chunkId: typedCore().newInkChunkId(), chunk: null, paper: "blank" as InkStoredPage["paper"] }];
+  const stroke = (t0: number): InkStroke => ({
+    points: [t0, 0, t0 + 1, 1], pressures: [128, 128], width: 5, tool: "pen", colour: "text", t0, shape: "none", lineIndex: -1,
+  });
+  const first = [stroke(1), stroke(2)];
+  let map: ReadonlyMap<number, readonly InkStroke[]> = new Map();
+  function Probe({ live }: { live: readonly InkStroke[] }) {
+    map = useDecodedStrokes({ pages, live: { pageIndex: 0, strokes: live } });
+    return null;
+  }
+  let root: ReturnType<typeof create> | null = null;
+  act(() => void (root = create(createElement(Probe, { live: first }))));
+  await settle();
+  assert.equal(map.get(0), first);
+  act(() => root!.update(createElement(Probe, { live: structuredClone(first) })));
+  await settle();
+  assert.equal(map.get(0), first);
+  const added = [...structuredClone(first), stroke(3)];
+  act(() => root!.update(createElement(Probe, { live: added })));
+  await settle();
+  assert.equal(map.get(0)?.[0], first[0]);
+  assert.equal(map.get(0)?.[2], added[2]);
+  act(() => root!.unmount());
 });

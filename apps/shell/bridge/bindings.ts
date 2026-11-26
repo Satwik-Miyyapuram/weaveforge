@@ -32,6 +32,24 @@ export const commands = {
 	secretRead: (name: string) => typedError<string | null, ShellError_Serialize>(__TAURI_INVOKE("secret_read", { name })),
 	/**  Stores a secret the page may write. */
 	secretWrite: (name: string, value: string) => typedError<null, ShellError_Serialize>(__TAURI_INVOKE("secret_write", { name, value })),
+	/**
+	 *  Moves the old rows into the keychain and records the move. The workspace folder is the vault
+	 *  root on this side, never a value from the page. EXPORT calls it after the export is verified and
+	 *  before remove-old.
+	 * 
+	 *  Returns the names of write-only fields that were not moved, never their values. A rerun after a
+	 *  marker exists moves nothing and returns none.
+	 * 
+	 *  # Errors
+	 *  The keychain's reason when a field is not stored (for example `NoKeychain` on a machine without
+	 *  one), or the database's reason when the rows cannot be read. No marker is written on either.
+	 */
+	migrate097MoveSecrets: () => typedError<string[], ShellError_Serialize>(__TAURI_INVOKE("migrate_097_move_secrets")),
+	/**
+	 *  Whether the old database folder exists. Read only, metadata only: the database is never opened.
+	 *  The page asks this when a read of the old rows fails: a missing folder means no old secrets.
+	 */
+	legacyDbPresent: () => __TAURI_INVOKE<boolean>("legacy_db_present"),
 	/**  Forgets a secret the page may write. */
 	secretClear: (name: string) => typedError<null, ShellError_Serialize>(__TAURI_INVOKE("secret_clear", { name })),
 	/**
@@ -42,6 +60,8 @@ export const commands = {
 	 *  No folder chosen, or the workspace cannot be listed.
 	 */
 	sdkInboxDrain: (rows: unknown[]) => typedError<InboxDrainReply, ShellError_Serialize>(__TAURI_INVOKE("sdk_inbox_drain", { rows })),
+	/**  Tauri command: this machine's id, created on first use in the app data folder. */
+	deviceId: () => typedError<string, string>(__TAURI_INVOKE("device_id")),
 	/**
 	 *  Reads this machine's settings (JSON object text).
 	 * 
@@ -72,6 +92,30 @@ export const commands = {
 	 *  No folder chosen, or the report cannot be read.
 	 */
 	migrate093Status: () => typedError<MigrateReply_Serialize, ShellError_Serialize>(__TAURI_INVOKE("migrate_093_status")),
+	/**  Reads the migration state for `folder`. Never writes. */
+	migrate097Status: (folder: string) => typedError<MigrationStatus_Serialize, ShellError_Serialize>(__TAURI_INVOKE("migrate_097_status", { folder })),
+	/**  Row counts for every personal table, plus the CRDT tail past each snapshot. */
+	migrate097Counts: () => typedError<RowCounts, ShellError_Serialize>(__TAURI_INVOKE("migrate_097_counts")),
+	/**
+	 *  Dumps the local database before the export, changed or not, and keeps a copy as
+	 *  `<folder>/.weaveforge/migration-0.9.7/pre-migration-<stamp>.dump`. The rotation in
+	 *  `local-db-backups` prunes its own `local-pg-*` files and is deleted with the old data; the
+	 *  migration copy is in neither, so the dump `report.json` names outlives both. Never overwrites a
+	 *  backup; any failure is an error, and the web gate then marks nothing.
+	 */
+	migrate097Backup: (folder: string) => typedError<MigrationBackup, ShellError_Serialize>(__TAURI_INVOKE("migrate_097_backup", { folder })),
+	/**
+	 *  One page of exporter `kind`, read-only. `after` is the last key read (one value per key column);
+	 *  `limit` is clamped to 1000. Unknown kinds and `ink` are refused.
+	 */
+	migrate097Read: (kind: string, after: unknown[] | null, limit: number) => typedError<unknown[], ShellError_Serialize>(__TAURI_INVOKE("migrate_097_read", { kind, after, limit })),
+	/**  Deletes the local cluster after a verified migration. See `remove_old_data` for the gates. */
+	migrate097RemoveOld: (folder: string) => typedError<null, ShellError_Serialize>(__TAURI_INVOKE("migrate_097_remove_old", { folder })),
+	/**
+	 *  Records that `folder` holds this device's verified export, so removal can check the folder. The
+	 *  web export calls it after its verify passes; the gate lives in `record_verified_export`.
+	 */
+	markExported097: (folder: string) => typedError<null, ShellError_Serialize>(__TAURI_INVOKE("mark_exported_097", { folder })),
 	/**
 	 *  Writes a text file atomically if it still has digest `expected_hash` (`None` = always).
 	 * 
@@ -267,6 +311,14 @@ export const commands = {
 	 *  No folder chosen, a refused path, or a folder.
 	 */
 	vaultRemove: (path: string) => typedError<null, ShellError_Serialize>(__TAURI_INVOKE("vault_remove", { path })),
+	/**
+	 *  Moves one file in the chosen folder in one step, replacing a file at `to`.
+	 * 
+	 *  # Errors
+	 *  No folder chosen, a refused path, a secret moved into a config file, a missing
+	 *  source, or the rename failing.
+	 */
+	vaultRename: (from: string, to: string) => typedError<null, ShellError_Serialize>(__TAURI_INVOKE("vault_rename", { from, to })),
 	/**
 	 *  Runs a sync action (settings, status, connect, pull or push) on the chosen folder.
 	 * 
@@ -1219,6 +1271,93 @@ export type MigrateState =
 /**  Every row is in files, every grant is in, and the report says so. The database may go. */
 "verified";
 
+/**  What `migrate_097_backup` made: this device's id and the dump to keep. */
+export type MigrationBackup = {
+	/**  This device's id. */
+	deviceId: string,
+	/**  The pre-migration dump in the export folder. */
+	dumpPath: string,
+};
+
+/**  Status of the 0.9.7 migration as the UI sees it. */
+export type MigrationStatus = MigrationStatus_Serialize | MigrationStatus_Deserialize;
+
+/**  Status of the 0.9.7 migration as the UI sees it. */
+export type MigrationStatus_Deserialize = {
+	/**
+	 *  This device's state: `verified`, `incomplete`, `removing`, `removed`, `unexported` (the report
+	 *  exists but has no run from this device, so the export is offered), `unavailable`, or `none`
+	 *  when no report or export exists.
+	 */
+	state: string,
+	/**  When this device's old data was removed (its `removals[device].removedAt` entry). */
+	removedAt?: string | null,
+	/**
+	 *  When this device's own verified run finished (its `finishedAt`); removal needs it at most
+	 *  10 min old.
+	 */
+	verifiedAt?: string | null,
+	/**  Folder named by `<pg_root>/exported-to.json`. */
+	exportedTo?: string | null,
+	/**  Absolute path of the PGDMP backup that "remove old data" checks, when that file exists. */
+	backupPath?: string | null,
+	/**  Kind names (from the newest run's `missing[]`) with unexported items. */
+	missing?: string[] | null,
+	/**  The device this status was read on; only this device's own run and removal entry count. */
+	deviceId: string,
+	/**  The device whose removal is in progress (report.json `removingDeviceId`), when any. */
+	removingDeviceId?: string | null,
+	/**  Whether `exported-to.json` names this folder, compared after canonicalizing both paths. */
+	exportedHere: boolean,
+	/**  Whether this device's latest run in report.json is verified. */
+	ownRunVerified: boolean,
+	/**  Why the migration reports cannot be read (an unreadable conflict copy, a failed listing). */
+	reason?: string | null,
+	/**
+	 *  The step the user takes to clear `reason`, when one is known (for example
+	 *  "delete the conflict copy <name>").
+	 */
+	step?: string | null,
+};
+
+/**  Status of the 0.9.7 migration as the UI sees it. */
+export type MigrationStatus_Serialize = {
+	/**
+	 *  This device's state: `verified`, `incomplete`, `removing`, `removed`, `unexported` (the report
+	 *  exists but has no run from this device, so the export is offered), `unavailable`, or `none`
+	 *  when no report or export exists.
+	 */
+	state: string,
+	/**  When this device's old data was removed (its `removals[device].removedAt` entry). */
+	removedAt?: string,
+	/**
+	 *  When this device's own verified run finished (its `finishedAt`); removal needs it at most
+	 *  10 min old.
+	 */
+	verifiedAt?: string,
+	/**  Folder named by `<pg_root>/exported-to.json`. */
+	exportedTo?: string,
+	/**  Absolute path of the PGDMP backup that "remove old data" checks, when that file exists. */
+	backupPath?: string,
+	/**  Kind names (from the newest run's `missing[]`) with unexported items. */
+	missing?: string[],
+	/**  The device this status was read on; only this device's own run and removal entry count. */
+	deviceId: string,
+	/**  The device whose removal is in progress (report.json `removingDeviceId`), when any. */
+	removingDeviceId?: string,
+	/**  Whether `exported-to.json` names this folder, compared after canonicalizing both paths. */
+	exportedHere: boolean,
+	/**  Whether this device's latest run in report.json is verified. */
+	ownRunVerified: boolean,
+	/**  Why the migration reports cannot be read (an unreadable conflict copy, a failed listing). */
+	reason?: string,
+	/**
+	 *  The step the user takes to clear `reason`, when one is known (for example
+	 *  "delete the conflict copy <name>").
+	 */
+	step?: string,
+};
+
 /**  One download's progress, as the page reads it. Sizes are bytes. */
 export type ModelDownload = ModelDownload_Serialize | ModelDownload_Deserialize;
 
@@ -1318,7 +1457,13 @@ export type Phase =
 /**  The installer is running; the app is about to close and reopen. */
 "installing" | 
 /**  The last check or install failed; `error` says so and a retry is allowed. */
-"failed";
+"failed" | 
+/**
+ *  The release is offered but refused until local data is exported and verified. Not a
+ *  failure: `error` names the rule. No install starts from here; a new check may offer it
+ *  again.
+ */
+"held";
 
 /**  The plan widget, as `DesktopPlanWidget` in apps/web/src/lib/desktop/desktop-bridge.ts. */
 export type PlanWidgetStatePayload = {
@@ -1348,6 +1493,14 @@ export type RootKind =
 "empty" | 
 /**  Already a workspace we wrote. */
 "existing";
+
+/**  The reply of `migrate_097_counts`. Field names are camelCase on the wire. */
+export type RowCounts = {
+	/**  Table name to row count, for each personal table present. */
+	counts: { [key in string]: number },
+	/**  CRDT kind to `crdt_updates` rows past `snapshot_upto`. */
+	crdtTail: { [key in string]: number },
+};
 
 /**  The error every command returns. The bridge shim throws `new Error(message)`, with `code` set when there is one. */
 export type ShellError = ShellError_Serialize | ShellError_Deserialize;

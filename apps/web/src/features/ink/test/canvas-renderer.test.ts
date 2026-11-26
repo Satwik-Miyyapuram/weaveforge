@@ -107,6 +107,32 @@ test("strokes are addressed by buffer index across erase and restore", () => {
   assert.equal(fills.length, 1);
 });
 
+test("undoing the delete of a middle stroke paints it back under the later ones", () => {
+  const colours = ["text", "warn", "good"] as const;
+  const model = page(["pen", "pen", "pen"]);
+  model.strokes = model.strokes.map((stroke, i) => ({ ...stroke, colour: colours[i]! }));
+  const buffer = new InkPageBuffer(model);
+  const fillsOf = (act: (renderer: CanvasInkRenderer) => void): string[] => {
+    const { canvas, fills } = recordingCanvas();
+    const renderer = new CanvasInkRenderer({ canvas });
+    renderer.setPage({ width: INK_A4_WIDTH, height: INK_A4_HEIGHT }, "blank");
+    renderer.setStrokes(buffer.allStrokes());
+    act(renderer);
+    fills.length = 0;
+    renderer.draw();
+    return [...fills];
+  };
+  const fresh = fillsOf(() => {});
+  assert.equal(new Set(fresh).size, 3, "three distinct fills to compare");
+  const undone = fillsOf((renderer) => {
+    renderer.removeStroke(1);
+    renderer.appendStroke(buffer.stroke(1)!, 1);
+  });
+  assert.deepEqual(undone, fresh);
+  // Re-appending an index that is already there replaces it; it is not painted twice.
+  assert.deepEqual(fillsOf((renderer) => renderer.appendStroke(buffer.stroke(0)!, 0)), fresh);
+});
+
 test("on screen it leaves strokes the page's SVG already shows to the SVG", () => {
   const { canvas, fills } = recordingCanvas();
   const renderer = new CanvasInkRenderer({ canvas });

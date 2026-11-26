@@ -1,17 +1,21 @@
 // Read-only release gate. Fails unless a desktop release has both Windows installers,
-// their .sig files, and a latest.json whose version is the tag and whose URLs and
-// signatures match that tag's uploaded assets. Usage:
-//   node apps/shell/scripts/check-release-assets.mjs v0.9.1
-// It only reads (gh api and asset downloads); it never changes the release.
+// their .sig files, and two manifests: latest-v2.json (this release) and latest.json
+// (the 0.9.7 bridge). Usage:
+//   node apps/shell/scripts/check-release-assets.mjs v0.9.8
+// It only reads (gh api and asset downloads); it never changes the release. For a
+// release after 0.9.7 it also reads the v0.9.7 release to check latest.json against it.
 
 import { execFile } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { resolve } from "node:path";
 import { promisify } from "node:util";
 import {
+  BRIDGE_VERSION,
+  LEGACY_MANIFEST_NAME,
   MANIFEST_NAME,
   PLATFORMS,
   REPO,
+  compareVersions,
   installerName,
   releaseAssetUrl,
   signatureText,
@@ -21,11 +25,25 @@ import {
 const run = promisify(execFile);
 
 /**
+ * True when `url` is the untagged-<hash> download URL GitHub gives a draft's asset named
+ * `name`. Only a draft may use it; a published release must use the tagged URL.
+ */
+function isDraftUrl(url, name) {
+  const prefix = `https://github.com/${REPO}/releases/download/untagged-`;
+  if (!url.startsWith(prefix)) return false;
+  const rest = url.slice(prefix.length);
+  const slash = rest.indexOf("/");
+  return slash > 0 && /^[A-Za-z0-9]+$/.test(rest.slice(0, slash)) && rest.slice(slash + 1) === name;
+}
+
+/**
  * Returns one line per problem; an empty list means the release passes.
  * `release` is the parsed `gh api releases/tags/<tag>` response. `readAsset(name)`
- * resolves the asset's text, or null when it cannot be downloaded.
+ * resolves the asset's text, or null when it cannot be downloaded. `bridge` is the
+ * `bridgeBytes` are the raw bytes of the 0.9.7 latest.json, needed to check latest.json
+ * on releases after 0.9.7.
  */
-export async function checkRelease({ tag, release, readAsset }) {
+export async function checkRelease({ tag, release, readAsset, bridgeBytes }) {
   const version = versionFromTag(tag);
   if (!version) return [`"${tag}" is not a desktop release tag (expected vX.Y.Z)`];
 
@@ -45,32 +63,52 @@ export async function checkRelease({ tag, release, readAsset }) {
     const name = installerName(version, arch);
     if (has(name)) {
       const expected = releaseAssetUrl(tag, name);
-      if (assets.get(name).browser_download_url !== expected) {
+      const url = assets.get(name).browser_download_url;
+      const draftOk = release.draft === true && isDraftUrl(url, name);
+      if (url !== expected && !draftOk) {
         problems.push(`${name} download URL is not ${expected}`);
       }
     }
     has(`${name}.sig`);
   }
 
-  if (!has(MANIFEST_NAME)) return problems;
+  const readJson = async (name) => {
+    const bytes = await readAsset(name);
+    if (bytes === null || bytes === undefined) {
+      problems.push(`could not download ${name}`);
+      return null;
+    }
+    try {
+      return { value: JSON.parse(Buffer.from(bytes).toString("utf8")), bytes };
+    } catch {
+      problems.push(`${name} does not parse as JSON`);
+      return null;
+    }
+  };
 
-  const text = await readAsset(MANIFEST_NAME);
-  if (text === null || text === undefined) {
-    problems.push(`could not download ${MANIFEST_NAME}`);
-    return problems;
-  }
-  let manifest;
-  try {
-    manifest = JSON.parse(text);
-  } catch {
-    problems.push(`${MANIFEST_NAME} does not parse as JSON`);
-    return problems;
+  let current = null;
+  if (has(MANIFEST_NAME)) {
+    current = (await readJson(MANIFEST_NAME))?.value ?? null;
+    if (current) {
+      problems.push(...(await manifestProblems({ tag, version, manifest: current, readAsset, assets })));
+    }
   }
 
+  if (has(LEGACY_MANIFEST_NAME)) {
+    const legacy = await readJson(LEGACY_MANIFEST_NAME);
+    if (legacy) {
+      problems.push(...legacyProblems({ version, legacy: legacy.value, legacyBytes: legacy.bytes, current, bridgeBytes }));
+    }
+  }
+  return problems;
+}
+
+/** Checks latest-v2.json: its version, its URLs, and its signatures against the .sig files. */
+async function manifestProblems({ tag, version, manifest, readAsset, assets }) {
+  const problems = [];
   if (manifest.version !== version) {
     problems.push(`${MANIFEST_NAME} version is ${manifest.version}, the release is ${version}`);
   }
-
   for (const [platform, arch] of Object.entries(PLATFORMS)) {
     const name = installerName(version, arch);
     const entry = manifest.platforms?.[platform];
@@ -92,19 +130,126 @@ export async function checkRelease({ tag, release, readAsset }) {
   return problems;
 }
 
-/** Reads a release with the GitHub CLI; never writes to GitHub. */
-async function fetchRelease(tag) {
-  const { stdout } = await run("gh", ["api", `repos/${REPO}/releases/tags/${tag}`]);
-  return JSON.parse(stdout);
+/**
+ * Checks the bridge latest.json. On 0.9.7 it is the same manifest as latest-v2.json;
+ * on a later release it must be the 0.9.7 bridge itself, byte for byte.
+ */
+function legacyProblems({ version, legacy, legacyBytes, current, bridgeBytes }) {
+  const order = compareVersions(version, BRIDGE_VERSION);
+  if (order < 0) return [`release ${version} is older than ${BRIDGE_VERSION}`];
+  if (order === 0) {
+    if (current && JSON.stringify(legacy) !== JSON.stringify(current)) {
+      return [`${LEGACY_MANIFEST_NAME} differs from ${MANIFEST_NAME} (version ${legacy.version}, expected ${version})`];
+    }
+    return [];
+  }
+  if (!bridgeBytes) {
+    return [`cannot check ${LEGACY_MANIFEST_NAME}: no ${BRIDGE_VERSION} bridge given to compare it with`];
+  }
+  if (!Buffer.from(legacyBytes).equals(Buffer.from(bridgeBytes))) {
+    return [`${LEGACY_MANIFEST_NAME} is not the ${BRIDGE_VERSION} bridge, byte for byte (it reads version ${legacy.version})`];
+  }
+  return [];
+}
+
+/**
+ * Finds a release by tag in the release list. The list includes drafts; the
+ * `releases/tags/<tag>` endpoint does not, and the gate runs on a draft before it is published.
+ */
+export function findRelease(releases, tag) {
+  return releases.find((release) => release.tag_name === tag);
+}
+
+/**
+ * Reads a release with the GitHub CLI from the release list (drafts included); never writes.
+ * `runGh` is injected so tests can answer without the network; it defaults to `gh`.
+ */
+export async function fetchRelease(tag, runGh = run) {
+  const { stdout } = await runGh("gh", ["api", "--paginate", `repos/${REPO}/releases`, "--jq", ".[]"]);
+  const releases = stdout
+    .split("\n")
+    .filter((line) => line.trim() !== "")
+    .map((line) => JSON.parse(line));
+  const release = findRelease(releases, tag);
+  if (!release) throw new Error(`no release named ${tag}`);
+  return release;
+}
+
+/**
+ * How to fetch one asset. A draft's browser_download_url needs no auth in theory but
+ * returns 404 to anonymous requests, so with a token the API asset url is used instead.
+ */
+export function assetRequest(asset, env = process.env) {
+  if (env.GH_TOKEN) {
+    return {
+      url: asset.url,
+      headers: { Accept: "application/octet-stream", Authorization: `Bearer ${env.GH_TOKEN}` },
+    };
+  }
+  return { url: asset.browser_download_url, headers: {} };
+}
+
+/** Longest an asset download may take before it counts as a failed download. */
+export const ASSET_FETCH_TIMEOUT_MS = 60_000;
+
+/**
+ * Fetches one asset's bytes, or null when the request fails, returns an error status, or
+ * stalls past `timeoutMs` (so the gate reports it instead of hanging).
+ */
+export async function fetchAsset(asset, env = process.env, fetchImpl = fetch, timeoutMs = ASSET_FETCH_TIMEOUT_MS) {
+  const { url, headers } = assetRequest(asset, env);
+  try {
+    const response = await fetchImpl(url, { headers, signal: AbortSignal.timeout(timeoutMs) });
+    return response.ok ? Buffer.from(await response.arrayBuffer()) : null;
+  } catch {
+    return null;
+  }
 }
 
 async function downloadAsset(release) {
   return async (name) => {
     const asset = release.assets.find((a) => a.name === name);
     if (!asset) return null;
-    const response = await fetch(asset.browser_download_url);
-    return response.ok ? response.text() : null;
+    return fetchAsset(asset);
   };
+}
+
+/**
+ * Parses the bridge latest.json text. Unparseable text is a problem, not a throw; a
+ * parsed bridge must be the 0.9.7 manifest (its version and every URL name v0.9.7).
+ */
+export function parseBridge(text) {
+  if (!text) return { bridge: undefined, problems: [] };
+  let bridge;
+  try {
+    bridge = JSON.parse(text);
+  } catch {
+    bridge = undefined;
+  }
+  if (!bridge || typeof bridge !== "object") {
+    return { bridge: undefined, problems: [`bridge ${LEGACY_MANIFEST_NAME} does not parse`] };
+  }
+  return { bridge, problems: bridgeProblems(bridge) };
+}
+
+function bridgeProblems(bridge) {
+  const problems = [];
+  if (bridge.version !== BRIDGE_VERSION) {
+    problems.push(`bridge ${LEGACY_MANIFEST_NAME} version is ${bridge.version}, expected ${BRIDGE_VERSION}`);
+  }
+  const prefix = releaseAssetUrl(`v${BRIDGE_VERSION}`, "");
+  const platforms = bridge.platforms ?? {};
+  const isMap = typeof platforms === "object" && platforms !== null && !Array.isArray(platforms);
+  const entries = isMap ? Object.values(platforms) : [];
+  if (entries.length === 0) {
+    problems.push(`bridge ${LEGACY_MANIFEST_NAME} has no platforms (platforms must be an object of downloads)`);
+  }
+  for (const entry of entries) {
+    if (typeof entry?.url !== "string" || !entry.url.startsWith(prefix)) {
+      problems.push(`bridge ${LEGACY_MANIFEST_NAME} url ${entry?.url} is not under ${prefix}`);
+    }
+  }
+  return problems;
 }
 
 async function main(argv) {
@@ -116,14 +261,31 @@ async function main(argv) {
   } catch (error) {
     throw new Error(`no release for ${tag} (gh api failed: ${error.stderr ?? error.message})`);
   }
-  const problems = await checkRelease({ tag, release, readAsset: await downloadAsset(release) });
+  const version = versionFromTag(tag);
+  let bridgeBytes;
+  let problems = [];
+  if (version && compareVersions(version, BRIDGE_VERSION) > 0) {
+    try {
+      const bridgeRelease = await fetchRelease(`v${BRIDGE_VERSION}`);
+      const bytes = await (await downloadAsset(bridgeRelease))(LEGACY_MANIFEST_NAME);
+      const parsed = parseBridge(bytes && Buffer.from(bytes).toString("utf8"));
+      problems = parsed.problems;
+      if (parsed.bridge) bridgeBytes = bytes;
+    } catch (error) {
+      problems = [`cannot fetch the ${BRIDGE_VERSION} bridge ${LEGACY_MANIFEST_NAME}: ${error.message}`];
+    }
+  }
+  problems = [
+    ...problems,
+    ...(await checkRelease({ tag, release, readAsset: await downloadAsset(release), bridgeBytes })),
+  ];
   if (problems.length > 0) {
     console.error(`check-release-assets: ${tag} fails the release gate:`);
     for (const problem of problems) console.error(`  - ${problem}`);
     process.exitCode = 1;
     return;
   }
-  console.log(`check-release-assets: ${tag} passes (installers, .sig files, latest.json)`);
+  console.log(`check-release-assets: ${tag} passes (installers, .sig files, latest-v2.json, latest.json)`);
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
