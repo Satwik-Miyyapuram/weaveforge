@@ -416,8 +416,9 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
           // Rows the store merged into a user's file in place: the file keeps its own values, so readBack skips them.
           const keptIds = new Set<string>();
           for (const row of rows) {
+            const keptBefore = store.kept.length;
+            const copiesBefore = store.conflicts.length;
             try {
-              const keptBefore = store.kept.length;
               await writer.write(kind, row);
               if (store.kept.length > keptBefore) keptIds.add(String(row.id));
               written[kind]++;
@@ -425,6 +426,13 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
               const message = (err as Error).message;
               debugLog?.(`write ${kind} ${String(row.id)}: ${message}`);
               const conflict = isConflict(err);
+              // A file layer that reads the file back unchanged calls the store's in-place keep a conflict; no copy was made.
+              if (conflict && store.kept.length > keptBefore && store.conflicts.length === copiesBefore) {
+                keptIds.add(String(row.id));
+                written[kind]++;
+                onProgress?.({ kind, done: written[kind] ?? 0, total: rows.length });
+                continue;
+              }
               if (conflict) (conflicts[kind] ??= []).push(String(row.id));
               // Only paper field kinds carry their DB value into report.json; every other kind (secrets included) is an allowlist miss.
               const conflictValue = (err as { conflictValue?: unknown }).conflictValue;
@@ -582,7 +590,8 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
   const hasConflicts = store.conflicts.length > 0 || Object.values(conflicts).some((paths) => paths.length > 0);
   let state: MigrationState = missing.length === 0 && verdict.state === "verified" && !hasConflicts ? "verified" : "incomplete";
   const finishedAt = new Date().toISOString();
-  const archivedOnly = writers.flatMap((w) => w.archivedOnly?.() ?? []);
+  // A row kept in the user's file is in app files, whatever its writer's file layer said.
+  const archivedOnly = writers.flatMap((w) => w.archivedOnly?.() ?? []).filter((a) => !kept[a.kind]?.includes(a.id));
   const persist = async (): Promise<RunReport> => {
     const run: RunReport = {
       startedAt: now,

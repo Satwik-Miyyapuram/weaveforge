@@ -2,7 +2,7 @@ import { runWebExport, OUTBOX_NOT_EMPTY_REASON, type ExportOptions, type ExportR
 import type { FileCodec, FileSink } from "@/features/migration-097/domain/ports";
 import type { KindWriter } from "@/features/migration-097/domain/kind-writer";
 import { LocalPgSource } from "@/features/migration-097/infrastructure/local-pg-source";
-import { MIGRATION_KINDS } from "@/features/migration-097/domain/report";
+import { MIGRATION_KINDS, REPORT_DIR } from "@/features/migration-097/domain/report";
 import { wasmFileCodec } from "@/features/migration-097/infrastructure/wasm-codec";
 import { createMigrationWriters } from "@/features/migration-097/infrastructure/migration-writers";
 import { createProjectRouter } from "@/features/migration-097/infrastructure/project-router";
@@ -231,8 +231,26 @@ export function makeDesktopRunner(
     if (!shell.migrate097Read) throw new Error("migrate097Read not wired");
     await assertOpenVault(shell, folder);
     const deps = await loadDeps();
-    return toReply(await run(desktopExportOptions(shell, folder, deps, clock(), onProgress)));
+    // Raw failure text (it can name paths) stays on this machine, next to the report, never in report.json.
+    const lines: string[] = [];
+    try {
+      return toReply(await run({ ...desktopExportOptions(shell, folder, deps, clock(), onProgress), debugLog: (line) => lines.push(line) }));
+    } finally {
+      if (lines.length > 0) await appendDebugLog(deps.sink, lines);
+    }
   };
+}
+
+/** Appends `lines` to the migration folder's debug.log. A failed write is dropped: the log never fails a run. */
+async function appendDebugLog(sink: FileSink, lines: readonly string[]): Promise<void> {
+  const path = `${REPORT_DIR}/debug.log`;
+  try {
+    const before = (await sink.exists(path)) ? await sink.readText(path) : "";
+    await sink.write(path, `${before}${lines.map((line) => `${line}
+`).join("")}`);
+  } catch {
+    // Best effort.
+  }
 }
 
 /** Projects, the one holding the most rows first: rows with no project go to that main one. */

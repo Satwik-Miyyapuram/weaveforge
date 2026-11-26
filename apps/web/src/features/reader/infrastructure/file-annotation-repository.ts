@@ -162,7 +162,7 @@ export class FileReaderAnnotationRepository
         continue;
       }
       for (const row of rows as unknown as ReaderAnnotation[]) {
-        out.push({ ...row, paperId, pageIndex: pageOf(row) });
+        out.push({ ...row, paperId, pageIndex: annotationPageOf(row) });
       }
     }
     return out;
@@ -243,7 +243,7 @@ function notFound(unreadable: readonly string[]): NotFoundError {
 }
 
 /** The Zotero position's page, else the page the sort index starts with (`00004|…`), else 0. */
-function pageOf(annotation: ReaderAnnotation): number {
+export function annotationPageOf(annotation: Pick<ReaderAnnotation, "anchor" | "sortIndex">): number {
   const position = annotation.anchor?.zoteroPosition?.pageIndex;
   if (typeof position === "number" && Number.isFinite(position)) return position;
   const fromSort = Number.parseInt(String(annotation.sortIndex ?? ""), 10);

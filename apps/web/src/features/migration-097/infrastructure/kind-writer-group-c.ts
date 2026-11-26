@@ -2,7 +2,7 @@ import { ConflictError, type NewReaderAnnotation } from "@weaveforge/core";
 import type { KindWriter } from "../domain/kind-writer";
 import type { FileSink, Row } from "../domain/ports";
 import { sinkAsWorkspaceFs } from "./sink-workspace-fs";
-import { FileReaderAnnotationRepository } from "@/features/reader/infrastructure/file-annotation-repository";
+import { annotationPageOf, FileReaderAnnotationRepository } from "@/features/reader/infrastructure/file-annotation-repository";
 import { FileAnnotationPinRepository } from "@/features/papers/infrastructure/file-annotation-pin-repository";
 import { FileBlobStore } from "@/backend/providers/files/file-blob-store";
 import { FolderInkNotes, FsInkChunkStore } from "@/features/ink/infrastructure/parts";
@@ -24,9 +24,15 @@ async function sha256Hex(bytes: Uint8Array): Promise<string> {
  * the verify gate compares those rows with the server rows.
  */
 /** True when an on-disk annotation already holds the row's carried fields (a re-run of the same row). */
+/** A file row's page: an anchor's own pageIndex, else the reader's rule (zoteroPosition, then sort index). */
+function filePage(o: Record<string, unknown>): number {
+  const anchor = o.anchor as { pageIndex?: number } | null | undefined;
+  return Number(anchor?.pageIndex ?? annotationPageOf(o as Parameters<typeof annotationPageOf>[0]));
+}
+
 function sameAnnotation(existing: object, row: Record<string, unknown>): boolean {
   const pick = (o: Record<string, unknown>) =>
-    JSON.stringify([o.type, o.color, o.text, o.comment ?? "", o.tags ?? [], o.anchor ?? null, o.sortIndex, Number(o.pageIndex ?? (o.anchor as { pageIndex?: number } | null)?.pageIndex ?? 0)]);
+    JSON.stringify([o.type, o.color, o.text, o.comment ?? "", o.tags ?? [], o.anchor ?? null, o.sortIndex, Number(o.pageIndex ?? filePage(o))]);
   return pick(existing as Record<string, unknown>) === pick(row);
 }
 
@@ -91,10 +97,7 @@ export function createGroupCWriter(sink: FileSink, projectRoot: string): KindWri
             const rows = typedCore().parseAnnotationsFile(await fs.readText(entry.path));
             const paperId = paperOfSidecar.get(entry.path) ?? null;
             // The DB column page_index is top-level, but a file row keeps pageIndex only inside its anchor.
-            for (const row of rows) {
-              const anchorPage = (row.anchor as { pageIndex?: number } | null | undefined)?.pageIndex;
-              out.push({ ...row, paperId, pageIndex: Number(anchorPage ?? 0) });
-            }
+            for (const row of rows) out.push({ ...row, paperId, pageIndex: filePage(row) });
           }
           return out;
         },

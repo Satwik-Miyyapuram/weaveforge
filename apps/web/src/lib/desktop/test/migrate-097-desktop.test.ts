@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { MemorySink } from "@/features/migration-097/infrastructure/memory-sink";
-import { OUTBOX_NOT_EMPTY_REASON, type ExportResult } from "@/features/migration-097/application/run-web-export";
+import { OUTBOX_NOT_EMPTY_REASON, runWebExport, type ExportOptions, type ExportResult } from "@/features/migration-097/application/run-web-export";
 import { MIGRATION_KINDS } from "@/features/migration-097/domain/report";
 import { FIXTURE, KINDS, SUPPORTED, fakeCodec } from "@/features/migration-097/test/web-export/helpers";
 import { onlyReportPath } from "@/features/migration-097/test/own-report";
@@ -121,6 +121,21 @@ test("desktop runner: backup, then reads, then secrets, then mark; the shell see
   // FIXTURE carries no content_enc, so nothing counts as undecryptable; no provider needs reconnecting.
   assert.equal(reply.undecryptable ?? 0, 0);
   assert.deepEqual(reply.reconnectProviders ?? [], []);
+});
+
+test("desktop runner: the run's debug lines land in the migration folder's debug.log, also when the run throws", async () => {
+  const { shell } = fakeShell(new MemorySink(), {});
+  for (const fails of [false, true]) {
+    const sink = new MemorySink();
+    const run = async (opts: ExportOptions): Promise<ExportResult> => {
+      opts.debugLog?.("readback papers: first unmatched {}");
+      if (fails) throw new Error("boom");
+      return runWebExport(opts);
+    };
+    const runner = makeDesktopRunner(shell, deps(sink), run, () => NOW);
+    await runner(FOLDER, () => {}).catch(() => {});
+    assert.match(await sink.readText(".weaveforge/migration-0.9.7/debug.log"), /readback papers: first unmatched \{\}\n/);
+  }
 });
 
 test("desktop runner: report.json names the backup by file name only", async () => {

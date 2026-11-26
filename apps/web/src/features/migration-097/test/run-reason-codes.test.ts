@@ -6,6 +6,7 @@ import { runWebExport, verifyReasonCode } from "../application/run-web-export";
 import type { KindWriter } from "../domain/kind-writer";
 import type { FileCodec, ServerSource } from "../domain/ports";
 import { MemorySink } from "../infrastructure/memory-sink";
+import { ConflictError } from "@weaveforge/core";
 
 before(loadTestCore);
 
@@ -148,4 +149,82 @@ test("run: a row merged into the user's file in place is reported as kept, and r
   assert.equal(result.run.missing.find((m) => m.kind === "widgets"), undefined);
   assert.deepEqual(result.run.kinds.widgets?.kept, ["w1"]);
   assert.match(new TextDecoder().decode(await sink.readBytes("w1.md")), /status: read\n.*\norder: 0\n/s);
+});
+
+test("run: a writer whose kept no-op merge makes its file layer throw ConflictError still reports the row as kept", async () => {
+  const source = {
+    listRows: async () => [{ id: "w1", status: "to_read" }],
+    listTrashed: async () => [],
+    secretProviders: async () => [],
+    countRows: async () => 1,
+    pendingOutbox: async () => 0,
+    undecryptable: async () => 0,
+    listBlobs: async () => [],
+    fetchBlob: async () => new Uint8Array(),
+    markExported097: async () => {},
+  } as unknown as ServerSource;
+  const sink = new MemorySink();
+  const user = '---\nweaveforge-id: w1\nstatus: read\nupdated-at: "2026-11-25T00:00:00.000Z"\n---\nbody';
+  await sink.write("w1.md", user);
+  const writers = (guarded: import("../domain/ports").FileSink): KindWriter[] => [{
+    kinds: ["widgets"],
+    write: async () => {
+      // The DB row adds no key the file lacks, so the store keeps the file as is; a file layer that reads it back
+      // unchanged (as sinkAsWorkspaceFs does) calls that a conflict.
+      const db = '---\nweaveforge-id: "w1"\nstatus: "to_read"\nupdated-at: "2026-11-20T00:00:00.000Z"\n---\nbody';
+      await guarded.writeIf("w1.md", db, user);
+      throw new ConflictError("conflict: w1.md differs");
+    },
+    readBack: async () => [{ id: "w1", status: "read" }],
+  }];
+  const result = await runWebExport({ runDeviceId: "dev-test",
+    kinds: ["widgets"],
+    codec: { supports: () => false } as unknown as FileCodec,
+    writers,
+    now: "2026-11-22T00:00:00.000Z",
+    source,
+    sink,
+  });
+  assert.equal(result.run.missing.find((m) => m.kind === "widgets"), undefined);
+  assert.deepEqual(result.run.kinds.widgets?.kept, ["w1"]);
+  assert.equal(result.run.kinds.widgets?.files, 1);
+  assert.equal(new TextDecoder().decode(await sink.readBytes("w1.md")), user);
+});
+
+test("run: a row kept in the user's file is never listed archive-only, even when its writer listed it", async () => {
+  const source = {
+    listRows: async () => [{ id: "w1", status: "to_read" }],
+    listTrashed: async () => [],
+    secretProviders: async () => [],
+    countRows: async () => 1,
+    pendingOutbox: async () => 0,
+    undecryptable: async () => 0,
+    listBlobs: async () => [],
+    fetchBlob: async () => new Uint8Array(),
+    markExported097: async () => {},
+  } as unknown as ServerSource;
+  const sink = new MemorySink();
+  const user = '---\nweaveforge-id: w1\nstatus: read\nupdated-at: "2026-11-25T00:00:00.000Z"\n---\nbody';
+  await sink.write("w1.md", user);
+  const writers = (guarded: import("../domain/ports").FileSink): KindWriter[] => [{
+    kinds: ["widgets"],
+    // As the archive writer does: the app write's ConflictError is swallowed and the row listed archive-only.
+    write: async () => {
+      const db = '---\nweaveforge-id: "w1"\nstatus: "to_read"\nupdated-at: "2026-11-20T00:00:00.000Z"\n---\nbody';
+      await guarded.writeIf("w1.md", db, user);
+    },
+    archivedOnly: () => [{ kind: "widgets", id: "w1", reason: "conflict" }],
+    readBack: async () => [{ id: "w1", status: "read" }],
+  }];
+  const result = await runWebExport({ runDeviceId: "dev-test",
+    kinds: ["widgets"],
+    codec: { supports: () => false } as unknown as FileCodec,
+    writers,
+    now: "2026-11-22T00:00:00.000Z",
+    source,
+    sink,
+  });
+  assert.deepEqual(result.run.kinds.widgets?.kept, ["w1"]);
+  assert.deepEqual(result.archivedOnly, []);
+  assert.equal(result.run.archivedOnly, undefined);
 });

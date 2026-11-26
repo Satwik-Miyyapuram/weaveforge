@@ -375,3 +375,26 @@ test("annotations and pins: many rows into one file through the run's guarded si
   assert.equal((await writer.readBack("annotationPins")).length, 2);
   assert.deepEqual((await base.list()).filter((p) => p.includes("(conflict")), []);
 });
+
+test("annotations: an ink row keeps its page in anchor.zoteroPosition; a re-run is no conflict and reads back that page", async () => {
+  const { writer } = fresh();
+  // The DB shape of a PDF ink stroke: the page is the top-level column and zoteroPosition.pageIndex, never anchor.pageIndex.
+  const row = {
+    id: "ann-ink",
+    paperId: "p10",
+    paperFile: "proj/papers/ink.paper.md",
+    type: "ink",
+    color: "#1f6dab",
+    text: "",
+    comment: "",
+    tags: [],
+    anchor: { zoteroPosition: { paths: [[1, 2, 3, 4]], width: 2, pageIndex: 4 } },
+    sortIndex: "00004|000000|00562",
+    pageIndex: 4,
+  };
+  await writer.write("annotations", row);
+  await writer.write("annotations", row);
+  const back = await writer.readBack("annotations");
+  assert.equal(back.length, 1);
+  assert.equal(back[0]?.pageIndex, 4);
+});
