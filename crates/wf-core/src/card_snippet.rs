@@ -114,7 +114,11 @@ fn strip_comments(text: &str) -> String {
         }
     }
     // A preview cut inside the opener leaves `<!` or `<!-` at the very end: an open comment too.
-    out.push_str(rest.strip_suffix("<!-").or_else(|| rest.strip_suffix("<!")).unwrap_or(rest));
+    out.push_str(
+        rest.strip_suffix("<!-")
+            .or_else(|| rest.strip_suffix("<!"))
+            .unwrap_or(rest),
+    );
     out
 }
 
@@ -336,9 +340,14 @@ mod tests {
         assert_eq!(card_snippet("text ![alt", 180), "text");
         assert_eq!(card_snippet("x <!-- still open", 180), "x");
         // A preview cut inside the opener itself (`<!-- page 2 -->` cut to `<!-`).
-        assert_eq!(card_snippet("x
+        assert_eq!(
+            card_snippet(
+                "x
 
-<!-", 180), "x");
+<!-", 180
+            ),
+            "x"
+        );
         assert_eq!(card_snippet("<!", 180), "");
         assert_eq!(card_snippet("a < b", 180), "a < b");
         assert_eq!(card_snippet("text ![cap](src", 180), "text");

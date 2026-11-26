@@ -104,7 +104,8 @@ pub fn double_click_figure(
 #[cfg(test)]
 mod tests {
     use super::{
-        HitBox, REAL_SIZE_SCALE, TextLine, double_click_figure, figure_under, fit_scale, selected_text,
+        HitBox, REAL_SIZE_SCALE, TextLine, double_click_figure, figure_under, fit_scale,
+        selected_text,
     };
     use crate::ink::clip_to_area::Point;
 
