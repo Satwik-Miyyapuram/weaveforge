@@ -156,8 +156,13 @@ test("a note open in an editor is skipped and reported, not rewritten", async ()
   // An Edit-mode editor keeps its own body and would save [[Two]] back over the rewrite.
   const release = holdOpenNotes(["one"]);
   try {
-    const saved = (await repo.update("two", { title: "Renamed" })) as { linkRewriteFailed?: string[] };
+    const saved = (await repo.update("two", { title: "Renamed" })) as {
+      linkRewriteFailed?: string[];
+      linkRewriteOpen?: { id: string; title: string }[];
+    };
     assert.deepEqual(saved.linkRewriteFailed, ["One"]);
+    // Named by id too, so the workspace can rewrite it in the editor that holds it.
+    assert.deepEqual(saved.linkRewriteOpen, [{ id: "one", title: "One" }]);
   } finally {
     release();
   }

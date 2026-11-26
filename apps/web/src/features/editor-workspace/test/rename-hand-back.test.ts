@@ -3,7 +3,7 @@ import { test } from "node:test";
 
 import type { EditorHandle } from "@/components/editor-handle";
 
-import { handBackRenamedBody } from "../application/rename-hand-back";
+import { handBackOpenLinkers, handBackRenamedBody } from "../application/rename-hand-back";
 
 /** A dirty editor: `text` is what the user sees, unsaved typing included. */
 function fakeEditor(text: string): { handle: EditorHandle; replaced: string[] } {
@@ -49,4 +49,56 @@ test("F97-P2-4: nothing is handed back when no body was rewritten", async () => 
   await handBackRenamedBody({}, null, async (body) => void stored.push(body), rewrite);
   assert.deepEqual(replaced, []);
   assert.deepEqual(stored, []);
+});
+
+test("another note open in an editor has its [[Old]] links rewritten there and is no longer reported", () => {
+  const { handle, replaced } = fakeEditor("typed [[Old]] here");
+  const left = handBackOpenLinkers(
+    { linkRewriteFailed: ["Open", "Broken"], linkRewriteOpen: [{ id: "open", title: "Open" }] },
+    (id) => (id === "open" ? handle : null),
+    rewrite,
+  );
+  assert.deepEqual(replaced, ["typed [[Renamed]] here"]);
+  assert.deepEqual(left.linkRewriteFailed, ["Broken"]);
+});
+
+test("an open linking note with no editor here (open elsewhere) stays reported", () => {
+  const left = handBackOpenLinkers(
+    { linkRewriteFailed: ["Open"], linkRewriteOpen: [{ id: "open", title: "Open" }] },
+    () => null,
+    rewrite,
+  );
+  assert.deepEqual(left.linkRewriteFailed, ["Open"]);
+});
+
+test("an open note whose editor text no longer holds the old link is left as typed", () => {
+  const { handle, replaced } = fakeEditor("link removed meanwhile");
+  const left = handBackOpenLinkers(
+    { linkRewriteFailed: ["Open"], linkRewriteOpen: [{ id: "open", title: "Open" }] },
+    () => handle,
+    rewrite,
+  );
+  assert.deepEqual(replaced, []);
+  assert.deepEqual(left.linkRewriteFailed, []);
+});
+
+test("two open notes sharing a title are cleared one report each", () => {
+  const a = fakeEditor("[[Old]]");
+  const left = handBackOpenLinkers(
+    {
+      linkRewriteFailed: ["Same", "Same"],
+      linkRewriteOpen: [
+        { id: "a", title: "Same" },
+        { id: "b", title: "Same" },
+      ],
+    },
+    (id) => (id === "a" ? a.handle : null),
+    rewrite,
+  );
+  assert.deepEqual(left.linkRewriteFailed, ["Same"]);
+});
+
+test("a rename with no open linking notes is returned as it was", () => {
+  const renamed = { linkRewriteFailed: ["Broken"] };
+  assert.equal(handBackOpenLinkers(renamed, () => null, rewrite), renamed);
 });

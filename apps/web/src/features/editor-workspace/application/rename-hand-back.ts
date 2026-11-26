@@ -24,3 +24,35 @@ export async function handBackRenamedBody(
     await store(body);
   }
 }
+
+type OpenLinkers = {
+  readonly linkRewriteFailed?: readonly string[];
+  readonly linkRewriteOpen?: readonly { readonly id: string; readonly title: string }[];
+};
+
+/**
+ * Other notes that link to the old title but are open in an editor were left
+ * out of the rename's rewrite, because their autosave would put `[[Old]]` back.
+ * The ones open here are rewritten through their editor, from its current text,
+ * and its autosave stores them. Only the notes no editor here holds stay
+ * reported in `linkRewriteFailed`.
+ */
+export function handBackOpenLinkers<T extends OpenLinkers>(
+  renamed: T,
+  editorOf: (id: string) => EditorHandle | null,
+  rewrite: (text: string) => string,
+): T {
+  const open = renamed.linkRewriteOpen ?? [];
+  if (open.length === 0) return renamed;
+  const failed = [...(renamed.linkRewriteFailed ?? [])];
+  for (const note of open) {
+    const editor = editorOf(note.id);
+    if (!editor) continue;
+    const current = editor.text();
+    const next = rewrite(current);
+    if (next !== current) editor.replaceAll(next);
+    const at = failed.indexOf(note.title);
+    if (at >= 0) failed.splice(at, 1);
+  }
+  return { ...renamed, linkRewriteFailed: failed };
+}

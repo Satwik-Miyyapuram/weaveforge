@@ -44,7 +44,7 @@ import { holdOpenNotes } from "@/features/workspace/application/parts-3";
 import type { RenamedVaultPage } from "@/features/vault/application/rename-updates-links";
 import { toastLinkRewriteFailed } from "@/features/vault/application/rename-link-toast";
 import { useInkSaveStatus } from "./use-ink-save-status";
-import { handBackRenamedBody } from "../application/rename-hand-back";
+import { handBackOpenLinkers, handBackRenamedBody } from "../application/rename-hand-back";
 import { PaneView, openTabs } from "./pane-view";
 import { QuickOpenDialog } from "./quick-open-dialog";
 import { StatusBar, saveState, type SegmentKey } from "./status-bar";
@@ -474,20 +474,21 @@ export function WorkspaceScreen() {
       } else {
         const tab = { kind: node.kind, id: node.id };
         const renamed: RenamedVaultPage = await getContainer().vault.manageVaultPage.update(node.id, { title });
-        toastLinkRewriteFailed(renamed);
         const core = readyCore();
         const oldTitle = node.title;
         const renames = new Map(oldTitle === undefined ? [] : [[core.normalizeTitleKey(oldTitle), renamed.title]]);
-        await handBackRenamedBody(
-          renamed,
-          handleFor(tab).current,
-          (body) => save(tab, body),
-          (text) => core.rewriteWikilinksOutsideCode(text, renames),
-        );
+        const rewrite = (text: string) => core.rewriteWikilinksOutsideCode(text, renames);
+        const tabs = openTabs(layout);
+        const editorOf = (id: string) => {
+          const open = tabs.find((t) => t.id === id);
+          return open ? handleFor(open).current : null;
+        };
+        toastLinkRewriteFailed(handBackOpenLinkers(renamed, editorOf, rewrite));
+        await handBackRenamedBody(renamed, handleFor(tab).current, (body) => save(tab, body), rewrite);
       }
       await reload();
     },
-    [handleFor, reload, save],
+    [handleFor, layout, reload, save],
   );
 
   const moveNode = useCallback(

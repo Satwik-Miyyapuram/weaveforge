@@ -16,6 +16,8 @@ export type RenamedVaultPage = EditedVaultPage & {
   readonly linkRewriteFailed?: readonly string[];
   /** The renamed note's body with its own `[[Old]]` links rewritten, when it is open in an editor. */
   readonly linkRewrittenBody?: string;
+  /** The other notes left out because an editor holds them; also named in `linkRewriteFailed`. */
+  readonly linkRewriteOpen?: readonly { readonly id: string; readonly title: string }[];
 };
 
 /**
@@ -41,6 +43,7 @@ export function withRenameLinkRewrite<T extends VaultPages>(pages: T): T {
     if (all.some((p) => p.id !== id && core.normalizeTitleKey(p.title) === oldKey)) return saved;
     const renames = new Map([[oldKey, saved.title]]);
     const failed: string[] = [];
+    const open: { id: string; title: string }[] = [];
     // The renamed note's own body, rewritten, when it is open in an editor.
     let handBack: string | undefined;
     for (const page of all) {
@@ -54,7 +57,10 @@ export function withRenameLinkRewrite<T extends VaultPages>(pages: T): T {
       // saved result, and the editor applies and saves it.
       if (isNoteOpen(page.id)) {
         if (page.id === id) handBack = core.rewriteWikilinksOutsideCode(saved.body, renames);
-        else failed.push(page.title);
+        else {
+          failed.push(page.title);
+          open.push({ id: page.id, title: page.title });
+        }
         continue;
       }
       try {
@@ -79,7 +85,7 @@ export function withRenameLinkRewrite<T extends VaultPages>(pages: T): T {
       message: `Renamed "${before.title}" to "${saved.title}", but ${failed.length} note(s) still link to the old title`,
       detail: failed.join("\n"),
     });
-    return { ...saved, ...handed, linkRewriteFailed: failed };
+    return { ...saved, ...handed, linkRewriteFailed: failed, ...(open.length > 0 ? { linkRewriteOpen: open } : {}) };
   };
   return Object.assign(Object.create(pages) as T, { update });
 }
