@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { getContainer } from "@/bootstrap";
+import { cacheProjectId, registerRepoCacheEntry } from "@/lib/cache/parts-1";
 import type { WikilinkResolver } from "@/components/markdown/markdown";
 import { typedCore } from "@/lib/rust-core";
 
@@ -82,9 +83,34 @@ export function paperCiteLabel(
   };
 }
 
+/**
+ * The catalog of the open project, shared by every editor and ink layer on screen:
+ * each one mounting on a Text/Ink switch would otherwise scan the whole workspace again.
+ * It sits in the repository caches, so a write to papers, notes or sections drops it.
+ */
+const sharedCatalog: Map<string, Promise<unknown>> = new Map();
+let sharedFor: unknown;
+
 /** Load note/paper/report titles for cite autocomplete and wikilink resolution. */
-export async function loadCiteLinkCatalog(): Promise<CiteLinkCatalog> {
+export function loadCiteLinkCatalog(): Promise<CiteLinkCatalog> {
   const c = getContainer();
+  if (sharedFor !== c) {
+    sharedFor = c;
+    sharedCatalog.clear();
+    for (const resourceType of ["paper", "vault_page", "report_section"] as const) {
+      registerRepoCacheEntry({ resourceType, cache: sharedCatalog, settled: new Map() });
+    }
+  }
+  const key = cacheProjectId() ?? "";
+  let catalog = sharedCatalog.get(key) as Promise<CiteLinkCatalog> | undefined;
+  if (!catalog) {
+    catalog = loadFreshCatalog(c);
+    sharedCatalog.set(key, catalog);
+  }
+  return catalog;
+}
+
+async function loadFreshCatalog(c: ReturnType<typeof getContainer>): Promise<CiteLinkCatalog> {
   const [papersData, vaultData, reportData] = await Promise.all([
     c.papers.loadScreenData().catch(() => null),
     c.vault.loadScreenData().catch(() => null),

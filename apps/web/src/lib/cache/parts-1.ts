@@ -227,6 +227,11 @@ export function setActiveProjectIdForCache(pid: () => string | null): void {
   activeProjectId = pid;
 }
 
+/** The project the caches are for: the open one. */
+export function cacheProjectId(): string | null {
+  return activeProjectId();
+}
+
 /**
  * Register a repository cache, and hand back the way to unregister it.
  *
