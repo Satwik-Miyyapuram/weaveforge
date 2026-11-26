@@ -70,3 +70,16 @@ test("an empty folder resolves nothing", async () => {
   assert.equal(await index.linkFor({ paperId: "p1" }), null);
   assert.equal(await index.resolve("not a link"), null);
 });
+
+test("a legacy ink-only .ink.md note resolves and links like a .note.md", async () => {
+  const { fs, notes, index } = await setup();
+  await fs.writeFile(`${notes}/distill.ink.md`, "---\nweaveforge-id: n-ink\nweaveforge-type: ink_page\n---\n");
+  assert.deepEqual(await index.resolve("[[distill.ink]]"), { vaultPageId: "n-ink" });
+  assert.equal(await index.linkFor({ vaultPageId: "n-ink" }), "[[distill.ink]]");
+});
+
+test("an .ink.md sharing a .note.md's id links as the .note.md", async () => {
+  const { fs, notes, index } = await setup();
+  await fs.writeFile(`${notes}/aaa.ink.md`, "---\nweaveforge-id: n3\nweaveforge-type: ink_page\n---\n");
+  assert.equal(await index.linkFor({ vaultPageId: "n3" }), "[[Ünïque.note]]");
+});

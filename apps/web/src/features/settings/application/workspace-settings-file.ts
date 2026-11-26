@@ -13,6 +13,8 @@ export const SETTINGS_VERSION = 1;
 export const SETTINGS_WRITE_DELAY_MS = 500;
 /** How often the no-folder warning repeats while an edit waits. Toasts time out, so it is re-shown. */
 const NO_FOLDER_REMINDER_MS = 30_000;
+/** How long the first no-folder warning waits for the folder restore to connect. */
+const NO_FOLDER_GRACE_MS = 10_000;
 /** Compare-and-swap attempts per flush; each re-reads and re-merges before retrying. */
 const SETTINGS_WRITE_ATTEMPTS = 3;
 /** The longest wait between retries of a refused save. */
@@ -134,6 +136,8 @@ export class WorkspaceSettingsFile {
   private warnedNoFolder = false;
   /** Repeats the no-folder warning while an edit waits; armed only with no folder open. */
   private reminder: unknown = null;
+  /** The first no-folder warning, held back while the folder restore may still connect. */
+  private grace: unknown = null;
   /** The folder the last load() read; a different one is a new workspace, so lastText is stale. */
   private boundFs: IWorkspaceFs | null = null;
 
@@ -252,6 +256,10 @@ export class WorkspaceSettingsFile {
   }
 
   private stopNoFolderReminder(): void {
+    if (this.grace !== null) {
+      this.cancel(this.grace);
+      this.grace = null;
+    }
     if (this.reminder !== null) {
       this.cancel(this.reminder);
       this.reminder = null;
@@ -270,7 +278,12 @@ export class WorkspaceSettingsFile {
     if (!this.deps.fs()) {
       if (!this.warnedNoFolder) {
         this.warnedNoFolder = true;
-        this.deps.warn("no workspace folder is open; settings edits wait in memory for the next workspace you open.");
+        // Waits out the boot restore, which connects the folder a moment after the first edits.
+        this.grace = this.reminderSchedule(() => {
+          this.grace = null;
+          if (this.deps.fs() || !this.dirty()) return;
+          this.deps.warn("no workspace folder is open; settings edits wait in memory for the next workspace you open.");
+        }, NO_FOLDER_GRACE_MS);
       }
       this.remindNoFolder();
       return;

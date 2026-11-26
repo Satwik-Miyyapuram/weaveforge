@@ -78,7 +78,11 @@ export class LinkIndex {
 
   /** Scans the folders once; use it for several lookups in one call. */
   async snapshot(): Promise<Links> {
-    return new Links([...(await this.scan("paper", ".paper.md")), ...(await this.scan("vault_page", ".note.md"))]);
+    const notes = await this.scan("vault_page", [".note.md", ".ink.md"]);
+    // A legacy `.ink.md` sharing an id with a `.note.md` is the same note: the `.note.md` holds it.
+    const held = new Set(notes.filter((e) => !e.path.endsWith(".ink")).map((e) => idOf(e.target)));
+    const kept = notes.filter((e) => !e.path.endsWith(".ink") || !held.has(idOf(e.target)));
+    return new Links([...(await this.scan("paper", [".paper.md"])), ...kept]);
   }
 
   /** One lookup; see `Links.resolve`. */
@@ -91,13 +95,13 @@ export class LinkIndex {
     return (await this.snapshot()).linkFor(target);
   }
 
-  private async scan(kind: "paper" | "vault_page", suffix: string): Promise<Entry[]> {
+  private async scan(kind: "paper" | "vault_page", suffixes: readonly string[]): Promise<Entry[]> {
     const core = readyCore();
     const dir = core.entityDir(kind, this.root());
     const out: Entry[] = [];
     if (!(await this.fs.stat(dir))) return out;
     for await (const entry of this.fs.walk(dir)) {
-      if (entry.kind !== "file" || !entry.path.endsWith(suffix)) continue;
+      if (entry.kind !== "file" || !suffixes.some((s) => entry.path.endsWith(s))) continue;
       let id: string | undefined;
       try {
         const text = await this.fs.readText(entry.path);

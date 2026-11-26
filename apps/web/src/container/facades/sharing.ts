@@ -43,6 +43,8 @@ export class SharingFacade {
       papers: IPaperRepository;
       experiments: IExperimentRepository;
       loadSharedWithMe: LoadSharedWithMeScreenUseCase;
+      /** Offline mode (no account): nothing can be shared with this copy, so no server call is made. */
+      offline?: boolean;
     },
   ) {}
 
@@ -94,6 +96,7 @@ export class SharingFacade {
   }
 
   loadSharedWithMeScreen(): Promise<LoadSharedWithMeScreenData> {
+    if (this.deps.offline) return Promise.resolve({ items: [], members: [] });
     return this.deps.loadSharedWithMe.execute();
   }
 

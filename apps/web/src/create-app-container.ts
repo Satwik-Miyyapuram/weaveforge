@@ -749,6 +749,7 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
       papers: paperRepository,
       experiments: experimentRepository,
       loadSharedWithMe: loadSharedWithMeScreen,
+      offline,
     }),
     projects: new ProjectsFacade({
       projects: backend.projectRepository,

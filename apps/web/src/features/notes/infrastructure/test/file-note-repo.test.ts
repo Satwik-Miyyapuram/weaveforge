@@ -522,3 +522,37 @@ test("save: a file changed between read and write keeps both, mine in a conflict
   const copies = (await repo.list()).filter((p) => p.id !== "n-1");
   assert.deepEqual(copies.map((p) => p.body), ["mine\n"]);
 });
+// 0.9.7 upgrade: a note that was ink only stays its legacy `.ink.md` file (type ink_page); the app must list it.
+const INK = "thesis/notes/distill.ink.md";
+const inkFile = (id: string, title: string) =>
+  `---\nweaveforge-id: ${id}\nweaveforge-type: ink_page\ntitle: ${title}\nink-pages: 2\n---\n<!-- page 2 -->\n`;
+
+test("a legacy ink-only .ink.md note is listed, opened and saved in place as ink_page", async () => {
+  const { fs, repo } = setup();
+  await fs.writeFile(INK, inkFile("n-ink", "Distill"));
+  assert.deepEqual((await repo.list()).map((p) => p.title), ["Distill"]);
+  assert.equal((await repo.getById("n-ink"))?.body, "<!-- page 2 -->\n");
+  assert.equal(await repo.pathOf("n-ink"), INK);
+  await repo.update("n-ink", { title: "Distillation" });
+  assert.deepEqual(await files(fs), [INK], "no .note.md written beside it");
+  const text = await fs.readText(INK);
+  assert.match(text, /weaveforge-type: ink_page/);
+  assert.match(text, /ink-pages: 2/);
+  assert.match(text, /title: Distillation/);
+});
+
+test("an .ink.md and a .note.md with one id list once, as the .note.md", async () => {
+  const { fs, repo } = setup();
+  await fs.writeFile(INK, inkFile("n-1", "Ink side"));
+  await fs.writeFile("thesis/notes/methods.note.md", "---\nweaveforge-id: n-1\nweaveforge-type: vault_page\ntitle: Methods\n---\nbody\n");
+  const all = await repo.list();
+  assert.deepEqual(all.map((p) => p.title), ["Methods"]);
+  assert.equal(await repo.pathOf("n-1"), "thesis/notes/methods.note.md");
+});
+
+test("other files are still ignored: a .note.md of another type and an .ink.md of no ink type", async () => {
+  const { fs, repo } = setup();
+  await fs.writeFile("thesis/notes/a.note.md", "---\nweaveforge-id: a\nweaveforge-type: ink_page\ntitle: A\n---\n");
+  await fs.writeFile("thesis/notes/b.ink.md", "---\nweaveforge-id: b\nweaveforge-type: paper\ntitle: B\n---\n");
+  assert.deepEqual(await repo.list(), []);
+});

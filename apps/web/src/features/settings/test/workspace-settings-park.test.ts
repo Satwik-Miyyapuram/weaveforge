@@ -78,16 +78,18 @@ test("a credential is never parked", async () => {
 
 test("with no workspace folder open, edits stay in memory, warn once, and close() resolves", async () => {
   const warnings: string[] = [];
+  const due: (() => void)[] = [];
   const file = new WorkspaceSettingsFile({
     fs: () => null,
     warn: (m: string) => warnings.push(m),
-    schedule: () => 0,
+    schedule: (fn: () => void) => due.push(fn),
     cancel: () => {},
   });
   await file.load();
   file.set(["ink", "toolColours"], { a: "#fff" });
   file.set(["ink", "toolColours"], { a: "#000" });
   file.set(["ui", "zoom"], 2);
+  for (const fn of due.splice(0)) fn();
   await assert.doesNotReject(file.close());
   assert.deepEqual(file.get(["ink", "toolColours"]), { a: "#000" }, "the edit is kept in memory");
   assert.equal(warnings.filter((m) => m.startsWith("no workspace folder is open")).length, 1, "warns exactly once while no folder is open");
@@ -250,4 +252,23 @@ test("park never writes a credential, even nested under a non-secret key or name
   assert.ok(parked.includes("https://sync.example"), "the non-secret sibling is still parked");
   assert.ok(!parked.includes("NESTED-SECRET-VALUE"), "a token nested inside a parked value is stripped");
   assert.ok(!parked.includes("DASH-SECRET-VALUE"), "a dashed secret key is not parked");
+});
+
+test("no warning when the folder connects before the grace ends (boot restore)", async () => {
+  const warnings: string[] = [];
+  const due: (() => void)[] = [];
+  let folder = false;
+  const fs = memoryFs(new Map(), { on: false });
+  const file = new WorkspaceSettingsFile({
+    fs: () => (folder ? (fs as unknown as IWorkspaceFs) : null),
+    warn: (m: string) => warnings.push(m),
+    schedule: (fn: () => void) => due.push(fn),
+    cancel: () => {},
+  });
+  file.set(["ui", "zoom"], 2);
+  assert.equal(warnings.length, 0, "no warning while the restore may still connect the folder");
+  folder = true;
+  await file.load();
+  for (const fn of due.splice(0)) fn();
+  assert.equal(warnings.filter((m) => m.startsWith("no workspace folder is open")).length, 0);
 });

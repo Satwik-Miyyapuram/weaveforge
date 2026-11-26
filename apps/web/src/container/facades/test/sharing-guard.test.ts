@@ -40,3 +40,11 @@ test("share-link calls reach the use case when it is wired (10-32)", async () =>
     'revoke {"ownerId":"u1","linkId":"l"}',
   ]);
 });
+
+test("offline (no account), shared-with-me is empty without a server call", async () => {
+  const f = new SharingFacade({
+    offline: true,
+    loadSharedWithMe: { execute: async () => assert.fail("offline must not load shares from the server") },
+  } as never);
+  assert.deepEqual(await f.loadSharedWithMeScreen(), { items: [], members: [] });
+});

@@ -37,6 +37,9 @@ import { moveToTrash } from "@/lib/workspace-trash";
 
 const TYPE = "vault_page";
 const SUFFIX = ".note.md";
+/** A note that was ink only before 0.9.7 stays its legacy `.ink.md` file, typed `ink_page` (see migration-097 keepLegacyInk). */
+const INK_TYPE = "ink_page";
+const INK_SUFFIX = ".ink.md";
 const PREVIEW = 200;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const DATED = /^\d{4}-\d{2}-\d{2}/;
@@ -57,7 +60,8 @@ function parse(path: string, text: string): Found | null {
   const { frontmatter, body } = core.readFrontmatter(text);
   const field = (key: string) => core.frontmatterString(frontmatter, key);
   const id = field("weaveforge-id");
-  if (!id || field("weaveforge-type") !== TYPE) return null;
+  const type = field("weaveforge-type");
+  if (!id || (type !== TYPE && !(type === INK_TYPE && path.endsWith(INK_SUFFIX)))) return null;
   const page: VaultPage = {
     id,
     title: field("title") ?? id,
@@ -116,15 +120,16 @@ export class FileNoteRepository implements IVaultPageRepository, IVaultPageManag
 
   private async readAll(): Promise<Found[]> {
     if (!(await this.fs.stat(this.dir))) return [];
-    const found: Found[] = [];
+    const byId = new Map<string, Found>();
     for await (const entry of this.fs.walk(this.dir)) {
-      if (!entry.path.endsWith(SUFFIX)) continue;
+      if (!entry.path.endsWith(SUFFIX) && !entry.path.endsWith(INK_SUFFIX)) continue;
       const parsed = parse(entry.path, await this.fs.readText(entry.path));
-      if (parsed) {
-        found.push(parsed);
-        this.loaded.set(parsed.page.id, parsed.text);
-      }
+      // An `.ink.md` and a `.note.md` with one id are one note: the `.note.md` holds it.
+      const had = byId.get(parsed?.page.id ?? "");
+      if (parsed && (!had || (had.path.endsWith(INK_SUFFIX) && parsed.path.endsWith(SUFFIX)))) byId.set(parsed.page.id, parsed);
     }
+    const found = [...byId.values()];
+    for (const f of found) this.loaded.set(f.page.id, f.text);
     return found.sort((a, b) => a.path.localeCompare(b.path));
   }
 
