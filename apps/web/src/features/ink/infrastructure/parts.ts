@@ -310,14 +310,21 @@ export class FolderInkNotes implements InkNoteLocator {
   private async scan(fs: IWorkspaceFs): Promise<void> {
     const claims = new Map<string, string[]>();
     const unpaired: string[] = [];
+    const notePaths: string[] = [];
     await walkNotes(fs, "", async (entry, kind) => {
-      if (kind === "unpaired") {
-        unpaired.push(entry.path);
-        return;
-      }
-      const id = await idOfNote(fs, entry.path);
-      if (id) claims.set(id, [...(claims.get(id) ?? []), entry.path]);
+      (kind === "unpaired" ? unpaired : notePaths).push(entry.path);
     });
+    // The walk just listed each file, so it is read without a stat, several at once: a big
+    // folder is hundreds of notes, and one call at a time made the first ink page wait seconds.
+    for (let at = 0; at < notePaths.length; at += SCAN_READS_AT_ONCE) {
+      const batch = notePaths.slice(at, at + SCAN_READS_AT_ONCE);
+      const ids = await Promise.all(batch.map((path) => idInFile(fs, path)));
+      batch.forEach((path, i) => {
+        const id = ids[i];
+        if (id) claims.set(id, [...(claims.get(id) ?? []), path]);
+      });
+    }
+    const legacyIds = await legacyInkIds(fs);
     const notes = new Map<string, string>();
     for (const [id, paths] of claims) {
       if (paths.length === 1) {
@@ -334,6 +341,7 @@ export class FolderInkNotes implements InkNoteLocator {
     this.paths.clear();
     for (const [id, path] of notes) this.paths.set(id, path);
     for (const [id, path] of notes) {
+      if (!legacyIds.has(id)) continue; // No `.ink/<id>/`: nothing to copy.
       try {
         await this.migrate(fs, id, path);
       } catch (err) {
@@ -563,12 +571,30 @@ function baseName(path: string): string {
 async function idOfNote(fs: IWorkspaceFs, path: string): Promise<string | null> {
   try {
     if (!(await fs.stat(path))) return null;
+  } catch {
+    return null;
+  }
+  return idInFile(fs, path);
+}
+
+/** The note's weaveforge-id; null when the file does not read or has none. */
+async function idInFile(fs: IWorkspaceFs, path: string): Promise<string | null> {
+  try {
     const id = typedCore().readFrontmatter(await fs.readText(path)).frontmatter["weaveforge-id"];
     return typeof id === "string" && id ? id : null;
   } catch {
     return null;
   }
 }
+
+/** Names of the folders under the old `.ink/`; empty when there is none. */
+async function legacyInkIds(fs: IWorkspaceFs): Promise<Set<string>> {
+  if (!(await fs.stat(LEGACY_INK_DIR))) return new Set();
+  return new Set((await fs.list(LEGACY_INK_DIR)).filter((entry) => entry.kind === "dir").map((entry) => baseName(entry.path)));
+}
+
+/** Note files the first scan reads at a time. */
+const SCAN_READS_AT_ONCE = 16;
 
 /**
  * Every `*.md` under `dir` (as "note"; any note can take ink), and every

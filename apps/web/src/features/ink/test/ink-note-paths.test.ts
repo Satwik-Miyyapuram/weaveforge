@@ -176,6 +176,26 @@ test("a note found once is found again by its name: one stat, no listing", async
   assert.deepEqual(calls, ["stat"]);
 });
 
+test("the first scan of a big folder stats nothing per note: cost does not grow with the note count", async () => {
+  const files: Record<string, string> = { [NOTE_PATH]: noteText(ID), [`${LEGACY}/marker`]: "x" };
+  for (let i = 0; i < 40; i++) files[`thesis--2a3407/notes/n${i}.md`] = plainNoteText(`id-${i}`);
+  const fs = await folderWith(files);
+  const calls: string[] = [];
+  const counted = new Proxy(fs, {
+    get(target, key, receiver) {
+      const value = Reflect.get(target, key, receiver);
+      if (typeof value !== "function" || String(key) !== "stat") return value;
+      return (...args: unknown[]) => {
+        calls.push(String(args[0]));
+        return value.apply(target, args);
+      };
+    },
+  });
+  const notes = new FolderInkNotes(() => counted, { report: () => {} });
+  assert.equal(await notes.pathOf(ID), NOTE_PATH);
+  assert.ok(calls.length <= 4, `stat calls: ${calls.join(", ")}`);
+});
+
 test("migration copies the old folder's pages and marker beside the note, checks them, and leaves the old folder as it was", async () => {
   const [a, b] = [typedCore().newInkChunkId(), typedCore().newInkChunkId()];
   const fs = await folderWith({
