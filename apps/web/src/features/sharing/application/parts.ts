@@ -114,6 +114,11 @@ export interface LoadSharedWithMeScreenData {
   members: Member[];
 }
 
+/** Offline mode (no account): nothing can be shared with this copy, so no server call is made. */
+export const noSharedWithMe: Pick<LoadSharedWithMeScreenUseCase, "execute"> = {
+  execute: async () => ({ items: [], members: [] }),
+};
+
 export class LoadSharedWithMeScreenUseCase {
   constructor(
     private readonly deps: {

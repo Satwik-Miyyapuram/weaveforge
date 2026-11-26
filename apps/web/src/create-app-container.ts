@@ -51,7 +51,7 @@ import { LoadPlanScreenUseCase } from "@/features/plan/application/parts";
 import { PlanFeedLinks } from "@/features/plan/infrastructure/plan-feed-links";
 import { LoadReadingListsScreenUseCase } from "@/features/reading-lists/application/parts";
 import { DuplicateSharedVaultPageUseCase } from "@/features/library/application/duplicate-shared-vault.use-case";
-import { LoadSharedWithMeScreenUseCase } from "@/features/sharing/application/parts";
+import { LoadSharedWithMeScreenUseCase, noSharedWithMe } from "@/features/sharing/application/parts";
 import {
   FILES_MODE_CRDT_TYPES,
   limitCrdtSnapshotStore,
@@ -748,8 +748,7 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
       libraryPins: backend.libraryPinRepository,
       papers: paperRepository,
       experiments: experimentRepository,
-      loadSharedWithMe: loadSharedWithMeScreen,
-      offline,
+      loadSharedWithMe: offline ? noSharedWithMe : loadSharedWithMeScreen,
     }),
     projects: new ProjectsFacade({
       projects: backend.projectRepository,

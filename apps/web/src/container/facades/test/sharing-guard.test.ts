@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
+import { noSharedWithMe } from "@/features/sharing/application/parts";
+
 import { SharingFacade } from "../sharing";
 
 const withoutLinks = () =>
@@ -42,9 +44,6 @@ test("share-link calls reach the use case when it is wired (10-32)", async () =>
 });
 
 test("offline (no account), shared-with-me is empty without a server call", async () => {
-  const f = new SharingFacade({
-    offline: true,
-    loadSharedWithMe: { execute: async () => assert.fail("offline must not load shares from the server") },
-  } as never);
+  const f = new SharingFacade({ loadSharedWithMe: noSharedWithMe } as never);
   assert.deepEqual(await f.loadSharedWithMeScreen(), { items: [], members: [] });
 });
