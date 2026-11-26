@@ -1036,7 +1036,9 @@ async fn lagged_client_gets_the_whole_doc() {
     }
     send_frame(&mut owner, update_frame(map_update("end", "y"))).await;
 
-    // Once the guest reads again, what it receives must add up to every update.
+    // Once the guest reads again, what it receives must add up to every update. A second lag
+    // inside one resync window holds its resync back to the retry tick, so "end" can arrive
+    // first: keep reading until nothing is missing (`recv` fails the test after 5 s).
     let doc = Doc::new();
     let saves = doc.get_or_insert_map("saves");
     loop {
@@ -1053,8 +1055,9 @@ async fn lagged_client_gets_the_whole_doc() {
             let missing = (0..count)
                 .filter(|i| saves.get(&txn, &format!("a{i}")).is_none())
                 .count();
-            assert_eq!(missing, 0, "the guest never got {missing} updates");
-            return;
+            if missing == 0 {
+                return;
+            }
         }
     }
 }
