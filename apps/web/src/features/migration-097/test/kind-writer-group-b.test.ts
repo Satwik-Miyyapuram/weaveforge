@@ -229,9 +229,24 @@ test("metrics: a chunk already on disk with different text is a conflict, not a 
   const writer = createGroupBWriter(sink, ROOTS);
   await writer.write("experiments", EXPERIMENT_ROW);
   await writer.write("metrics", METRIC_ROW);
+  await writer.readBack("metrics");
   const chunk = sink.paths().find((p) => p.endsWith(".csv"))!;
   await sink.write(chunk, "run,step,metric,value\nedited,0,val_loss,9\n");
-  await assert.rejects(() => writer.write("metrics", METRIC_ROW), (err: Error) => err instanceof ConflictError && err.message.startsWith("conflict:") && err.message.includes(chunk));
+  const again = createGroupBWriter(sink, ROOTS);
+  await again.write("metrics", METRIC_ROW);
+  await assert.rejects(() => again.readBack("metrics"), (err: Error) => err instanceof ConflictError && err.message.startsWith("conflict:") && err.message.includes(chunk));
+});
+
+test("metrics: one experiment's points land in one chunk, and a rerun writes nothing new", async () => {
+  const sink = new MemorySink();
+  const source = Array.from({ length: 60 }, (_, i) => ({ ...METRIC_ROW, step: i, value: i / 100 }));
+  for (const run of [1, 2]) {
+    const writer = createGroupBWriter(sink, ROOTS);
+    await writer.write("experiments", EXPERIMENT_ROW);
+    for (const p of source) await writer.write("metrics", p);
+    assert.equal((await writer.readBack("metrics")).length, 60, `run ${run}`);
+    assert.equal(sink.paths().filter((p) => p.endsWith(".csv")).length, 1, `run ${run}`);
+  }
 });
 const OWNER = { userId: "user-1", projectId: "proj-1" };
 

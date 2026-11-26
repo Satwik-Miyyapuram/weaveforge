@@ -82,6 +82,8 @@ function buildRepos(fs: ReturnType<typeof sinkAsWorkspaceFs>, projectRoot: strin
   const metrics = new FileMetricRepository(fs, root, new Map());
   // Experiments already found, so each metric point does not re-read every experiment file.
   const knownExperiments = new Set<string>();
+  // Checked points, written at readBack.
+  const pendingPoints: MetricPoint[] = [];
   const sections = new FileReportSectionRepository(fs, root);
   const proposals = new FileAiProposalStore(fs);
 
@@ -110,17 +112,18 @@ function buildRepos(fs: ReturnType<typeof sinkAsWorkspaceFs>, projectRoot: strin
           }
           knownExperiments.add(experimentId);
         }
-        await metrics.append([
-          {
-            experimentId,
-            metric: row.metric as string,
-            step: row.step as number,
-            value: row.value as number,
-            wallTime: row.wallTime as string | undefined,
-          } satisfies MetricPoint,
-        ]);
+        pendingPoints.push({
+          experimentId,
+          metric: row.metric as string,
+          step: row.step as number,
+          value: row.value as number,
+          wallTime: row.wallTime as string | undefined,
+        });
       },
       readBack: async () => {
+        // One chunk per experiment, not one file per point; a rerun builds the same chunks.
+        const batch = pendingPoints.splice(0);
+        if (batch.length > 0) await metrics.append(batch);
         const out: Row[] = [];
         for (const e of await experiments.list()) {
           for (const p of await metrics.history(e.id, undefined, { maxPoints: 0 })) {
