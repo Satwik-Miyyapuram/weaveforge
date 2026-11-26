@@ -289,7 +289,7 @@ mod tests {
     async fn serve_once(status_line: &'static str) -> Url {
         let listener = TcpListener::bind("127.0.0.1:0").await.expect("bind");
         let addr = listener.local_addr().expect("addr");
-        tokio::spawn(async move {
+        drop(tokio::spawn(async move {
             if let Ok((mut socket, _)) = listener.accept().await {
                 let mut request = [0u8; 4096];
                 let _ = socket.read(&mut request).await;
@@ -298,7 +298,7 @@ mod tests {
                 );
                 let _ = socket.write_all(response.as_bytes()).await;
             }
-        });
+        }));
         Url::parse(&format!("http://{addr}/post")).expect("url")
     }
 
