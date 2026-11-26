@@ -78,8 +78,6 @@ export function useToolbarFold(ref: RefObject<HTMLElement | null>, key?: unknown
         bar.dataset.fold = stages.join(" ");
       }, overflows);
       if (overflows()) bar.dataset.wrap = "";
-      if (foldMoves(on)) bar.dataset.moved = "";
-      else delete bar.dataset.moved;
     };
     let frame = 0;
     const schedule = () => {
