@@ -30,7 +30,7 @@ test("notes and papers land as app files at the workspace root", async () => {
   const sink = new MemorySink();
   await writeAll(sink);
   const files = await sink.list();
-  assert.ok(files.some((p) => /^notes\/reading-plan--.+\.note\.md$/.test(p)), files.join("\n"));
+  assert.ok(files.includes("notes/reading-plan.note.md"), files.join("\n"));
   assert.ok(files.includes("papers/attention-is-all-you-need.paper.md"), files.join("\n"));
   const note = await sink.readText(files.find((p) => p.startsWith("notes/reading-plan"))!);
   assert.match(note, /weaveforge-id: aaaaaaaa-0000-4000-8000-000000000001/);
