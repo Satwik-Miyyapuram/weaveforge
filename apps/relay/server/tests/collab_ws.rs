@@ -1038,11 +1038,22 @@ async fn lagged_client_gets_the_whole_doc() {
 
     // Once the guest reads again, what it receives must add up to every update. A second lag
     // inside one resync window holds its resync back to the retry tick, so "end" can arrive
-    // first: keep reading until nothing is missing (`recv` fails the test after 5 s).
+    // first: keep reading until nothing is missing. The held-back resync waits for a token,
+    // and the relay's clock stands still, so on silence move it on by one token.
     let doc = Doc::new();
     let saves = doc.get_or_insert_map("saves");
+    let mut silences = 0;
     loop {
-        let frame = next_binary(&mut guest).await;
+        let frame =
+            match tokio::time::timeout(Duration::from_millis(500), next_binary(&mut guest)).await {
+                Ok(frame) => frame,
+                Err(_) => {
+                    silences += 1;
+                    assert!(silences < 10, "the guest never got the whole doc");
+                    let _ = relay.now.fetch_add(1_000, Ordering::SeqCst);
+                    continue;
+                }
+            };
         let Some(payload) = sync_payload(&frame) else {
             continue;
         };
