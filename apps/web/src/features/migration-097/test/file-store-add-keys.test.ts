@@ -90,3 +90,31 @@ test("a file the DB version adds nothing to is left as it is and recorded as thi
   assert.equal(await read(sink, "n.md"), file);
   assert.equal(store.outputs["n.md"], await sha256Hex(file));
 });
+
+test("a guarded writeIf on a user's file the store merges into in place returns true and records the file as kept", async () => {
+  const { guardedSink } = await import("../application/file-store");
+  const sink = new MemorySink();
+  const file = "---\nweaveforge-id: a\nstatus: read\n---\nbody";
+  await sink.write("n.md", file);
+  const store = await createFileStore(sink, {});
+  const guarded = guardedSink(sink, store);
+  // Not add-keys-only against the file (it drops status), but the store keeps the file's status and adds order.
+  const db = '---\nweaveforge-id: "a"\norder: 0\n---\nbody';
+
+  assert.equal(await guarded.writeIf("n.md", db, file), true);
+  assert.equal(await read(sink, "n.md"), "---\nweaveforge-id: a\nstatus: read\norder: 0\n---\nbody");
+  assert.deepEqual(store.kept, ["n.md"]);
+  assert.deepEqual(store.conflicts, []);
+});
+
+test("a guarded writeIf the store cannot merge still throws a conflict and writes a copy", async () => {
+  const { guardedSink } = await import("../application/file-store");
+  const sink = new MemorySink();
+  const file = "---\nweaveforge-id: a\n---\nuser body";
+  await sink.write("n.md", file);
+  const store = await createFileStore(sink, {});
+  await assert.rejects(guardedSink(sink, store).writeIf("n.md", "---\nweaveforge-id: a\n---\ndb body", file), /conflict/);
+  assert.equal(await read(sink, "n.md"), file);
+  assert.deepEqual(store.kept, []);
+  assert.equal(store.conflicts.length, 1);
+});

@@ -112,3 +112,40 @@ test("verifyReasonCode: each verify error maps to a fixed code, with no path or 
     assert.ok(!verifyReasonCode(raw).includes("papers"));
   }
 });
+
+test("run: a row merged into the user's file in place is reported as kept, and readBack skips it", async () => {
+  const source = {
+    listRows: async () => [{ id: "w1", status: "to_read" }],
+    listTrashed: async () => [],
+    secretProviders: async () => [],
+    countRows: async () => 1,
+    pendingOutbox: async () => 0,
+    undecryptable: async () => 0,
+    listBlobs: async () => [],
+    fetchBlob: async () => new Uint8Array(),
+    markExported097: async () => {},
+  } as unknown as ServerSource;
+  const sink = new MemorySink();
+  const user = '---\nweaveforge-id: w1\nstatus: read\nupdated-at: "2026-11-25T00:00:00.000Z"\n---\nbody';
+  await sink.write("w1.md", user);
+  const writers = (guarded: import("../domain/ports").FileSink): KindWriter[] => [{
+    kinds: ["widgets"],
+    write: async () => {
+      const db = '---\nweaveforge-id: "w1"\nstatus: "to_read"\nupdated-at: "2026-11-20T00:00:00.000Z"\norder: 0\n---\nbody';
+      if (!(await guarded.writeIf("w1.md", db, user))) throw new Error("not written");
+    },
+    // The file keeps its own status, so it reads back differently from the DB row.
+    readBack: async () => [{ id: "w1", status: "read" }],
+  }];
+  const result = await runWebExport({ runDeviceId: "dev-test",
+    kinds: ["widgets"],
+    codec: { supports: () => false } as unknown as FileCodec,
+    writers,
+    now: "2026-11-22T00:00:00.000Z",
+    source,
+    sink,
+  });
+  assert.equal(result.run.missing.find((m) => m.kind === "widgets"), undefined);
+  assert.deepEqual(result.run.kinds.widgets?.kept, ["w1"]);
+  assert.match(new TextDecoder().decode(await sink.readBytes("w1.md")), /status: read\n.*\norder: 0\n/s);
+});

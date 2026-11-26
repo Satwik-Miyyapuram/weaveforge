@@ -66,6 +66,22 @@ export function sameRows(kind: string, want: Row[], got: Row[]): boolean {
   return a.length === b.length && a.every((w, i) => w === b[i]);
 }
 
+/**
+ * For the debug log: the id of the first `want` row with no equal row in `got`, and the keys that differ from the
+ * `got` row with the same id (null when no row has that id). Names keys only, never values.
+ */
+export function firstUnmatched(kind: string, want: Row[], got: Row[]): { id: unknown; keys: string[] | null } | null {
+  const have = new Set(got.map((r) => canon(comparable(kind, r))));
+  const row = want.find((r) => !have.has(canon(comparable(kind, r))));
+  if (!row) return null;
+  const match = got.find((r) => r.id !== undefined && r.id === row.id);
+  if (!match) return { id: row.id ?? null, keys: null };
+  const a = comparable(kind, row);
+  const b = comparable(kind, match);
+  const keys = [...new Set([...Object.keys(a), ...Object.keys(b)])].filter((k) => canon(a[k]) !== canon(b[k]));
+  return { id: row.id, keys };
+}
+
 export type VerifyInput = {
   kinds: readonly string[];
   codec: FileCodec;

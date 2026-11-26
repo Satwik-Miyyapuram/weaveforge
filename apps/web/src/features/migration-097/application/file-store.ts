@@ -24,6 +24,8 @@ export type FileStore = {
   readonly outputs: Outputs;
   /** Conflict copies this run wrote or reused. */
   readonly conflicts: string[];
+  /** User files this run merged the DB version into in place (keys added, the file's own values kept). */
+  readonly kept: string[];
   /** This device's previous run outputs, as given to createFileStore. */
   readonly prior: Outputs;
 };
@@ -35,6 +37,7 @@ export type FileStore = {
 export async function createFileStore(sink: FileSink, prior: Outputs): Promise<FileStore> {
   const outputs: Outputs = {};
   const conflicts: string[] = [];
+  const kept: string[] = [];
 
   /**
    * What is at `path` right now. Presence comes from a stat of that path, so a case-only spelling mismatch still
@@ -119,6 +122,7 @@ export async function createFileStore(sink: FileSink, prior: Outputs): Promise<F
               if (text === null || merged === null) continue;
               if (merged !== text && !(await sink.writeIf(candidate, merged, text))) continue;
               outputs[candidate] = await sha256Hex(merged);
+              kept.push(candidate);
               return candidate;
             }
             // An edit since the read above keeps its file: this version goes on to a conflict copy.
@@ -135,6 +139,7 @@ export async function createFileStore(sink: FileSink, prior: Outputs): Promise<F
     },
     outputs,
     conflicts,
+    kept,
     prior,
   };
 }
@@ -198,8 +203,9 @@ export function guardedSink(sink: FileSink, store: FileStore): FileSink {
       const known = baselines.get(path);
       const base = known ?? expected;
       if (!ours && (base === null || !addsKeysOnly(base, text))) {
-        // A refused merge is a conflict, not a plain miss: the DB text goes to a copy, the user's file is kept.
-        await storeWithCopy(path, text);
+        // The store merges what it can into the user's file in place (a kept file, not a conflict). Anything else is a
+        // conflict, not a plain miss: the DB text goes to a copy, the user's file is kept.
+        if ((await storeWithCopy(path, text)) === path) return true;
         throw new ConflictError(`conflict: ${path} changed on disk, not add-keys-only; kept the file's version`);
       }
       const ok = await sink.writeIf(path, text, expected);

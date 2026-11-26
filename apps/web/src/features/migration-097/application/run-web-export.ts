@@ -18,7 +18,7 @@ import { sanitizeBlobRefs } from "../domain/asset-path";
 
 import { toConflictCopyText } from "../domain/conflict-copy";
 import { createPaperFieldsWriter } from "../infrastructure/kind-writer-paper-fields";
-import { dirOf, sameRows, verifyExport, type Verdict } from "./verify-export";
+import { dirOf, firstUnmatched, sameRows, verifyExport, type Verdict } from "./verify-export";
 import { ID_SHAPE } from "../domain/install-id-shape";
 import { createFileStore, guardedSink, type FileStore, type Outputs } from "./file-store";
 import { tempPathFor } from "@/lib/temp-path";
@@ -276,6 +276,7 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
   const dbCount: Record<string, number> = {};
   const backCount: Record<string, number> = {};
   const conflicts: Record<string, string[]> = {};
+  const kept: Record<string, string[]> = {};
   const written: Record<string, number> = {};
   const missing: MissingRow[] = [];
   let undecryptable = 0;
@@ -412,9 +413,13 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
         trashCount[kind] = await exportTrash(kind, await source.listTrashed(kind), sink, store, codec, missing);
         const writer = writerFor(kind);
         if (writer) {
+          // Rows the store merged into a user's file in place: the file keeps its own values, so readBack skips them.
+          const keptIds = new Set<string>();
           for (const row of rows) {
             try {
+              const keptBefore = store.kept.length;
               await writer.write(kind, row);
+              if (store.kept.length > keptBefore) keptIds.add(String(row.id));
               written[kind]++;
             } catch (err) {
               const message = (err as Error).message;
@@ -430,10 +435,14 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
           }
           const back = await writer.readBack(kind);
           backCount[kind] = back.length;
+          if (keptIds.size > 0) kept[kind] = [...keptIds];
+          const notKept = (list: Row[]) => list.filter((r) => !keptIds.has(String(r.id)));
           if (kind === "paperFields") {
             // Defs are compared per project, so a project that did not survive is named by its id.
             missing.push(...projectDefsMismatches(rows, back));
-          } else if (!sameRows(kind, rows, back)) {
+          } else if (!sameRows(kind, notKept(rows), notKept(back))) {
+            const diff = firstUnmatched(kind, notKept(rows), notKept(back));
+            debugLog?.(`readback ${kind}: ${rows.length} rows, ${back.length} back; first unmatched ${JSON.stringify(diff)}`);
             missing.push({ kind, id: "*", reason: "readback-differs" });
           }
           continue;
@@ -529,9 +538,9 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
 
   // Orphans: what this device's previous run wrote and this run did not. They stay on disk untouched and do
   // not block verify. They stay in outputs, so later runs still see them as this device's files.
-  const kept = Object.entries(prior).filter(([path]) => store.outputs[path] === undefined);
-  const orphans = kept.map(([path]) => path);
-  const outputs: Outputs = { ...Object.fromEntries(kept), ...store.outputs };
+  const leftOver = Object.entries(prior).filter(([path]) => store.outputs[path] === undefined);
+  const orphans = leftOver.map(([path]) => path);
+  const outputs: Outputs = { ...Object.fromEntries(leftOver), ...store.outputs };
 
   // Writer kinds are compared by readBack above; verify decodes the raw codec files only.
   const codecKinds = kinds.filter((k) => !writerFor(k));
@@ -564,6 +573,7 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
       files: isWriter ? (backCount[kind] ?? 0) : (verdict.kinds[kind]?.files ?? 0),
       written: written[kind] ?? 0,
       conflicts: conflicts[kind] ?? [],
+      ...(kept[kind] && { kept: kept[kind] }),
       trash: trashCount[kind] ?? 0,
     };
   }

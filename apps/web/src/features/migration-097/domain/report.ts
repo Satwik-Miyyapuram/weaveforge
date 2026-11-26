@@ -50,7 +50,8 @@ export type MigrationState = "verified" | "incomplete" | "none";
 /** Where the export landed: the browser OPFS repos, or a desktop folder. */
 export type MigrationTarget = "opfs" | "folder";
 
-export type KindCount = { db: number; files: number; written: number; conflicts: string[]; trash: number };
+/** `kept`: ids merged into the user's own file in place (the DB's added keys written, the file's values kept). */
+export type KindCount = { db: number; files: number; written: number; conflicts: string[]; kept?: string[]; trash: number };
 
 /** `value` is set only on a conflict: the DB value the file kept out, so the report loses no data. */
 export type MissingRow = { kind: string; id: string; reason: string; value?: unknown };

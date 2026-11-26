@@ -74,3 +74,22 @@ test("a file saved after the DB row keeps its own values; an older or undated fi
   assert.equal(mergeAddedKeys(file.replace("updated-at", "x"), db), null);
   assert.equal(mergeAddedKeys(file, db.replace("---\nb", "---\nb!")), null);
 });
+
+/** The 0.9.7 copy-data ink notes: the file has legacy ink (a sidecar), the DB version adds the ink header and page markers. */
+test("a DB version that only adds ink to the body takes its body and later updated-at, keeping the file's keys", () => {
+  const file = '---\nweaveforge-id: a\nupdated-at: "2026-11-20T00:00:00.000Z"\n---\ntext\n';
+  const ink = "<!-- weaveforge-ink ink-pages=1 ink-page-order=p1 -->";
+  const db = `---\nweaveforge-id: "a"\nupdated-at: "2026-11-21T00:00:00.000Z"\norder: 0\n---\n${ink}\ntext\n\n<!-- page 1 -->\n`;
+  assert.equal(
+    mergeAddedKeys(file, db),
+    `---\nweaveforge-id: a\nupdated-at: "2026-11-21T00:00:00.000Z"\norder: 0\n---\n${ink}\ntext\n\n<!-- page 1 -->\n`,
+  );
+  // A newer file keeps its own updated-at; the ink still lands.
+  const newer = file.replace("11-20", "11-25");
+  assert.equal(mergeAddedKeys(newer, db), `---\nweaveforge-id: a\nupdated-at: "2026-11-25T00:00:00.000Z"\norder: 0\n---\n${ink}\ntext\n\n<!-- page 1 -->\n`);
+  // Ink plus a text edit, or a file that already has an ink header, is not an ink-only add.
+  assert.equal(mergeAddedKeys(file, db.replace("text", "text!")), null);
+  assert.equal(mergeAddedKeys(`---\nweaveforge-id: a\n---\n${ink}\ntext\n`, db), null);
+  // Other changed keys still refuse.
+  assert.equal(mergeAddedKeys(file.replace("---\ntext", "status: read\n---\ntext"), db.replace("order: 0", "status: to_read")), null);
+});
