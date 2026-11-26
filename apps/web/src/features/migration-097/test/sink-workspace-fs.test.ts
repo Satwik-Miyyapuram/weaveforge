@@ -101,7 +101,7 @@ test("an entity save whose text lands in a conflict copy throws ConflictError, s
   assert.equal(await sink.readText(conflictCopyPath("notes/x.md", 1)), "new");
 });
 
-test("an entity save whose file changes again right after the write reports false, not a conflict copy", async () => {
+test("an entity save whose file changes again right after the write throws ConflictError, so the repo saves no copy note", async () => {
   const sink = new MemorySink();
   await sink.write("notes/x.md", "old");
   const racing = Object.create(sink) as MemorySink;
@@ -110,8 +110,9 @@ test("an entity save whose file changes again right after the write reports fals
     await sink.write(path, "user edit");
   };
   const fs = sinkAsWorkspaceFs(racing);
-  assert.equal(await fs.writeTextIf!("notes/x.md", "new", "old"), false);
+  await assert.rejects(fs.writeTextIf!("notes/x.md", "new", "old"), (err) => err instanceof ConflictError);
   assert.equal(await sink.readText("notes/x.md"), "user edit");
+  assert.deepEqual((await sink.list()).filter((p) => p.startsWith("notes/")), ["notes/x.md"]);
 });
 /** A MemorySink with a sized listing, counting the calls that scan or read every file. */
 class ListingSink extends MemorySink {

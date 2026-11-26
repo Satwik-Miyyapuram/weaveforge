@@ -99,12 +99,13 @@ export function sinkAsWorkspaceFs(
       // Entity saves: the file must still read `expected`. The new text then goes through the sink's write, so a
       // differing user edit is kept and the DB version lands in a conflict copy. A save that became a conflict copy
       // (the file still reads `expected`) throws ConflictError, so the run lists it as a conflict and not as a write
-      // failure. A file that changed again mid-call reports false, so the repo re-reads it.
+      // failure. A file the store merged in place (it reads neither) throws too: reporting false would make the repo
+      // retry and then save its own copy note under a new id.
       if ((await sink.readText(clean).catch(() => null)) !== expected) return false;
       await sink.write(clean, text);
       const after = await sink.readText(clean).catch(() => null);
       if (after === text) return true;
-      if (after !== expected) return false;
+      if (after !== expected) throw new ConflictError(`conflict: ${clean} was merged in place; kept the file's version`);
       throw new ConflictError(`conflict: ${clean} differs; kept the file's version, the DB version is in a conflict copy`);
     },
 

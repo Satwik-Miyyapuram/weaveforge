@@ -147,3 +147,18 @@ test("a user's edit to an exported comment sidecar is kept; the run is not verif
   assert.notEqual(again.state, "verified");
   assert.equal(await sink.readText(sidecar), edited);
 });
+
+test("a user's note the run merges into in place (same body, own quoting, a DB key missing) gets no duplicate copy note", async () => {
+  const first = new MemorySink();
+  assert.equal((await exportRun(first, true)).state, "verified");
+  const path = (await first.list()).find((p) => p.startsWith("notes/reading-plan") && p.endsWith(".note.md"))!;
+  // The user's own file from before the run: unquoted title and no order key; the body is the DB's.
+  const own = (await first.readText(path)).replace(/^title: .*$/m, "title: Reading plan").replace(/^order: .*\n/m, "");
+  const sink = new MemorySink();
+  await sink.write(path, own);
+  const result = await exportRun(sink, true);
+  const notes = (await sink.list()).filter((p) => p.startsWith("notes/") && p.endsWith(".note.md"));
+  assert.equal(notes.filter((p) => p.startsWith("notes/reading-plan")).length, 1, `no copy note: ${notes.join(", ")}`);
+  assert.deepEqual(result.run.kinds.notes?.kept, [NOTE_ROW.id]);
+  assert.deepEqual(result.run.missing?.filter((m) => m.kind === "notes"), []);
+});
