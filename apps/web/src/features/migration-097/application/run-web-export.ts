@@ -364,7 +364,7 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
 
   const store = await createFileStore(sink, prior);
   const codecDirs = new Set<string>();
-  // A file the workspace already holds under the row's id (in the folder the codec writes to) takes the row,
+  // A file the workspace already holds under the row's id (in the folder the codec writes to, or a subfolder of it) takes the row,
   // whatever its name: a second `slug--id` file would give files mode two files with one id.
   const idPaths = new Map<string, Map<string, string>>();
   const existingPathFor = async (kind: string, path: string, id: string): Promise<string> => {
@@ -375,7 +375,8 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
       byId = new Map();
       idPaths.set(key, byId);
       for (const file of await sink.list()) {
-        if (dirOf(file) !== dir || conflictBasePath(file) !== null) continue;
+        const inDir = dir === "" || dirOf(file) === dir || file.startsWith(`${dir}/`);
+        if (!inDir || conflictBasePath(file) !== null) continue;
         try {
           const found = codec.toRow(kind, file, await sink.readText(file));
           if (found && !byId.has(String(found.id))) byId.set(String(found.id), file);
@@ -465,7 +466,9 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
             onProgress?.({ kind, done: written[kind] ?? 0, total: rows.length });
           }
           const back = await writer.readBack(kind);
-          backCount[kind] = back.length;
+          const keptIn = writer.keptIn?.(kind) ?? [];
+          for (const id of keptIn) keptIds.add(id);
+          backCount[kind] = back.length + keptIn.length;
           if (keptIds.size > 0) kept[kind] = [...keptIds];
           const notKept = (list: Row[]) => list.filter((r) => !keptIds.has(String(r.id)));
           if (kind === "paperFields") {

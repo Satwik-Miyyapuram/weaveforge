@@ -155,7 +155,7 @@ export function createGroupAWriter(sink: FileSink, codec?: FileCodec): KindWrite
     if (!found) {
       const kind = CODEC_KIND_OF[resourceType];
       if (resourceType === "paper") found = papers.pathOf(resourceId);
-      else if (resourceType === "vault_page") found = notes.pathOf(resourceId);
+      else if (resourceType === "vault_page") found = notes.pathOf(resourceId).then(async (at) => at ?? (await legacyInkOf(resourceId)));
       else found = kind ? codecFileOf(kind, resourceId) : Promise.resolve(null);
       itemFiles.set(key, found);
     }
@@ -184,6 +184,41 @@ export function createGroupAWriter(sink: FileSink, codec?: FileCodec): KindWrite
     sidecars.set(path, item);
   };
 
+  /**
+   * Note id -> the legacy ink page (`notes/<name>.ink.md`) holding it, built on first use. The app opens that
+   * file as the note with its strokes; a second `.note.md` with the id would close them (FolderInkNotes).
+   */
+  let legacyInk: Map<string, string> | null = null;
+  const legacyInkOf = async (id: string): Promise<string | null> => {
+    if (!legacyInk) {
+      const found = new Map<string, string>();
+      for (const path of await sink.list()) {
+        if (!path.startsWith("notes/") || !path.endsWith(".ink.md")) continue;
+        const fm = typedCore().readFrontmatter(await sink.readText(path)).frontmatter;
+        const fileId = fm["weaveforge-id"];
+        if (typeof fileId === "string" && !found.has(fileId)) found.set(fileId, path);
+      }
+      legacyInk = found;
+    }
+    return legacyInk.get(id) ?? null;
+  };
+  const keptInk = new Set<string>();
+  /**
+   * Keeps the legacy ink page as the row's note when it is as new as the row or holds the row's text (the
+   * header aside). A newer row with other text is a conflict: the page stays, the row is in the archive.
+   */
+  const keepLegacyInk = async (row: Row, path: string): Promise<void> => {
+    const core = typedCore();
+    const doc = core.readFrontmatter(await sink.readText(path));
+    const fileAt = Date.parse(String(doc.frontmatter["updated-at"] ?? ""));
+    const rowText = core.readInkNoteBody(typeof row.body === "string" ? row.body : "").text;
+    const same = lf(rowText).trim() === lf(core.readInkNoteBody(doc.body).text).trim();
+    if (!same && !(fileAt >= Date.parse(String(row.updatedAt)))) {
+      throw new ConflictError(`${path}: note ${String(row.id)} is newer in the DB with other text; the ink page is kept.`);
+    }
+    keptInk.add(String(row.id));
+  };
+
   /** Canvas file -> its row. A canvas page is its JSON Canvas body in `notes/<title>.canvas`, as the app saves one. */
   const canvases = new Map<string, Row>();
   const writeCanvas = async (row: Row): Promise<void> => {
@@ -203,6 +238,8 @@ export function createGroupAWriter(sink: FileSink, codec?: FileCodec): KindWrite
     write: async (kind, row) => {
       checkKind(kind);
       if (kind !== "comments") itemFiles.clear();
+      const legacy = kind === "notes" && row.kind !== "canvas" ? await legacyInkOf(String(row.id)) : null;
+      if (legacy) return keepLegacyInk(row, legacy);
       // Recorded before the save: a save that throws on a kept user file leaves that file holding the id, and
       // readBack only counts ids it finds in files, so a failed save adds nothing.
       written[kind]!.add(String(row.id));
@@ -230,5 +267,10 @@ export function createGroupAWriter(sink: FileSink, codec?: FileCodec): KindWrite
       }
       return out;
     },
+    keptIn: (kind) => (kind === "notes" ? [...keptInk] : []),
   };
+}
+
+function lf(text: string): string {
+  return text.replace(/\r\n?/g, "\n");
 }

@@ -77,6 +77,22 @@ for (const c of CASES) {
   });
 }
 
+test("readingLists: a user's file in a subfolder of the lists folder takes the row; no second file", async () => {
+  const c = CASES[0];
+  const row = toCamelRow(c.row);
+  const dir = dirOf(codec.toFile(c.kind, row).path);
+  const existing = dir ? `${dir}/distillation/${c.name}` : `distillation/${c.name}`;
+  const sink = new MemorySink();
+  await sink.write(existing, c.text);
+
+  const result = await runWebExport({ kinds: [c.kind], codec, source: server(c.kind, row), sink, now: "2026-11-26T00:00:00.000Z", runDeviceId: "dev-alpha" });
+
+  assert.deepEqual(result.run.missing, []);
+  const rowFiles = (await sink.list()).filter((p) => !p.startsWith(".weaveforge/") && p.endsWith(".list.md"));
+  assert.deepEqual(rowFiles, [existing], "the user's file is the row's only file");
+  assert.match(await sink.readText(existing), /order: 0/, "the DB's order lands in the user's file");
+});
+
 test("papers: a paper kept in the user's differing file still counts in files, so db equals files", async () => {
   const run = (s: MemorySink) =>
     runWebExport({ kinds: ["papers"], codec, source: server("papers", PAPER_ROW), sink: s, now: "2026-11-26T00:00:00.000Z", runDeviceId: "dev-alpha", writers: (g) => [createGroupAWriter(g)] });

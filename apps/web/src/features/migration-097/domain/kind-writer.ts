@@ -14,4 +14,6 @@ export interface KindWriter {
   readBack(kind: string): Promise<Row[]>;
   /** Rows kept only in the archive because their files-first write failed (archive writers only). */
   archivedOnly?(): ArchivedOnly[];
+  /** Ids of `kind` rows kept in a user file the writer neither writes nor reads back (a legacy ink page). */
+  keptIn?(kind: string): readonly string[];
 }
