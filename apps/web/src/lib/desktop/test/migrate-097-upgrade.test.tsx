@@ -235,7 +235,7 @@ test("verified and stopped views count rows kept in the archive only per kind an
         archivedOnly={archivedOnly}
       />,
     );
-    assert.match(html, /Kept in the archive only: 2 tags, 1 settings\. The list is in the report in /, phase);
+    assert.match(html, /Not moved to files, saved only in the upgrade&#x27;s own backup copy: 2 tags, 1 settings\. The list is in the report in /, phase);
     assert.match(html, /migration-0\.9\.7<\/code>/, phase);
     assert.doesNotMatch(html, /t2|t3|u1/, `${phase}: no row ids on screen`);
   }

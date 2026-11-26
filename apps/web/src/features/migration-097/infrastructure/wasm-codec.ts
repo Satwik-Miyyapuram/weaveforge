@@ -35,5 +35,10 @@ export function wasmFileCodec(core: EntityCore, projectRoot: string | ((kind: st
       if (!entity) return null;
       return core.entityRowFromFile(entity, text) ?? null;
     },
+    toFileOver(kind, existing, row) {
+      const entity = ENTITY_KIND[kind];
+      if (!entity) throw new Error(`no wf-wasm codec for ${kind}`);
+      return core.entityFileFromRow(entity, existing, row);
+    },
   };
 }

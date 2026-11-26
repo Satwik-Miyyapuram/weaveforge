@@ -93,3 +93,28 @@ test("a DB version that only adds ink to the body takes its body and later updat
   // Other changed keys still refuse.
   assert.equal(mergeAddedKeys(file.replace("---\ntext", "status: read\n---\ntext"), db.replace("order: 0", "status: to_read")), null);
 });
+
+/** The 0.9.7 copy-data paper: the app wrote a list quoting only the names that need it. */
+test("a list mixing quoted and bare items is the same list fully quoted; a changed item is still a change", () => {
+  const file = '---\nauthors: [Parikh, "Täckström", Das, Uszkoreit]\n---\nb';
+  assert.ok(addsKeysOnly(file, '---\nauthors: ["Parikh","Täckström","Das","Uszkoreit"]\n---\nb'));
+  assert.ok(addsKeysOnly('---\nt: ["a, b", c]\n---\nb', '---\nt: ["a, b","c"]\n---\nb'), "a comma inside quotes stays in its item");
+  assert.ok(!addsKeysOnly(file, '---\nauthors: ["Parikh","Tackstrom","Das","Uszkoreit"]\n---\nb'));
+  assert.ok(!addsKeysOnly(file, '---\nauthors: ["Parikh","Täckström","Das"]\n---\nb'));
+});
+
+test("trailing blank lines are not a body change", () => {
+  assert.ok(addsKeysOnly("---\na: 1\n---\n[[X]] \n", "---\na: 1\n---\n[[X]] \n\n"));
+  assert.equal(mergeAddedKeys("---\na: 1\n---\n[[X]] \n", "---\na: 1\nb: 2\n---\n[[X]] \n\n"), "---\na: 1\nb: 2\n---\n[[X]] \n");
+  assert.ok(!addsKeysOnly("---\na: 1\n---\nx\n\ny", "---\na: 1\n---\nx\ny"), "blank lines inside the body still count");
+});
+
+/** The 0.9.7 copy-data note: the file links its image by relative path, the DB row by the `vault:` scheme. */
+test("an image linked as vault:X and as a relative assets/notes/X path is the same body", () => {
+  const rel = "---\na: 1\n---\nxx![red|30%](../../assets/notes/u/n/i.webp)tail";
+  const vault = "---\na: 1\n---\nxx![red|30%](vault:u/n/i.webp)tail";
+  assert.ok(addsKeysOnly(rel, vault));
+  assert.equal(mergeAddedKeys(rel, vault.replace("a: 1", "a: 1\norder: 0")), rel.replace("a: 1", "a: 1\norder: 0"));
+  assert.ok(!addsKeysOnly(rel, vault.replace("i.webp", "j.webp")));
+  assert.ok(!addsKeysOnly("---\na: 1\n---\n![x](../../other/u/n/i.webp)", vault), "only the assets/notes folder is the vault");
+});

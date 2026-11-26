@@ -133,7 +133,7 @@ export function Migrate097UpgradeBody({
   const archiveLine =
     archivedOnly.length > 0 ? (
       <p>
-        {`Kept in the archive only: ${[...archiveCounts].map(([kind, n]) => `${n} ${kind}`).join(", ")}. The list is in the report in `}
+        {`Not moved to files, saved only in the upgrade's own backup copy: ${[...archiveCounts].map(([kind, n]) => `${n} ${kind}`).join(", ")}. The list is in the report in `}
         <code style={{ userSelect: "text", WebkitUserSelect: "text" }}>{reportFolder}</code>.
       </p>
     ) : null;

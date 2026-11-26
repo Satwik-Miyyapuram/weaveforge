@@ -17,9 +17,17 @@ export type FileStore = {
    * Writes the DB version at `path`. Returns the path it now holds: `path` itself, or a conflict copy when
    * a differing file already sits there. A file never gets overwritten unless this device's previous run
    * wrote it and it is unchanged since. Identical content is left alone. A conflict copy gets `copy` when
-   * given (the copy form of the row, e.g. `conflictOf` instead of `id`), else the same `data`.
+   * given (the copy form of the row, e.g. `conflictOf` instead of `id`), else the same `data`. When the text
+   * merge cannot take a user's file, `resolve` may give the file with the DB version written over it, losing
+   * nothing; null keeps the file and writes a conflict copy.
    */
-  store(path: string, data: string | Uint8Array, hash: string, copy?: { data: string; hash: string }): Promise<string>;
+  store(
+    path: string,
+    data: string | Uint8Array,
+    hash: string,
+    copy?: { data: string; hash: string },
+    resolve?: (fileText: string) => string | null,
+  ): Promise<string>;
   /** Copies written, reused or kept this run. */
   readonly outputs: Outputs;
   /** Conflict copies this run wrote or reused. */
@@ -97,7 +105,7 @@ export async function createFileStore(sink: FileSink, prior: Outputs): Promise<F
   };
 
   return {
-    async store(path, data, hash, copy) {
+    async store(path, data, hash, copy, resolve) {
       // Candidate 0 is the path itself; candidate n (n >= 1) is its nth conflict copy.
       for (let n = 0; n < MAX_CANDIDATES; n++) {
         const candidate = n === 0 ? path : conflictCopyPath(path, n);
@@ -118,7 +126,7 @@ export async function createFileStore(sink: FileSink, prior: Outputs): Promise<F
             // (same body, same values) takes only the keys the DB adds; its own lines stay. Anything else is kept.
             if (prior[candidate] !== current) {
               const text = n === 0 && typeof data === "string" ? exactUtf8(state.bytes) : null;
-              const merged = text === null ? null : mergeAddedKeys(text, data as string);
+              const merged = text === null ? null : (mergeAddedKeys(text, data as string) ?? resolve?.(text) ?? null);
               if (text === null || merged === null) continue;
               if (merged !== text && !(await sink.writeIf(candidate, merged, text))) continue;
               outputs[candidate] = await sha256Hex(merged);

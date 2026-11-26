@@ -52,6 +52,34 @@ function plainItem(text: string): unknown {
   }
 }
 
+/** The items of a flow list's inside, split on commas outside double quotes: `a, "b, c"` is `a` and `"b, c"`. */
+function listItems(inner: string): string[] {
+  const items: string[] = [];
+  let item = "";
+  let quoted = false;
+  for (let i = 0; i < inner.length; i += 1) {
+    const ch = inner[i]!;
+    if (quoted && ch === "\\") {
+      item += ch + (inner[i + 1] ?? "");
+      i += 1;
+      continue;
+    }
+    if (ch === '"') quoted = !quoted;
+    if (ch === "," && !quoted) {
+      items.push(item);
+      item = "";
+    } else item += ch;
+  }
+  items.push(item);
+  return items;
+}
+
+/** True when two note bodies are the same: trailing newlines aside, and an image linked as `vault:X` or `../assets/notes/X`. */
+function sameBody(a: string, b: string): boolean {
+  const plain = (body: string) => body.replace(/\((?:\.\.\/)+assets\/notes\//g, "(vault:").replace(/\n+$/, "");
+  return plain(a) === plain(b);
+}
+
 /**
  * A single-line key block read as its value, so quoting and list spacing are not changes: `a: x`, `a: "x"`, and
  * `t: [x, y]`, `t: ["x", "y"]`, `t: ["x","y"]` compare equal. A multi-line block stays its exact text.
@@ -65,7 +93,7 @@ function plainBlock(block: string): string {
     value = JSON.parse(raw);
   } catch {
     const list = /^\[(.*)\]$/.exec(raw);
-    if (list && !/["']/.test(list[1] ?? "")) value = (list[1] ?? "").trim() === "" ? [] : (list[1] ?? "").split(",").map(plainItem);
+    if (list && !/'/.test(list[1] ?? "")) value = (list[1] ?? "").trim() === "" ? [] : listItems(list[1] ?? "").map(plainItem);
     else value = plainItem(raw);
   }
   const key = m[1] ?? "";
@@ -106,7 +134,7 @@ export function addsKeysOnly(prev: string, next: string): boolean {
   }
   const before = splitNote(prev);
   const after = splitNote(next);
-  if (!before || !after || before.body.replace(/\n$/, "") !== after.body.replace(/\n$/, "")) return false;
+  if (!before || !after || !sameBody(before.body, after.body)) return false;
   const oldKeys = keyBlocks(before.front);
   const newKeys = keyBlocks(after.front);
   if (!oldKeys || !newKeys) return false;
@@ -157,7 +185,7 @@ export function mergeAddedKeys(prev: string, next: string): string | null {
   const after = splitNote(next);
   if (!before || !after) return null;
   const inkAdded = addsInkOnly(before.body, after.body);
-  if (!inkAdded && before.body.replace(/\n$/, "") !== after.body.replace(/\n$/, "")) return null;
+  if (!inkAdded && !sameBody(before.body, after.body)) return null;
   const oldKeys = keyBlocks(before.front);
   const newKeys = keyBlocks(after.front);
   if (!oldKeys || !newKeys) return null;

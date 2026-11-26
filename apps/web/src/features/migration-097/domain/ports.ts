@@ -29,6 +29,8 @@ export interface FileCodec {
   toFile(kind: string, row: Row): { path: string; text: string };
   /** Returns null when the file is not an entity of this kind. */
   toRow(kind: string, path: string, text: string): Row | null;
+  /** The file `existing` with `row` written over it: keys the kind does not own stay in place. */
+  toFileOver?(kind: string, existing: string, row: Row): string;
 }
 
 /** Folder-shaped target. The OPFS backend implements the same shape. */

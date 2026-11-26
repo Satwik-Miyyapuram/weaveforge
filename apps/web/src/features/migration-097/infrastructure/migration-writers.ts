@@ -295,6 +295,7 @@ function routedGroupA(sink: FileSink, codec: FileCodec, router: ProjectRouter): 
       return rows;
     },
     ...(root.archivedOnly && { archivedOnly: () => [...writers.values()].flatMap((w) => w.archivedOnly?.() ?? []) }),
+    ...(root.keptIn && { keptIn: (kind: string) => [...writers.values()].flatMap((w) => w.keptIn?.(kind) ?? []) }),
   };
 }
 

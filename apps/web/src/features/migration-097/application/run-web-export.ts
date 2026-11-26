@@ -17,6 +17,7 @@ import { PAPER_FIELD_KINDS, projectDefsMismatches } from "../domain/paper-fields
 import { sanitizeBlobRefs } from "../domain/asset-path";
 
 import { toConflictCopyText } from "../domain/conflict-copy";
+import { codecResolver } from "../domain/codec-resolve";
 import { conflictBasePath } from "../domain/conflict-path";
 import { createPaperFieldsWriter } from "../infrastructure/kind-writer-paper-fields";
 import { dirOf, firstUnmatched, sameRows, verifyExport, type Verdict } from "./verify-export";
@@ -499,7 +500,13 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
             // A conflict copy of this row holds the same data under conflictOf, never a second id.
             const copyText = toConflictCopyText(file.text, String(row.id));
             codecDirs.add(dirOf(path));
-            await store.store(path, file.text, await sha256Hex(file.text), { data: copyText, hash: await sha256Hex(copyText) });
+            await store.store(
+              path,
+              file.text,
+              await sha256Hex(file.text),
+              { data: copyText, hash: await sha256Hex(copyText) },
+              codecResolver(codec, kind, path, row),
+            );
             written[kind]++;
           } catch (err) {
             debugLog?.(`codec ${kind} ${String(row.id)}: ${(err as Error).message}`);
