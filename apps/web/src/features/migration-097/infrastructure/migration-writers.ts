@@ -80,19 +80,18 @@ function delegate(pick: (home: Home) => KindWriter, kind: string, at?: (row: Row
 
 /** Tags: the file keys a tag by its normalized name; readBack answers with the DB id and name. */
 function tagFormat(): KindFormat {
-  const byName = new Map<string, Row>();
+  const byName = new Map<string, Row[]>();
   const keyOf = (name: unknown) => readyCore().normalizeTags([String(name)])[0];
   return {
     write: (home, row) => {
       const key = keyOf(row.name);
-      if (key !== undefined) byName.set(key, row);
+      if (key !== undefined) byName.set(key, [...(byName.get(key) ?? []).filter((r) => r.id !== row.id), row]);
       return home.tags.write("tags", row);
     },
     readBack: async (home) =>
-      (await home.tags.readBack("tags")).flatMap((t) => {
-        const db = byName.get(String(t.id));
-        return db ? [{ id: db.id, name: db.name, color: t.color ?? null }] : [];
-      }),
+      (await home.tags.readBack("tags")).flatMap((t) =>
+        (byName.get(String(t.id)) ?? []).map((db) => ({ id: db.id, name: db.name, color: t.color ?? null })),
+      ),
   };
 }
 const atRoot = (row: Row): Row => ({ ...row, projectId: "" });

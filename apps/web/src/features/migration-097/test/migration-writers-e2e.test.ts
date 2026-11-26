@@ -127,3 +127,14 @@ test("rows with a files-first home are written there too", async () => {
   const settings = JSON.parse(await sink.readText(".weaveforge/settings.json")) as Record<string, unknown>;
   assert.ok(JSON.stringify(settings.tags).includes("#ff0000"));
 });
+
+test("tags with one name in two projects both read back and verify", async () => {
+  const saved = ROWS.tags ?? [];
+  ROWS.tags = [...saved, { id: "t2", userId: USER, projectId: "proj-a", name: "ml", color: "#ff0000" }];
+  try {
+    const result = await exportRun(new MemorySink());
+    assert.equal(result.state, "verified", JSON.stringify(result.run.missing));
+  } finally {
+    ROWS.tags = saved;
+  }
+});
