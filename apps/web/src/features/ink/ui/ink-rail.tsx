@@ -121,22 +121,30 @@ export function InkRail(props: InkRailProps) {
     const scroller = scrollRef.current;
     const layer = layerRef.current;
     if (!scroller || !layer) return;
-    // The slot, not the layer's own copy of the live page: the layer is a
-    // sibling of the slots, so `:scope >` skips it.
-    const slot = scroller.querySelector<HTMLElement>(
-      `:scope > .ink-page[data-page="${pageIndex}"]`,
-    );
-    if (!slot) return;
-    layer.style.setProperty("--ink-slot-top", `${slot.offsetTop}px`);
-    // The layer's box is the slots': measured with the layer out of the
-    // sum, or it would feed its own size back into the next measure. Width
-    // too, so a zoomed sheet wider than the pane keeps the canvas docked
-    // through a horizontal scroll.
-    layer.style.width = "0px";
-    layer.style.height = "0px";
-    const { scrollWidth, scrollHeight } = scroller;
-    layer.style.width = `${scrollWidth}px`;
-    layer.style.height = `${scrollHeight}px`;
+    const measure = () => {
+      // The slot, not the layer's own copy of the live page: the layer is a
+      // sibling of the slots, so `:scope >` skips it.
+      const slot = scroller.querySelector<HTMLElement>(
+        `:scope > .ink-page[data-page="${pageIndex}"]`,
+      );
+      if (!slot) return;
+      layer.style.setProperty("--ink-slot-top", `${slot.offsetTop}px`);
+      // The layer's box is the slots': measured with the layer out of the
+      // sum, or it would feed its own size back into the next measure. Width
+      // too, so a zoomed sheet wider than the pane keeps the canvas docked
+      // through a horizontal scroll.
+      layer.style.width = "0px";
+      layer.style.height = "0px";
+      const { scrollWidth, scrollHeight } = scroller;
+      layer.style.width = `${scrollWidth}px`;
+      layer.style.height = `${scrollHeight}px`;
+    };
+    measure();
+    // The page is capped at real size, so a wider pane (Focus) changes no
+    // prop here: the scroller's own resize re-centres the layer with the slots.
+    const observer = new ResizeObserver(measure);
+    observer.observe(scroller);
+    return () => observer.disconnect();
   }, [pageIndex, scrollRef, total, pageSize.width, pageSize.height, scale, pageGap]);
 
   const pureTextList = useMemo(

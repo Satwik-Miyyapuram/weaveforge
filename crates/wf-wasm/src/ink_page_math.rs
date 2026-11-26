@@ -13,7 +13,7 @@ fn skip_index(skip: Option<u32>) -> Option<usize> {
     skip.and_then(|value| usize::try_from(value).ok())
 }
 
-/// [`fit_scale`](page_math::fit_scale): CSS pixels per 0.1 mm unit, `1` with no width.
+/// [`fit_scale`](page_math::fit_scale): CSS pixels per 0.1 mm unit, capped at real size, `1` with no width.
 #[wasm_bindgen(js_name = fitScale)]
 pub fn fit_scale_js(container_width: f64, page_width: f64) -> f64 {
     page_math::fit_scale(container_width, page_width)

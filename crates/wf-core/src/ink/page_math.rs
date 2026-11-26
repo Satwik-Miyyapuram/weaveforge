@@ -7,14 +7,18 @@ use serde::Deserialize;
 
 use super::clip_to_area::Point;
 
+/// Real size: CSS pixels per 0.1 mm unit at 96 CSS pixels to the inch.
+pub const REAL_SIZE_SCALE: f64 = 96.0 / 254.0;
+
 /// The fit: how many CSS pixels one 0.1 mm unit is worth, `container_width /
-/// page_width`. A pane with no width yet fits at `1`.
+/// page_width`, but never past [`REAL_SIZE_SCALE`], so a wide pane does not
+/// magnify the page (and the nib). A pane with no width yet fits at `1`.
 #[must_use]
 pub fn fit_scale(container_width: f64, page_width: f64) -> f64 {
     if !(container_width > 0.0) {
         return 1.0;
     }
-    container_width / page_width
+    (container_width / page_width).min(REAL_SIZE_SCALE)
 }
 
 /// One line of recognised text on a page, with the strokes it is written in.
@@ -99,7 +103,9 @@ pub fn double_click_figure(
 
 #[cfg(test)]
 mod tests {
-    use super::{HitBox, TextLine, double_click_figure, figure_under, fit_scale, selected_text};
+    use super::{
+        HitBox, REAL_SIZE_SCALE, TextLine, double_click_figure, figure_under, fit_scale, selected_text,
+    };
     use crate::ink::clip_to_area::Point;
 
     fn at(x: f64, y: f64) -> Point {
@@ -112,12 +118,20 @@ mod tests {
 
     #[test]
     fn the_fit_is_the_container_over_the_page() {
-        assert_eq!(fit_scale(2100.0, 2100.0), 1.0);
+        assert_eq!(fit_scale(700.0, 2100.0), 700.0 / 2100.0);
         assert_eq!(
             fit_scale(0.0, 2100.0),
             1.0,
             "a pane with no width fits at one"
         );
+    }
+
+    #[test]
+    fn a_wide_pane_shows_the_page_at_real_size_not_bigger() {
+        // A full-screen pane (Focus) would blow A4 up 3.6x: the nib and every
+        // wobble with it. The page stops at real size, OneNote's 100%.
+        assert_eq!(fit_scale(2560.0, 2100.0), REAL_SIZE_SCALE);
+        assert!((REAL_SIZE_SCALE - 96.0 / 254.0).abs() < 1e-12);
     }
 
     #[test]

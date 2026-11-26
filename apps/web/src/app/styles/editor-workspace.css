@@ -2027,6 +2027,8 @@
 .ink-bar-spacer { flex: 1 1 auto; }
 
 .ink-rail-container {
+  /* The growing row, also when the bar floats out of flow (Focus). */
+  grid-row: 2;
   position: relative;
   display: flex;
   flex-direction: column;
@@ -2547,6 +2549,7 @@
 }
 
 .ink-text {
+  grid-row: 2;
   min-height: 0;
   overflow-y: auto;
   scrollbar-gutter: stable;
