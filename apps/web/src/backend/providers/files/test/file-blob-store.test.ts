@@ -46,6 +46,21 @@ test("an asset with no sidecar (a synced or hand-added image) reads as-is, typed
   assert.equal((await store.fetchBlob("notes", "u/p/raw.bin")).type, "application/octet-stream");
 });
 
+test("a server bucket reads and writes its folder scope (vault-assets -> assets/notes), as the upgrade wrote it", async () => {
+  const { fs, store } = setup();
+  await fs.writeFile("assets/notes/u/p/figure.webp", new Uint8Array([7, 8]));
+  assert.deepEqual([...(await store.fetchBytes("vault-assets", "u/p/figure.webp"))], [7, 8]);
+  await store.upload("paper-images", "u/p/a.png", png(1), "image/png");
+  await store.upload("report-images", "u/r/b.png", png(2), "image/png");
+  await store.upload("log-images", "u/l/c.png", png(3), "image/png");
+  const keys = Object.keys(fs.toRecord());
+  for (const file of ["assets/papers/u/p/a.png", "assets/report/u/r/b.png", "assets/log-images/u/l/c.png"]) {
+    assert.ok(keys.includes(file), keys.join(", "));
+  }
+  await store.remove("vault-assets", "u/p/figure.webp");
+  assert.equal(keys.length - 1, Object.keys(fs.toRecord()).filter((k) => !k.startsWith(".weaveforge/")).length);
+});
+
 test("a missing asset throws BlobNotFoundError", async () => {
   const { store } = setup();
   await assert.rejects(store.fetchBytes("notes", "nope.png"), BlobNotFoundError);

@@ -54,8 +54,19 @@ async function putSidecar(fs: IWorkspaceFs, sidecar: string, text: string, confl
   throw new ConflictError(`conflict: ${sidecar} differs`);
 }
 
+/**
+ * A server bucket's folder under `assets/` (`BlobScheme::scope` in crates/wf-core/src/sync/blob_links.rs):
+ * the upgrade and older desktop copies keep note images in `assets/notes`, not `assets/vault-assets`.
+ * Any other bucket keeps its own name.
+ */
+const BUCKET_SCOPES: Record<string, string> = {
+  "vault-assets": "notes",
+  "paper-images": "papers",
+  "report-images": "report",
+};
+
 function assetFile(bucket: string, path: string): string {
-  return `${ASSET_DIR}/${bucket}/${path}`;
+  return `${ASSET_DIR}/${BUCKET_SCOPES[bucket] ?? bucket}/${path}`;
 }
 
 /** An image's type from its extension, for an asset with no sidecar to say it; "" when unknown. */
