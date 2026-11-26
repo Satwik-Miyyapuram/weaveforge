@@ -1,4 +1,4 @@
-import { ManageSettingsUseCase, type IBlobStore } from "@weaveforge/core";
+import { ManageSettingsUseCase, type IBlobFetcher } from "@weaveforge/core";
 import type { BackendConfig } from "@/backend/parts";
 import type { FileRepositories } from "@/backend/providers/files/wire-file-backend";
 import { LocalAuthService, LocalSessionProvider } from "@/backend/providers/local/local-identity";
@@ -28,7 +28,7 @@ export function wireFilesMode(
   projectContext: { projectId: string | null },
   pid: () => string | null,
   files: FileRepositories,
-  fileBlobs: IBlobStore,
+  fileBlobs: IBlobFetcher,
   offline = false,
 ): Omit<WiredPostgrestBackend, keyof FileRepositories> & FileRepositories & { filesMode: true } {
   const parts = offline

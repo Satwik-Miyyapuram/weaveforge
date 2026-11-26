@@ -162,6 +162,9 @@ const imageStores = {
   "log-images": LogImageStore,
 } as const;
 
+/** A server bucket's folder under assets/, as the upgrade wrote it (BlobScheme::scope). */
+const folderOf: Record<string, string> = { "vault-assets": "notes", "paper-images": "papers", "report-images": "report" };
+
 const stores: Store[] = [
   ...Object.entries(imageStores).map(([name, Ctor]) => ({
     name,
@@ -185,9 +188,10 @@ for (const platform of platforms) {
         try {
           const bytes = new TextEncoder().encode(`${platform.name}-${store.name}`);
           const path = await store.upload(backend.rawBlobStore, new Blob([bytes], { type: "image/png" }));
-          assert.deepEqual(await read(`assets/${store.name}/${path}`), bytes);
+          const file = `assets/${folderOf[store.name] ?? store.name}/${path}`;
+          assert.deepEqual(await read(file), bytes);
           await store.remove(backend.rawBlobStore, path);
-          assert.equal(await read(`assets/${store.name}/${path}`), null);
+          assert.equal(await read(file), null);
           assert.deepEqual(blobRoutes(urls), [], "no request to /api/blobs/* (upload or remove)");
         } finally {
           backend.dispose();
