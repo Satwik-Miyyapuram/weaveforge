@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { Button } from "@/components/button";
+import { setLocalMode } from "@/backend/providers/local/local-identity";
+import { getContainer } from "@/bootstrap";
 import { wiringNeedsReload, type WiringKey } from "@/container/wiring-key";
 import { makeWebUpgradeRunner, type WebUpgradeRunnerOptions } from "@/features/migration-097/application/web-upgrade-runner";
 import { desktop, type DesktopBridge } from "./desktop-bridge";
@@ -10,6 +12,7 @@ import { desktopDeps, makeDesktopRunner } from "./migrate-097-desktop";
 import type { ExportRunner } from "./migrate-097-upgrade";
 import { shouldShowFinishRemoving, shouldShowRetry, shouldShowUpgrade } from "./migrate-097-gate-decision";
 import { migrate097Status, type Migrate097Resolved } from "./migrate-097";
+import { continueAfterUpgrade } from "./migrate-097-continue";
 import { Migrate097Upgrade } from "./migrate-097-upgrade";
 
 const BANNER_TEXT: Record<"unavailable" | "removing-other" | "incomplete", string> = {
@@ -130,7 +133,13 @@ export function Migrate097Gate({
         <Migrate097Upgrade
           folder={upgradeFolder}
           runExport={desktopRunner}
-          onReady={() => window.location.reload()}
+          onReady={() =>
+            void continueAfterUpgrade(
+              async () => (await getContainer().auth.auth.getUser()) !== null,
+              () => setLocalMode(true),
+              () => window.location.reload(),
+            )
+          }
           onKeepOld={() => setUpgradeFolder(null)}
         />
       ) : null}
