@@ -58,6 +58,18 @@ function assetFile(bucket: string, path: string): string {
   return `${ASSET_DIR}/${bucket}/${path}`;
 }
 
+/** An image's type from its extension, for an asset with no sidecar to say it; "" when unknown. */
+const IMAGE_TYPES: Record<string, string> = {
+  png: "image/png",
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  gif: "image/gif",
+  webp: "image/webp",
+  svg: "image/svg+xml",
+  avif: "image/avif",
+};
+const typeOf = (path: string): string => IMAGE_TYPES[path.slice(path.lastIndexOf(".") + 1).toLowerCase()] ?? "";
+
 async function sha256Hex(bytes: Uint8Array): Promise<string> {
   const digest = await crypto.subtle.digest("SHA-256", new Uint8Array(bytes));
   return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, "0")).join("");
@@ -104,15 +116,17 @@ export class FileBlobStore implements IBlobFetcher {
     if (!(await this.fs.stat(file))) throw new BlobNotFoundError(bucket, path);
     const bytes = await this.fs.readFile(file);
     const sidecar = `${file}.sha256`;
-    // A missing sidecar yields "" here, which never matches: unverified bytes are not returned.
-    const expected = (await this.fs.stat(sidecar)) ? (await this.fs.readText(sidecar)).split("\n")[0] : "";
+    // The file is the truth: an image synced from git or added by hand has no sidecar and reads as-is.
+    if (!(await this.fs.stat(sidecar))) return bytes;
+    const expected = (await this.fs.readText(sidecar)).split("\n")[0];
     if ((await sha256Hex(bytes)) !== expected) throw new Error(`asset checksum mismatch: ${file}`);
     return bytes;
   }
 
   async fetchBlob(bucket: string, path: string, fallbackContentType?: string): Promise<Blob> {
     const bytes = await this.fetchBytes(bucket, path);
-    const type = (await this.fs.readText(`${assetFile(bucket, path)}.sha256`)).split("\n")[1];
+    const sidecar = `${assetFile(bucket, path)}.sha256`;
+    const type = (await this.fs.stat(sidecar)) ? (await this.fs.readText(sidecar)).split("\n")[1] : typeOf(path);
     return new Blob([new Uint8Array(bytes)], { type: type || fallbackContentType || "application/octet-stream" });
   }
 

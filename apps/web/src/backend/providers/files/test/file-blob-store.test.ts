@@ -36,6 +36,16 @@ test("a tampered bytes file makes fetchBytes throw a checksum error", async () =
   await assert.rejects(store.fetchBytes("notes", "n1/diagram.png"), /asset checksum mismatch/);
 });
 
+test("an asset with no sidecar (a synced or hand-added image) reads as-is, typed by its extension", async () => {
+  const { fs, store } = setup();
+  await fs.writeFile("assets/notes/u/p/figure.webp", new Uint8Array([7, 8]));
+  await fs.writeFile("assets/notes/u/p/raw.bin", new Uint8Array([1]));
+  assert.deepEqual([...(await store.fetchBytes("notes", "u/p/figure.webp"))], [7, 8]);
+  assert.equal((await store.fetchBlob("notes", "u/p/figure.webp")).type, "image/webp");
+  assert.equal((await store.fetchBlob("notes", "u/p/raw.bin", "image/png")).type, "image/png");
+  assert.equal((await store.fetchBlob("notes", "u/p/raw.bin")).type, "application/octet-stream");
+});
+
 test("a missing asset throws BlobNotFoundError", async () => {
   const { store } = setup();
   await assert.rejects(store.fetchBytes("notes", "nope.png"), BlobNotFoundError);
