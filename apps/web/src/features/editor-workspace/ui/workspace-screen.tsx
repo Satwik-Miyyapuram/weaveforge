@@ -44,7 +44,7 @@ import { holdOpenNotes } from "@/features/workspace/application/parts-3";
 import type { RenamedVaultPage } from "@/features/vault/application/rename-updates-links";
 import { toastLinkRewriteFailed } from "@/features/vault/application/rename-link-toast";
 import { useInkSaveStatus } from "./use-ink-save-status";
-import { handBackOpenLinkers, handBackRenamedBody } from "../application/rename-hand-back";
+import { handBackOpenLinkers, handBackRenamedBody, renamedFromTitle } from "../application/rename-hand-back";
 import { PaneView, openTabs } from "./pane-view";
 import { QuickOpenDialog } from "./quick-open-dialog";
 import { StatusBar, saveState, type SegmentKey } from "./status-bar";
@@ -475,8 +475,7 @@ export function WorkspaceScreen() {
         const tab = { kind: node.kind, id: node.id };
         const renamed: RenamedVaultPage = await getContainer().vault.manageVaultPage.update(node.id, { title });
         const core = readyCore();
-        const oldTitle = node.title;
-        const renames = new Map(oldTitle === undefined ? [] : [[core.normalizeTitleKey(oldTitle), renamed.title]]);
+        const renames = new Map([[core.normalizeTitleKey(renamedFromTitle(node)), renamed.title]]);
         const rewrite = (text: string) => core.rewriteWikilinksOutsideCode(text, renames);
         const tabs = openTabs(layout);
         const editorOf = (id: string) => {

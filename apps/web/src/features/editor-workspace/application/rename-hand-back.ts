@@ -1,5 +1,10 @@
 import type { EditorHandle } from "@/components/editor-handle";
 
+/** The title a tree row is renamed from: a note row has only its label, which is the title. */
+export function renamedFromTitle(node: { readonly label: string; readonly title?: string | null }): string {
+  return node.title ?? node.label;
+}
+
 /**
  * A rename rewrites the note's own `[[Old]]` self-links. An open editor holds
  * its own copy of the body, and that copy can hold unsaved typing, so the

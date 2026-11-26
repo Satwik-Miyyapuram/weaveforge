@@ -3,7 +3,7 @@ import { test } from "node:test";
 
 import type { EditorHandle } from "@/components/editor-handle";
 
-import { handBackOpenLinkers, handBackRenamedBody } from "../application/rename-hand-back";
+import { handBackOpenLinkers, handBackRenamedBody, renamedFromTitle } from "../application/rename-hand-back";
 
 /** A dirty editor: `text` is what the user sees, unsaved typing included. */
 function fakeEditor(text: string): { handle: EditorHandle; replaced: string[] } {
@@ -101,4 +101,9 @@ test("two open notes sharing a title are cleared one report each", () => {
 test("a rename with no open linking notes is returned as it was", () => {
   const renamed = { linkRewriteFailed: ["Broken"] };
   assert.equal(handBackOpenLinkers(renamed, () => null, rewrite), renamed);
+});
+
+test("a note row's old title is its label; a row whose label is not the title gives its title", () => {
+  assert.equal(renamedFromTitle({ label: "E7 Target" }), "E7 Target");
+  assert.equal(renamedFromTitle({ label: "paper.pdf", title: "A Paper" }), "A Paper");
 });
