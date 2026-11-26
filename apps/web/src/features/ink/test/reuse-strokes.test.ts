@@ -27,10 +27,12 @@ test("an appended stroke keeps the earlier stroke objects", () => {
 });
 
 test("an erased stroke in the middle keeps the strokes after it", () => {
-  const prior = [stroke(1, [0, 0, 1, 1]), stroke(2, [5, 5, 6, 6]), stroke(3, [9, 9, 8, 8])];
-  const out = reuseStrokes(clone([prior[0], prior[2]]), prior);
-  assert.deepEqual(out, [prior[0], prior[2]]);
-  assert.equal(out[1], prior[2]);
+  const first = stroke(1, [0, 0, 1, 1]);
+  const last = stroke(3, [9, 9, 8, 8]);
+  const prior = [first, stroke(2, [5, 5, 6, 6]), last];
+  const out = reuseStrokes(clone([first, last]), prior);
+  assert.equal(out[0], first);
+  assert.equal(out[1], last);
 });
 
 test("a moved or restyled stroke is not reused", () => {

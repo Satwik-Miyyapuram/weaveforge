@@ -55,11 +55,12 @@ export function reuseStrokes(
   const out = next.map((stroke, at) => {
     const list = byStart.get(`${stroke.t0}|${stroke.points.length}`);
     const found = list?.findIndex((old) => sameStroke(old, stroke)) ?? -1;
-    if (found < 0 || !list) {
+    const old = found >= 0 ? list?.[found] : undefined;
+    if (!list || !old) {
       all = false;
       return stroke;
     }
-    const [old] = list.splice(found, 1);
+    list.splice(found, 1);
     if (old !== prior[at]) all = false;
     return old;
   });
