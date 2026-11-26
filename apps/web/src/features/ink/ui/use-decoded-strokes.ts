@@ -11,6 +11,7 @@ import { logToApp } from "@/lib/error-report/app-log";
 import { perfEnd, perfEndAfterPaint, perfStart } from "@/lib/parts-2";
 import { availableInkChunkCodec } from "../application/parts-1";
 import type { InkStoredPage } from "../application/parts-1";
+import { reuseStrokes } from "./use-live-sheet-ink";
 
 export interface UseDecodedStrokesOptions {
   pages: readonly InkStoredPage[] | null;
@@ -62,7 +63,9 @@ export function useDecodedStrokes({
         const current = liveRef.current;
         pages.forEach((entry, index) => {
           if (current?.pageIndex === index) {
-            next.set(index, current.strokes);
+            // The worker's list is a fresh clone: equal strokes keep their old objects, so outlines stay cached.
+            const prior = prev.get(index) ?? (entry.chunk ? decoded.get(entry.chunk) : undefined);
+            next.set(index, reuseStrokes(current.strokes, prior));
             return;
           }
           next.set(index, entry.chunk ? (decoded.get(entry.chunk) ?? []) : []);
@@ -140,9 +143,11 @@ export function useDecodedStrokes({
   useEffect(() => {
     if (!live) return;
     setStrokesMap((prev) => {
-      if (prev.get(live.pageIndex) === live.strokes) return prev;
+      const prior = prev.get(live.pageIndex);
+      const strokes = reuseStrokes(live.strokes, prior);
+      if (prior === strokes) return prev;
       const next = new Map(prev);
-      next.set(live.pageIndex, live.strokes);
+      next.set(live.pageIndex, strokes);
       return next;
     });
   }, [live]);
