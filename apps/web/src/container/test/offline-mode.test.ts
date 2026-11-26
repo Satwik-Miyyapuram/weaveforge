@@ -126,5 +126,5 @@ test("no offline path opens the local database (PGlite)", () => {
 test("the container leaves offline mode when the folder is not on files, instead of opening PGlite", () => {
   const source = read("../../create-app-container.ts");
   assert.match(source, /localMode: offline/);
-  assert.match(source, /setLocalMode\(false\)/);
+  assert.match(source, /parkLocalMode\(\)/);
 });

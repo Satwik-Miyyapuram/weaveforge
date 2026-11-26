@@ -55,8 +55,28 @@ export function isLocalMode(): boolean {
 /** Remember the choice. Reloading is the caller's job: the wiring is built once. */
 export function setLocalMode(on: boolean): void {
   // Storage denied: the window simply starts on the sign-in screen next time.
+  removeStored(parkedKey());
   if (on) writeStored(choiceKey(), "1");
   else removeStored(choiceKey());
+}
+
+/** Where a local-mode choice waits while its folder is still on the database. */
+const parkedKey = (): string => `${choiceKey()}-after-upgrade`;
+
+/**
+ * Set the local-mode choice aside: it cannot run until the folder is on files, so
+ * the window starts on sign-in, where the upgrade runs. resumeParkedLocalMode puts it back.
+ */
+export function parkLocalMode(): void {
+  setLocalMode(false);
+  writeStored(parkedKey(), "1");
+}
+
+/** True, with the choice restored, when it was set aside and the folder is now on files. */
+export function resumeParkedLocalMode(onFiles: boolean): boolean {
+  if (!onFiles || readStored(parkedKey()) !== "1") return false;
+  setLocalMode(true);
+  return true;
 }
 
 export const NEEDS_ACCOUNT =

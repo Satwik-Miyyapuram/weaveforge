@@ -112,7 +112,7 @@ import { wireShareLinks } from "@/container/wire-share-links";
 import { wireInkChunks } from "@/container/wire-ink-chunks";
 import { wireDesktopFileBackend } from "@/container/desktop-file-backend";
 import { workspaceSettings } from "@/features/settings/application/workspace-settings";
-import { isLocalMode, setLocalMode } from "@/backend/providers/local/local-identity";
+import { isLocalMode, parkLocalMode, resumeParkedLocalMode } from "@/backend/providers/local/local-identity";
 import { usesFileBackend } from "@/lib/desktop/migrate-097";
 import { watchProjectChannel } from "@/container/project-watch";
 
@@ -170,9 +170,11 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
   // Desktop only: a folder still settling re-asks on focus, and the first usable answer reloads.
   // Offline mode (no account) runs only on a desktop folder already on files: there is no
   // server and no local database to fall back to. Anything else goes back to sign-in.
-  const offline = isLocalMode();
-  if (offline && !(shell && usesFileBackend(migration))) {
-    setLocalMode(false);
+  // A choice set aside for the upgrade comes back once the folder is on files.
+  const onFiles = Boolean(shell) && usesFileBackend(migration);
+  const offline = resumeParkedLocalMode(onFiles) || isLocalMode();
+  if (offline && !onFiles) {
+    parkLocalMode();
     window.location.reload();
     return new Promise<never>(() => {});
   }
