@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import type { VaultPage } from "@weaveforge/core";
 
 import { withAppLogs } from "@/lib/error-report/test/capture-app-logs";
-import { openNoteBody } from "../ui/vault-screen/open-note-body";
+import { noteToShow, openNoteBody } from "../ui/vault-screen/open-note-body";
 
 const page = { id: "n1", title: "Note", body: "" } as VaultPage;
 
@@ -25,4 +25,28 @@ test("a note that cannot be read shows why and is logged (34-10)", async () => {
     assert.equal(logs.length, 1);
     assert.equal(logs[0]?.source, "vault");
   });
+});
+
+const summary = { id: "n1", title: "Note", body: "", bodyPreview: "text" } as unknown as VaultPage;
+const held = { id: "n1", title: "Note", body: "text", bodyPreview: "" } as VaultPage;
+
+test("the list's full entry is shown as it is", () => {
+  assert.equal(noteToShow(held, null, "n1", null), held);
+});
+
+test("a summary shows the full page held for it", () => {
+  assert.equal(noteToShow(summary, held, "n1", null), held);
+});
+
+test("a reload that misses the open note mid-rename keeps it open", () => {
+  assert.equal(noteToShow(null, held, "n1", null), held);
+});
+
+test("a note the lookup says is gone closes", () => {
+  assert.equal(noteToShow(null, held, "n1", "This note no longer exists."), null);
+});
+
+test("a held page of another note is not shown", () => {
+  assert.equal(noteToShow(null, held, "n2", null), null);
+  assert.equal(noteToShow(null, held, null, null), null);
 });
