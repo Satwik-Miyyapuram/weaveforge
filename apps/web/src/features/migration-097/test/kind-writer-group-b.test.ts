@@ -4,6 +4,7 @@ import { loadTestCore } from "@/lib/test/load-test-core";
 import { ConflictError, type ReportSection } from "@weaveforge/core";
 import { createGroupBWriter, sameExceptStamp } from "../infrastructure/kind-writer-group-b";
 import { MemorySink } from "../infrastructure/memory-sink";
+import { sameRows } from "../application/verify-export";
 
 before(loadTestCore);
 
@@ -388,4 +389,12 @@ test("metrics: the experiment is looked up once, not once per point", async () =
   sink.list = async () => (lists++, list());
   for (let i = 1; i <= 20; i++) await writer.write("metrics", { ...METRIC_ROW, step: i });
   assert.equal(lists, 0);
+});
+test("metrics: a point with a null wallTime reads back and compares equal", async () => {
+  const writer = createGroupBWriter(new MemorySink(), ROOTS);
+  await writer.write("experiments", EXPERIMENT_ROW);
+  const row = { ...METRIC_ROW, wallTime: null };
+  await writer.write("metrics", row);
+  const back = await writer.readBack("metrics");
+  assert.ok(sameRows("metrics", [row], back), JSON.stringify(back));
 });

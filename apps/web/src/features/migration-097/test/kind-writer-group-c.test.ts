@@ -5,6 +5,7 @@ import { ConflictError } from "@weaveforge/core";
 import { loadCore } from "@/lib/rust-core";
 import { MemorySink } from "../infrastructure/memory-sink";
 import { createGroupCWriter } from "../infrastructure/kind-writer-group-c";
+import { sameRows } from "../application/verify-export";
 
 // The Rust core (wasm) backs the annotation and ink paths; load it once for this file.
 before(async () => {
@@ -397,4 +398,18 @@ test("annotations: an ink row keeps its page in anchor.zoteroPosition; a re-run 
   const back = await writer.readBack("annotations");
   assert.equal(back.length, 1);
   assert.equal(back[0]?.pageIndex, 4);
+});
+
+test("annotations: a real DB row (sync columns, null zoteroVersion) compares equal to its readback", async () => {
+  const { writer } = fresh();
+  const row = {
+    id: "0085d3cb-e421-4ae6-9edd-619c123f422f", userId: "u1", projectId: "p1", paperId: "p1", paperFile: "proj/papers/x.paper.md",
+    origin: "local", zoteroKey: null, type: "ink", color: "#2b222b", text: "", comment: "", tags: [],
+    anchor: { zoteroPosition: { paths: [[520.91, 152.5, 519.98, 138.9]], width: 1.3663946533203124, pageIndex: 3 } },
+    pageIndex: 3, sortIndex: "00003|000000|00635", zoteroVersion: null, syncState: "local",
+    createdAt: "2026-10-08T23:47:04.618Z", updatedAt: "2026-10-08T23:47:04.618Z", serverSeq: 9148, deletedAt: null, rowVersion: 1,
+  };
+  await writer.write("annotations", row);
+  const back = await writer.readBack("annotations");
+  assert.ok(sameRows("annotations", [row], back), JSON.stringify(back));
 });

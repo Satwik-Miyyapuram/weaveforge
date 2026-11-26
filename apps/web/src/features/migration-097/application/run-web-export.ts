@@ -17,6 +17,7 @@ import { PAPER_FIELD_KINDS, projectDefsMismatches } from "../domain/paper-fields
 import { sanitizeBlobRefs } from "../domain/asset-path";
 
 import { toConflictCopyText } from "../domain/conflict-copy";
+import { conflictBasePath } from "../domain/conflict-path";
 import { createPaperFieldsWriter } from "../infrastructure/kind-writer-paper-fields";
 import { dirOf, firstUnmatched, sameRows, verifyExport, type Verdict } from "./verify-export";
 import { ID_SHAPE } from "../domain/install-id-shape";
@@ -363,6 +364,28 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
 
   const store = await createFileStore(sink, prior);
   const codecDirs = new Set<string>();
+  // A file the workspace already holds under the row's id (in the folder the codec writes to) takes the row,
+  // whatever its name: a second `slug--id` file would give files mode two files with one id.
+  const idPaths = new Map<string, Map<string, string>>();
+  const existingPathFor = async (kind: string, path: string, id: string): Promise<string> => {
+    const dir = dirOf(path);
+    const key = `${kind}:${dir}`;
+    let byId = idPaths.get(key);
+    if (!byId) {
+      byId = new Map();
+      idPaths.set(key, byId);
+      for (const file of await sink.list()) {
+        if (dirOf(file) !== dir || conflictBasePath(file) !== null) continue;
+        try {
+          const found = codec.toRow(kind, file, await sink.readText(file));
+          if (found && !byId.has(String(found.id))) byId.set(String(found.id), file);
+        } catch {
+          // Not a file of this kind.
+        }
+      }
+    }
+    return byId.get(id) ?? path;
+  };
   // Every kind writer writes through the one guarded sink, so no kind can overwrite a differing file.
   const guarded = guardedSink(sink, store);
   // writerFor takes the first claimant: the folder-aware paper-fields writer goes first, so the root archive
@@ -469,10 +492,11 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
           // One bad row is listed missing; the others are still exported.
           try {
             const file = codec.toFile(kind, row);
+            const path = await existingPathFor(kind, file.path, String(row.id));
             // A conflict copy of this row holds the same data under conflictOf, never a second id.
             const copyText = toConflictCopyText(file.text, String(row.id));
-            codecDirs.add(dirOf(file.path));
-            await store.store(file.path, file.text, await sha256Hex(file.text), { data: copyText, hash: await sha256Hex(copyText) });
+            codecDirs.add(dirOf(path));
+            await store.store(path, file.text, await sha256Hex(file.text), { data: copyText, hash: await sha256Hex(copyText) });
             written[kind]++;
           } catch (err) {
             debugLog?.(`codec ${kind} ${String(row.id)}: ${(err as Error).message}`);

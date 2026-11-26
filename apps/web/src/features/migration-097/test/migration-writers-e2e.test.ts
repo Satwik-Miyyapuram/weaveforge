@@ -138,3 +138,20 @@ test("tags with one name in two projects both read back and verify", async () =>
     ROWS.tags = saved;
   }
 });
+
+test("rows with the old database's sync columns and nulls still read back and verify", async () => {
+  // The real DB rows carry sync counters, a null deletedAt and null columns the files leave out.
+  const DB = { serverSeq: 6037, rowVersion: 2, deletedAt: null };
+  const KINDS = ["tags", "paperFieldValues", "milestones", "metrics", "annotations", "annotationPins"] as const;
+  const saved = Object.fromEntries(KINDS.map((k) => [k, ROWS[k] ?? []]));
+  for (const k of KINDS) ROWS[k] = saved[k]!.map((row) => ({ ...row, ...DB }));
+  ROWS.tags = ROWS.tags!.map((row) => ({ ...row, createdAt: NOW }));
+  ROWS.annotations = ROWS.annotations!.map((row) => ({ ...row, zoteroKey: null, zoteroVersion: null }));
+  ROWS.metrics = [...ROWS.metrics!, { userId: USER, experimentId: "missing-exp", metric: "loss", step: 2, value: 0.4, wallTime: null, ...DB }];
+  try {
+    const result = await exportRun(new MemorySink());
+    assert.equal(result.state, "verified", JSON.stringify(result.run.missing));
+  } finally {
+    Object.assign(ROWS, saved);
+  }
+});
