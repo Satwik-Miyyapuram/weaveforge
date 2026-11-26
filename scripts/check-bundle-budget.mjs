@@ -73,7 +73,13 @@ const buildDir = process.env.BUNDLE_BUILD_DIR ?? path.join(root, "apps/web/.next
 // shell-only routes measured 425-427 KB on CI against 422. The folder import,
 // restore and table modules moved behind dynamic imports in the same change, so
 // what remains is the sync engine the container starts with. No dependency arrived.
-const ROUTE_BUDGET_KB = 417;
+// The 0.9.7 shell runs on files: the workspace settings file, the file settings
+// repository, the read-only folder guard and the org-table guard every route boots
+// with (+22 KB minified), less the PGlite client it no longer opens (-16 KB). The
+// upgrade gate, its exporter and the desktop file repositories moved behind dynamic
+// imports in the same change. Measured plus 2 on each route that crossed. No
+// dependency arrived.
+const ROUTE_BUDGET_KB = 427;
 
 /*
  * **The rebase for Next 16** (React 19) changed both the measure and the numbers,
@@ -126,31 +132,38 @@ const ROUTE_ALLOWANCES_KB = {
   // No dependency arrived; the code is the error paths that used to be empty.
   // The S13 sweep (#505) logs live-sync probe and listener failures in the shared
   // top navigation: +1 KB, again error paths and no new dependency.
-  "/experiments": 444,
+  // The 0.9.7 files-mode shell (see the default).
+  "/experiments": 451,
   // The review panel and the PDF reader shell each sit a little above the default.
   "/ai-review": 432,
-  "/reader": 428,
+  // The 0.9.7 files-mode shell (see the default).
+  "/reader": 432,
   // 0.9.1 put app code in the shell every route boots: the boot snapshot, kept-alive
   // screens and their shown marks (speed lane, +7 KB on every route in CI), plus the
   // canvas id map in the folder mirror. The dashboard sits closest to its limit, so
   // it is the one route that crossed: measured 446 KB plus 2. No dependency arrived.
   // The 0.9.2 shared-row sync in the shell (see the default): +7 KB on every route.
-  "/dashboard": 443,
+  // The 0.9.7 files-mode shell (see the default).
+  "/dashboard": 453,
   // Lists screen carries reading lists, membership management, and EntityCardMenu:
   // The 0.9.2 shared-row sync in the shell (see the default).
-  "/lists": 432,
+  // The 0.9.7 files-mode shell (see the default).
+  "/lists": 443,
   // The 0.9.1 integration (old-database import, theme-aware logo) put the log
   // on 436 KB on CI: measured plus 2.
   // The 0.9.2 shared-row sync in the shell (see the default).
-  "/log": 431,
-  "/plan": 429,
+  // The 0.9.7 files-mode shell (see the default).
+  "/log": 442,
+  // The 0.9.7 files-mode shell (see the default).
+  "/plan": 438,
   // The pitch page itself did not change; it sits on the shell, and the 0.9
   // shell (Rust port wasm loading, release-notice banner) put it at 423 KB on
   // CI, 1 KB over the default. Measured plus 2 KB. No dependency arrived.
   // The 0.9.1 shell (see /dashboard) put it at 426 KB on CI: plus 2 again.
   // The 0.9.1 integration (see /log) put it at 429 KB on CI: plus 2 again.
   // The 0.9.2 shared-row sync in the shell (see the default) put it at 434 KB on CI.
-  "/pitch": 424,
+  // The 0.9.7 files-mode shell (see the default).
+  "/pitch": 434,
 };
 
 /** The allowance for a route, longest matching prefix first, plus the environment's. */

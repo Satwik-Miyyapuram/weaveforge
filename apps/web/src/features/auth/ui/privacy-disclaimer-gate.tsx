@@ -17,7 +17,7 @@ import { useCapability } from "@/deployment/capabilities";
 import { desktop } from "@/lib/desktop/desktop-bridge";
 import { isLocalMode } from "@/backend/providers/local/local-identity";
 import { enterLocalOnly, localOnlyEntryVisible } from "@/lib/desktop/local-only-entry";
-import { desktopRunExport } from "@/lib/desktop/migrate-097-gate";
+import { desktopRunExport } from "@/lib/desktop/desktop-run-export";
 import { Button } from "@/components/button";
 
 /**

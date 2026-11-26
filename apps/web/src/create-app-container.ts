@@ -110,7 +110,6 @@ import { clearActiveProvider } from "@/features/ai-assistant/application/parts";
 import { reresolveOnFocus, resolveMigrationChoice } from "@/container/resolve-migration-choice";
 import { wireShareLinks } from "@/container/wire-share-links";
 import { wireInkChunks } from "@/container/wire-ink-chunks";
-import { wireDesktopFileBackend } from "@/container/desktop-file-backend";
 import { workspaceSettings } from "@/features/settings/application/workspace-settings";
 import { isLocalMode, parkLocalMode, resumeParkedLocalMode } from "@/backend/providers/local/local-identity";
 import { usesFileBackend } from "@/lib/desktop/migrate-097";
@@ -179,11 +178,13 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
     return new Promise<never>(() => {});
   }
   if (shell) reresolveOnFocus(migration, shell, window, () => window.location.reload());
+  // Loaded only inside the shell: the file repositories are not in the web first load.
+  const desktopFiles = shell ? (await import("@/container/desktop-file-backend")).wireDesktopFileBackend : undefined;
   const backend = wireBackend(readBackendConfig(), projectContext, pid, {
     migration,
     onDesktop: Boolean(shell),
     localMode: offline,
-    wireDesktopFileBackend: shell ? wireDesktopFileBackend(shell, workspaceSettings, undefined, offline) : undefined,
+    wireDesktopFileBackend: shell && desktopFiles ? desktopFiles(shell, workspaceSettings, undefined, offline) : undefined,
     wireBrowserFileBackend: browserFiles,
   });
   watchProjectChannel(projectLww, backend, pid());

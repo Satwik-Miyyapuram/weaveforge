@@ -7,9 +7,8 @@ import { setLocalMode } from "@/backend/providers/local/local-identity";
 import { getContainer } from "@/bootstrap";
 import { wiringNeedsReload, type WiringKey } from "@/container/wiring-key";
 import { makeWebUpgradeRunner, type WebUpgradeRunnerOptions } from "@/features/migration-097/application/web-upgrade-runner";
-import { desktop, type DesktopBridge } from "./desktop-bridge";
-import { desktopDeps, makeDesktopRunner } from "./migrate-097-desktop";
-import type { ExportRunner } from "./migrate-097-upgrade";
+import { desktop } from "./desktop-bridge";
+import { desktopRunExport } from "./desktop-run-export";
 import { shouldShowFinishRemoving, shouldShowRetry, shouldShowUpgrade } from "./migrate-097-gate-decision";
 import { migrate097Status, type Migrate097Resolved } from "./migrate-097";
 import { continueAfterUpgrade } from "./migrate-097-continue";
@@ -37,11 +36,6 @@ function MigrateBanner({ message, action, onAction }: { message: string; action:
       </Button>
     </div>
   );
-}
-
-/** The desktop export for the upgrade screen; null outside the shell. */
-export function desktopRunExport(shell: DesktopBridge | null): ExportRunner | null {
-  return shell ? makeDesktopRunner(shell, desktopDeps(shell)) : null;
 }
 
 /** The folder and migration the window reads now. */

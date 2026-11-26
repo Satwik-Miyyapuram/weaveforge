@@ -7,7 +7,7 @@ import { WeaveForgeLogo } from "@/components/weave-forge-logo";
 import { appOrigin, authRedirectTo, pastedSignInQuery } from "@/lib/desktop/desktop-auth";
 import { desktop } from "@/lib/desktop/desktop-bridge";
 import { enterLocalOnly, localOnlyEntryVisible } from "@/lib/desktop/local-only-entry";
-import { desktopRunExport } from "@/lib/desktop/migrate-097-gate";
+import { desktopRunExport } from "@/lib/desktop/desktop-run-export";
 import { runBusy } from "./run-busy";
 import { Button } from "@/components/button";
 

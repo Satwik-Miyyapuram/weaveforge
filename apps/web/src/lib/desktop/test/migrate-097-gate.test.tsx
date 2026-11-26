@@ -3,7 +3,8 @@ import { test } from "node:test";
 import { renderToStaticMarkup } from "react-dom/server";
 
 import type { DesktopBridge } from "../desktop-bridge";
-import { Migrate097Gate, desktopRunExport } from "../migrate-097-gate";
+import { Migrate097Gate } from "../migrate-097-gate";
+import { desktopRunExport } from "../desktop-run-export";
 import { shouldShowFinishRemoving, shouldShowRetry, shouldShowUpgrade } from "../migrate-097-gate-decision";
 
 const FOLDER = "C:\\Users\\me\\Documents\\WeaveForge";

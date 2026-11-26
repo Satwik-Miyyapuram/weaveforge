@@ -125,7 +125,7 @@ const defaultWebUpgradeLoader: WebUpgradeLoader = () => loadWebInputs();
  * Mounts the migration gate for the web app. The web export runs only in a browser
  * with a signed-in session and no completion marker, and never inside the desktop shell.
  */
-export function Migrate097Web({ children, load = defaultWebUpgradeLoader }: { children: React.ReactNode; load?: WebUpgradeLoader }) {
+export function Migrate097Web({ children, load = defaultWebUpgradeLoader }: { children?: React.ReactNode; load?: WebUpgradeLoader }) {
   const [webUpgrade, setWebUpgrade] = useState<WebUpgradeRunnerOptions | null>(null);
   // Read from the auth provider so a user who signs in after first paint gets a runner.
   const { user, loading } = useAuth();

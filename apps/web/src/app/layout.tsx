@@ -3,7 +3,7 @@ import { FONT_VARIABLES } from "./fonts";
 import "./globals.css";
 import { AuthProvider } from "@/features/auth/ui/auth-provider";
 import { AppShell } from "./app-shell";
-import { Migrate097Web } from "@/lib/desktop/migrate-097-web";
+import { Migrate097 } from "@/lib/desktop/migrate-097-lazy";
 import { BootSnapshot } from "./boot-snapshot";
 import { THEME_BOOT_SCRIPT } from "@/lib/theme/theme";
 import { ThemeColorMeta } from "./theme-color-meta";
@@ -96,9 +96,8 @@ export default function RootLayout({
         <PlanWidgetTheme />
         <AuthProvider>
           <BootSnapshot />
-          <Migrate097Web>
-            <AppShell>{children}</AppShell>
-          </Migrate097Web>
+          <AppShell>{children}</AppShell>
+          <Migrate097 />
         </AuthProvider>
       </body>
     </html>
