@@ -254,15 +254,95 @@ test("a filesystem without a checked write refuses the save rather than overwrit
   assert.equal(await fs.readText(path ?? ""), before);
 });
 
-test("canvas pages are refused: they live in .canvas files", async () => {
+// --- canvas pages: pure JSON Canvas in notes/<title>.canvas, id in .weaveforge/canvas-ids.json ---
+
+const BOARD = '{\n\t"nodes":[],\n\t"edges":[]\n}';
+const MAP = "thesis/.weaveforge/canvas-ids.json";
+const UUID = "0b7f3c1e-2a4d-4c8e-9f10-123456789abc";
+
+async function idMap(fs: MemoryWorkspaceFs, path = MAP): Promise<Record<string, string>> {
+  return JSON.parse(await fs.readText(path)) as Record<string, string>;
+}
+
+test("a canvas file is listed as a canvas page with its mapped id, title from its name and its JSON as body", async () => {
   const { fs, repo } = setup();
-  await assert.rejects(repo.save(page({ kind: "canvas", body: "{}" })), /canvas/);
-  assert.deepEqual(await files(fs), []);
+  await fs.writeFile("thesis/notes/Plan B.canvas", BOARD);
+  await fs.writeFile(MAP, JSON.stringify({ "notes/Plan B.canvas": UUID }));
+  const [listed] = await repo.list();
+  assert.equal(listed?.id, UUID);
+  assert.equal(listed?.kind, "canvas");
+  assert.equal(listed?.title, "Plan B");
+  assert.equal(listed?.body, BOARD);
+  assert.equal((await repo.getById(UUID))?.kind, "canvas");
+});
+
+test("an unmapped canvas gets an id once, kept in the map; a broken map is never overwritten", async () => {
+  const { fs, repo } = setup();
+  await fs.writeFile("thesis/notes/Board.canvas", BOARD);
+  const id = (await repo.list())[0]?.id ?? "";
+  assert.match(id, /^[0-9a-f-]{36}$/);
+  assert.deepEqual(await idMap(fs), { "notes/Board.canvas": id });
+  assert.equal((await repo.list())[0]?.id, id, "the same id on the next read");
+  const other = setup();
+  await other.fs.writeFile("thesis/notes/Board.canvas", BOARD);
+  await other.fs.writeFile(MAP, "not json");
+  assert.equal((await other.repo.list()).length, 1);
+  assert.equal(await other.fs.readText(MAP), "not json");
+});
+
+test("add makes a canvas file named by its title with an empty board, and maps its id", async () => {
+  const { fs, repo } = setup();
+  const added = await repo.add({ title: "Ink Compare", kind: "canvas" });
+  assert.equal(added.kind, "canvas");
+  assert.equal(await fs.readText("thesis/notes/Ink Compare.canvas"), BOARD);
+  assert.deepEqual(await idMap(fs), { "notes/Ink Compare.canvas": added.id });
+  const back = await repo.getById(added.id);
+  assert.equal(back?.title, "Ink Compare");
+  assert.equal(back?.body, BOARD);
+  await assert.rejects(repo.add({ title: "ink compare", kind: "canvas" }), /already exists/);
+});
+
+test("a canvas save writes its JSON as is; an unchanged save writes nothing", async () => {
+  const { fs, repo } = setup();
+  const added = await repo.add({ title: "Board", kind: "canvas" });
+  const body = '{"nodes":[{"id":"a","type":"text","text":"hi","x":0,"y":0,"width":10,"height":10}],"edges":[]}';
+  await repo.save({ ...added, body });
+  assert.equal(await fs.readText("thesis/notes/Board.canvas"), body);
+  let writes = 0;
+  const real = fs.writeTextIf.bind(fs);
+  fs.writeTextIf = async (p, text, expected) => {
+    writes += 1;
+    return real(p, text, expected);
+  };
+  await repo.update(added.id, { body });
+  await repo.save({ ...added, body });
+  assert.equal(writes, 0);
+});
+
+test("a canvas renamed moves its file and its map key; deleted, it goes to the trash and leaves the map", async () => {
+  const { fs, repo } = setup();
+  const added = await repo.add({ title: "Board", kind: "canvas" });
+  await repo.update(added.id, { title: "Plan" });
+  assert.equal(await fs.stat("thesis/notes/Board.canvas"), null);
+  assert.equal(await fs.readText("thesis/notes/Plan.canvas"), BOARD);
+  assert.deepEqual(await idMap(fs), { "notes/Plan.canvas": added.id });
+  assert.equal((await repo.getById(added.id))?.title, "Plan");
+  await repo.remove(added.id);
+  assert.equal(await repo.getById(added.id), null);
+  assert.deepEqual(await idMap(fs), {});
+  const trash: string[] = [];
+  for await (const entry of fs.walk(".weaveforge/trash")) trash.push(entry.path);
+  assert.equal(trash.length, 1);
+});
+
+test("a canvas in a workspace-root repo maps under .weaveforge at the root", async () => {
+  const fs = new MemoryWorkspaceFs();
+  const repo = new FileNoteRepository(fs, "");
+  const added = await repo.add({ title: "Board", kind: "canvas" });
+  assert.deepEqual(await idMap(fs, ".weaveforge/canvas-ids.json"), { "notes/Board.canvas": added.id });
 });
 
 // --- IVaultPageManager: add / update / remove (files mode had none: HIGH 1) ---
-
-const UUID = "0b7f3c1e-2a4d-4c8e-9f10-123456789abc";
 
 test("add writes a note file with a trimmed title, order 0 and the given body", async () => {
   const { fs, repo } = setup();
@@ -294,7 +374,7 @@ test("add keeps parent, folder, sortOrder, a given uuid id and a dated createdAt
   assert.deepEqual(await repo.getById(UUID), added);
 });
 
-test("add refuses a blank title, a taken title (any case), a bad id, a taken id and canvas; writes nothing", async () => {
+test("add refuses a blank title, a taken title (any case), a bad id and a taken id; writes nothing", async () => {
   const { fs, repo } = setup();
   await repo.add({ title: "Methods", id: UUID });
   const before = await files(fs);
@@ -302,7 +382,6 @@ test("add refuses a blank title, a taken title (any case), a bad id, a taken id 
   await assert.rejects(repo.add({ title: "methods" }), /already exists/);
   await assert.rejects(repo.add({ title: "Other", id: "../evil" }), /not a valid id/);
   await assert.rejects(repo.add({ title: "Other", id: UUID }), /already has the id/);
-  await assert.rejects(repo.add({ title: "Board", kind: "canvas" }), /canvas/);
   assert.deepEqual(await files(fs), before);
 });
 

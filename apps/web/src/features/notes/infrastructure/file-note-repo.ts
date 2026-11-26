@@ -16,7 +16,8 @@
  * - A guarded `update` (one with `baseBody`) never drops an outside edit: the
  *   file's text is kept as a conflict copy, then the caller's text is written.
  *
- * Canvas notes live in `.canvas` files and are not saved here.
+ * A canvas page is pure JSON Canvas in `notes/<title>.canvas`, titled by its file name; its id lives in
+ * the project's `.weaveforge/canvas-ids.json` (path -> id), never in the file.
  */
 import {
   ConflictError,
@@ -37,12 +38,17 @@ import { warnOnce } from "@/lib/error-report/parts";
 import { moveInkStrokes } from "@/lib/move-ink-strokes";
 import { readyCore } from "@/lib/rust-core";
 import { moveToTrash } from "@/lib/workspace-trash";
+import { EMPTY_CANVAS_TEXT } from "@/features/canvas/application/canvas-doc";
+import { writeTextAtomic } from "@/features/workspace/application/parts-3";
 
 const TYPE = "vault_page";
 const SUFFIX = ".note.md";
 /** A note that was ink only before 0.9.7 stays its legacy `.ink.md` file, typed `ink_page` (see migration-097 keepLegacyInk). */
 const INK_TYPE = "ink_page";
 const INK_SUFFIX = ".ink.md";
+const CANVAS_SUFFIX = ".canvas";
+/** Characters a file name cannot hold, as migration-097 writes canvas names. */
+const UNSAFE = /[\\/:*?"<>|]/g;
 const PREVIEW = 200;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const DATED = /^\d{4}-\d{2}-\d{2}/;
@@ -140,16 +146,78 @@ export class FileNoteRepository implements IVaultPageRepository, IVaultPageManag
   private async readAll(): Promise<Found[]> {
     if (!(await this.fs.stat(this.dir))) return [];
     const byId = new Map<string, Found>();
+    const canvases: string[] = [];
     for await (const entry of this.fs.walk(this.dir)) {
+      if (entry.path.endsWith(CANVAS_SUFFIX)) canvases.push(entry.path);
       if (!entry.path.endsWith(SUFFIX) && !entry.path.endsWith(INK_SUFFIX)) continue;
       const parsed = parse(entry.path, await this.fs.readText(entry.path));
       // An `.ink.md` and a `.note.md` with one id are one note: the `.note.md` holds it.
       const had = byId.get(parsed?.page.id ?? "");
       if (parsed && (!had || (had.path.endsWith(INK_SUFFIX) && parsed.path.endsWith(SUFFIX)))) byId.set(parsed.page.id, parsed);
     }
+    for (const canvas of await this.readCanvases(canvases, new Set(byId.keys()))) byId.set(canvas.page.id, canvas);
     const found = [...byId.values()];
     for (const f of found) this.loaded.set(f.page.id, f.text);
     return found.sort((a, b) => a.path.localeCompare(b.path));
+  }
+
+  /** The canvases at `paths`, each with its mapped id; one with none (or a note's id) gets a new id, kept in the map. */
+  private async readCanvases(paths: readonly string[], noteIds: ReadonlySet<string>): Promise<Found[]> {
+    if (!paths.length) return [];
+    const map = await this.readIdMap();
+    const entries: Record<string, string> = { ...map };
+    const used = new Set(noteIds);
+    const out: Found[] = [];
+    for (const path of paths) {
+      const key = this.mapKey(path);
+      let id = entries[key];
+      if (typeof id !== "string" || !id || used.has(id)) {
+        id = crypto.randomUUID();
+        entries[key] = id;
+      }
+      used.add(id);
+      const text = await this.fs.readText(path);
+      const title = path.slice(path.lastIndexOf("/") + 1, -CANVAS_SUFFIX.length);
+      out.push({ path, text, page: { id, title, body: text, kind: "canvas", sortOrder: 0, createdAt: "", updatedAt: "" } });
+    }
+    if (map && JSON.stringify(entries) !== JSON.stringify(map)) await this.writeIdMap(entries);
+    return out;
+  }
+
+  private get idMapPath(): string {
+    return `${readyCore().projectMetaDir(this.root).replace(/^\//, "")}/canvas-ids.json`;
+  }
+
+  /** A canvas path as the map keys it: relative to the project. */
+  private mapKey(path: string): string {
+    return this.root ? path.slice(this.root.length + 1) : path;
+  }
+
+  /** The canvas id map, `{}` when there is none, null when it is not a JSON object (never overwritten). */
+  private async readIdMap(): Promise<Record<string, string> | null> {
+    if (!(await this.fs.stat(this.idMapPath))) return {};
+    try {
+      const parsed: unknown = JSON.parse(await this.fs.readText(this.idMapPath));
+      if (typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)) return parsed as Record<string, string>;
+    } catch {
+      // Not JSON: as broken as a non-object.
+    }
+    warnOnce("notes", `${this.idMapPath} is not a JSON object; canvas ids are not kept until it is fixed.`, null);
+    return null;
+  }
+
+  private async writeIdMap(entries: Record<string, string>): Promise<void> {
+    const sorted = Object.fromEntries(Object.entries(entries).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)));
+    await writeTextAtomic(this.fs, this.idMapPath, `${JSON.stringify(sorted, null, 2)}\n`);
+  }
+
+  /** Moves canvas `from`'s map entry to `to`, or drops it when `to` is null. */
+  private async moveMapKey(from: string | null, to: string | null, id: string): Promise<void> {
+    const map = await this.readIdMap();
+    if (!map) return;
+    if (from) delete map[this.mapKey(from)];
+    if (to) map[this.mapKey(to)] = id;
+    await this.writeIdMap(map);
   }
 
   async getById(id: string): Promise<VaultPage | null> {
@@ -239,7 +307,6 @@ export class FileNoteRepository implements IVaultPageRepository, IVaultPageManag
   }
 
   async add(input: NewVaultPageInput): Promise<VaultPage> {
-    if (input.kind === "canvas") throw new Error("Canvas notes are saved as .canvas files, not here.");
     const title = input.title.trim();
     if (!title) throw new VaultPageValidationError("Page title is required.");
     const all = await this.readAll();
@@ -259,13 +326,14 @@ export class FileNoteRepository implements IVaultPageRepository, IVaultPageManag
     const page: VaultPage = {
       id: input.id ?? crypto.randomUUID(),
       title,
-      body: lf(input.body ?? ""),
+      body: input.kind === "canvas" ? (input.body ?? EMPTY_CANVAS_TEXT) : lf(input.body ?? ""),
       sortOrder: input.sortOrder ?? 0,
       createdAt: input.createdAt && DATED.test(input.createdAt) ? input.createdAt : now,
       updatedAt: now,
     };
     if (input.parentId) page.parentId = input.parentId;
     if (input.folder) page.folder = true;
+    if (input.kind === "canvas") page.kind = "canvas";
     await this.put(all, page);
     return page;
   }
@@ -344,13 +412,14 @@ export class FileNoteRepository implements IVaultPageRepository, IVaultPageManag
     const title = [base, `${base} ${id.slice(0, 8)}`].find((t) => !taken(all, t)) ?? `${base} ${id}`;
     const copy: VaultPage = { id, title, body: of.body, sortOrder: of.sortOrder, createdAt: now, updatedAt: now };
     if (of.parentId) copy.parentId = of.parentId;
+    if (of.kind) copy.kind = of.kind;
     await this.put(all, copy);
     return id;
   }
 
   /** Writes `page` over the file `all` read for it; throws ChangedOnDiskError when that file changed since. */
   private async put(all: readonly Found[], page: VaultPage): Promise<void> {
-    if (page.kind === "canvas") throw new Error("Canvas notes are saved as .canvas files, not here.");
+    if (page.kind === "canvas") return this.putCanvas(all, page);
     const core = readyCore();
     if (makesCycle(all, page.id, page.parentId)) {
       throw new Error(`Moving "${page.title}" there would make a parent cycle.`);
@@ -386,10 +455,34 @@ export class FileNoteRepository implements IVaultPageRepository, IVaultPageManag
     this.loaded.set(page.id, text);
   }
 
+  /** Writes a canvas page's JSON as is; a new one gets a file named by its title and a map entry. */
+  private async putCanvas(all: readonly Found[], page: VaultPage): Promise<void> {
+    const found = all.find((f) => f.page.id === page.id);
+    if (page.body === found?.text) return;
+    const path = found?.path ?? (await this.canvasPath(all, page.id, page.title));
+    await this.write(path, page.body, found?.text ?? null);
+    this.loaded.set(page.id, page.body);
+    if (!found) await this.moveMapKey(null, path, page.id);
+  }
+
+  /** `<notes>/<title>.canvas`, else `<title> <id8>.canvas`, whichever no other page or file holds; else `<id>.canvas`. */
+  private async canvasPath(all: readonly Found[], id: string, title: string): Promise<string> {
+    const name = title.replace(UNSAFE, "-").trim() || "untitled";
+    const own = all.find((f) => f.page.id === id)?.path.toLowerCase();
+    for (const path of [`${this.dir}/${name}${CANVAS_SUFFIX}`, `${this.dir}/${name} ${id.slice(0, 8)}${CANVAS_SUFFIX}`]) {
+      const key = path.toLowerCase();
+      if (key === own) return path;
+      if (all.some((f) => f.path.toLowerCase() === key) || (await this.fs.stat(path))) continue;
+      return path;
+    }
+    return `${this.dir}/${id}${CANVAS_SUFFIX}`;
+  }
+
   async delete(id: string): Promise<void> {
     const found = (await this.readAll()).find((f) => f.page.id === id);
     // To the trash, like a paper: a note is the user's file and a delete must be undoable.
     if (found) await moveToTrash(this.fs, found.path, Date.now());
+    if (found?.page.kind === "canvas") await this.moveMapKey(found.path, null, id);
     this.loaded.delete(id);
   }
 
@@ -428,6 +521,7 @@ export class FileNoteRepository implements IVaultPageRepository, IVaultPageManag
   private async renameFile(all: readonly Found[], id: string, title: string): Promise<void> {
     const from = all.find((f) => f.page.id === id)?.path;
     if (!from) return;
+    if (from.endsWith(CANVAS_SUFFIX)) return this.renameCanvas(all, id, from, title);
     const slash = from.lastIndexOf("/");
     const name = from.slice(slash + 1);
     const suffix = name.endsWith(INK_SUFFIX) ? INK_SUFFIX : SUFFIX;
@@ -447,6 +541,18 @@ export class FileNoteRepository implements IVaultPageRepository, IVaultPageManag
       }
     } catch (error) {
       warnOnce("notes", `Renamed "${title}" but its file kept the name ${name}.`, error);
+    }
+  }
+
+  /** A canvas is titled by its file name, so a retitle is a rename, and its id follows it in the map. */
+  private async renameCanvas(all: readonly Found[], id: string, from: string, title: string): Promise<void> {
+    const to = await this.canvasPath(all, id, title);
+    if (to === from) return;
+    try {
+      await this.fs.rename(from, to);
+      await this.moveMapKey(from, to, id);
+    } catch (error) {
+      warnOnce("notes", `Could not rename the canvas ${from} to "${title}".`, error);
     }
   }
 }

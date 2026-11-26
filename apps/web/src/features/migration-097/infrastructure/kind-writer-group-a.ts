@@ -252,7 +252,7 @@ export function createGroupAWriter(sink: FileSink, codec?: FileCodec): KindWrite
       checkKind(kind);
       const ids = written[kind]!;
       if (kind === "notes") {
-        const pages: Row[] = (await notes.list()).filter((p) => ids.has(p.id)).map((p) => ({ ...p }));
+        const pages: Row[] = (await notes.list()).filter((p) => ids.has(p.id) && p.kind !== "canvas").map((p) => ({ ...p }));
         for (const [path, row] of canvases) {
           if ((await sink.readText(path).catch(() => null)) === row.body) pages.push(row);
         }
