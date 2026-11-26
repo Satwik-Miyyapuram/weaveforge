@@ -40,6 +40,8 @@ const NULL_IS_ABSENT: ReadonlySet<string> = new Set([
 function comparable(kind: string, row: Row): Row {
   const out = withoutServerOnly(kind, row);
   if (kind === "blobs") out.contentType = out.contentType ?? "application/octet-stream";
+  // The codec frames the notes body with a final newline; an old app file holds it without, so trailing newlines are framing.
+  if (kind === "reportSections" && typeof out.notes === "string") out.notes = out.notes.replace(/\n+$/, "");
   if (NULL_IS_ABSENT.has(kind)) {
     // These files leave a null column out, and a note leaves out a false pinned or folder.
     for (const k of Object.keys(out)) if (out[k] === null || out[k] === undefined) delete out[k];

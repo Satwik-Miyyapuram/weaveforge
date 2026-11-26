@@ -47,3 +47,14 @@ for (const kind of Object.keys(ROWS)) {
     assert.ok(!sameRows(kind, [row], [lost]));
   });
 }
+
+test("reportSections: notes ending in a newline match an old app file that holds them without the codec's extra newline", () => {
+  const codec = wasmFileCodec(core as unknown as Parameters<typeof wasmFileCodec>[0]);
+  const row = toCamelRow({ ...ROWS.reportSections!, notes: "[[A paper]] \n" });
+  const file = codec.toFile("reportSections", row);
+  assert.ok(file.text.endsWith("[[A paper]] \n\n"));
+  const back = codec.toRow("reportSections", file.path, file.text.slice(0, -1))!;
+  assert.ok(sameRows("reportSections", [row], [back]));
+  const edited = codec.toRow("reportSections", file.path, file.text.replace("[[A paper]]", "[[B paper]]"))!;
+  assert.ok(!sameRows("reportSections", [row], [edited]), "a real edit still differs");
+});
