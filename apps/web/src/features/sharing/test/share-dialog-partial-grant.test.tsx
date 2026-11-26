@@ -41,7 +41,7 @@ function stub(over: Record<string, unknown> = {}): unknown {
     get: (_t, key) => {
       if (key === "then") return undefined;
       const hit = over[key as string];
-      if (typeof hit === "function") return hit;
+      if (typeof hit === "function" || typeof hit === "boolean") return hit;
       return stub((hit ?? {}) as Record<string, unknown>);
     },
     apply: () => Promise.resolve([]),
@@ -52,6 +52,7 @@ test("a grant that fails on the second person drops the first from the picks and
   const granted: string[] = [];
   let lists = 0;
   setContainerForTests(stub({
+    workspace: { filesMode: false },
     sharing: {
       listDirectory: async () => ["a", "b", "c"].map((id) => ({ id, fullName: `Person ${id}` })),
       shareLinksEnabled: () => false,

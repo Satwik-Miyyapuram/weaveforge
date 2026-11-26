@@ -13,6 +13,7 @@ import { formatError } from "@/lib/format-error";
 import { runShareAction } from "./share-action";
 import { FormError } from "@/components/form-error";
 import { Button } from "@/components/button";
+import { SharingLaterNotice } from "./sharing-later-notice";
 
 /**
  * Manage who an item (or all of a type, when `resourceId` is null) is shared
@@ -21,19 +22,21 @@ import { Button } from "@/components/button";
  * Access is enforced by RLS — sharing grants database read/comment/edit; there
  * is no key exchange (client E2EE was dropped).
  */
-export function ShareDialog({
-  resourceType,
-  resourceId,
-  projectId,
-  title,
-  onClose,
-}: {
+export function ShareDialog(props: ShareDialogProps) {
+  // 0.9.7 files workspaces keep no share rows: sharing returns in 0.9.8 as live collaboration.
+  if (getContainer().workspace.filesMode) return <SharingLaterNotice title={props.title} onClose={props.onClose} />;
+  return <ManageShareDialog {...props} />;
+}
+
+type ShareDialogProps = {
   resourceType: ShareableType;
   resourceId: string | null;
   projectId?: string | null;
   title: string;
   onClose: () => void;
-}) {
+};
+
+function ManageShareDialog({ resourceType, resourceId, projectId, title, onClose }: ShareDialogProps) {
   const { profile } = useProfile();
   const activeProjectId = projectId ?? getContainer().projects.context.projectId;
   const [members, setMembers] = useState<Member[]>([]);
