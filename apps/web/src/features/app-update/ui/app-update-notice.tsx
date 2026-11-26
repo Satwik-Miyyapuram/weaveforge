@@ -9,7 +9,8 @@ import { useAppUpdate } from "./use-app-update";
  * The one-click notice for a newer desktop release, shown above the page.
  *
  * "Later" hides the notice for the release it was about; the next release
- * shows it again. Nothing installs until the button is pressed.
+ * shows it again. Nothing installs until the button is pressed. A failed
+ * check is not shown here; a release that did not install is.
  */
 export function AppUpdateNotice() {
   const { status, install } = useAppUpdate();
@@ -17,6 +18,8 @@ export function AppUpdateNotice() {
   // The status an error was dismissed on; the shell's next status shows again.
   const [dismissed, setDismissed] = useState<typeof status>(null);
   if (!status) return null;
+  // A failed check found no release: the automatic check is silent here, and the update settings show its error.
+  if (status.phase === "failed" && status.version === null) return null;
   const view = appUpdateView(status);
   if (!view.notice && !view.error) return null;
   if (status.phase === "available" && laterVersion === status.version) return null;

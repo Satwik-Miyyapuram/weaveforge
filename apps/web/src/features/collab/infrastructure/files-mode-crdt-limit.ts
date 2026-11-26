@@ -9,6 +9,11 @@ export const FILES_MODE_CRDT_TYPES: readonly string[] = ["experiment", "lab_snap
 
 export const FILES_MODE_CRDT_MESSAGE = "personal CRDT updates are not stored on the server in files mode";
 
+/** The live-sync banner text for a transport error; null for the files-mode refusal, which is expected (the folder holds the note). */
+export function transportBanner(stage: string, detail: string): string | null {
+  return detail.includes(FILES_MODE_CRDT_MESSAGE) ? null : `${stage}: ${detail}`;
+}
+
 /**
  * Wraps the CRDT update log so that, for any type outside `allowed`, writes are
  * refused (nothing reaches the server) and reads see an empty log (the server's

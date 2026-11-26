@@ -8,6 +8,7 @@ import {
   FILES_MODE_CRDT_TYPES,
   limitCrdtSnapshotStore,
   limitCrdtUpdateStore,
+  transportBanner,
 } from "../infrastructure/files-mode-crdt-limit";
 
 // In files mode the CRDT log lives on the server, so only the two resource types
@@ -113,4 +114,11 @@ test("files mode reports a zero watermark for personal types without asking the 
   assert.equal(await limited.getSnapshotUpto("paper", "r-1"), 0);
   assert.equal(await limited.getSnapshotUpto("experiment", "r-1"), 9);
   assert.deepEqual(seen, ["experiment"]);
+});
+
+// The folder is the truth in files mode: the log refusing a personal note is expected, so no banner says sync failed.
+test("transportBanner hides the files-mode refusal and keeps other errors", () => {
+  assert.equal(transportBanner("persist", FILES_MODE_CRDT_MESSAGE), null);
+  assert.equal(transportBanner("persist", `Error: ${FILES_MODE_CRDT_MESSAGE}`), null);
+  assert.equal(transportBanner("connect", "socket closed"), "connect: socket closed");
 });

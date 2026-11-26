@@ -65,7 +65,8 @@ function parse(path: string, text: string): Found | null {
   const page: VaultPage = {
     id,
     title: field("title") ?? id,
-    body,
+    // A legacy .ink.md keeps its ink meta in the frontmatter: the body gets the ink header, as Rust deserialize does, so it opens as ink.
+    body: type === INK_TYPE ? core.writeInkNoteBody(core.readInkNoteMeta(frontmatter), body.trimStart()) : body,
     sortOrder: Number(field("order") ?? 0) || 0,
     createdAt: field("created-at") ?? "",
     updatedAt: field("updated-at") ?? "",
@@ -338,10 +339,14 @@ export class FileNoteRepository implements IVaultPageRepository, IVaultPageManag
     const found = all.find((f) => f.page.id === page.id);
     const path = found?.path ?? core.flatPath(TYPE, page.id, page.title, this.root);
     const old = found ? core.readFrontmatter(found.text).frontmatter : {};
+    // A legacy .ink.md stores its ink meta as frontmatter keys and only the text as its body.
+    const ink = path.endsWith(INK_SUFFIX) && core.isInkNoteBody(page.body) ? core.readInkNoteBody(page.body) : null;
     const fields: Record<string, unknown> = {
       "weaveforge-id": page.id,
       "weaveforge-type": TYPE,
       ...old,
+      // Unchanged meta keeps the file's own keys, so an unchanged save writes nothing.
+      ...(ink && JSON.stringify(ink.meta) !== JSON.stringify(core.readInkNoteMeta(old)) ? core.writeInkNoteMeta(ink.meta) : {}),
       title: page.title,
       parent: page.parentId,
       order: page.sortOrder,
@@ -350,7 +355,7 @@ export class FileNoteRepository implements IVaultPageRepository, IVaultPageManag
       "created-at": page.createdAt,
       "updated-at": page.updatedAt,
     };
-    const text = core.writeFrontmatter(fields, lf(page.body));
+    const text = core.writeFrontmatter(fields, lf(ink ? ink.text : page.body));
     if (text === found?.text) return;
     await this.write(path, text, found?.text ?? null);
     this.loaded.set(page.id, text);

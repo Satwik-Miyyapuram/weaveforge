@@ -11,6 +11,7 @@ import { Awareness } from "y-protocols/awareness";
 import type { CollabSession } from "../application/parts.js";
 import { isLocalMode } from "@/backend/providers/local/local-identity";
 import { RealtimeYjsProvider } from "../infrastructure/realtime-yjs-provider.js";
+import { transportBanner } from "../infrastructure/files-mode-crdt-limit";
 import {
   applyStoredBody,
   markSaved,
@@ -208,7 +209,7 @@ export function CollaborativeMarkdownEditor({
         if (dirty) saver.schedule(yText.toString());
         host.dispatchEvent(new Event("input", { bubbles: true }));
       },
-      onError: (stage, detail) => setTransportError(`${stage}: ${detail}`),
+      onError: (stage, detail) => setTransportError(transportBanner(stage, detail)),
       onConnected: () => setTransportError(null),
     });
 

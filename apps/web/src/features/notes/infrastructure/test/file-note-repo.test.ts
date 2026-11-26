@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import type { VaultPage } from "@weaveforge/core";
 import { MemoryWorkspaceFs } from "@core-test/memory-workspace-fs";
 import { loadTestCore } from "@/lib/test/load-test-core";
+import { readyCore as core } from "@/lib/rust-core";
 import { FileNoteRepository } from "../file-note-repo";
 
 before(loadTestCore);
@@ -531,7 +532,11 @@ test("a legacy ink-only .ink.md note is listed, opened and saved in place as ink
   const { fs, repo } = setup();
   await fs.writeFile(INK, inkFile("n-ink", "Distill"));
   assert.deepEqual((await repo.list()).map((p) => p.title), ["Distill"]);
-  assert.equal((await repo.getById("n-ink"))?.body, "<!-- page 2 -->\n");
+  const body = (await repo.getById("n-ink"))?.body ?? "";
+  // Opened as an ink note: the header is built from the frontmatter, so the editor opens it in Ink mode.
+  assert.equal(core().isInkNoteBody(body), true);
+  assert.equal(core().readInkNoteBody(body).meta.pages, 2);
+  assert.equal(core().readInkNoteBody(body).text, "<!-- page 2 -->\n");
   assert.equal(await repo.pathOf("n-ink"), INK);
   await repo.update("n-ink", { title: "Distillation" });
   assert.deepEqual(await files(fs), [INK], "no .note.md written beside it");
@@ -539,6 +544,27 @@ test("a legacy ink-only .ink.md note is listed, opened and saved in place as ink
   assert.match(text, /weaveforge-type: ink_page/);
   assert.match(text, /ink-pages: 2/);
   assert.match(text, /title: Distillation/);
+  assert.doesNotMatch(text, /weaveforge-ink/, "the ink meta stays in the frontmatter, never the .ink.md body");
+});
+
+test("an .ink.md saved unchanged writes nothing, and a text edit keeps the ink meta in its frontmatter", async () => {
+  const { fs, repo } = setup();
+  // As the upgrade writes it: every field this repo owns is present.
+  const original = inkFile("n-ink", "Distill").replace(
+    "ink-pages: 2\n",
+    'ink-pages: 2\norder: 0\ncreated-at: "2026-11-01T00:00:00Z"\nupdated-at: "2026-11-02T00:00:00Z"\n',
+  );
+  await fs.writeFile(INK, original);
+  const opened = (await repo.getById("n-ink"))!;
+  await repo.save(opened);
+  assert.equal(await fs.readText(INK), original, "byte-identical when unchanged");
+  const meta = core().readInkNoteBody(opened.body).meta;
+  await repo.save({ ...opened, body: core().writeInkNoteBody(meta, "<!-- page 2 -->\nnew words\n") });
+  const text = await fs.readText(INK);
+  assert.match(text, /ink-pages: 2/);
+  assert.match(text, /new words/);
+  assert.doesNotMatch(text, /weaveforge-ink/);
+  assert.equal(core().readInkNoteBody((await repo.getById("n-ink"))!.body).text, "<!-- page 2 -->\nnew words\n");
 });
 
 test("an .ink.md and a .note.md with one id list once, as the .note.md", async () => {
