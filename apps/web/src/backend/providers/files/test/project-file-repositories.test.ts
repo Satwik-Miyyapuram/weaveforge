@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { MemoryWorkspaceFs } from "@core-test/memory-workspace-fs";
 import type { Project } from "@weaveforge/core";
 import type { SecretsStore } from "@/features/settings/infrastructure/parts";
+import { getScreenCache, screenCacheKey, setScreenCache } from "@/lib/cache/parts-2";
 import { typedCore } from "@/lib/rust-core";
 import { loadTestCore } from "@/lib/test/load-test-core";
 import { wireProjectFileBackend } from "../project-file-repositories";
@@ -138,4 +139,13 @@ test("an annotation of another project's paper listed after a restart is still u
   assert.deepEqual((await again.readerAnnotationRepository.list("b")).map((a) => a.id), ["m1"]);
   await again.readerAnnotationRepository.update("m1", { comment: "after restart" });
   assert.match(await fs.readText(`${other}/papers/b.annotations.json`), /after restart/);
+});
+
+test("a new log entry drops the cached log screen, so the list shows it at once", async () => {
+  const { repos, active } = await two();
+  active.id = ONE.id;
+  const key = screenCacheKey(ONE.id, "logbook");
+  setScreenCache(key, [], Date.now());
+  await repos.logEntryRepository.add({ body: "Tried it.", kind: "daily" });
+  assert.equal(getScreenCache(key), undefined);
 });

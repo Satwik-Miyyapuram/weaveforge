@@ -1,5 +1,7 @@
 import { openFileSettingsSection } from "./file-settings-section";
+import { invalidateAllRepoCaches } from "@/lib/cache/parts-1";
 import { scopedWorkspaceFs } from "./scoped-workspace-fs";
+import { writtenWorkspaceFs } from "./written-workspace-fs";
 import { wireFileBackend, type FileBackendParts, type FileRepositories } from "./wire-file-backend";
 
 /** The repositories whose files live in a project's own folder; the rest stay at the workspace root. */
@@ -33,7 +35,9 @@ const methodsOf = (set: FileRepositories, key: ProjectKey) => set[key] as unknow
  * The file backend over a workspace of project folders: each call goes to the folder of the
  * project that was active when it was made. A workspace whose project sits at the root works as before.
  */
-export function wireProjectFileBackend(parts: FileBackendParts, pid: () => string | null): FileRepositories {
+export function wireProjectFileBackend(given: FileBackendParts, pid: () => string | null): FileRepositories {
+  // Files are not behind the repository cache, so each change drops the cached screens itself.
+  const parts = { ...given, fs: writtenWorkspaceFs(given.fs, invalidateAllRepoCaches) };
   const rootSet = wireFileBackend(parts);
   const projects = rootSet.projectRepository;
   const sets = new Map<string, Promise<FileRepositories>>();
