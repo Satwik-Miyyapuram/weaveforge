@@ -109,20 +109,12 @@ test("a note with no file in the folder has no strokes, and a write to it fails 
   assert.deepEqual(await filesUnder(fs, "thesis--2a3407"), {});
 });
 
-test("a note the mirror has not written yet is written by a folder sync, then the page lands beside it", async () => {
+test("a note not on disk yet is not written by ink: the write fails and nothing lands", async () => {
   const fs = await folderWith({});
-  let syncs = 0;
-  const { store } = stores(fs, {
-    syncFolder: async () => {
-      syncs += 1;
-      await fs.mkdirp("thesis--2a3407/notes");
-      await fs.writeFile(NOTE_PATH, noteText(ID));
-    },
-  });
+  const { store } = stores(fs);
   const page = typedCore().newInkChunkId();
-  await store.write(ID, page, bytes(6));
-  assert.equal(syncs, 1);
-  assert.notEqual(await fs.stat(`${STROKES}/${page}.inkb`), null);
+  await assert.rejects(store.write(ID, page, bytes(6)), /no file in the workspace folder/);
+  assert.deepEqual(await filesUnder(fs, "thesis--2a3407"), {});
 });
 
 test("every folder operation runs inside the folder lock", async () => {

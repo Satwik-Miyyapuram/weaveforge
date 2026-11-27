@@ -105,7 +105,6 @@ import {
   activeWorkspaceFs,
   closeFolder,
   folderRestored,
-  syncToFolder,
 } from "@/features/workspace/application/workspace-folder";
 import { desktop } from "@/lib/desktop/desktop-bridge";
 import { logToApp } from "@/lib/error-report/app-log";
@@ -220,7 +219,6 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
   // forgotten while the app is running.
   const inkNotes = new FolderInkNotes(activeWorkspaceFs, {
     run: (fn) => folderLock.run(fn),
-    syncFolder: syncToFolder,
   });
   const fsInkChunks = new FsInkChunkStore(activeWorkspaceFs, inkNotes, (fn) => folderLock.run(fn));
   const blobInkChunks = new BlobInkChunkStore(encryptedBlobStore, backend.session);

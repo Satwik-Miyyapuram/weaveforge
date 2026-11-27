@@ -250,11 +250,6 @@ export interface InkFolderReport {
 export interface FolderInkNotesOptions {
   /** The folder lock; every read and write of the folder runs inside it. */
   run?: InkFolderRun;
-  /**
-   * Writes the notes to the folder. Asked once, outside the lock, when a note
-   * is not on disk yet (a note made a moment ago, before the mirror ran).
-   */
-  syncFolder?: () => Promise<unknown>;
   /** Where findings go; the app log by default. */
   report?: (entry: InkFolderReport) => void;
 }
@@ -286,15 +281,6 @@ export class FolderInkNotes implements InkNoteLocator {
     const fs = this.fs();
     if (!fs) return null;
     const run = this.options.run ?? unlocked;
-    const found = await run(() => this.find(fs, noteId));
-    if (found || !this.options.syncFolder) return found;
-    try {
-      await this.options.syncFolder();
-    } catch (err) {
-      // The sync reports its own failure; the note is just not on disk yet.
-      this.report("warn", `ink: could not write note ${noteId} to the folder`, String(err));
-      return null;
-    }
     return run(() => this.find(fs, noteId));
   }
 
