@@ -218,7 +218,7 @@ then unlock the keyring and try again.
 
 ### Upgrading to 0.9.8 and 1.0.0
 
-Update to 0.9.7 first. 0.9.8 does not move old database data itself.
+0.9.8 does not move old database data itself.
 
 - **0.9.8** keeps your device passwords and tokens only in your operating
   system's keychain. The no-account copy of your data runs on your workspace
@@ -235,15 +235,6 @@ as plain Markdown, then tell you when something out there changes it. The
 browser can do this too, but only for a folder you re-pick each session; the
 desktop app remembers the one you chose, and is the only place the folder is
 watched. See [`workspace-folder.md`](workspace-folder.md).
-
-### Upgrading a folder to 0.9.8
-
-Your notes, papers and settings are files in the workspace folder, and 0.9.8
-keeps no local database. 0.9.7 moved the data out of the old database. If this
-computer still holds that old database and the move has not been checked,
-0.9.8 asks you to open 0.9.7 once before it starts. See
-[Upgrading to 0.9.8](upgrading-to-098.md) for when that happens and how to get
-past it.
 
 ## Links
 

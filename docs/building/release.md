@@ -205,11 +205,9 @@ in `release-desktop.yml`) fails while `v0.9.7` is unpublished or still a draft. 
 (fail-safe): without the bridge the workflow refuses to write `latest.json`, so no 0.9.6 client is
 pointed at a newer release. Publish v0.9.7 first, then re-run the release.
 
-**The 0.9.7 gate.** The 0.9.7 `latest-v2.json` path depends on the install gate in
-`claim_install` (`apps/shell/src/app_update.rs`), which calls `install_allowed`. A 0.9.7
-install of a newer release is held unless local data is absent, or exported and verified
-for this device. Unknown local-data state also holds (fail closed), so the data is never
-stranded. If that gate is removed, a 0.9.7 client can update past its local data.
+**The 0.9.7 gate.** The install gate (`claim_install` in `apps/shell/src/app_update.rs`) lives
+only in the shipped 0.9.7 binary, and it holds a newer release until local data is exported
+and verified. 0.9.8 has no gate and opens the data folder directly.
 The draft is checked by `apps/shell/scripts/check-release-assets.mjs` in `release-desktop.yml`
 before it is published, and the published release is checked again after publish, so no manual
 check is needed. The draft's assets may use `untagged-<hash>` download URLs; a published release

@@ -13,7 +13,7 @@ For somebody using the app.
 - [The workspace folder](using/workspace-folder.md) — your notes as files on your own disk
 - [Storage and sync](using/sync.md) — where your work lives, and what syncs when
 - [Release notices](using/release-notices.md) — the what's-new banner after an update
-- [Upgrading to 0.9.8](using/upgrading-to-098.md) — the 0.9.7 export gate for older data, and what changed in sync and keys
+- [Upgrading to 0.9.8](using/upgrading-to-098.md) — what changed in sync and keys
 - [Collaborative editing](using/collaborative-editing.md) — two people in one document
 - [Organisations](using/organisations.md) — labs: create or join with an invite code, roles, who sees whom
 - [Paste](using/paste.md) — what happens to what you paste in

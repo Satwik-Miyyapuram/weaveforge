@@ -61,5 +61,5 @@ Sharing and live collaboration still go through the WeaveForge server. See [Coll
 ## Related
 
 - [The workspace folder](workspace-folder.md): the folder layout.
-- [Upgrading to 0.9.8](upgrading-to-098.md): the 0.9.7 export gate and what changed for keys.
+- [Upgrading to 0.9.8](upgrading-to-098.md): what changed for keys.
 - [Collaborative editing](collaborative-editing.md): two people in one document.
