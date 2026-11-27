@@ -522,3 +522,44 @@ test("save: a file changed between read and write keeps both, mine in a conflict
   const copies = (await repo.list()).filter((p) => p.id !== "n-1");
   assert.deepEqual(copies.map((p) => p.body), ["mine\n"]);
 });
+test("guarded update: typing saves, each against the body the last one stored, never make a copy", async () => {
+  const { fs, repo } = setup();
+  for (const start of ["", "a", "\n\nlead", "---\nx: 1\n---\nfm-like", "crlf\r\nline", "trail  \n\n\n"]) {
+    const note = await repo.add({ title: `T ${JSON.stringify(start)}`, body: start });
+    let base = note.body;
+    for (const next of [`${start}h`, `${start}he`, `${start}hel\n`, `${start}hel\n\n`, ""]) {
+      const saved = await repo.update(note.id, { body: next, baseBody: base });
+      assert.equal(saved.conflictCopyId, undefined, `${JSON.stringify(start)} -> ${JSON.stringify(next)}`);
+      base = saved.body;
+    }
+  }
+  assert.equal((await files(fs)).length, 6);
+});
+
+test("a same-id twin in notes/ (the old mirror's file) never turns typing into conflict copies", async () => {
+  const { fs, repo } = setup();
+  await repo.save(page());
+  const [own] = (await files(fs)).filter((p) => p.endsWith(".note.md"));
+  const text = await fs.readText(own!);
+  // Sorts after the note's own file, as the mirror's `untitled-4.note.md` did beside `untitled-4--3ce938.note.md`.
+  await fs.writeFile("thesis/notes/zzz-twin.note.md", text.replace("We measure things.", ""));
+  // The editor and the list re-read between saves: that read took the twin as the loaded text.
+  for (let i = 0; i < 3; i++) {
+    await repo.getById("n-1");
+    await repo.save(page({ body: `typed ${i}\n` }));
+  }
+  const copies = (await repo.list()).filter((p) => /conflict copy/.test(p.title));
+  assert.equal(copies.length, 0);
+  assert.equal((await repo.getById("n-1"))?.body, "typed 2\n");
+});
+
+test("deleting a note with a same-id twin removes both, so the note does not come back", async () => {
+  const { fs, repo } = setup();
+  await repo.save(page());
+  const [own] = (await files(fs)).filter((p) => p.endsWith(".note.md"));
+  await fs.writeFile("thesis/notes/zzz-twin.note.md", await fs.readText(own!));
+  await repo.getById("n-1");
+  await repo.delete("n-1");
+  assert.equal(await repo.getById("n-1"), null);
+  assert.deepEqual((await files(fs)).filter((p) => p.startsWith("thesis/notes/")), []);
+});

@@ -120,12 +120,17 @@ export class FileNoteRepository implements IVaultPageRepository, IVaultPageManag
     for await (const entry of this.fs.walk(this.dir)) {
       if (!entry.path.endsWith(SUFFIX)) continue;
       const parsed = parse(entry.path, await this.fs.readText(entry.path));
-      if (parsed) {
-        found.push(parsed);
-        this.loaded.set(parsed.page.id, parsed.text);
-      }
+      if (parsed) found.push(parsed);
     }
-    return found.sort((a, b) => a.path.localeCompare(b.path));
+    found.sort((a, b) => a.path.localeCompare(b.path));
+    // Two files can carry one id (a copied file, an old mirror's twin): the first one is the note, as `find` reads it.
+    const ids = new Set<string>();
+    for (const f of found) {
+      if (ids.has(f.page.id)) continue;
+      ids.add(f.page.id);
+      this.loaded.set(f.page.id, f.text);
+    }
+    return found;
   }
 
   async getById(id: string): Promise<VaultPage | null> {
@@ -352,9 +357,11 @@ export class FileNoteRepository implements IVaultPageRepository, IVaultPageManag
   }
 
   async delete(id: string): Promise<void> {
-    const found = (await this.readAll()).find((f) => f.page.id === id);
     // To the trash, like a paper: a note is the user's file and a delete must be undoable.
-    if (found) await moveToTrash(this.fs, found.path, Date.now());
+    // Every file carrying the id goes: a twin left behind would bring the note back.
+    for (const found of (await this.readAll()).filter((f) => f.page.id === id)) {
+      await moveToTrash(this.fs, found.path, Date.now());
+    }
     this.loaded.delete(id);
   }
 
