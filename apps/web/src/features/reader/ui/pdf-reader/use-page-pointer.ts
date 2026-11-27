@@ -26,6 +26,7 @@ import {
 import type { AnnotationActions } from "./use-annotation-actions";
 import { usePointerPreviews } from "./use-pointer-previews";
 import { drawArea, pageBoxOf } from "./page-box";
+import { inkAnnotationsAt, inkAnnotationsInLoop } from "./ink-hits";
 import type { DraftShape, InkGroup, InkMove, PendingTextBox } from "./types";
 
 export interface PagePointerDeps {
@@ -256,29 +257,11 @@ export function usePagePointer({
     return true;
   }
 
-  /**
-   * Ink annotations on this page whose stroke passes within `radius` of a point.
-   *
-   * Reads the page's bucket rather than the whole document: the eraser runs this
-   * on every pointer move, and scanning every annotation in a heavily marked-up
-   * paper to find the handful on the page under the pen is work for nothing.
-   */
-  function inkAnnotationsAt(pageNumber: number, x: number, y: number, radius: number) {
-    const onPage = annotationsByPage.get(pageNumber) ?? EMPTY_ANNOTATIONS;
-    return onPage.filter((ann) => {
-      if (ann.type !== "ink") return false;
-      const position = ann.anchor.zoteroPosition;
-      if (!position?.paths?.length || position.pageIndex !== pageNumber - 1) return false;
-      const nib = typeof position.width === "number" ? position.width : INK_DEFAULT_WIDTH;
-      return readyCore().inkPathsHitTest(position.paths, x, y, radius + nib / 2);
-    });
-  }
-
   /** Rub out the strokes the eraser is touching; a mark goes once none are left. */
   function eraseAt(pageNumber: number, x: number, y: number) {
     // The reach is fixed on screen; `scale` is CSS px per PDF unit at this zoom.
     const radius = ERASER_SCREEN_RADIUS / scale;
-    for (const ann of inkAnnotationsAt(pageNumber, x, y, radius)) {
+    for (const ann of inkAnnotationsAt(annotationsByPage.get(pageNumber) ?? EMPTY_ANNOTATIONS, pageNumber, x, y, radius)) {
       if (ann.origin !== "local") continue;
       const current = erased.current.has(ann.id) ? erased.current.get(ann.id) : ann.anchor;
       if (!current) continue;
@@ -398,25 +381,6 @@ export function usePagePointer({
   }
 
   /**
-   * The ink on a page the loop has caught.
-   *
-   * Judged per annotation, on all of its strokes together
-   * (`inkPathsInPolygon`): a mark is one thing the hand wrote, and a loop round
-   * most of it picks up the whole of it.
-   */
-  function inkAnnotationsInLoop(pageNumber: number, polygon: readonly number[]): string[] {
-    const onPage = annotationsByPage.get(pageNumber) ?? EMPTY_ANNOTATIONS;
-    return onPage
-      .filter((ann) => {
-        if (ann.type !== "ink") return false;
-        const position = ann.anchor.zoteroPosition;
-        if (!position?.paths?.length || position.pageIndex !== pageNumber - 1) return false;
-        return readyCore().inkPathsInPolygon(position.paths, polygon);
-      })
-      .map((ann) => ann.id);
-  }
-
-  /**
    * The nib, constant along the stroke as on a note: the highlighter's is fixed, the pen's is chosen.
    *
    * The highlighter's is the ink note's 6 mm, converted once — the reader
@@ -456,7 +420,7 @@ export function usePagePointer({
       admit: () => pointerMayDraw(event),
       hitSelection: () => {
         const held = selectionIds();
-        return held.length > 0 && inkAnnotationsAt(pageNumber, pt.x, pt.y, ERASER_SCREEN_RADIUS / scale).some((ann) => held.includes(ann.id));
+        return held.length > 0 && inkAnnotationsAt(annotationsByPage.get(pageNumber) ?? EMPTY_ANNOTATIONS, pageNumber, pt.x, pt.y, ERASER_SCREEN_RADIUS / scale).some((ann) => held.includes(ann.id));
       },
     });
     // No tool, or a pointer the palm rules refuse: a press is the page's, so a
@@ -674,7 +638,7 @@ export function usePagePointer({
       // A loop needs an area, not a line: a tap or a flick is not a lasso, and
       // reading one as an empty selection would drop the marks the last loop
       // caught every time a hand brushed the page.
-      if (loop.length >= 6) setLassoed(inkAnnotationsInLoop(loopPage, loop));
+      if (loop.length >= 6) setLassoed(inkAnnotationsInLoop(annotationsByPage.get(loopPage) ?? EMPTY_ANNOTATIONS, loopPage, loop));
       return;
     }
 
