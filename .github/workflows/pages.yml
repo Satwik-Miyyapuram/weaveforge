@@ -46,6 +46,9 @@ jobs:
 
       - run: npm ci
 
+      # The WASM package and bindings are git-ignored; the pitch build imports them.
+      - uses: ./.github/actions/generate
+
       - name: Build the static export
         env:
           # Served from www.weaveforge.org (the CNAME apps/pitch/scripts/
