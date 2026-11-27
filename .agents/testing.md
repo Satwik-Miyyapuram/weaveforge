@@ -156,6 +156,7 @@ Two measuring scripts do live in the repo, in `scripts/perf/`:
 - `node scripts/perf/memory.mjs` (Dev running, read-only over CDP) prints
   memory per part: JS heap, wasm, DOM, canvases, workers, and the working set
   of every WebView2 process and the shell.
+- `node scripts/perf/budget.mjs [--idle]` (Dev running) checks the layer and memory budgets in `ui-layers.md` and exits 1 when one is broken.
 
 Conventions:
 

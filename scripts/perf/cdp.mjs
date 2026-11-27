@@ -18,9 +18,11 @@ await new Promise((resolve, reject) => {
 });
 let id = 0;
 const pending = new Map();
+const listeners = [];
 ws.addEventListener("message", (ev) => {
   const d = JSON.parse(ev.data);
   if (d.id && pending.has(d.id)) { pending.get(d.id)(d); pending.delete(d.id); }
+  for (const fn of listeners) fn(d);
 });
 ws.addEventListener("close", () => {
   for (const settle of pending.values()) settle({ error: { message: "DevTools connection closed" } });
@@ -38,3 +40,5 @@ export const shot = async (file, clip) => {
   writeFileSync(file, Buffer.from(r.result.data, "base64"));
 };
 export const close = () => ws.close();
+/** Calls `fn` with every DevTools message, events included (LayerTree.layerTreeDidChange...). */
+export const on = (fn) => listeners.push(fn);
