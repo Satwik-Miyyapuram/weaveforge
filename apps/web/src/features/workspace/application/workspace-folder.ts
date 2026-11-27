@@ -19,7 +19,6 @@ import {
   type ConflictResolution,
   type FileHistorySource,
   gitFileHistory,
-  keepWorkspaceCopy,
   mergeBothChanged,
   settleConflict,
   shellFileHistory,
@@ -46,7 +45,7 @@ import { mirrorWorkspace } from "./parts-2";
 import { recordSessionSeen, sessionGeneration, sessionSeen } from "./folder-session-seen";
 // Type-only: the preview module loads on first use, so it stays out of the first-load
 // bundle of every route that reaches the app container.
-import type { FolderImportDiff, FolderImportPicks, FolderImportResult, FolderPreview } from "./workspace-folder-preview";
+import type { FolderPreview } from "./workspace-folder-preview";
 import type { SyncOutcome } from "./workspace-folder-sync-report";
 
 /**
@@ -291,14 +290,6 @@ export function syncToFolder(): Promise<SyncOutcome> {
   return folderLock.run(runSyncToFolder);
 }
 
-/**
- * Apply a reviewed folder import. Since 0.9.8 the files are the only personal store, so no
- * table rows are restored onto the server: the import applies the folder's files only.
- */
-export async function applyReviewedImport(diff: FolderImportDiff, picks: FolderImportPicks): Promise<FolderImportResult> {
-  return applyFolderImport(diff, picks);
-}
-
 async function runSyncToFolder(): Promise<SyncOutcome> {
   // Read before the first await: a DB replace at any point during this run makes it stale.
   const startedAt = sessionGeneration();
@@ -514,19 +505,6 @@ export function onExternalChange(listener: (paths: string[]) => void): () => voi
   return () => externalListeners.delete(listener);
 }
 
-/**
- * Settle one held outside edit from its row: "mine" writes the workspace's copy over the folder's file,
- * "theirs" takes the folder's copy in. The path is then looked at again, so the list drops it.
- */
-export async function settleHeldEdit(path: string, keep: "mine" | "theirs"): Promise<void> {
-  const fs = activeFs;
-  if (!fs) throw new Error("No folder is connected.");
-  const only = new Set([path]);
-  if (keep === "mine") await keepWorkspaceCopy(fs, path);
-  else await applyFolderImport(await previewFolderImport(only), { [path]: "folder" }, { fs });
-  if (activeFs === fs) settleExternalChanges(await previewFolderImport(only), only);
-}
-
 /** Why a listed outside edit waits for review; none for a path the last look did not see. */
 export function externalChangeReason(path: string): HeldReason | undefined {
   return externalReasons[path];
@@ -739,11 +717,6 @@ export async function previewFolderImport(only?: ReadonlySet<string>): Promise<F
   return previewConnectedFolder(fs, only);
 }
 
-/** Diff a workspace archive against the workspace. Preview only. */
-export const previewArchiveImport: typeof import("./workspace-folder-preview").previewArchiveImport = async (bytes) =>
-  (await import("./workspace-folder-preview")).previewArchiveImport(bytes);
-
-
 export {
   mergeBothChanged,
   settleConflict,
@@ -751,4 +724,4 @@ export {
   type ConflictResolution,
 };
 
-export { applyFolderImport, writeMarkersFor } from "./parts-1";
+export { applyFolderImport } from "./parts-1";

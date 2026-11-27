@@ -15,7 +15,6 @@ import type { ImportDiff, ImportDiffEntry } from "@weaveforge/wasm";
 import { loadTestCore } from "@/lib/test/load-test-core";
 import {
   applyEntries,
-  keepWorkspaceCopy,
   refreshMirrorBase,
   storedDigest,
   titleFromFileName,
@@ -231,25 +230,6 @@ test("renameSources: the only file with an id whose old file is gone is a rename
     { id: null, path: "n/new.note.md" },
   ];
   assert.deepEqual(readyCore().renameSources(parsed, folder, current), { "n/a2.note.md": "n/a.note.md" });
-});
-
-test("keeping the workspace copy writes it over the folder's file and makes it the base", async () => {
-  const { container } = fakeContainer();
-  const page = { id: "p-1", title: "Idea", body: "mine", parentId: null };
-  (container as unknown as { workspace: unknown }).workspace = {
-    snapshot: async () => ({ vaultPages: [page], papers: [] }),
-  };
-  setContainerForTests(container);
-  const core = await loadTestCore();
-  const files = core.serializeWorkspace({ vaultPages: [page], papers: [] } as never, { id: "p1", name: "Thesis" }).files;
-  const path = Object.keys(files).find((key) => key.endsWith(".md") && files[key]?.includes("p-1"));
-  assert.ok(path);
-  const { fs, store } = memoryFs({ [path]: "theirs\n" });
-
-  assert.equal(await keepWorkspaceCopy(fs, path), true);
-  assert.equal(store.get(path), files[path]);
-  assert.equal((await readMirrorBase(fs, projectRoot))[path], readyCore().digestText(files[path] ?? ""));
-  assert.equal(await keepWorkspaceCopy(fs, `${projectRoot}/notes/none.md`), false);
 });
 
 /** The note is read, then an outside edit lands before the import writes it. */

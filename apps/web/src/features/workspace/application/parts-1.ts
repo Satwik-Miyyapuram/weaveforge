@@ -253,35 +253,6 @@ export function settleConflict(
   return core.settleConflict(entry, resolutions) ?? null;
 }
 
-/**
- * Put this app's copy and the folder's copy into the file, marked, for a person
- * to settle in whatever they edit in.
- *
- * Only the body is marked. Frontmatter is not marked at all: it is key-value data,
- * and where two keys disagree the resolver settles them one at a time.
- *
- * Nothing reaches the workspace here. The file now differs from the recorded
- * base, so the mirror holds it back until the markers are gone.
- */
-export async function writeConflictMarkersTo(
-  core: RustCore,
-  fs: IWorkspaceFs,
-  entry: ImportDiffEntry,
-): Promise<boolean> {
-  const sides = entry.merge?.bodySides;
-  if (!sides) return false;
-
-  const current = await fs.readText(entry.entity.path).catch(() => null);
-  if (current === null) return false;
-
-  const { frontmatter } = core.readFrontmatter(current);
-  await fs.writeFile(
-    entry.entity.path,
-    core.writeFrontmatter(frontmatter, core.writeConflictMarkers(sides.ours, sides.theirs)),
-  );
-  return true;
-}
-
 // --- folder-import-apply ---
 
 let pendingAssets = new Map<string, Uint8Array>();
@@ -446,27 +417,6 @@ export async function applyFolderImport(
 
   await syncToFolder().catch(() => undefined);
   return { created: result.created, updated: result.updated, moved: result.moved, refused: result.refused };
-}
-
-/**
- * Answer a held outside edit with the workspace's copy: write it over the folder's file and make that
- * the base, so the edit no longer waits. False when the workspace writes nothing at that path.
- */
-export async function keepWorkspaceCopy(fs: IWorkspaceFs, path: string): Promise<boolean> {
-  const core = await loadCore();
-  const snapshot = await getContainer().workspace.snapshot();
-  const text = core.serializeWorkspace(snapshot, await activeProject()).files[path];
-  if (text === undefined) return false;
-  await fs.writeFile(path, text);
-  await refreshMirrorBase(fs, [path]);
-  return true;
-}
-
-/** See `writeConflictMarkersTo`: this window's folder gets the markers. */
-export async function writeMarkersFor(entry: ImportDiffEntry): Promise<boolean> {
-  const fs = activeWorkspaceFs();
-  if (!fs) return false;
-  return writeConflictMarkersTo(await loadCore(), fs, entry);
 }
 
 /**
