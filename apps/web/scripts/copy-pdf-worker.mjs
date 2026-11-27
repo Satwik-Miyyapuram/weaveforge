@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Copy the pdf.js worker into public/ so the read-only reader can load it from
+ * Copy the pdf.js worker (and the PDFium WASM) into public/ so the read-only reader can load it from
  * a same-origin URL (GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs").
  *
  * Why not `new URL("pdfjs-dist/build/pdf.worker.min.mjs", import.meta.url)`:
@@ -21,3 +21,9 @@ const dest = join(publicDir, "pdf.worker.min.mjs");
 mkdirSync(publicDir, { recursive: true });
 copyFileSync(workerSrc, dest);
 console.log(`Copied pdf.js worker → ${dest}`);
+
+// PDFium WASM for the `wf:pdfEngine` flag (pdfium-raster.ts fetches "/pdfium.wasm").
+const pdfiumWasm = require.resolve("@embedpdf/pdfium/pdfium.wasm");
+const pdfiumDest = join(publicDir, "pdfium.wasm");
+copyFileSync(pdfiumWasm, pdfiumDest);
+console.log(`Copied PDFium WASM → ${pdfiumDest}`);
