@@ -9,9 +9,10 @@ import { armLongTasks, formatIssues, scanPage, slowOpen, takeLongTasks, waitRead
 //   and is ready (no loading state) within SLOW_MS; every explorer item too.
 // - every explorer item: expands all tree rows, then opens the first PER_KIND of each kind and checks the page.
 // - every theme: switches data-theme across all themes on /workspace and checks each one.
+// - every tab: clicks each visible rail tab twice (first visit, return visit) and flags slow switches.
 // - every window size: resizes via CDP across SIZES on /workspace and checks each one.
 // - every safe control: presses each visible button/tab on /workspace and /dashboard whose name passes DENY.
-// Env knobs: WF_SWEEP_ROUTES (comma list), WF_SWEEP_PER_KIND, WF_SWEEP_MAX_CLICKS, WF_SWEEP_LONG_MS, WF_SWEEP_SLOW_MS,
+// Env knobs: WF_SWEEP_ROUTES (comma list), WF_SWEEP_PER_KIND, WF_SWEEP_MAX_CLICKS, WF_SWEEP_LONG_MS, WF_SWEEP_SLOW_MS, WF_SWEEP_TAB_MS,
 // WF_SWEEP_CLICKS=0 (turns off the safe-control test).
 // DENY keeps the sweep off anything that writes, sends, closes or leaves. Theme, size and URL are restored after each test.
 
@@ -23,6 +24,7 @@ const PER_KIND = Number(process.env.WF_SWEEP_PER_KIND ?? 3);
 const MAX_CLICKS = Number(process.env.WF_SWEEP_MAX_CLICKS ?? 80);
 const LONG_MS = Number(process.env.WF_SWEEP_LONG_MS ?? 500);
 const SLOW_MS = Number(process.env.WF_SWEEP_SLOW_MS ?? 1_000);
+const TAB_MS = Number(process.env.WF_SWEEP_TAB_MS ?? 300);
 const SETTLE_MS = 2_500;
 // Names of controls the sweep never presses: anything that writes, sends, closes or leaves.
 const DENY = /delete|remove|discard|reset|clear|sign ?out|log ?out|push|pull|publish|send|share|revoke|install|update|restart|quit|exit|close|minimi|maximi|merge|commit|sync|import|export|upload|download|rename|move|archive|trash|\bnew\b|create|add|duplicate|copy|paste|cut|undo|redo|save|print|folder|connect|link|accept|decline|submit|apply|confirm|erase|sign ?in|log ?in|restore|revert|drop|leave|invite|join|approve|reject|\brun\b|start|stop|generate|reload|refresh|retry|fetch|\bpin\b|unpin|\btag\b|\bstar|favou?rite|\bmark\b|split/i;
@@ -80,6 +82,41 @@ test.describe("sweep", () => {
         found.push(...slowOpen("route " + r, ms, SLOW_MS), ...(await check(app, errors, "route " + r)));
       }
     } finally {
+      await app.goto(start, { waitUntil: "load" });
+    }
+    expect(found, formatIssues(found)).toEqual([]);
+  });
+
+  // Users switch tabs from the rail, not with a page load: the screen there is kept alive, so a
+  // return visit must be near instant and a first visit no slower than a route load.
+  test("every tab switches fast", async ({ app }) => {
+    test.setTimeout(10 * 60_000);
+    const errors = watchErrors(app);
+    const start = app.url();
+    const found: Issue[] = [];
+    const folded = app.locator('nav[aria-label="Primary"] [aria-expanded="false"][aria-controls^="nav-group-"]');
+    let opened: string[] = [];
+    try {
+      await goto(app, "/dashboard");
+      opened = await folded.evaluateAll((bs) => bs.map((b) => b.getAttribute("aria-controls")!));
+      // A folded group hides its tabs; open every one, and fold them back after.
+      for (const id of opened) await app.locator(`nav[aria-label="Primary"] [aria-controls="${id}"]`).click();
+      const tabs = app.locator('nav[aria-label="Primary"] a[href^="/"]');
+      const hrefs = [...new Set(await tabs.evaluateAll((as) => as.filter((a) => (a as HTMLElement).offsetParent !== null).map((a) => a.getAttribute("href")!)))];
+      for (const [pass, budget] of [["first", SLOW_MS], ["return", TAB_MS]] as const) {
+        for (const href of hrefs) {
+          await armLongTasks(app);
+          const t0 = Date.now();
+          await app.locator(`nav[aria-label="Primary"] a[href="${href}"]`).first().click();
+          const ms = await waitReady(app, t0);
+          console.log(`tab ${href} (${pass}): ready ${ms} ms`);
+          const at = new URL(app.url()).pathname;
+          if (at !== href) found.push({ where: `tab ${href} (${pass})`, kind: "no-switch", detail: `still on ${at}` });
+          found.push(...slowOpen(`tab ${href} (${pass})`, ms, budget), ...(await check(app, errors, `tab ${href} (${pass})`)));
+        }
+      }
+    } finally {
+      for (const id of opened) await app.locator(`nav[aria-label="Primary"] [aria-controls="${id}"]`).click().catch(() => {});
       await app.goto(start, { waitUntil: "load" });
     }
     expect(found, formatIssues(found)).toEqual([]);
