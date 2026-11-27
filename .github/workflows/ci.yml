@@ -614,6 +614,9 @@ jobs:
       NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
       NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
       NEXT_PUBLIC_BACKEND_PROVIDER: postgrest
+      NEXT_PUBLIC_DATA_URL: https://api.weaveforge.org
+      NEXT_PUBLIC_REALTIME_URL: https://api.weaveforge.org
+      NEXT_PUBLIC_RELAY_URL: https://api.weaveforge.org/relay
     defaults:
       run:
         working-directory: apps/shell

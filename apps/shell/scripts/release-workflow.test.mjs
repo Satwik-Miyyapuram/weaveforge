@@ -87,3 +87,17 @@ test("the published release is checked against the gate after it is created", ()
   assert.ok(create > 0, "the workflow creates the release");
   assert.ok(check > create, "check-release-assets runs after gh release create");
 });
+
+test("the desktop builds bake in the OCI data and realtime URLs", () => {
+  const desktopJob = ci.slice(ci.indexOf("runs-on: windows-latest"));
+  for (const [name, text] of [["release-desktop.yml", workflow], ["ci.yml desktop job", desktopJob]]) {
+    assert.match(text, /NEXT_PUBLIC_DATA_URL: https:\/\/api\.weaveforge\.org\n/, name);
+    assert.match(text, /NEXT_PUBLIC_REALTIME_URL: https:\/\/api\.weaveforge\.org\n/, name);
+    assert.match(text, /NEXT_PUBLIC_RELAY_URL: https:\/\/api\.weaveforge\.org\/relay\n/, name);
+  }
+});
+
+test("build-web refuses a bundle without the data and realtime URLs", () => {
+  const buildWeb = readFileSync(`${root}apps/shell/scripts/build-web.mjs`, "utf8");
+  assert.match(buildWeb, /const REQUIRED_ENV = \[[^\]]*"NEXT_PUBLIC_DATA_URL"[^\]]*"NEXT_PUBLIC_REALTIME_URL"[^\]]*\]/);
+});

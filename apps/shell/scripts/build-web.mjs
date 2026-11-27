@@ -63,8 +63,14 @@ function filesUnder(dir) {
 
 // Next bakes `NEXT_PUBLIC_*` into the bundle at build time. A bundle built
 // without the sign-in settings throws before auth starts, and the installed app
-// sits on "Loading…" forever, so refuse to build one.
-const REQUIRED_ENV = ["NEXT_PUBLIC_SUPABASE_URL", "NEXT_PUBLIC_SUPABASE_ANON_KEY"];
+// sits on "Loading…" forever; one without the data URLs sends data calls to
+// Supabase REST instead of api.weaveforge.org. Refuse to build either.
+const REQUIRED_ENV = [
+  "NEXT_PUBLIC_SUPABASE_URL",
+  "NEXT_PUBLIC_SUPABASE_ANON_KEY",
+  "NEXT_PUBLIC_DATA_URL",
+  "NEXT_PUBLIC_REALTIME_URL",
+];
 const envFiles = [".env", ".env.local", ".env.production", ".env.production.local"]
   .map((name) => path.join(web, name))
   .filter((file) => fs.existsSync(file))
