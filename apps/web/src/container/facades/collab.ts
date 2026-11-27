@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { CollabSnapshotHelpers, CollabSession } from "@/features/collab/application/parts";
-import type { ICrdtUpdateStore, ICurrentUserProvider } from "@weaveforge/core";
+import { LOCAL_USER_ID, type ICrdtUpdateStore, type ICurrentUserProvider } from "@weaveforge/core";
 
 export class CollabFacade {
   constructor(
@@ -48,6 +48,11 @@ export class CollabFacade {
       getSnapshotUpto: () => store.getSnapshotUpto(resourceType, resourceId),
       crdtUpdateStore: this.inner.crdtStore,
     };
+  }
+
+  /** Who an edit is by: the signed-in user, or the local user when signed out (files need no account). */
+  async authorId(): Promise<string> {
+    return (await this.inner.session.getCurrentUserId()) ?? LOCAL_USER_ID;
   }
 
   requireUserId() {

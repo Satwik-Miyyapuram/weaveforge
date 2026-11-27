@@ -102,7 +102,7 @@ export function CollabBodyHost({
   // profile keeps the default name (P2-146).
   useEffect(() => {
     let live = true;
-    getContainer().collab.requireUserId().then(
+    getContainer().collab.authorId().then(
       (id) => { if (live) setAuthorId(id); },
       () => { if (live) setAuthorFailed(true); },
     );
