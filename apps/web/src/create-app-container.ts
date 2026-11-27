@@ -20,7 +20,6 @@ import {
   RevokeShareLinkUseCase,
   PinSharedResourceUseCase,
   DuplicateSharedPaperUseCase,
-  MetadataResolver,
   ManagePaperFieldsUseCase,
   UpdatePaperUseCase,
   RemoveRelationUseCase,
@@ -29,23 +28,19 @@ import {
   AiProposalExecutorRegistry,
 } from "@weaveforge/core";
 import type { AiToolName } from "@weaveforge/core";
-import { SemanticScholarMetadataSource, UrlMetadataSource } from "@/features/papers/infrastructure/parts-2";
 import {
   createContainerLifecycle,
   createLibraryTidy,
   HttpAccountProvisioner,
   IdbReferenceLookupCache,
-  OpenAlexMetadataSource,
   PrefetchingAddPaperUseCase,
   reportCitationAlertError,
-  RoutedInkChunkStore,
-  inkChunkStoreFor,
   VaultAssetStore,
   WebCryptoShareLinkTokenHasher,
   wireBackend,
 } from "@/container/parts";
 import { createReferenceActions, ReferenceLookupService } from "@/features/reader/application/parts-2";
-import { ArxivMetadataSource, CrossrefMetadataSource, localZoteroCollection } from "@/features/papers/infrastructure/parts";
+import { localZoteroCollection } from "@/features/papers/infrastructure/parts";
 import { DeletePaperUseCase, ImportLocalZoteroUseCase, LoadPapersScreenUseCase } from "@/features/papers/application/parts-1";
 // Adding a paper also asks for its PDF, so a paper imported after the folder
 // was adopted reaches `papers/pdf/` without a restart (explorer plan §8).
@@ -92,26 +87,19 @@ import {
   InkFacade,
   type AppContainer,
 } from "@/container/facades";
-import {
-  BlobInkChunkStore,
-  CopyOnReadInkChunkStore,
-  FolderInkNotes,
-  FsInkChunkStore,
-  UnavailableInkChunkStore,
-} from "@/features/ink/infrastructure/parts";
+import { FolderInkNotes } from "@/features/ink/infrastructure/parts";
 import { folderLock } from "@/features/workspace/application/folder-lock";
 import { trashDeletedNote } from "@/features/workspace/application/trash-note-files";
 import {
   activeWorkspaceFs,
   closeFolder,
-  folderRestored,
 } from "@/features/workspace/application/workspace-folder";
 import { desktop } from "@/lib/desktop/desktop-bridge";
 import { logToApp } from "@/lib/error-report/app-log";
 import { showToast } from "@/lib/toast/index";
 import { loadCore } from "@/lib/rust-core";
 import type { ProjectContext } from "@/lib/parts-2";
-import { randomBytes, readInkHapticsOn, relayUrl, systemClock, uuidIds } from "@/lib/parts";
+import { randomBytes, readInkHapticsOn, systemClock, uuidIds } from "@/lib/parts";
 import type { ProjectLwwInvalidator } from "@/lib/cache/parts-1";
 import { FetchingBlobStore } from "@/storage/fetching-blob-store";
 import { PaperImageStore } from "@/features/papers/infrastructure/parts-1";
@@ -126,6 +114,8 @@ import { wireDesktopFileBackend } from "@/container/desktop-file-backend";
 import { isLocalMode } from "@/backend/providers/files/no-account-mode";
 import { workspaceSettings } from "@/features/settings/application/workspace-settings";
 import { watchProjectChannel } from "@/container/project-watch";
+import { wireInkChunkStore } from "@/container/wire-ink-chunks";
+import { createMetadataResolvers } from "@/container/metadata-resolvers";
 
 export interface CreatedAppContainer {
   container: AppContainer;
@@ -213,34 +203,7 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
   // Signs artifact paths on read. Nothing stores a signed URL: SigV4 caps one
   // at seven days, so a stored link is a link with a deadline.
   const experimentArtifactStore = new ExperimentArtifactStore(encryptedBlobStore, backend.session);
-  // Ink chunks follow the page: in the folder beside the note's file
-  // (`foo.note.md` -> `foo.note.ink/`, legacy `foo.ink.md` -> `foo.ink/`) when one is open, the encrypted asset bucket
-  // otherwise (§4.1). Routed per call, since a folder can be chosen or
-  // forgotten while the app is running.
-  const inkNotes = new FolderInkNotes(activeWorkspaceFs, {
-    run: (fn) => folderLock.run(fn),
-  });
-  const fsInkChunks = new FsInkChunkStore(activeWorkspaceFs, inkNotes, (fn) => folderLock.run(fn));
-  const blobInkChunks = new BlobInkChunkStore(encryptedBlobStore, backend.session);
-  // On the desktop the folder is the only home: the bucket is read once per
-  // page to migrate legacy ink (copy-on-read), and nothing is written to it.
-  // Without a folder the desktop has nowhere for ink. The web is unchanged.
-  const copyOnReadInkChunks = new CopyOnReadInkChunkStore(fsInkChunks, blobInkChunks);
-  const unavailableInkChunks = new UnavailableInkChunkStore();
-  const inkChunkStore = new RoutedInkChunkStore(
-    () => {
-      const onDesktop = desktop() !== null;
-      return inkChunkStoreFor(
-        { folderOpen: Boolean(activeWorkspaceFs()), desktop: onDesktop },
-        {
-          folder: onDesktop ? copyOnReadInkChunks : fsInkChunks,
-          bucket: blobInkChunks,
-          unavailable: unavailableInkChunks,
-        },
-      );
-    },
-    folderRestored,
-  );
+  const inkChunkStore = wireInkChunkStore(encryptedBlobStore, backend.session);
 
   const manageProject = backend.projectRepository;
 
@@ -272,38 +235,9 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
   });
   const { bibliography, notifications, logSync, gitRead } = wiredIntegrations.registry;
 
-  // The key is read at call time: it is only decryptable after unlock.
-  const semanticScholarSource = new SemanticScholarMetadataSource(undefined, undefined, () =>
-    createCredentialReader(backend.manageSettings)("semantic-scholar", "apiKey"),
-  );
-  const openAlexSource = new OpenAlexMetadataSource(undefined, undefined, undefined, () =>
-    createCredentialReader(backend.manageSettings)("semantic-scholar", "openAlexKey"),
-  );
-
-  const resolver = new MetadataResolver([
-    new ArxivMetadataSource(undefined, relayUrl("/api/arxiv")),
-    new CrossrefMetadataSource(),
-    ...(wiredIntegrations.bibliographyMetadataSource
-      ? [wiredIntegrations.bibliographyMetadataSource]
-      : []),
-    // Title-only lookups for the reader's citation popover. Semantic Scholar
-    // first (its match endpoint is built for this), OpenAlex as the fallback.
-    semanticScholarSource,
-    openAlexSource,
-    new UrlMetadataSource(),
-  ], true); // A source that says no (Crossref on a DataCite DOI) falls through to the next.
+  const { resolver, readerResolver } = createMetadataResolvers(backend.manageSettings, wiredIntegrations.bibliographyMetadataSource);
   const importPaper = new ImportPaperUseCase(resolver, addPaper, async (kind, value) =>
     (await loadCore()).parsePaperRef(kind, value),
-  );
-
-  // The reader's citation lookup: Semantic Scholar is the first provider for
-  // DOI, arXiv and title+author+year alike, with OpenAlex/Crossref behind it.
-  // Desktop requests reach the API through #242's relay (see
-  // `semanticScholarUrl`), not a second direct network path. Identifier refs
-  // cascade so a DOI Semantic Scholar does not know still lands in Crossref.
-  const readerResolver = new MetadataResolver(
-    [semanticScholarSource, openAlexSource, new CrossrefMetadataSource(), new ArxivMetadataSource(undefined, relayUrl("/api/arxiv"))],
-    true,
   );
 
   const addLogEntry = logEntryRepository;
