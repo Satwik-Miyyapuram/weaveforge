@@ -1087,6 +1087,9 @@
   min-width: 0;
   gap: 0;
   overflow-x: auto;
+  /* overflow-x: auto turns on vertical scrolling too; the strip only scrolls
+     sideways. */
+  overflow-y: hidden;
   scrollbar-width: none;
 }
 
@@ -1172,6 +1175,13 @@
 /* The slot's rule spans the tab and its ×; the tab's own shorter one would
    sit on top of it and step where the × begins. */
 :root:root .pane-tab-slot > .wf-tab::after { display: none; }
+
+/* The tab fills the strip's height instead of padding out past it: a
+   larger theme font (CRT) made tabs 7px taller than the 36px strip. */
+:root:root .pane-tab-slot > .wf-tab {
+  align-self: stretch;
+  padding-block: 0;
+}
 
 /* The suffix always shows here: two tabs can share a title, and the tab is the
    one place the path is gone entirely (§3.2). */
