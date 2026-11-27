@@ -11,6 +11,7 @@ import { readStored, readStoredJson, writeStored, writeStoredJson } from "@/lib/
 import {
   errorMessage,
   type IModelConversation,
+  type IWorkspaceFs,
   type Paper,
   type SearchHit,
 } from "@weaveforge/core";
@@ -68,8 +69,11 @@ const folderDir = (projectId: string | null) => `${folderCacheDir()}/pdf-text/${
 const folderFile = (projectId: string | null, paperId: string) =>
   `${folderDir(projectId)}/${encodeURIComponent(paperId)}.json`;
 
-async function writeToFolder(projectId: string | null, source: PdfIndexSource): Promise<void> {
-  const fs = activeWorkspaceFs();
+async function writeToFolder(
+  projectId: string | null,
+  source: PdfIndexSource,
+  fs: IWorkspaceFs | null = activeWorkspaceFs(),
+): Promise<void> {
   if (!fs) return;
   try {
     await fs.mkdirp(folderDir(projectId));
@@ -79,26 +83,34 @@ async function writeToFolder(projectId: string | null, source: PdfIndexSource): 
   }
 }
 
-async function readFolder(projectId: string | null): Promise<PdfIndexSource[]> {
-  const fs = activeWorkspaceFs();
-  if (!fs) return [];
+/** Paper ids the folder holds, from the file names alone (`folderFile`). */
+async function folderPaperIds(fs: IWorkspaceFs, projectId: string | null): Promise<Map<string, string>> {
+  const ids = new Map<string, string>();
   let entries;
   try {
     entries = await fs.list(folderDir(projectId));
   } catch {
-    return [];
+    return ids;
   }
-  const out: PdfIndexSource[] = [];
   for (const entry of entries) {
     if (entry.kind !== "file" || !entry.path.endsWith(".json")) continue;
+    const name = entry.path.slice(entry.path.lastIndexOf("/") + 1, -".json".length);
     try {
-      const parsed = JSON.parse(await fs.readText(entry.path)) as PdfIndexSource;
-      if (parsed?.paperId && Array.isArray(parsed.pages)) out.push(parsed);
+      ids.set(decodeURIComponent(name), entry.path);
     } catch {
-      /* one unreadable file costs one paper, not the rest */
+      /* not a name this module wrote */
     }
   }
-  return out;
+  return ids;
+}
+
+async function readFolderFile(fs: IWorkspaceFs, path: string): Promise<PdfIndexSource | null> {
+  try {
+    const parsed = JSON.parse(await fs.readText(path)) as PdfIndexSource;
+    return parsed?.paperId && Array.isArray(parsed.pages) ? parsed : null;
+  } catch {
+    return null; // one unreadable file costs one paper, not the rest
+  }
 }
 
 /** Save to IndexedDB and the folder. */
@@ -126,13 +138,20 @@ export async function removePdfTextsDurably(projectId: string | null, paperIds: 
  * back into IndexedDB (after a sign-out or a fresh install), text only
  * IndexedDB has goes into the folder (papers read before this copy existed).
  */
-export async function reconcilePdfTextFolder(projectId: string | null): Promise<void> {
-  if (!activeWorkspaceFs()) return;
-  const [own, folder] = await Promise.all([loadPdfTexts(projectId), readFolder(projectId)]);
+export async function reconcilePdfTextFolder(
+  projectId: string | null,
+  { fs = activeWorkspaceFs(), load = loadPdfTexts, save = savePdfText } = {},
+): Promise<void> {
+  if (!fs) return;
+  const [own, folder] = await Promise.all([load(projectId), folderPaperIds(fs, projectId)]);
   const ownIds = new Set(own.map((source) => source.paperId));
-  const folderIds = new Set(folder.map((source) => source.paperId));
-  for (const source of folder) if (!ownIds.has(source.paperId)) await savePdfText(projectId, source);
-  for (const source of own) if (!folderIds.has(source.paperId)) await writeToFolder(projectId, source);
+  // Only the files IndexedDB lacks are read; the names say which those are.
+  for (const [paperId, path] of folder) {
+    if (ownIds.has(paperId)) continue;
+    const source = await readFolderFile(fs, path);
+    if (source) await save(projectId, source);
+  }
+  for (const source of own) if (!folder.has(source.paperId)) await writeToFolder(projectId, source, fs);
 }
 
 // --- index-library-pdfs ---
