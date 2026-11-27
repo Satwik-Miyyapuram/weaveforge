@@ -134,14 +134,23 @@ folder. It never launches a browser or the installed app.
 cd apps\web; npm run test:e2e:desktop
 ```
 
-- Specs: `startup` (projects load; shell-call budget), `notes`, `ink`,
+- The suite is the tester: `sweep.spec.ts` walks every route, explorer item
+  kind, theme, window size and safe control, and reports what is wrong
+  (console and page errors, error text, stray scrollbars in thin strips, page
+  overflow, broken images, long tasks). Report in
+  `test-results/desktop-sweep.json`. It never presses a control whose name
+  writes, sends, syncs or closes (`DENY` in the spec). Knobs:
+  `WF_SWEEP_ROUTES`, `WF_SWEEP_PER_KIND`, `WF_SWEEP_MAX_CLICKS`,
+  `WF_SWEEP_LONG_MS`, `WF_SWEEP_CLICKS=0`.
+- When the person finds a bug the sweep missed, first teach the sweep the
+  class of bug (a new check in `sweep-checks.ts`), not only that one case.
+- Flow specs: `startup` (projects load; shell-call budget), `notes`, `ink`,
   `projects`. `dev-app.ts` holds the fixtures and `countShellCalls`.
 - Budgets for one start: `WF_E2E_READ_BUDGET` (800), `WF_E2E_LIST_BUDGET`
   (150), `WF_E2E_STAT_BUDGET` (300). Before the 0.9.8 read cache one start
   made 3944 reads.
-- Every bug the person reports from the app gets a spec here that fails
-  before the fix. The web e2e suite (`apps/web/e2e`) never runs the desktop
-  app, so it missed them.
+- The web e2e suite (`apps/web/e2e`) never runs the desktop app, so it
+  missed the bugs the person hit in it.
 - Run it once per batch, after `dev-refresh`, not after each change.
 
 ## 4. Drive it over CDP

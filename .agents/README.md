@@ -71,8 +71,9 @@ running tests, a build or the Dev app; it is not loaded up front.
   lead reviews each diff and commits.
 - Rebuild Dev with `node scripts/dev-refresh.mjs --out <dev folder>`: it
   builds only the parts that changed (`testing.md` §3).
-- Prove desktop behaviour with `npm run test:e2e:desktop` against Dev, and
-  turn every bug the person reports into a spec there.
+- Prove desktop behaviour with `npm run test:e2e:desktop` against Dev. Its
+  sweep is the tester: it explores the whole app and reports what is wrong.
+  A bug the person finds first means the sweep lacks a check; add the check.
 
 ## Spend few tokens
 
