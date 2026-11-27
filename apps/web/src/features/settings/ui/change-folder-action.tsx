@@ -4,7 +4,7 @@ import { Button } from "@/components/button";
 import { chooseDesktopFolder } from "@/features/workspace/application/workspace-folder";
 
 /** The note that sits beside Change folder: what moves, and what does not go away. */
-export const CHANGE_FOLDER_NOTE = "Moves where your files are mirrored; nothing is deleted.";
+export const CHANGE_FOLDER_NOTE = "Moves where your workspace files live; nothing is deleted.";
 
 /**
  * The folder move as one job for the panel's `run`: open the folder dialog, and

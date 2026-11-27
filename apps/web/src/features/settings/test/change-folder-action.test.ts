@@ -29,8 +29,8 @@ test("Change folder says what moves and what stays, and is disabled while anothe
   const idle = renderToStaticMarkup(
     createElement(ChangeFolderAction, { busy: null, run: async () => {}, onChanged: () => {} }),
   );
-  assert.equal(CHANGE_FOLDER_NOTE, "Moves where your files are mirrored; nothing is deleted.");
-  assert.match(idle, /Moves where your files are mirrored; nothing is deleted\./);
+  assert.equal(CHANGE_FOLDER_NOTE, "Moves where your workspace files live; nothing is deleted.");
+  assert.match(idle, /Moves where your workspace files live; nothing is deleted\./);
   assert.match(idle, /<button(?![^>]*disabled)[^>]*>Change folder…<\/button>/);
 
   const other = renderToStaticMarkup(

@@ -10,8 +10,8 @@ checked: 2026-11-22
 ---
 # The workspace folder
 
-WeaveForge can keep a folder of plain Markdown on your disk that mirrors your
-workspace, and read your edits back in. The folder is a normal folder: you can
+WeaveForge keeps your workspace as a folder of plain Markdown on your disk, and
+reads your edits back in. The folder is a normal folder: you can
 open it in other apps, because everything in it is a file you can read without
 WeaveForge installed.
 

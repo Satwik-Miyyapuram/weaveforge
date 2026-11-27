@@ -230,8 +230,8 @@ then unlock the keyring and try again.
 
 ## A folder on your disk
 
-The desktop app can point WeaveForge at any folder you pick and keep it mirrored
-as plain Markdown, then tell you when something out there changes it. The
+The desktop app can point WeaveForge at any folder you pick and keep your
+workspace there as plain Markdown, then tell you when something out there changes it. The
 browser can do this too, but only for a folder you re-pick each session; the
 desktop app remembers the one you chose, and is the only place the folder is
 watched. See [`workspace-folder.md`](workspace-folder.md).

@@ -132,8 +132,7 @@ const SETTINGS_TAB_IDS = new Set<string>(SETTINGS_TABS.map((t) => t.id));
  * instead of scrolling to it.
  *
  * `#settings-folder` is aliased to the workspace tab. The tab was called
- * "Folder" until it took on the database as well — the two are one location
- * now — and a link written against the old name should land on the settings it
+ * "Folder" until it was renamed, and a link written against the old name should land on the settings it
  * means rather than on nothing.
  */
 function tabFromHash(hash: string): SettingsTabId | null {
@@ -642,7 +641,7 @@ export function SettingsScreen() {
 
       {tab === "data" && (
         <div id="settings-data-panel" role="tabpanel" aria-labelledby="settings-tab-data">
-          {/* Exporting works either way — it reads the database this copy has. */}
+          {/* Exporting works either way — it reads the workspace this copy has. */}
           <ExportDataPanel />
           {/* The record of what went wrong, beside the data it is about. It is
               here rather than in its own tab on purpose: a reader opens this
