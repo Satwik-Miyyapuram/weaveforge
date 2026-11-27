@@ -11,10 +11,11 @@ and passes in names, sizes and digests.
 - `workspace.rs`: `safe_workspace_path` and `is_safe_workspace_path` keep a path
   relative, normalized and inside the root.
 - `workspace/outside_edits.rs`: triage for an edit made in the connected folder
-  by another program. The edit is taken in without asking only when the folder
-  alone changed that file since both sides last agreed, and the note is not open
-  in an editor. A JSON data file is written whole or not at all. Everything else
-  is held for review, with the first reason that holds it.
+  by another program. The folder watcher picks outside edits up automatically
+  (auto-apply, with a toast and a commit). The triage takes an edit only when the
+  folder alone changed that file since both sides last agreed, and the note is not
+  open in an editor. A JSON data file is written whole or not at all. Any other
+  edit is not taken, and the first reason that holds is given.
 - `workspace/folder_diff.rs`: finds which new folder paths are renames of a
   note's old file, and what each folder file said when the two sides last agreed.
   Digests use the same hash as the mirror manifest.
@@ -75,10 +76,9 @@ The folder-mirror helpers used by the import and manifest code (`jsonEditSince`,
   APIs are I/O. Rust sees names, sizes and digests, and the caller keeps the
   bytes.
 - **The outside-edit flow.** `apps/web/src/features/workspace/application/parts-3.ts`
-  runs the triage, shows the review list and applies the choices. The rules
-  come from Rust; the orchestration and its dialogs stay in TypeScript.
-- **Keep-both titles and import limits in the app.** The title helper for a
-  kept-both copy and the import size settings are app choices, not core rules.
+  runs the triage, applies the edits it takes in, and shows a toast and a commit.
+  The rules come from Rust; the orchestration stays in TypeScript.
+- **Import limits in the app.** The import size settings are app choices, not core rules.
 - **The editor state.** Whether a note is open in an editor is an input to the
   triage. The editor itself stays in `apps/web`.
 

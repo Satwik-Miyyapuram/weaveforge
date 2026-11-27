@@ -11,7 +11,7 @@ export interface NoteFiles {
  * workspace folder to `.weaveforge/trash`.
  *
  * Files are the source of truth (0.9.5): a delete that removed only the row
- * left the `.md` behind, and the next "Check for changes" offered it as a new
+ * left the `.md` behind, and the folder watcher then picked it up as a new
  * note. The row goes first; a file that cannot be moved is reported through
  * `warn` and the delete still stands, since the import then reads the file's
  * unchanged manifest base as "deleted in the app".
