@@ -137,8 +137,8 @@ cd apps\web; npm run test:e2e:desktop
 - The suite is the tester: `sweep.spec.ts` walks every route, explorer item
   kind, theme, window size and safe control, and reports what is wrong
   (console and page errors, error text, stray scrollbars in thin strips, page
-  overflow, broken images, long tasks). Report in
-  `test-results/desktop-sweep.json`. It never presses a control whose name
+  overflow, broken images, long tasks). Report: one file per test in
+  `test-results/desktop-sweep/`. It never presses a control whose name
   writes, sends, syncs or closes (`DENY` in the spec). Knobs:
   `WF_SWEEP_ROUTES`, `WF_SWEEP_PER_KIND`, `WF_SWEEP_MAX_CLICKS`,
   `WF_SWEEP_LONG_MS`, `WF_SWEEP_CLICKS=0`.

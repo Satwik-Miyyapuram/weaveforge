@@ -1,5 +1,5 @@
 /** The sweep: walks every route, explorer item, theme, window size and safe control of the running Dev app and reports anything wrong. */
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import type { Page } from "@playwright/test";
 import { expect, test } from "./dev-app";
 import { armLongTasks, formatIssues, scanPage, takeLongTasks, watchErrors, type Issue } from "./sweep-checks";
@@ -23,7 +23,7 @@ const MAX_CLICKS = Number(process.env.WF_SWEEP_MAX_CLICKS ?? 80);
 const LONG_MS = Number(process.env.WF_SWEEP_LONG_MS ?? 500);
 const SETTLE_MS = 2_500;
 // Names of controls the sweep never presses: anything that writes, sends, closes or leaves.
-const DENY = /delete|remove|discard|reset|clear|sign ?out|log ?out|push|pull|publish|send|share|revoke|install|update|restart|quit|exit|close|minimi|maximi|merge|commit|sync|import|export|upload|download|rename|move|archive|trash|\bnew\b|create|add|duplicate|copy|paste|cut|undo|redo|save|print|folder|connect|link|accept|decline|submit|apply|confirm|erase|sign ?in|log ?in|restore|revert|drop|leave|invite|join|approve|reject|\brun\b|start|stop|generate|reload|refresh|retry|fetch|\bpin\b|unpin|\btag\b|\bstar|favou?rite|\bmark\b/i;
+const DENY = /delete|remove|discard|reset|clear|sign ?out|log ?out|push|pull|publish|send|share|revoke|install|update|restart|quit|exit|close|minimi|maximi|merge|commit|sync|import|export|upload|download|rename|move|archive|trash|\bnew\b|create|add|duplicate|copy|paste|cut|undo|redo|save|print|folder|connect|link|accept|decline|submit|apply|confirm|erase|sign ?in|log ?in|restore|revert|drop|leave|invite|join|approve|reject|\brun\b|start|stop|generate|reload|refresh|retry|fetch|\bpin\b|unpin|\btag\b|\bstar|favou?rite|\bmark\b|split/i;
 
 const ALL: Issue[] = [];
 
@@ -45,14 +45,22 @@ test.describe("sweep", () => {
   // Not serial: one failing test must not stop the rest of the sweep (workers: 1 keeps the order).
   test.describe.configure({ mode: "default" });
 
+  // A failed test restarts the worker, which empties ALL, so each test writes its own file.
+  test.afterEach(({}, info) => {
+    const dir = "test-results/desktop-sweep";
+    mkdirSync(dir, { recursive: true });
+    const slug = info.title.replace(/[^a-z0-9]+/gi, "-").toLowerCase();
+    writeFileSync(`${dir}/${slug}.json`, JSON.stringify(ALL.splice(0), null, 2));
+  });
+
   test.afterAll(() => {
-    mkdirSync("test-results", { recursive: true });
-    writeFileSync("test-results/desktop-sweep.json", JSON.stringify(ALL, null, 2));
+    const dir = "test-results/desktop-sweep";
+    const all: Issue[] = readdirSync(dir).flatMap((f) => JSON.parse(readFileSync(`${dir}/${f}`, "utf8")) as Issue[]);
     const perKind: Record<string, number> = {};
-    for (const i of ALL) perKind[i.kind] = (perKind[i.kind] ?? 0) + 1;
-    console.log(`sweep issues: ${ALL.length}`);
+    for (const i of all) perKind[i.kind] = (perKind[i.kind] ?? 0) + 1;
+    console.log(`sweep issues: ${all.length}`);
     console.log(`per kind: ${JSON.stringify(perKind)}`);
-    console.log(formatIssues(ALL.slice(0, 40)));
+    console.log(formatIssues(all.slice(0, 40)));
   });
 
   test("every route loads clean", async ({ app }) => {
@@ -87,9 +95,21 @@ test.describe("sweep", () => {
       await app.waitForTimeout(500);
     }
 
-    const keys = await app
-      .locator(".explorer-body [role=treeitem]:not([aria-expanded])")
-      .evaluateAll((els) => els.map((e) => (e as HTMLElement).dataset.rowKey ?? "").filter(Boolean));
+    // The explorer paints only the rows in view (use-explorer-window), so read the keys a screenful at a time.
+    const body = app.locator(".explorer-body");
+    const seen = new Set<string>();
+    for (let top = 0; ; ) {
+      await body.evaluate((el, t) => (el.scrollTop = t), top);
+      await app.waitForTimeout(150);
+      const page = await app
+        .locator(".explorer-body [role=treeitem]:not([aria-expanded])")
+        .evaluateAll((els) => els.map((e) => (e as HTMLElement).dataset.rowKey ?? "").filter(Boolean));
+      page.forEach((k) => seen.add(k));
+      const { h, sh } = await body.evaluate((el) => ({ h: el.clientHeight, sh: el.scrollHeight }));
+      top += Math.max(1, Math.floor(h * 0.8));
+      if (top >= sh) break;
+    }
+    const keys = [...seen];
 
     const byKind = new Map<string, string[]>();
     for (const key of keys) {
@@ -104,12 +124,16 @@ test.describe("sweep", () => {
       for (const key of list) {
         visited[kind] = (visited[kind] ?? 0) + 1;
         try {
-          await app
-            .locator(`.explorer-body [role=treeitem][data-row-key="${key.replace(/"/g, '\\"')}"]`)
-            .first()
-            .click({ timeout: 5_000 });
+          const row = app.locator(`.explorer-body [role=treeitem][data-row-key="${key.replace(/"/g, '\\"')}"]`).first();
+          // Scroll the row into the painted window first.
+          const sh = await body.evaluate((el) => el.scrollHeight);
+          for (let top = 0; top < sh && !(await row.count()); top += 400) {
+            await body.evaluate((el, t) => (el.scrollTop = t), top);
+            await app.waitForTimeout(100);
+          }
+          await row.click({ timeout: 5_000 });
         } catch (err) {
-          const issue: Issue = { where: "item " + key, kind: "click-failed", detail: String(err).slice(0, 200) };
+          const issue: Issue = { where: "item " + key, kind: "click-failed", detail: String(err).replace(/\x1b\[[0-9;]*m/g, "").slice(0, 600) };
           ALL.push(issue);
           found.push(issue);
           continue;

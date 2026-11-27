@@ -78,9 +78,11 @@ export async function scanPage(page: Page, where: string): Promise<Issue[]> {
       return parts.join(" > ");
     };
 
-    // The app is a full-window shell; the page itself never scrolls.
+    // The editor route is a full-window shell, so its page never scrolls; other screens scroll the page by design
+    // (shell.css pads them by --nav-clear). Sideways overflow is wrong everywhere.
     const d = document.documentElement;
-    if (d.scrollHeight > innerHeight + 1) out.push({ kind: "page-overflow-y", detail: `${d.scrollHeight}/${innerHeight}` });
+    const editor = !!document.querySelector(".layout.editor-route");
+    if (editor && d.scrollHeight > innerHeight + 1) out.push({ kind: "page-overflow-y", detail: `${d.scrollHeight}/${innerHeight}` });
     if (d.scrollWidth > innerWidth + 1) out.push({ kind: "page-overflow-x", detail: `${d.scrollWidth}/${innerWidth}` });
 
     // A strip under 64px (tab bar, toolbar, breadcrumb) that can scroll on that axis shows a stray scrollbar; this caught the CRT tab strip.
@@ -88,6 +90,8 @@ export async function scanPage(page: Page, where: string): Promise<Issue[]> {
     for (const el of document.querySelectorAll("body *")) {
       if (scrollIssues >= 20) break;
       const h = el as HTMLElement;
+      // A scroller with scrollbar-width: none shows no bar (the breadcrumbs scroll that way on purpose).
+      if ((h.scrollHeight > h.clientHeight + 1 || h.scrollWidth > h.clientWidth + 1) && getComputedStyle(h).scrollbarWidth === "none") continue;
       if (h.scrollHeight > h.clientHeight + 1 && h.clientHeight > 0 && h.clientHeight < 64) {
         if (["auto", "scroll"].includes(getComputedStyle(h).overflowY)) {
           out.push({ kind: "thin-scroll-y", detail: `${sel(h)} ${h.scrollHeight}/${h.clientHeight}` });
