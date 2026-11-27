@@ -11,6 +11,14 @@ import {
   type WorkspaceStat,
 } from "@weaveforge/core";
 import { moveOwnWrite, recordOwnWrite } from "@/backend/providers/files/own-writes";
+import {
+  cachedList,
+  cachedStat,
+  cachedText,
+  forgetAll,
+  forgetVaultPaths,
+  watchVault,
+} from "./vault-read-cache";
 
 // --- browser-workspace-fs ---
 /**
@@ -302,13 +310,22 @@ export interface VaultFileBridge {
   removeVaultFile(path: string): Promise<void>;
   /** A native move that replaces a file at `to`; absent on shells without it (Electron). */
   renameVaultFile?(from: string, to: string): Promise<void>;
+  /** The shell's folder watcher; absent on shells without one, so reads are never cached. */
+  onVaultChange?(cb: (paths: string[]) => void): () => void;
+  /** Fires when the watcher stops; cached reads are dropped and no longer kept. */
+  onVaultWatchLost?(cb: (reason: string) => void): () => void;
 }
 
 export class DesktopWorkspaceFs implements IWorkspaceFs {
-  constructor(private readonly bridge: VaultFileBridge) {}
+  constructor(private readonly bridge: VaultFileBridge) {
+    // A new instance means a (re)connected folder, whose paths may name other files.
+    forgetAll();
+    watchVault(bridge);
+  }
 
   async readText(path: string): Promise<string> {
-    const contents = await this.bridge.readVaultFile(safeWorkspacePath(path));
+    const at = safeWorkspacePath(path);
+    const contents = await cachedText(at, () => this.bridge.readVaultFile(at));
     // The port's contract is that a missing file throws; the bridge answers
     // null so that asking about one is not an error in itself.
     if (contents === null) throw new Error(`ENOENT: ${path}`);
@@ -328,6 +345,7 @@ export class DesktopWorkspaceFs implements IWorkspaceFs {
     const at = safeWorkspacePath(path);
     if (typeof data === "string") await this.bridge.writeVaultFile(at, data);
     else await this.bridge.writeVaultBytes(at, data);
+    forgetVaultPaths([at]);
     recordOwnWrite(at, data);
   }
 
@@ -338,12 +356,16 @@ export class DesktopWorkspaceFs implements IWorkspaceFs {
     const wrote = this.bridge.writeVaultFileIf
       ? await this.bridge.writeVaultFileIf(at, text, expected)
       : (await this.bridge.readVaultFile(at)) === expected && (await this.bridge.writeVaultFile(at, text), true);
+    // Dropped either way: a write changed the text, and a refused one means what we had cached was stale.
+    forgetVaultPaths([at]);
     if (wrote) recordOwnWrite(at, text);
     return wrote;
   }
 
   async remove(path: string): Promise<void> {
-    await this.bridge.removeVaultFile(safeWorkspacePath(path));
+    const at = safeWorkspacePath(path);
+    await this.bridge.removeVaultFile(at);
+    forgetVaultPaths([at]);
   }
 
   async mkdirp(_path: string): Promise<void> {
@@ -351,7 +373,8 @@ export class DesktopWorkspaceFs implements IWorkspaceFs {
   }
 
   async list(dir: string): Promise<readonly WorkspaceStat[]> {
-    return this.bridge.listVaultFiles(dir === "" || dir === "." ? "" : safeWorkspacePath(dir));
+    const at = dir === "" || dir === "." ? "" : safeWorkspacePath(dir);
+    return cachedList(at, () => this.bridge.listVaultFiles(at));
   }
 
   walk(dir: string): AsyncIterable<WorkspaceStat> {
@@ -362,7 +385,8 @@ export class DesktopWorkspaceFs implements IWorkspaceFs {
     // The bridge answers null for a missing file. Anything it throws (no folder
     // open, permission denied) is a failure, not "absent": callers that read
     // null as absent go on to write or delete.
-    return this.bridge.statVaultFile(safeWorkspacePath(path));
+    const at = safeWorkspacePath(path);
+    return cachedStat(at, () => this.bridge.statVaultFile(at));
   }
 
   async rename(from: string, to: string): Promise<void> {
@@ -371,6 +395,7 @@ export class DesktopWorkspaceFs implements IWorkspaceFs {
     // whole-file load into the webview.
     if (this.bridge.renameVaultFile) {
       await this.bridge.renameVaultFile(src, dest);
+      forgetVaultPaths([src, dest]);
       moveOwnWrite(src, dest);
       return;
     }

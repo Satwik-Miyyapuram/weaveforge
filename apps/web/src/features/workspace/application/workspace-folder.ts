@@ -12,6 +12,7 @@ import {
   DesktopWorkspaceFs,
   IsomorphicWorkspaceGit,
 } from "../infrastructure/parts";
+import { forgetVaultPaths } from "../infrastructure/vault-read-cache";
 import { folderLock } from "./folder-lock";
 import { type FileHistorySource, gitFileHistory, shellFileHistory } from "./parts-1";
 import { type Coalescer, createCoalescer } from "./parts-3";
@@ -393,6 +394,8 @@ function recordedAs(path: string): string {
  * the store, so there is nothing to import: it is announced, and committed.
  */
 function reportFolderChanges(paths: readonly string[]): void {
+  // Before anything reads them: a cached read would hide the edit being reported.
+  forgetVaultPaths(paths);
   let projectId: string | null = null;
   try {
     projectId = getContainer().projects.context.projectId ?? null;
