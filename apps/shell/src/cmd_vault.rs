@@ -49,11 +49,26 @@ where
     .unwrap_or_else(|_| Err(TASK_FAILED.to_owned()))
 }
 
+/// `blocking` for a job that only reads, so reads run side by side.
+async fn blocking_read<T, F>(state: &VaultState, job: F) -> Result<T, String>
+where
+    T: Send + 'static,
+    F: FnOnce(&VaultSession) -> Result<T, String> + Send + 'static,
+{
+    let state = state.clone();
+    tokio::task::spawn_blocking(move || {
+        let session = state.read();
+        job(&session)
+    })
+    .await
+    .unwrap_or_else(|_| Err(TASK_FAILED.to_owned()))
+}
+
 /// The chosen workspace folder, or `None` when none is chosen.
 pub async fn root(state: &VaultState) -> Option<VaultRoot> {
     let state = state.clone();
     tokio::task::spawn_blocking(move || {
-        let session = state.lock();
+        let session = state.read();
         session.root()
     })
     .await
@@ -66,7 +81,7 @@ pub async fn root(state: &VaultState) -> Option<VaultRoot> {
 /// # Errors
 /// No folder chosen, a refused path, or a file over the size cap.
 pub async fn read(state: &VaultState, path: String) -> Result<Option<String>, String> {
-    blocking(state, move |session| session.read_text(&path)).await
+    blocking_read(state, move |session| session.read_text(&path)).await
 }
 
 /// Writes text to a file in the chosen folder, creating its folders.
@@ -86,7 +101,7 @@ pub async fn write(state: &VaultState, path: String, contents: String) -> Result
 /// # Errors
 /// No folder chosen, a refused path, or a file over the size cap.
 pub async fn read_bytes(state: &VaultState, path: String) -> Result<Option<String>, String> {
-    blocking(state, move |session| {
+    blocking_read(state, move |session| {
         let bytes = session.read_bytes(&path)?;
         Ok(bytes.map(|bytes| STANDARD.encode(bytes)))
     })
@@ -126,7 +141,7 @@ pub async fn write_raw(state: &VaultState, path: String, bytes: Vec<u8>) -> Resu
 /// # Errors
 /// No folder chosen, a refused path, or a folder that cannot be read.
 pub async fn list(state: &VaultState, path: Option<String>) -> Result<Vec<VaultEntry>, String> {
-    blocking(state, move |session| session.list(path.as_deref())).await
+    blocking_read(state, move |session| session.list(path.as_deref())).await
 }
 
 /// Metadata for one file or folder; `None` when it is missing.
@@ -134,7 +149,7 @@ pub async fn list(state: &VaultState, path: Option<String>) -> Result<Vec<VaultE
 /// # Errors
 /// No folder chosen.
 pub async fn stat(state: &VaultState, path: String) -> Result<Option<VaultEntry>, String> {
-    blocking(state, move |session| session.stat(&path)).await
+    blocking_read(state, move |session| session.stat(&path)).await
 }
 
 /// Removes one file; a missing file is not an error. Folders are never removed.

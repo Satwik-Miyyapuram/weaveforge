@@ -55,6 +55,40 @@ async fn no_root_everywhere() {
     );
 }
 
+/// Startup fires hundreds of reads; one still running must not hold up the others.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn reads_do_not_wait_for_each_other() {
+    let dir = TempDir::new();
+    let state = state_at(dir.path());
+    fs::write(dir.path().join("a.md"), "hi").unwrap();
+
+    let running = state.read();
+    let reads = async {
+        (
+            read(&state, "a.md".to_owned()).await,
+            read_bytes(&state, "a.md".to_owned()).await,
+            stat(&state, "a.md".to_owned()).await.map(|e| e.is_some()),
+            list(&state, None)
+                .await
+                .map(|e| e.iter().any(|e| e.path == "a.md")),
+        )
+    };
+    let done = tokio::time::timeout(std::time::Duration::from_secs(10), reads)
+        .await
+        .expect("a read waited for another read");
+    drop(running);
+
+    assert_eq!(
+        done,
+        (
+            Ok(Some("hi".to_owned())),
+            Ok(Some(STANDARD.encode("hi"))),
+            Ok(true),
+            Ok(true)
+        )
+    );
+}
+
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn text_round_trip() {
     let dir = TempDir::new();

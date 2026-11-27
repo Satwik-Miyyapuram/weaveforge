@@ -4,7 +4,7 @@ use std::fmt::Display;
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
+use std::sync::{Arc, PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use wf_store::checked_write::WriteOutcome;
@@ -102,9 +102,10 @@ pub struct VaultEntry {
     pub modified_at: String,
 }
 
-/// The session the commands share. Clones share one session.
+/// The session the commands share. Clones share one session. Reads share it; writes and
+/// folder changes take it alone, so they stay one at a time.
 #[derive(Clone, Default)]
-pub struct VaultState(Arc<Mutex<VaultSession>>);
+pub struct VaultState(Arc<RwLock<VaultSession>>);
 
 impl VaultState {
     /// A shared session with no folder chosen.
@@ -113,9 +114,14 @@ impl VaultState {
         Self::default()
     }
 
-    /// The session, recovered if a holder panicked (its state is a path, never half-written).
-    pub fn lock(&self) -> MutexGuard<'_, VaultSession> {
-        self.0.lock().unwrap_or_else(PoisonError::into_inner)
+    /// The session alone, recovered if a holder panicked (its state is a path, never half-written).
+    pub fn lock(&self) -> RwLockWriteGuard<'_, VaultSession> {
+        self.0.write().unwrap_or_else(PoisonError::into_inner)
+    }
+
+    /// The session shared with other readers, recovered the same way.
+    pub fn read(&self) -> RwLockReadGuard<'_, VaultSession> {
+        self.0.read().unwrap_or_else(PoisonError::into_inner)
     }
 }
 
