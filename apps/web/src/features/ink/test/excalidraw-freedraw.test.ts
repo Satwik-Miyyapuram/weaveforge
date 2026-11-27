@@ -172,3 +172,26 @@ test("smoothing keeps a corner point and both ends where they were drawn", () =>
   assert.deepEqual(out.at(-1), V.at(-1));
   assert.deepEqual(smoothKeepingCorners([[0, 0], [1, 1]]), [[0, 0], [1, 1]]);
 });
+
+/** A circle like shakyCircle, sampled `n` times: a fast pen sends samples a fraction of a unit apart. */
+function denseShakyCircle(n: number, noise: number): number[][] {
+  let seed = 7;
+  const jitter = () => ((seed = (seed * 16807) % 2147483647) / 2147483647 - 0.5) * 2 * noise;
+  return Array.from({ length: n + 1 }, (_, i) => {
+    const a = (i / n) * 2 * Math.PI;
+    return [50 + 40 * Math.cos(a) + jitter(), 50 + 40 * Math.sin(a) + jitter()];
+  });
+}
+
+test("densely sampled shake is smoothed, not pinned as corners", () => {
+  for (const n of [400, 1200]) {
+    for (const noise of [0.2, 0.5]) {
+      const pts = denseShakyCircle(n, noise);
+      const out = smoothKeepingCorners(pts);
+      const pinned = out.filter((q, i) => i > 0 && i < out.length - 1 && q[0] === pts[i]![0] && q[1] === pts[i]![1]).length;
+      assert.equal(pinned, 0, `${n} samples, noise ${noise}: ${pinned} points pinned`);
+      const w = wobble(inkFreedrawPath(pts, pts.map(() => 0.5), 2, false, true));
+      assert.ok(w < 0.3, `${n} samples, noise ${noise}: wobble ${w}`);
+    }
+  }
+});
