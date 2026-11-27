@@ -109,6 +109,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   if (!user) return <CoreGate><main className="app-shell"><LoginScreen /></main></CoreGate>;
   return (
     <CoreGate>
+    {/* Registers the settings-file reader before the folder connects: the
+        privacy accept below is read from that file. */}
+    <WorkspaceSettingsSync />
     {/* Before the startup reads: in files mode the privacy accept and the
         project list live in the workspace folder, so it must be connected
         first. Once per session, above the project-scoped shell. See the
@@ -124,7 +127,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 <WorkspaceSetupDialog />
                 <GitAutoSync />
                 <FolderChangeNote />
-                <WorkspaceSettingsSync />
                 <GithubOnboarding />
                 <ToastHost />
                 <ContextMenuHost />

@@ -13,6 +13,7 @@ import type { Member, OrgMembershipView, UserSettings } from "@weaveforge/core";
 import type { AppContainer } from "@/bootstrap";
 import { continueStandalone, fetchMemberships } from "@/features/org/infrastructure/parts";
 import { folderRestored } from "@/features/workspace/application/workspace-folder";
+import { workspaceSettings } from "@/features/settings/application/workspace-settings";
 import { readyCore, typedCore } from "@/lib/rust-core";
 import { readStoredJson, writeStoredJson } from "@/lib/safe-storage";
 import { logToApp } from "@/lib/error-report/app-log";
@@ -149,8 +150,11 @@ async function loadStartupBundleUncached(
   const provisionedPromise = light.selfProvisioner.ensureProvisioned().catch(() => undefined);
 
   // Files mode keeps the settings and the project list in the workspace folder,
-  // so take up the remembered one first. At once in a browser; capped on desktop.
+  // so take up the remembered one first, then read its settings file. At once in
+  // a browser; capped on desktop.
   await folderRestored();
+  // A folder that cannot be read leaves the defaults; the read below reports it.
+  await workspaceSettings.load().catch(() => undefined);
 
   let settingsError: string | null = null;
   const settingsPromise = light.settings.getMetadata().catch((err: unknown) => {

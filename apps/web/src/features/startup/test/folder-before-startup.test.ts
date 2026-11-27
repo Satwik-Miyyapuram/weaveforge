@@ -25,3 +25,20 @@ test("startup waits for the folder before reading settings", () => {
   assert.ok(wait > -1, "startup must await folderRestored()");
   assert.ok(wait < settings, "await folderRestored() must come before the settings read");
 });
+
+test("the settings file loads above the startup reads", () => {
+  const shell = read("apps/web/src/app/app-shell.tsx");
+  const sync = shell.indexOf("<WorkspaceSettingsSync />");
+  const startup = shell.indexOf("<StartupProvider");
+  assert.ok(sync > -1 && sync < startup, "WorkspaceSettingsSync must mount before StartupProvider");
+  assert.equal(shell.split("<WorkspaceSettingsSync />").length - 1, 1, "mounted once");
+});
+
+test("startup loads the settings file before reading it", () => {
+  const src = read("apps/web/src/features/startup/startup-provider.tsx");
+  const wait = src.indexOf("await folderRestored()");
+  const load = src.indexOf("await workspaceSettings.load()");
+  const settings = src.indexOf("light.settings.getMetadata()");
+  assert.ok(load > -1, "startup must await workspaceSettings.load()");
+  assert.ok(wait < load && load < settings, "folder, then settings load, then the settings read");
+});
