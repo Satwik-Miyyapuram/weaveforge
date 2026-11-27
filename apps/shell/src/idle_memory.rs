@@ -94,7 +94,8 @@ pub fn watch(window: &tauri::WebviewWindow) {
 /// A poisoned lock still holds a usable state; the memory target is best effort.
 #[cfg(windows)]
 fn lock(idle: &std::sync::Mutex<Idle>) -> std::sync::MutexGuard<'_, Idle> {
-    idle.lock().unwrap_or_else(std::sync::PoisonError::into_inner)
+    idle.lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
 }
 
 /// No memory target outside WebView2.

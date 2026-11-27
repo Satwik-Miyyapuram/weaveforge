@@ -341,14 +341,14 @@ pub async fn install(app: &AppHandle) -> AppUpdateStatus {
     let state = app.state::<AppUpdateState>();
     let (update, before, downloading) =
         match claim_install(&state.status, &state.pending, platform::version) {
-        Claim::Refused(status) => return status,
-        Claim::CheckFirst => return check(app).await,
-        Claim::Start {
-            update,
-            before,
-            downloading,
-        } => (update, before, downloading),
-    };
+            Claim::Refused(status) => return status,
+            Claim::CheckFirst => return check(app).await,
+            Claim::Start {
+                update,
+                before,
+                downloading,
+            } => (update, before, downloading),
+        };
     let version = downloading.version.clone().unwrap_or_default();
     let _ = state.set(app, downloading);
     let on_chunk = progress_reporter(app.clone());
@@ -505,5 +505,4 @@ mod tests {
         }
         assert_eq!(guard(&status).phase, Phase::Downloading);
     }
-
 }

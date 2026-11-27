@@ -372,7 +372,8 @@ mod tests {
         with_project(&fixture);
         let deps = RouteDeps {
             vault: &fixture.vault,
-            mcp: None,        };
+            mcp: None,
+        };
         let answer = block_on(route_local_request(
             &deps,
             &request("GET", "/api/sdk/projects?name=Lab", ""),
@@ -415,7 +416,8 @@ mod tests {
     ) -> LocalApiResponse {
         let deps = RouteDeps {
             vault: &fixture.vault,
-            mcp,        };
+            mcp,
+        };
         block_on(route_local_request(
             &deps, request, expected, NOW_MS, NOW_ISO,
         ))
@@ -438,7 +440,8 @@ mod tests {
         let req = request("POST", "/search/simple/?query=kettle", "");
         let deps = RouteDeps {
             vault: &fixture.vault,
-            mcp: None,        };
+            mcp: None,
+        };
         let held = fixture.vault.clone();
         let (locked, is_locked) = std::sync::mpsc::channel();
         // Another thread holds the vault for 500 ms, as a slow search would.
@@ -767,7 +770,8 @@ mod tests {
         let mcp = FakeMcp;
         let deps = RouteDeps {
             vault: &vault,
-            mcp: Some(&mcp as &dyn McpRouter),        };
+            mcp: Some(&mcp as &dyn McpRouter),
+        };
         let body = json!({ "jsonrpc": "2.0", "id": 1, "method": "tools/list" }).to_string();
         let answer = block_on(route_local_request(
             &deps,
@@ -787,7 +791,8 @@ mod tests {
         with_project(&fixture);
         let deps = RouteDeps {
             vault: &fixture.vault,
-            mcp: None,        };
+            mcp: None,
+        };
         let answer = block_on(route_local_request(
             &deps,
             &request("GET", "/api/sdk/whoami", ""),
@@ -804,7 +809,8 @@ mod tests {
         with_project(&fixture);
         let deps = RouteDeps {
             vault: &fixture.vault,
-            mcp: None,        };
+            mcp: None,
+        };
         let answer = block_on(route_local_request(
             &deps,
             &request("GET", "/api/sdk/experiments", ""),
@@ -824,7 +830,8 @@ mod tests {
         let mcp = FakeMcp;
         let deps = RouteDeps {
             vault: &fixture.vault,
-            mcp: Some(&mcp as &dyn McpRouter),        };
+            mcp: Some(&mcp as &dyn McpRouter),
+        };
         // Whoami is answered locally in files mode (200), everything else is 503.
         let whoami = block_on(route_local_request(
             &deps,

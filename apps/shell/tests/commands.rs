@@ -61,10 +61,7 @@ fn a_098_shell_has_no_legacy_gate_commands() {
         "migration_report_verified",
         "install_gate_required",
     ] {
-        assert!(
-            !text.contains(name),
-            "bindings still expose {name}"
-        );
+        assert!(!text.contains(name), "bindings still expose {name}");
     }
     assert!(
         !text.contains("migrate093Run:"),

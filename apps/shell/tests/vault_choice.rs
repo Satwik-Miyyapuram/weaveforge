@@ -14,8 +14,8 @@ use weaveforge_shell_lib::prefs::{PrefValue, Prefs};
 use weaveforge_shell_lib::vault::VaultState;
 use weaveforge_shell_lib::vault_choice::{
     NOT_REMEMBERED, ROOT_PREF, adopt_choice_with, default_workspace_folder, forget_choice,
-    missing_remembered, refuse_install_dir, restore_remembered,
-    retry_remembered, setup_needed, watch_root_with,
+    missing_remembered, refuse_install_dir, restore_remembered, retry_remembered, setup_needed,
+    watch_root_with,
 };
 use weaveforge_shell_lib::vault_watcher::{ChangeSink, WatchSlot};
 

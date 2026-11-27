@@ -4,8 +4,8 @@
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
 use weaveforge_shell_lib::app_update::{
-    AppUpdateStatus, CHECK_FAILED, DownloadProgress, INSTALL_FAILED, Phase, can_check,
-    can_install, configured, percent,
+    AppUpdateStatus, CHECK_FAILED, DownloadProgress, INSTALL_FAILED, Phase, can_check, can_install,
+    configured, percent,
 };
 
 #[test]

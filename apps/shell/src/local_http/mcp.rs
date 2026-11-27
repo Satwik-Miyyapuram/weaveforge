@@ -345,7 +345,7 @@ mod tests {
     #[test]
     fn initialize_ping_and_notifications() {
         let fx = Fixture::new("init");
-        let mcp = LocalMcp::new(fx.vault.clone(),None, None);
+        let mcp = LocalMcp::new(fx.vault.clone(), None, None);
         let init = route(
             &mcp,
             json!({ "jsonrpc": "2.0", "id": 1, "method": "initialize" }),
@@ -377,7 +377,7 @@ mod tests {
     #[test]
     fn unknown_method_errors_only_for_requests() {
         let fx = Fixture::new("unknown");
-        let mcp = LocalMcp::new(fx.vault.clone(),None, None);
+        let mcp = LocalMcp::new(fx.vault.clone(), None, None);
         let answer =
             route(&mcp, json!({ "id": 2, "method": "nope" }), true, false).expect("answer");
         assert_eq!(
@@ -390,7 +390,7 @@ mod tests {
     #[test]
     fn tools_list_hides_suggest_for_read_only_tokens() {
         let fx = Fixture::new("list");
-        let mcp = LocalMcp::new(fx.vault.clone(),None, None);
+        let mcp = LocalMcp::new(fx.vault.clone(), None, None);
         let all = names(
             &route(
                 &mcp,
@@ -425,7 +425,7 @@ mod tests {
     fn an_open_folder_lists_projects_from_workspace_json() {
         let fx = Fixture::new("files-projects");
         with_project(&fx, "Lab");
-        let mcp = LocalMcp::new(fx.vault.clone(),None, None);
+        let mcp = LocalMcp::new(fx.vault.clone(), None, None);
         let answer = call(&mcp, "list_projects", json!({}), false, false);
         assert!(answer.to_string().contains("Lab"), "{answer}");
     }
@@ -437,7 +437,7 @@ mod tests {
         fs::create_dir_all(&dir).expect("migration dir");
         let report = json!({ "version": 1, "state": "incomplete" }).to_string();
         fs::write(dir.join("report.json"), report).expect("write report");
-        let files = LocalMcp::new(fx.vault.clone(),None, Some(home()));
+        let files = LocalMcp::new(fx.vault.clone(), None, Some(home()));
         let list = json!({ "id": 1, "method": "tools/list" });
         assert!(
             names(&route(&files, list, true, true).expect("list"))
@@ -451,8 +451,8 @@ mod tests {
     fn tracking_tool_needs_permission_and_home() {
         let fx = Fixture::new("tracking");
         with_project(&fx, "Tea");
-        let bare = LocalMcp::new(fx.vault.clone(),None, None);
-        let full = LocalMcp::new(fx.vault.clone(),None, Some(home()));
+        let bare = LocalMcp::new(fx.vault.clone(), None, None);
+        let full = LocalMcp::new(fx.vault.clone(), None, Some(home()));
         let list = json!({ "id": 1, "method": "tools/list" });
         assert!(
             !names(&route(&bare, list.clone(), true, true).expect("bare"))
@@ -486,7 +486,7 @@ mod tests {
     #[test]
     fn read_only_tokens_cannot_suggest() {
         let fx = Fixture::new("readonly");
-        let mcp = LocalMcp::new(fx.vault.clone(),None, None);
+        let mcp = LocalMcp::new(fx.vault.clone(), None, None);
         let answer = call(
             &mcp,
             "suggest_note_create",
@@ -504,7 +504,7 @@ mod tests {
     #[test]
     fn unknown_tool_is_a_tool_error() {
         let fx = Fixture::new("unknowntool");
-        let mcp = LocalMcp::new(fx.vault.clone(),None, None);
+        let mcp = LocalMcp::new(fx.vault.clone(), None, None);
         let answer = call(&mcp, "no_such_tool", json!({}), true, false);
         assert_eq!(answer["isError"], json!(true));
         assert_eq!(
@@ -517,7 +517,7 @@ mod tests {
     fn search_asks_the_ranker_without_holding_the_lock() {
         let fx = Fixture::new("search");
         let ranker = Arc::new(Reverse::default());
-        let mcp = LocalMcp::new(fx.vault.clone(),Some(ranker.clone()), None);
+        let mcp = LocalMcp::new(fx.vault.clone(), Some(ranker.clone()), None);
         let answer = call(
             &mcp,
             "search_workspace",
