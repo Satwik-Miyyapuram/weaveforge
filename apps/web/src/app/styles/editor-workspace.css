@@ -373,6 +373,12 @@
   min-height: 0;
   overflow: hidden;
 }
+/* Under 900px the phone header (`.brand.mobile-only`: 48px plus its 8px margins
+   in shell.css/dashboard.css) sits above the workspace, so the full height
+   pushed the page 64px past the window. */
+@media (max-width: 899px) {
+  .workspace-shell { height: calc(100dvh - var(--titlebar-h) - 64px); }
+}
 
 .pane-root,
 .pane-split,
