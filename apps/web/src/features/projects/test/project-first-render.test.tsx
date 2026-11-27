@@ -17,6 +17,8 @@ import { ProjectProvider, useProject } from "../ui/project-provider";
 import { markFolderRestored } from "@/features/workspace/application/workspace-folder";
 
 const P1 = { id: "p1", name: "Thesis" };
+// A second project: with only one in the workspace and no saved id, that one opens.
+const P2 = { id: "p2", name: "Notes" };
 
 function withDesktop(items: Record<string, string>) {
   const store = new Map(Object.entries(items));
@@ -39,7 +41,7 @@ function fakeContainer(watched: (string | null)[]) {
   const projects = {
     context: { projectId: null as string | null },
     watchProject: (id: string | null) => void watched.push(id),
-    listProjects: async () => [P1],
+    listProjects: async () => [P1, P2],
   };
   return { projects } as unknown as AppContainer;
 }

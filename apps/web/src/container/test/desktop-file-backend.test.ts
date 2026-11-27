@@ -116,7 +116,7 @@ test("with the overlay on, a credential save never reaches the database client",
 
 test("with the overlay on, screening goes to the file repo and PostgREST sees no write", async () => {
   const { bridge } = memoryVault();
-  const backend = wireBackend(config, { projectId: null }, () => null, wireDesktopFileBackend(bridge, settings));
+  const backend = wireBackend(config, { projectId: "Thesis" }, () => null, wireDesktopFileBackend(bridge, settings));
   const dbCalls: string[] = [];
   const realFrom = backend.db.from.bind(backend.db);
   backend.db.from = (table: string) => {
@@ -145,9 +145,9 @@ test("with the overlay on, screening goes to the file repo and PostgREST sees no
 
 test("a personal image written through the desktop blob store lands in the folder and is read back from it", async () => {
   const { bridge, files } = memoryVault();
-  const backend = wireBackend(config, { projectId: null }, () => null, wireDesktopFileBackend(bridge, settings, keychainSecrets()));
+  const backend = wireBackend(config, { projectId: "Thesis" }, () => null, wireDesktopFileBackend(bridge, settings, keychainSecrets()));
   await backend.rawBlobStore.upload("paper-images", "p1/figure.png", new Blob(["x"]), "image/png");
-  const written = [...files.keys()].find((k) => k.endsWith("paper-images/p1/figure.png"));
+  const written = [...files.keys()].find((k) => k.endsWith("Thesis/assets/paper-images/p1/figure.png"));
   assert.ok(written, JSON.stringify([...files.keys()]));
   const fetched = await (backend.rawBlobStore as unknown as IBlobFetcher).fetchBytes("paper-images", "p1/figure.png");
   assert.equal(new TextDecoder().decode(fetched), "x");

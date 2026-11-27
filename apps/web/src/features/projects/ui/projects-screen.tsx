@@ -53,7 +53,7 @@ export function ProjectsScreen() {
   const { busy: removeBusy, error: removeError, submit: remove } = useSubmit(async () => {
     if (!removing) return;
     await getContainer().projects.manageProject.remove(removing.id);
-    await removeLocalFolder(removing, projects.filter((p) => p.id !== removing.id));
+    await removeLocalFolder(removing);
     if (current?.id === removing.id) setProject(null);
     setRemoving(null);
     await refresh();
@@ -63,16 +63,13 @@ export function ProjectsScreen() {
   const [newName, setNewName] = useState("");
   const { busy: renameBusy, error: renameError, submit: rename } = useSubmit(async () => {
     if (!renaming) return;
-    const [{ renameProject }, { activeWorkspaceFs }] = await Promise.all([
-      import("../application/rename-project"),
-      import("@/features/workspace/application/workspace-folder"),
-    ]);
+    const { renameProject } = await import("../application/rename-project");
     const projects = getContainer().projects;
-    await renameProject(renaming, newName, {
-      save: (p) => projects.saveProject(p),
-      fs: activeWorkspaceFs(),
+    const renamed = await renameProject(renaming, newName, {
+      rename: (p, name) => projects.renameProject(p, name),
       onFolderMoved: (from, to) => getContainer().paperFields.moveProjectFolder(from, to),
     });
+    if (current?.id === renaming.id && renamed.id !== renaming.id) setProject(renamed.id);
     setRenaming(null);
     await refresh();
   });
@@ -194,17 +191,14 @@ export function ProjectsScreen() {
 
 /**
  * Move the project's workspace folder to the trash too; the row is already gone, so a failure only
- * warns. `others` are the remaining projects, whose folders must never be taken for this one.
+ * warns.
  */
-async function removeLocalFolder(
-  project: { id: string; name: string },
-  others: readonly { id: string; name: string }[],
-): Promise<void> {
+async function removeLocalFolder(project: { id: string; name: string }): Promise<void> {
   const [{ activeWorkspaceFs }, { removeProjectFolder }] = await Promise.all([
     import("@/features/workspace/application/workspace-folder"),
     import("@/features/workspace/application/parts"),
   ]);
   const fs = activeWorkspaceFs();
   if (!fs) return;
-  await removeProjectFolder(fs, project, others).catch((e) => console.warn("project folder not removed", e));
+  await removeProjectFolder(fs, project).catch((e) => console.warn("project folder not removed", e));
 }

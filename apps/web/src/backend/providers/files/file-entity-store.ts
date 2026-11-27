@@ -23,6 +23,11 @@ export type EntityKind = "log_entry" | "experiment" | "report_section" | "readin
 /** The project folder the entity folders sit in ("" for the workspace root), asked per call. */
 export type ProjectRoot = () => string;
 
+/** A fixed project folder, or one asked per call. */
+export type RootLike = string | ProjectRoot;
+
+export const rootOf = (root: RootLike): string => (typeof root === "function" ? root() : root);
+
 /** How many numbered names a save tries when its path is taken. */
 const NAME_ATTEMPTS = 1000;
 

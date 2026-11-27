@@ -1,4 +1,5 @@
 import { ManageSettingsUseCase, type IWorkspaceFs } from "@weaveforge/core";
+import { activeProjectFolder } from "@/backend/providers/files/active-project-folder";
 import { systemClock } from "@/lib/parts";
 import type { BackendConfig } from "@/backend/parts";
 import { RefusingSecretsStore } from "@/backend/providers/files/refusing-secrets-store";
@@ -41,7 +42,8 @@ export async function wireBrowserFiles(fs: IWorkspaceFs): Promise<BrowserFileWir
     // tables and rpcs throw before any request. Org and share tables stay reachable. readOnlyDb
     // refuses writes outside the org write tables, as on desktop and no-account.
     const postgrest = wirePostgrestBackend(config, projectContext, pid, undefined, { filesMode: true }, readOnlyDb);
-    const files = wireFileBackend({ fs, settings, secrets: new RefusingSecretsStore() });
+    const projectRoot = activeProjectFolder(projectContext);
+    const files = wireFileBackend({ fs, projectRoot, settings, secrets: new RefusingSecretsStore() });
     // manageSettings is built inside wirePostgrestBackend over the server settings repo. Rebuild it
     // over the file repo, so settings saves and the credential readers never reach PostgREST.
     const manageSettings = new ManageSettingsUseCase({ repository: files.settingsRepository, clock: systemClock });
@@ -52,7 +54,7 @@ export async function wireBrowserFiles(fs: IWorkspaceFs): Promise<BrowserFileWir
       // Personal blobs (images, experiment files) go to the OPFS file blob store. Only the share
       // path's `uploadShared` reaches the server blob store. Row scoping of shared images to the
       // signed-in user is not checked here.
-      rawBlobStore: new FileModeBlobStore(new FileBlobStore(fs), postgrest.rawBlobStore),
+      rawBlobStore: new FileModeBlobStore(new FileBlobStore(fs, projectRoot), postgrest.rawBlobStore),
       db: guardOrgDb(postgrest.db),
     };
   };

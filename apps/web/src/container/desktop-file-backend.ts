@@ -1,4 +1,5 @@
 import { ManageSettingsUseCase } from "@weaveforge/core";
+import { activeProjectFolder } from "@/backend/providers/files/active-project-folder";
 import type { BackendConfig } from "@/backend/parts";
 import { wireFileBackend } from "@/backend/providers/files/wire-file-backend";
 import type { SettingsSection } from "@/backend/providers/files/file-tag-repo";
@@ -32,7 +33,8 @@ export function wireDesktopFileBackend(
     // The client is guarded before the repositories are built on it, so no repository holds the raw one.
     const postgrest = wirePostgrestBackend(config, projectContext, pid, undefined, { filesMode: true }, readOnlyDb);
     const fs = new DesktopWorkspaceFs(bridge);
-    const files = wireFileBackend({ fs, settings, secrets });
+    const projectRoot = activeProjectFolder(projectContext);
+    const files = wireFileBackend({ fs, projectRoot, settings, secrets });
     // Settings writes must reach the folder: the use case is rebuilt over the file repository.
     // The container's database client (db) stays live for org and sharing tables only. 0.9.8:
     // guardOrgDb refuses every table and rpc outside the org allowlist, read or write, before any
@@ -42,7 +44,7 @@ export function wireDesktopFileBackend(
       ...overlayFileRepositories(postgrest, files),
       manageSettings: new ManageSettingsUseCase({ repository: files.settingsRepository, clock: systemClock }),
       // Personal blobs go to the folder; only the share path's uploadShared reaches the server store.
-      rawBlobStore: new FileModeBlobStore(new FileBlobStore(fs), postgrest.rawBlobStore),
+      rawBlobStore: new FileModeBlobStore(new FileBlobStore(fs, projectRoot), postgrest.rawBlobStore),
       db: guardOrgDb(postgrest.db),
     };
   };

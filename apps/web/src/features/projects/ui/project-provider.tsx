@@ -51,7 +51,9 @@ export const ProjectContext = createContext<ProjectState | null>(null);
  *
  * `selected` is the project already open from the saved list: it is not
  * selected again (that would clear the screen caches twice), and it is closed
- * when the live list no longer has it.
+ * when the live list no longer has it. With no stored project to reopen and
+ * just one project in the workspace, that one opens (a 0.9.7 id is gone once
+ * projects are named after their folder).
  */
 export async function loadInitialProject(io: {
   refresh: () => Promise<Project[]>;
@@ -64,8 +66,10 @@ export async function loadInitialProject(io: {
     const list = await io.refresh();
     const stored = io.storedId();
     const open = io.selected?.() ?? null;
-    if (stored && list.some((p) => p.id === stored)) {
-      if (open !== stored) io.select(stored);
+    const only = list.length === 1 ? list[0]!.id : null;
+    const pick = stored && list.some((p) => p.id === stored) ? stored : only;
+    if (pick) {
+      if (open !== pick) io.select(pick);
     } else if (open !== null) {
       io.select(null);
     }

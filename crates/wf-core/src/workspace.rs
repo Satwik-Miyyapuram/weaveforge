@@ -3,7 +3,6 @@
 pub mod archive_limits;
 pub mod claim_import;
 pub mod coalescer;
-pub mod project_rename;
 pub mod stored_pages;
 
 /// Hidden folder inside a workspace that marks it as WeaveForge's.

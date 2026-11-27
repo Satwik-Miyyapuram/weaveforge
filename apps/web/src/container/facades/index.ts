@@ -244,6 +244,15 @@ export class ProjectsFacade {
     return this.deps.projects.save(project);
   }
 
+  /** Files mode moves the folder, so the id changes; a repository without `rename` keeps the id. */
+  async renameProject(project: Project, name: string): Promise<Project> {
+    const repo = this.deps.projects as IProjectRepository & { rename?: (p: Project, name: string) => Promise<Project> };
+    if (repo.rename) return repo.rename(project, name);
+    const renamed = { ...project, name };
+    await repo.save(renamed);
+    return renamed;
+  }
+
   get manageProject() {
     return this.deps.manageProject;
   }

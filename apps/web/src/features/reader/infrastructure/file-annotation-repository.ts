@@ -14,6 +14,7 @@ import { ConflictError, NotFoundError } from "@weaveforge/core";
 import { warnOnce } from "@/lib/error-report/parts";
 import { formatError } from "@/lib/format-error";
 import { typedCore } from "@/lib/rust-core";
+import { rootOf, type RootLike } from "@/backend/providers/files/file-entity-store";
 
 /** How often a write re-reads and re-applies when the file changed under it. */
 const WRITE_ATTEMPTS = 5;
@@ -40,7 +41,7 @@ export class FileReaderAnnotationRepository
   /** `paperFiles` lists every paper file with its id; only `listForProject` needs it. */
   constructor(
     private readonly fs: IWorkspaceFs,
-    private readonly projectRoot: string,
+    private readonly projectRoot: RootLike,
     private readonly paperFileOf: (paperId: string) => Promise<string | null>,
     private readonly paperFiles: () => Promise<{ paperId: string; path: string }[]> = async () => [],
   ) {}
@@ -207,7 +208,7 @@ export class FileReaderAnnotationRepository
    * caller that finds nothing can say why.
    */
   private async pathOf(id: string): Promise<{ path: string | null; unreadable: string[] }> {
-    const dir = typedCore().entityDir("paper", this.projectRoot);
+    const dir = typedCore().entityDir("paper", rootOf(this.projectRoot));
     if (!(await this.fs.stat(dir))) return { path: null, unreadable: [] };
     const paths: string[] = [];
     const unreadable: string[] = [];

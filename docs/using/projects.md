@@ -1,8 +1,9 @@
 ---
 covers:
   - apps/web/src/features/projects
+  - apps/web/src/backend/providers/files/file-project-repo.ts
   - crates/wf-core/src/projects.rs
-checked: 2026-11-14
+checked: 2026-11-27
 ---
 # Projects
 
@@ -12,6 +13,25 @@ exactly one project, so a new project starts with an empty slate of its own.
 
 Switching projects switches the whole workspace. You see only the papers and
 notes of the project you have open.
+
+## A project is a folder
+
+Each folder at the top of your [workspace folder](workspace-folder.md) is a
+project, named after the folder. Folders whose names start with a dot, such as
+`.weaveforge` and `.git`, are not projects: `.weaveforge` holds the workspace's
+settings. The workspace folder itself is never a project.
+
+- Make a folder there in your file manager and it shows up as an empty project.
+- A new project made in WeaveForge gets the standard folders: `notes`, `papers`,
+  `reading-lists`, `report`, `experiments`, `plan` and `logbook`.
+- Folders inside a project that WeaveForge does not know are left alone.
+- A project's colour and creation date sit in `<project>/.weaveforge/project.json`.
+  Without that file the project still opens, with no colour.
+
+Folders from 0.9.7 named like `MSc Thesis--a1b2c3` are renamed to `MSc Thesis`
+the first time 0.9.8 lists your projects. A 0.9.7 workspace that kept its one
+project in the workspace folder itself has that project moved into a folder of
+its own, named after the project.
 
 ## How to
 
@@ -37,7 +57,17 @@ spaces, is refused: you see "Project name is required." and nothing is created.
 
 WeaveForge remembers the project you had open on this computer. It opens that
 project again the next time you start the app, as long as the project still
-exists.
+exists. If it is gone and there is only one project left, that one opens.
+
+### Rename a project
+
+1. On the projects screen, open **More actions** (three dots) on the project's
+   row.
+2. Click **Rename**, type the new **Name** and click **Rename**.
+
+Renaming renames the project's folder. A name another folder already has is
+refused, and so are names a folder cannot take: names with `/ \ : * ? " < > |`,
+names starting with a dot, and names ending with a dot or a space.
 
 ### Switch projects
 
@@ -62,8 +92,9 @@ project, and **All projects** takes you back to the list of projects.
 The delete button does nothing until the typed name matches. If you delete the
 project you have open, WeaveForge takes you back to the list of projects.
 
-If this computer keeps a workspace folder, the folder for that project is
-removed too. If that folder cannot be removed, the project is still deleted.
+The project's folder is moved to `.weaveforge/trash/` inside the workspace
+folder, so its files are still there if you need them back. Only the folder
+named after the project is moved, never another one.
 
 ### Try the demo workspace
 
@@ -84,8 +115,8 @@ Each project holds its own:
 Each of these belongs to one project only. If a paper is missing, check which
 project is open first.
 
-The projects screen has no rename or archive option. The menu on a project's row
-has no sharing option either.
+The projects screen has no archive option. The menu on a project's row has no
+sharing option either.
 
 ## Good to know
 
@@ -108,8 +139,13 @@ Papers belong to one project. Open the project menu at the bottom of the sidebar
 and check which project is marked. Switch to the project that holds your papers.
 
 *I deleted a project by mistake.*
-WeaveForge cannot undo a delete. Read the warning in the window before you
-confirm.
+WeaveForge cannot undo a delete, but the folder is in `.weaveforge/trash/` in
+your workspace folder. Move it back to the top of the workspace folder and the
+project is listed again.
+
+*I made a folder and it shows as an empty project.*
+That is expected: every top-level folder is a project. Move it into a project, or
+rename it to start with a dot, and it is no longer listed.
 
 *The Delete project button will not click.*
 Type the project's name in the box first. The name must match what the project is

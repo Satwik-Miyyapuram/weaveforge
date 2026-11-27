@@ -116,19 +116,6 @@ pub fn folder_title_from_path_js(path: &str) -> String {
     folder_layout::folder_title_from_path(path)
 }
 
-/// [`pick_project_folder`](folder_layout::pick_project_folder). `undefined` when no folder fits.
-#[wasm_bindgen(js_name = pickProjectFolder)]
-#[allow(clippy::needless_pass_by_value)] // wasm-bindgen needs owned Vec<String> arguments.
-#[must_use]
-pub fn pick_project_folder_js(
-    #[wasm_bindgen(unchecked_param_type = "readonly string[]")] dirs: Vec<String>,
-    exact: &str,
-    tail: &str,
-    #[wasm_bindgen(unchecked_param_type = "readonly string[]")] other_tails: Vec<String>,
-) -> Option<String> {
-    folder_layout::pick_project_folder(&dirs, exact, tail, &other_tails)
-}
-
 /// [`holds_project_layout`](folder_layout::holds_project_layout).
 #[wasm_bindgen(js_name = holdsProjectLayout)]
 #[allow(clippy::needless_pass_by_value)] // wasm-bindgen needs owned Vec<String> arguments.

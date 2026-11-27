@@ -5,7 +5,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { readFileSync } from "node:fs";
 
-const container = readFileSync(new URL("../../../create-app-container.ts", import.meta.url), "utf8");
+const container = readFileSync(new URL("../../../container/metadata-resolvers.ts", import.meta.url), "utf8");
 
 test("the import resolver tries the next source when one fails", () => {
   const importResolver = /const resolver = new MetadataResolver\(\s*\[[^;]*\]\s*(?:,\s*(\w+))?\s*\);/.exec(container);

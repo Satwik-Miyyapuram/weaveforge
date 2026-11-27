@@ -67,7 +67,7 @@ Code in `apps/web` reads these through `readyCore()` or `typedCore()` from
 resolved.
 
 The folder-mirror helpers used by the import and manifest code (`jsonEditSince`,
-`folderTitleFromPath`, `pickProjectFolder`) belong to the sync module. See
+`folderTitleFromPath`) belong to the sync module. See
 [Sync core](sync.md).
 
 ## What stays in TypeScript, and why
@@ -113,7 +113,6 @@ live in `crates/wf-wasm/src/workspace_<module>.rs`.
 | `preview_read` | `plan_preview_reads` | `planPreviewReads` | `apps/web/src/features/workspace/application/parts-2.ts` |
 | `preview_read` | `plan_asset_reads` | `planAssetReads` | `apps/web/src/features/workspace/application/parts-2.ts` |
 | `preview_read` | `admit_asset_bytes` | `admitAssetBytes` | `apps/web/src/features/workspace/application/parts-2.ts` |
-| `project_rename` | `pick_renamed_folder` | `pickRenamedFolder` | `apps/web/src/features/workspace/application/parts-3.ts` |
 | `settle_external` | `settle_external` | `settleExternal` | `apps/web/src/features/workspace/application/workspace-folder.ts` |
 | `stored_pages` | `stored_digest` | `storedDigest` | `apps/web/src/features/workspace/application/parts-1.ts` |
 | `stored_pages` | `stored_digests` | `storedDigests` | `apps/web/src/features/workspace/application/parts-1.ts` |
@@ -148,8 +147,6 @@ Rules:
   project root. `plan_asset_reads` marks an asset over `maxFileBytes` as `too-big`.
   `admit_asset_bytes` drops an over-file-cap asset without changing the total; a total
   over `maxTotalBytes` is an error.
-- `project_rename`: returns the one directory ending with the tail; none or several
-  give no pick.
 - `settle_external`: without `only`, the list becomes the non-unchanged preview paths.
   With `only`, covered paths settle from the preview and other listed paths keep
   their old reasons.

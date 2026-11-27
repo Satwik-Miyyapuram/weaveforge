@@ -6,7 +6,7 @@ covers:
   - apps/shell/src/local_http/server.rs
   - crates/wf-core/src/workspace
   - apps/web/src/features/workspace/application/workspace-folder.ts
-checked: 2026-11-22
+checked: 2026-11-27
 ---
 # The workspace folder
 
@@ -36,9 +36,10 @@ are asked again on the next launch.
 
 ## What gets written
 
-One directory per kind of thing (`notes/`, `papers/`, `reading-lists/`,
-`report/`, `experiments/`, `plan/`, `logbook/`), plus a `.weaveforge/` directory
-holding the mirror's own bookkeeping. Since 0.9.8 the files are the only copy of
+One folder per [project](projects.md) at the top, and in each project one
+directory per kind of thing (`notes/`, `papers/`, `reading-lists/`, `report/`,
+`experiments/`, `plan/`, `logbook/`). The `.weaveforge/` directory at the top
+holds workspace-wide settings; it is not a project. Since 0.9.8 the files are the only copy of
 your work: there is no local database, and no personal copy of your work is kept
 on the server. Sync to folder no longer writes table files to `.weaveforge/tables/`,
 and Apply no longer restores rows from them. Table files that 0.9.7 wrote stay
@@ -57,10 +58,11 @@ Both ways, with no click. The files in the folder are the store; the app reads
 them directly, so there is nothing to import. The server holds only what you
 share and your lab's organisation data.
 
-Save something in the app and the file is written at once. Edit a file in the
-folder with another editor and, on desktop, WeaveForge sees the change, reloads
-it, and says so with a short note: "Folder changed: 2 files reloaded." The
-app's own writes are not reported back to you.
+Save something in the app and the file is written at once. Edit, add or delete
+a file in the folder with another program and, on desktop, WeaveForge picks the
+change up by itself within a moment: the open screen shows the new content, with
+no reload and no click. A short note says what changed, such as "Folder
+changed: 2 files reloaded." The app's own writes are not reported back to you.
 
 If the folder is connected to a GitHub repository, each change is committed and
 pushed about ten seconds after the edits stop, and the app pulls every five minutes.

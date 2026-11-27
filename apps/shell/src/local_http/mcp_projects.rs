@@ -1,75 +1,33 @@
 //! The projects the MCP answers about. Ported from apps/shell/sidecar/src/local-mcp-projects.ts.
 
 use serde_json::Value;
-use wf_core::sync::folder_layout::{WorkspaceProject, id_suffix, project_dir};
 
 use crate::vault::{EntryKindPayload, VaultSession};
 
-/// One project as the MCP sees it: `dir` is its folder under the root, "" for a pre-project layout.
+/// One project as the MCP sees it: a top-level folder of the workspace.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ProjectRef {
-    /// Project id from the app's rows, `None` for a folder-only project.
+    /// Project id: the folder name, as the app keys projects.
     pub id: Option<String>,
-    /// Display name of the project.
+    /// Display name of the project, the folder name too.
     pub name: String,
-    /// Folder under the root, `""` for a pre-project layout.
+    /// Folder under the root.
     pub dir: String,
 }
 
-/// The projects to answer about. With the app's rows, each gets the folder the app itself
-/// would pick (exact `project_dir`, else the one folder ending in its id suffix); folders no
-/// project claims are left out. Without rows, each `slug--id` folder is a project.
+/// The projects to answer about: every top-level folder whose name does not start with ".",
+/// as the app lists them. The root itself is the workspace, never a project.
 #[must_use]
-pub fn resolve_projects(session: &VaultSession, rows: &[WorkspaceProject]) -> Vec<ProjectRef> {
-    let dirs = folder_dirs(session);
-    if !rows.is_empty() {
-        return rows
-            .iter()
-            .map(|project| {
-                let exact = project_dir(project);
-                let suffix = format!("--{}", id_suffix(&project.id));
-                let tail: Vec<String> = dirs
-                    .iter()
-                    .filter(|d| d.ends_with(suffix.as_str()))
-                    .cloned()
-                    .collect();
-                // No folder yet is fine: a draft for an empty project still names it.
-                let dir = if dirs.contains(&exact) {
-                    exact
-                } else {
-                    match tail.as_slice() {
-                        [only] => only.clone(),
-                        _ => exact,
-                    }
-                };
-                ProjectRef {
-                    id: Some(project.id.clone()),
-                    name: project.name.clone(),
-                    dir,
-                }
-            })
-            .collect();
-    }
-    let folders: Vec<ProjectRef> = dirs
-        .iter()
-        .filter_map(|dir| {
-            let at = folder_suffix_start(dir)?;
-            Some(ProjectRef {
-                id: None,
-                name: dir[..at].to_owned(),
-                dir: dir.clone(),
-            })
+pub fn resolve_projects(session: &VaultSession) -> Vec<ProjectRef> {
+    let mut dirs = folder_dirs(session);
+    dirs.sort();
+    dirs.into_iter()
+        .map(|dir| ProjectRef {
+            id: Some(dir.clone()),
+            name: dir.clone(),
+            dir,
         })
-        .collect();
-    if folders.is_empty() {
-        vec![ProjectRef {
-            id: None,
-            name: "workspace".to_owned(),
-            dir: String::new(),
-        }]
-    } else {
-        folders
-    }
+        .collect()
 }
 
 /// A name as matching reads it: trimmed, lowercased, whitespace runs folded to one space.
@@ -133,18 +91,6 @@ fn folder_dirs(session: &VaultSession) -> Vec<String> {
         .collect()
 }
 
-/// Where the `--xxxxxx` suffix starts: the leftmost `--` followed by 1 to 6 ASCII letters or digits
-/// running to the end (TS `PROJECT_FOLDER`).
-fn folder_suffix_start(dir: &str) -> Option<usize> {
-    let bytes = dir.as_bytes();
-    (0..bytes.len().saturating_sub(1)).find(|&at| {
-        bytes[at] == b'-' && bytes[at + 1] == b'-' && {
-            let tail = &bytes[at + 2..];
-            (1..=6).contains(&tail.len()) && tail.iter().all(u8::is_ascii_alphanumeric)
-        }
-    })
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -185,13 +131,6 @@ mod tests {
         }
     }
 
-    fn row(id: &str, name: &str) -> WorkspaceProject {
-        WorkspaceProject {
-            id: id.to_owned(),
-            name: name.to_owned(),
-        }
-    }
-
     fn sample() -> Vec<ProjectRef> {
         vec![
             project(Some("aaaaaa-1"), "Proj A", "proj-a--aaaaaa"),
@@ -201,71 +140,25 @@ mod tests {
     }
 
     #[test]
-    fn resolve_without_rows_uses_suffix_folders() {
+    fn every_plain_top_level_folder_is_a_project() {
         let (session, _guard) = workspace(
-            "no-rows",
-            &[
-                "proj-a--aaaaaa",
-                "thesis--e88ade",
-                "assets",
-                "notes",
-                ".git",
-            ],
+            "folders",
+            &["Thesis", "proj-a--aaaaaa", "empty", ".git", "Thesis/papers"],
         );
         assert_eq!(
-            resolve_projects(&session, &[]),
+            resolve_projects(&session),
             vec![
-                project(None, "proj-a", "proj-a--aaaaaa"),
-                project(None, "thesis", "thesis--e88ade"),
+                project(Some("Thesis"), "Thesis", "Thesis"),
+                project(Some("empty"), "empty", "empty"),
+                project(Some("proj-a--aaaaaa"), "proj-a--aaaaaa", "proj-a--aaaaaa"),
             ]
         );
     }
 
     #[test]
-    fn resolve_without_rows_and_folders_is_the_workspace() {
-        let (session, _guard) = workspace("plain", &["notes", "papers"]);
-        assert_eq!(
-            resolve_projects(&session, &[]),
-            vec![project(None, "workspace", "")]
-        );
-    }
-
-    #[test]
-    fn resolve_with_rows_takes_the_exact_dir() {
-        let (session, _guard) = workspace("exact", &["proj-a--aaaaaa"]);
-        assert_eq!(
-            resolve_projects(&session, &[row("aaaaaa-1", "Proj A")]),
-            vec![project(Some("aaaaaa-1"), "Proj A", "proj-a--aaaaaa")]
-        );
-    }
-
-    #[test]
-    fn resolve_with_rows_takes_the_one_suffix_folder() {
-        let (session, _guard) = workspace("suffix", &["renamed--bbbbbb"]);
-        assert_eq!(
-            resolve_projects(&session, &[row("bbbbbb-2", "Proj B")]),
-            vec![project(Some("bbbbbb-2"), "Proj B", "renamed--bbbbbb")]
-        );
-    }
-
-    #[test]
-    fn resolve_with_rows_and_two_suffix_folders_keeps_the_exact_name() {
-        let (session, _guard) = workspace("two", &["x--bbbbbb", "y--bbbbbb"]);
-        assert_eq!(
-            resolve_projects(&session, &[row("bbbbbb-2", "Proj B")]),
-            vec![project(Some("bbbbbb-2"), "Proj B", "proj-b--bbbbbb")]
-        );
-    }
-
-    #[test]
-    fn resolve_with_rows_and_no_folder_still_names_the_project() {
-        let (session, _guard) = workspace("empty", &[]);
-        let row = row("cccccc-3", "Empty");
-        let exact = project_dir(&row);
-        assert_eq!(
-            resolve_projects(&session, &[row]),
-            vec![project(Some("cccccc-3"), "Empty", &exact)]
-        );
+    fn the_root_is_never_a_project() {
+        let (session, _guard) = workspace("none", &[]);
+        assert_eq!(resolve_projects(&session), Vec::<ProjectRef>::new());
     }
 
     #[test]
@@ -353,14 +246,5 @@ mod tests {
             pick_project(&projects, &json!("")),
             Err("No project matches ''. Projects: workspace.".to_owned())
         );
-    }
-
-    #[test]
-    fn folder_suffix_needs_one_to_six_alphanumerics_at_the_end() {
-        assert_eq!(folder_suffix_start("proj-a--aaaaaa"), Some(6));
-        assert_eq!(folder_suffix_start("a---b"), Some(2));
-        assert_eq!(folder_suffix_start("x--abcdefg"), None);
-        assert_eq!(folder_suffix_start("x--"), None);
-        assert_eq!(folder_suffix_start("plain"), None);
     }
 }

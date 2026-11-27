@@ -4,8 +4,8 @@ import { before, test } from "node:test";
 import { MemoryWorkspaceFs } from "@core-test/memory-workspace-fs";
 import { ProjectValidationError, type Project } from "@weaveforge/core";
 
+import { FileProjectRepository } from "@/backend/providers/files/file-project-repo";
 import { loadTestCore } from "@/lib/test/load-test-core";
-import { typedCore } from "@/lib/rust-core";
 
 import { renameProject } from "../application/rename-project";
 
@@ -13,133 +13,79 @@ before(async () => {
   await loadTestCore();
 });
 
-const PROJECT: Project = {
-  id: "8d731734-bdcd-4f08-b648-efd15fdf75da",
-  name: "MSc Thesis",
-  color: "#7c9885",
-  createdAt: "2026-01-01T00:00:00.000Z",
-};
+/** 0.9.8: a project is its folder, so the id is the folder name. */
+const PROJECT: Project = { id: "MSc Thesis", name: "MSc Thesis", color: "#7c9885", createdAt: "2026-01-01T00:00:00.000Z" };
 
-function recorder() {
-  const saved: Project[] = [];
-  return { saved, save: async (p: Project) => void saved.push(p) };
+function withRepo(fs = new MemoryWorkspaceFs()) {
+  const repo = new FileProjectRepository(fs);
+  return { fs, rename: (p: Project, name: string) => repo.rename(p, name) };
 }
 
-test("a rename saves the trimmed name and keeps everything else", async () => {
-  const { saved, save } = recorder();
-  const renamed = await renameProject(PROJECT, "  Thesis Final  ", { save, fs: null });
-  assert.deepEqual(renamed, { ...PROJECT, name: "Thesis Final" });
-  assert.deepEqual(saved, [renamed]);
+test("a rename moves the project's folder and gives it the new name as id", async () => {
+  const { fs, rename } = withRepo();
+  await fs.writeFile("MSc Thesis/notes/a.md", "hello");
+  await fs.writeFile("MSc Thesis/notes/a.md.ink/p1.inkb", "ink");
+  await fs.writeFile("Other/notes/b.md", "keep");
+
+  const renamed = await renameProject(PROJECT, "  Thesis Final  ", { rename });
+
+  assert.deepEqual(renamed, { ...PROJECT, id: "Thesis Final", name: "Thesis Final" });
+  assert.equal(await fs.readText("Thesis Final/notes/a.md"), "hello");
+  assert.equal(await fs.readText("Thesis Final/notes/a.md.ink/p1.inkb"), "ink");
+  assert.equal(await fs.stat("MSc Thesis"), null);
+  assert.equal(await fs.readText("Other/notes/b.md"), "keep");
 });
 
-test("a rename moves the project's folder to the new name", async () => {
-  const fs = new MemoryWorkspaceFs();
-  const oldRoot = typedCore().projectDir(PROJECT);
-  await fs.writeFile(`${oldRoot}/notes/a.md`, "hello");
-  await fs.writeFile(`${oldRoot}/notes/a.md.ink/p1.inkb`, "ink");
-  await fs.writeFile("other--zzz999/notes/b.md", "keep");
-  const { save } = recorder();
-
-  const renamed = await renameProject(PROJECT, "Thesis Final", { save, fs });
-
-  const newRoot = typedCore().projectDir(renamed);
-  assert.notEqual(newRoot, oldRoot);
-  assert.equal(await fs.readText(`${newRoot}/notes/a.md`), "hello");
-  assert.equal(await fs.readText(`${newRoot}/notes/a.md.ink/p1.inkb`), "ink");
-  assert.equal(await fs.stat(`${oldRoot}/notes/a.md`), null);
-  assert.equal(await fs.stat(oldRoot), null);
-  assert.equal(await fs.readText("other--zzz999/notes/b.md"), "keep");
+test("a name already in the workspace is refused and nothing moves", async () => {
+  const { fs, rename } = withRepo();
+  await fs.writeFile("MSc Thesis/notes/a.md", "old");
+  await fs.writeFile("Thesis Final/notes/a.md", "new");
+  await assert.rejects(() => renameProject(PROJECT, "Thesis Final", { rename }), ProjectValidationError);
+  assert.equal(await fs.readText("MSc Thesis/notes/a.md"), "old");
+  assert.equal(await fs.readText("Thesis Final/notes/a.md"), "new");
 });
 
-test("a rename never overwrites a file already in the new folder; that one stays behind", async () => {
-  const fs = new MemoryWorkspaceFs();
-  const oldRoot = typedCore().projectDir(PROJECT);
-  const newRoot = typedCore().projectDir({ ...PROJECT, name: "Thesis Final" });
-  await fs.writeFile(`${oldRoot}/notes/a.md`, "old");
-  await fs.writeFile(`${oldRoot}/notes/b.md`, "bee");
-  await fs.writeFile(`${newRoot}/notes/a.md`, "new");
-  const { save } = recorder();
-
-  await renameProject(PROJECT, "Thesis Final", { save, fs });
-
-  assert.equal(await fs.readText(`${newRoot}/notes/a.md`), "new");
-  assert.equal(await fs.readText(`${oldRoot}/notes/a.md`), "old");
-  assert.equal(await fs.readText(`${newRoot}/notes/b.md`), "bee");
-});
-
-test("two folders with the project's id tail: nothing moves", async () => {
-  const fs = new MemoryWorkspaceFs();
-  const oldRoot = typedCore().projectDir(PROJECT);
-  const tail = oldRoot.slice(oldRoot.lastIndexOf("--"));
-  await fs.writeFile(`${oldRoot}/notes/a.md`, "one");
-  await fs.writeFile(`twin${tail}/notes/a.md`, "two");
-  const { save } = recorder();
-
-  await renameProject(PROJECT, "Thesis Final", { save, fs });
-
-  assert.equal(await fs.readText(`${oldRoot}/notes/a.md`), "one");
-  assert.equal(await fs.readText(`twin${tail}/notes/a.md`), "two");
-});
-
-test("a project with no folder yet still renames", async () => {
-  const { saved, save } = recorder();
-  await renameProject(PROJECT, "Thesis Final", { save, fs: new MemoryWorkspaceFs() });
-  assert.equal(saved.length, 1);
-});
-
-test("a blank name is refused and nothing is saved or moved", async () => {
-  const fs = new MemoryWorkspaceFs();
-  const oldRoot = typedCore().projectDir(PROJECT);
-  await fs.writeFile(`${oldRoot}/notes/a.md`, "hello");
-  const { saved, save } = recorder();
-
-  await assert.rejects(() => renameProject(PROJECT, "   ", { save, fs }), ProjectValidationError);
-  assert.equal(saved.length, 0);
-  assert.equal(await fs.readText(`${oldRoot}/notes/a.md`), "hello");
+test("a blank name is refused and nothing moves", async () => {
+  const { fs, rename } = withRepo();
+  await fs.writeFile("MSc Thesis/notes/a.md", "hello");
+  await assert.rejects(() => renameProject(PROJECT, "   ", { rename }), ProjectValidationError);
+  assert.equal(await fs.readText("MSc Thesis/notes/a.md"), "hello");
 });
 
 test("the same name is a no-op", async () => {
-  const { saved, save } = recorder();
-  const same = await renameProject(PROJECT, " MSc Thesis ", { save, fs: null });
+  let calls = 0;
+  const same = await renameProject(PROJECT, " MSc Thesis ", { rename: async (p) => (calls++, p) });
   assert.equal(same, PROJECT);
-  assert.equal(saved.length, 0);
+  assert.equal(calls, 0);
 });
 
 test("a rename tells the caller the old and new folder, so per-folder records follow it", async () => {
+  const { fs, rename } = withRepo();
+  await fs.mkdirp("MSc Thesis/notes");
   const moves: [string, string][] = [];
-  const { save } = recorder();
-  const renamed = await renameProject(PROJECT, "Thesis Final", {
-    save,
-    fs: null,
+  await renameProject(PROJECT, "Thesis Final", { rename, onFolderMoved: async (from, to) => void moves.push([from, to]) });
+  assert.deepEqual(moves, [["MSc Thesis", "Thesis Final"]]);
+});
+
+test("a rename that keeps the id (no folder move) reports no folder move", async () => {
+  const moves: [string, string][] = [];
+  await renameProject(PROJECT, "Thesis Final", {
+    rename: async (p, name) => ({ ...p, name }),
     onFolderMoved: async (from, to) => void moves.push([from, to]),
   });
-  assert.deepEqual(moves, [[typedCore().projectDir(PROJECT), typedCore().projectDir(renamed)]]);
+  assert.deepEqual(moves, []);
 });
 
-test("a failed save leaves the folder where it was", async () => {
-  const fs = new MemoryWorkspaceFs();
-  const oldRoot = typedCore().projectDir(PROJECT);
-  await fs.writeFile(`${oldRoot}/notes/a.md`, "hello");
-  const failure = new Error("offline");
-
+test("a failed rename moves nothing and reports nothing", async () => {
+  const failure = new Error("locked");
+  const moves: [string, string][] = [];
   await assert.rejects(
-    () => renameProject(PROJECT, "Thesis Final", { save: async () => Promise.reject(failure), fs }),
+    () =>
+      renameProject(PROJECT, "Thesis Final", {
+        rename: async () => Promise.reject(failure),
+        onFolderMoved: async (from, to) => void moves.push([from, to]),
+      }),
     (e) => e === failure,
   );
-  assert.equal(await fs.readText(`${oldRoot}/notes/a.md`), "hello");
-});
-
-test("a folder that will not move does not undo the saved name", async () => {
-  const fs = new MemoryWorkspaceFs();
-  const oldRoot = typedCore().projectDir(PROJECT);
-  await fs.writeFile(`${oldRoot}/notes/a.md`, "hello");
-  fs.rename = async () => {
-    throw new Error("locked");
-  };
-  const { saved, save } = recorder();
-
-  // The next folder sync follows the rename again, so the name stands.
-  const renamed = await renameProject(PROJECT, "Thesis Final", { save, fs });
-  assert.equal(renamed.name, "Thesis Final");
-  assert.equal(saved.length, 1);
+  assert.deepEqual(moves, []);
 });

@@ -567,29 +567,6 @@ fn strip_id_suffix(name: &str) -> &str {
     }
 }
 
-/// The folder a deleted project lives in: `exact` when it is listed, else the one listed folder
-/// ending in `tail` (the `--id` suffix). Two suffix matches are not surely this project's, so none;
-/// nor is any suffix match when another project's tail (`other_tails`) is the same.
-#[must_use]
-pub fn pick_project_folder(
-    dirs: &[String],
-    exact: &str,
-    tail: &str,
-    other_tails: &[String],
-) -> Option<String> {
-    if dirs.iter().any(|dir| dir.as_str() == exact) {
-        return Some(exact.to_owned());
-    }
-    if other_tails.iter().any(|other| other == tail) {
-        return None;
-    }
-    let mut renamed = dirs.iter().filter(|dir| dir.ends_with(tail));
-    match (renamed.next(), renamed.next()) {
-        (Some(only), None) => Some(only.clone()),
-        _ => None,
-    }
-}
-
 /// Whether a folder's child names show a project folder: an entity dir or the `.weaveforge` meta
 /// dir the mirror writes. A user folder that only shares the `--id6` name holds neither.
 #[must_use]

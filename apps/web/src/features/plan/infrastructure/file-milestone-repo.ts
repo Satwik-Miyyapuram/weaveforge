@@ -25,6 +25,7 @@ import type {
 } from "@weaveforge/core";
 import { readyCore } from "@/lib/rust-core";
 import { moveToTrash } from "@/lib/workspace-trash";
+import { rootOf, type RootLike } from "@/backend/providers/files/file-entity-store";
 
 /** A milestone as the published feed carries it (Rust `FeedMilestone`). */
 export interface FeedItem {
@@ -128,12 +129,13 @@ export class FileMilestoneRepository implements IMilestoneRepository, IMilestone
   constructor(
     private readonly fs: IWorkspaceFs,
     /** Project folder the `plan/` folder sits in ("" for the workspace root). */
-    private readonly root: string,
+    private readonly root: RootLike,
     private readonly publish?: PublishFeed,
   ) {}
 
   private get dir(): string {
-    return this.root ? `${this.root}/plan` : "plan";
+    const root = rootOf(this.root);
+    return root ? `${root}/plan` : "plan";
   }
 
   private async readAll(): Promise<Found[]> {
@@ -170,7 +172,7 @@ export class FileMilestoneRepository implements IMilestoneRepository, IMilestone
   async save(milestone: Milestone): Promise<void> {
     const core = readyCore();
     const found = (await this.readAll()).find((f) => f.milestone.id === milestone.id);
-    const path = found?.path ?? core.flatPath(TYPE, milestone.id, milestone.title, this.root);
+    const path = found?.path ?? core.flatPath(TYPE, milestone.id, milestone.title, rootOf(this.root));
     const old = found ? core.readFrontmatter(found.text).frontmatter : {};
     const fields: Record<string, unknown> = {
       "weaveforge-id": milestone.id,

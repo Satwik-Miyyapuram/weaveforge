@@ -75,13 +75,17 @@ function metricCurve(
 export async function seedShowcaseFiles(parts: SeedShowcaseFilesParts): Promise<SeedShowcaseFilesResult> {
   const now = parts.now ?? new Date();
   const stamp = now.toISOString();
+  // Every row goes into the showcase project's folder, named once it is made.
+  let folder = "";
   const repos: FileRepositories = wireFileBackend({
     fs: parts.fs,
     settings: parts.settings,
     secrets: parts.secrets,
+    projectRoot: () => folder,
   });
 
   const project = await repos.projectRepository.create({ name: SHOWCASE_PROJECT_NAME, color: SHOWCASE_PROJECT_COLOR });
+  folder = project.id;
 
   // Papers: one file each, keyed by title for the rows that name them.
   const paperIds = new Map<string, string>();
@@ -255,7 +259,7 @@ export async function seedShowcaseFiles(parts: SeedShowcaseFilesParts): Promise<
     const figure = page.figure;
     if (figure) {
       const bytes = await parts.readChart(figure.file);
-      if (bytes) await parts.fs.writeFile(`assets/${figure.file}`, bytes);
+      if (bytes) await parts.fs.writeFile(`${folder}/assets/${figure.file}`, bytes);
     }
     await repos.rawVaultPageRepository.save({
       id: `showcase-note-${i + 1}`,

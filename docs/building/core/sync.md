@@ -18,7 +18,8 @@ results in.
   README or manifest's export time, so two copies that differ only in it compare
   equal (the mirror's unchanged check).
 - `folder_layout.rs`: folder names and paths. `folderTitleFromPath` gives a note
-  title from a file path, and `pickProjectFolder` chooses a project folder. The
+  title from a file path, and `holdsProjectLayout` tells a project folder from a
+  user folder that only shares the `--id6` name. The
   TypeScript folder names in `packages/core/src/workspace/parts-1.ts` stay
   in `packages/core`: that package has no wasm dependency, and the names are read
   when the workspace is loaded.
@@ -80,14 +81,14 @@ others). The TypeScript wrappers in `packages/wf-wasm/src` import the raw names
 from `../pkg/wf_wasm.js` and re-export them. The main names are `digestText`,
 `planDelta`, `applyDelta`, `stampWorkspaceId`, `decideVaultCommit`,
 `describePush`, `redactSecret`, `splitInkTextLayer`, `jsonEditSince`,
-`folderTitleFromPath`, `pickProjectFolder` and `unstampForCompare`.
+`folderTitleFromPath`, `holdsProjectLayout` and `unstampForCompare`.
 
 Code in `apps/web` reads these through `readyCore()` or `typedCore()` from
 `apps/web/src/lib/rust-core.ts`. For example,
 `apps/web/src/features/workspace/application/parts-3.ts` calls
 `readyCore().jsonEditSince`, `folder-import-apply.ts` calls
-`readyCore().folderTitleFromPath`, and `remove-project-folder.ts` calls
-`typedCore().pickProjectFolder`. `ink-host.tsx` calls
+`readyCore().folderTitleFromPath`, and `file-project-repo.ts` calls
+`typedCore().holdsProjectLayout`. `ink-host.tsx` calls
 `typedCore().splitInkTextLayer`.
 
 ## What stays in TypeScript, and why

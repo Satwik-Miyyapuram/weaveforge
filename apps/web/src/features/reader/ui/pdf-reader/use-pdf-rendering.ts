@@ -15,6 +15,7 @@ import { getContainer } from "@/bootstrap";
 import { readyCore } from "@/lib/rust-core";
 import { perfEnd, perfStart } from "@/lib/parts-2";
 import { savePdfTextDurably } from "@/features/search/application/parts-1";
+import { storedPdfTextMatches } from "@/features/search/infrastructure/parts-2";
 import { readStoredPdfBytes } from "../../application/parts-3";
 import { pdfObjectUrlBytes, pdfProxyNeedsToken } from "../../application/parts";
 import { useReaderViewport, type ReaderViewportApi } from "../use-reader-viewport";
@@ -393,14 +394,14 @@ useEffect(() => {
 
           // Keep the text so this document stays searchable after the reader
           // closes. Piggybacks on the pass above — no extra fetch or parse.
-          if (paperId) {
-            const source = {
-              paperId,
-              title: paperTitle ?? "PDF",
-              pages: texts,
-              extractedAt: new Date().toISOString(),
-            };
-            void savePdfTextDurably(getContainer().projects.context.projectId, source);
+          // A reopen extracts the same text: then the save and the reindex are skipped.
+          const projectId = getContainer().projects.context.projectId;
+          const source = paperId
+            ? { paperId, title: paperTitle ?? "PDF", pages: texts, extractedAt: new Date().toISOString() }
+            : null;
+          if (source && !(await storedPdfTextMatches(projectId, source))) {
+            if (cancelled) return;
+            void savePdfTextDurably(projectId, source);
             await idle(cancelSignal);
             if (cancelled) return;
             // Findable now rather than after a reload: index in slices so

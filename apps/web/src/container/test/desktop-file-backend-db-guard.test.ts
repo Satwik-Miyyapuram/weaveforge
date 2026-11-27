@@ -80,7 +80,7 @@ test("desktop: a personal blob upload lands in the folder and makes no request",
     written.push(path);
     await writeBytes(path, data);
   };
-  const backend = wireDesktopFileBackend(vault, settings)(config, { projectId: null }, () => null);
+  const backend = wireDesktopFileBackend(vault, settings)(config, { projectId: "Thesis" }, () => null);
   const urls: string[] = [];
   const real = globalThis.fetch;
   globalThis.fetch = (async (input: RequestInfo | URL) => {
@@ -93,7 +93,7 @@ test("desktop: a personal blob upload lands in the folder and makes no request",
     globalThis.fetch = real;
   }
   assert.deepEqual(urls, []);
-  assert.ok(written.some((p) => p.endsWith("paper-images/u-1/a.png")), JSON.stringify(written));
+  assert.ok(written.some((p) => p.endsWith("Thesis/assets/paper-images/u-1/a.png")), JSON.stringify(written));
 });
 
 test("files mode refuses the personal integrations table on the server client (the desktop wiring)", () => {

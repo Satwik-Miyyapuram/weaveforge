@@ -34,6 +34,7 @@ import {
 } from "@weaveforge/core";
 import { readyCore } from "@/lib/rust-core";
 import { moveToTrash } from "@/lib/workspace-trash";
+import { rootOf, type RootLike } from "@/backend/providers/files/file-entity-store";
 
 const TYPE = "vault_page";
 const SUFFIX = ".note.md";
@@ -106,12 +107,13 @@ export class FileNoteRepository implements IVaultPageRepository, IVaultPageManag
   constructor(
     private readonly fs: IWorkspaceFs,
     /** Project folder the `notes/` folder sits in ("" for the workspace root). */
-    private readonly root: string,
+    private readonly root: RootLike,
     private readonly now: () => string = () => new Date().toISOString(),
   ) {}
 
   private get dir(): string {
-    return this.root ? `${this.root}/notes` : "notes";
+    const root = rootOf(this.root);
+    return root ? `${root}/notes` : "notes";
   }
 
   private async readAll(): Promise<Found[]> {
@@ -336,7 +338,7 @@ export class FileNoteRepository implements IVaultPageRepository, IVaultPageManag
       throw new Error(`Moving "${page.title}" there would make a parent cycle.`);
     }
     const found = all.find((f) => f.page.id === page.id);
-    const path = found?.path ?? core.flatPath(TYPE, page.id, page.title, this.root);
+    const path = found?.path ?? core.flatPath(TYPE, page.id, page.title, rootOf(this.root));
     const old = found ? core.readFrontmatter(found.text).frontmatter : {};
     const fields: Record<string, unknown> = {
       "weaveforge-id": page.id,

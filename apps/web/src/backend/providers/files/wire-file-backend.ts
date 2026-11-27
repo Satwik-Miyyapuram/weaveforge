@@ -70,40 +70,43 @@ export interface FileBackendParts {
   /** The workspace settings file (`WorkspaceSettingsFile` satisfies this). */
   settings: SettingsSection;
   secrets: SecretsStore;
+  /** The active project's folder, asked per call; "" (the workspace root) when left out. */
+  projectRoot?: ProjectRoot;
 }
 
 /**
  * Builds every personal-data repository over one folder. Nothing here opens a
  * database or a network connection: the folder is the only store. `parts.fs`
  * must already be rooted at the chosen folder (the desktop bridge does that, and
- * tests pass memory), and repositories take paths relative to it, so the root is "".
+ * tests pass memory), and repositories take paths relative to it, inside the
+ * active project's folder (`parts.projectRoot`).
  */
 export function wireFileBackend(parts: FileBackendParts): FileRepositories {
   const { fs, settings, secrets } = parts;
-  const root: ProjectRoot = () => "";
-  const top = "";
-  const papers = new FilePaperRepository(fs, top);
+  const root: ProjectRoot = parts.projectRoot ?? (() => "");
+  const papers = new FilePaperRepository(fs, root);
+  const paperFields = new FilePaperFieldRepository(papers, settings, fs, root);
   return {
     paperRepository: papers,
     libraryPinRepository: new FileLibraryPinRepository(papers),
     citationAlertTrackRepository: new FileCitationAlertTrackRepository(settings),
-    annotationPinRepository: new FileAnnotationPinRepository(fs, top),
+    annotationPinRepository: new FileAnnotationPinRepository(fs, root),
     tagRepository: new FileTagRepository(papers, settings),
     paperTagRepository: new FilePaperTagRepository(papers),
-    paperFieldRepository: new FilePaperFieldRepository(papers, settings, fs, root),
+    paperFieldRepository: paperFields,
     paperRelationRepository: new FilePaperRelationRepository(papers, fs, root),
-    projectRepository: new FileProjectRepository(fs),
+    projectRepository: new FileProjectRepository(fs, (from, to) => paperFields.moveProjectFolder(from, to)),
     experimentRepository: new FileExperimentRepository(fs, root),
     metricRepository: new FileMetricRepository(fs, root),
     logEntryRepository: new FileLogEntryRepository(fs, root),
     reportSectionRepository: new FileReportSectionRepository(fs, root),
     readingListRepository: new FileReadingListRepository(fs, root),
     readingListItemRepository: new FileReadingListItemRepository(fs, root),
-    rawVaultPageRepository: new FileNoteRepository(fs, top),
-    milestoneRepository: new FileMilestoneRepository(fs, top),
+    rawVaultPageRepository: new FileNoteRepository(fs, root),
+    milestoneRepository: new FileMilestoneRepository(fs, root),
     readerAnnotationRepository: new FileReaderAnnotationRepository(
       fs,
-      "",
+      root,
       (id) => papers.pathOf(id),
       () => papers.files(),
     ),
@@ -112,7 +115,7 @@ export function wireFileBackend(parts: FileBackendParts): FileRepositories {
     graphSettingsRepository: new FileGraphSettingsRepository(settings),
     quotationTypeRepository: new FileQuotationTypeRepository(settings),
     bibliographyCollectionStore: new FileBibliographyCollectionStore(settings),
-    screeningRepository: new FileScreeningRepository(new WorkspaceListFilesPort(fs, "")),
+    screeningRepository: new FileScreeningRepository(new WorkspaceListFilesPort(fs, root)),
     integrationsStore: new FileIntegrationsStore(settings, secrets),
     aiProposalStore: new FileAiProposalStore(fs),
     aiAuditStore: new FileAiAuditStore(fs),

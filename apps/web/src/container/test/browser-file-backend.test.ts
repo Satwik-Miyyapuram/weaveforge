@@ -66,7 +66,7 @@ test("control: without the overlay a personal write reaches PostgREST", async ()
 test("with the browser file overlay, a personal round trip makes zero network calls", async () => {
   const fs = new MemoryWorkspaceFs();
   const wire = await wireBrowserFiles(fs);
-  const backend = wire(config, { projectId: null }, () => null);
+  const backend = wire(config, { projectId: "Thesis" }, () => null);
   const spy = spyNetwork();
   try {
     await backend.paperRepository.save(paper());
@@ -131,12 +131,12 @@ test("with the overlay, org and sharing reads still go to PostgREST", async () =
 test("a personal blob upload makes zero network calls and lands in the file blob store", async () => {
   const fs = new MemoryWorkspaceFs();
   const wire = await wireBrowserFiles(fs);
-  const backend = wire(config, { projectId: null }, () => null);
+  const backend = wire(config, { projectId: "Thesis" }, () => null);
   const spy = spyNetwork();
   try {
     await backend.rawBlobStore.upload("images", "p-1/fig.png", new Blob([new Uint8Array([1, 2, 3])]), "image/png");
     assert.deepEqual(spy.urls, []);
-    assert.ok(await fs.stat("assets/images/p-1/fig.png"), "the blob must be a file under assets/<bucket>/<path>");
+    assert.ok(await fs.stat("Thesis/assets/images/p-1/fig.png"), "the blob must be a file under <project>/assets/<bucket>/<path>");
   } finally {
     spy.restore();
     backend.dispose();

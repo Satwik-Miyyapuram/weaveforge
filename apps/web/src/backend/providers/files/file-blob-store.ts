@@ -9,6 +9,7 @@ import { BlobNotFoundError, ConflictError, type IBlobFetcher, type IWorkspaceFs 
 import { moveToTrash } from "@/lib/workspace-trash";
 import { conflictCopyPath } from "./conflict-path";
 import { tempPathFor } from "@/lib/temp-path";
+import { rootOf, type RootLike } from "./file-entity-store";
 
 /** `ASSET_DIR` in crates/wf-core/src/sync/folder_layout.rs. */
 const ASSET_DIR = "assets";
@@ -54,8 +55,8 @@ async function putSidecar(fs: IWorkspaceFs, sidecar: string, text: string, confl
   throw new ConflictError(`conflict: ${sidecar} differs`);
 }
 
-function assetFile(bucket: string, path: string): string {
-  return `${ASSET_DIR}/${bucket}/${path}`;
+function assetFile(root: string, bucket: string, path: string): string {
+  return `${root ? `${root}/` : ""}${ASSET_DIR}/${bucket}/${path}`;
 }
 
 async function sha256Hex(bytes: Uint8Array): Promise<string> {
@@ -64,14 +65,18 @@ async function sha256Hex(bytes: Uint8Array): Promise<string> {
 }
 
 export class FileBlobStore implements IBlobFetcher {
-  constructor(private readonly fs: IWorkspaceFs) {}
+  /** `root` is the project folder `assets/` sits in ("" for the workspace root). */
+  constructor(
+    private readonly fs: IWorkspaceFs,
+    private readonly root: RootLike = "",
+  ) {}
 
   async upload(bucket: string, path: string, blob: Blob, contentType?: string): Promise<void> {
     assertSafe(bucket, path);
     const bytes = new Uint8Array(await blob.arrayBuffer());
     const type = contentType || blob.type || "application/octet-stream";
     const digest = await sha256Hex(bytes);
-    const file = assetFile(bucket, path);
+    const file = assetFile(rootOf(this.root), bucket, path);
     // Never replace bytes silently: the same path must hold the same content.
     if (await this.fs.stat(file)) {
       if ((await sha256Hex(await this.fs.readFile(file))) !== digest) {
@@ -87,7 +92,7 @@ export class FileBlobStore implements IBlobFetcher {
   /** Moves the bytes and sidecar to `.weaveforge/trash`; nothing is unlinked. */
   async remove(bucket: string, path: string): Promise<void> {
     assertSafe(bucket, path);
-    const file = assetFile(bucket, path);
+    const file = assetFile(rootOf(this.root), bucket, path);
     for (const target of [file, `${file}.sha256`]) {
       if (await this.fs.stat(target)) await moveToTrash(this.fs, target, Date.now());
     }
@@ -105,7 +110,7 @@ export class FileBlobStore implements IBlobFetcher {
   /** The asset's bytes, checked against its sidecar, and the sidecar's content type. */
   private async readVerified(bucket: string, path: string): Promise<{ bytes: Uint8Array; type: string }> {
     assertSafe(bucket, path);
-    const file = assetFile(bucket, path);
+    const file = assetFile(rootOf(this.root), bucket, path);
     if (!(await this.fs.stat(file))) throw new BlobNotFoundError(bucket, path);
     // Deleted between our look and a read (another window or app): still "not found".
     // A stat that fails too says nothing, so the read's own error is kept.

@@ -1,4 +1,5 @@
 import { ManageSettingsUseCase } from "@weaveforge/core";
+import { activeProjectFolder } from "@/backend/providers/files/active-project-folder";
 import type { BackendConfig } from "@/backend/parts";
 import { wireFileBackend } from "@/backend/providers/files/wire-file-backend";
 import { NoAccountWorkspaceFs } from "@/backend/providers/files/no-account-fs";
@@ -24,12 +25,13 @@ export function wireNoAccountBackend(
 ): PersonalBackend {
   const postgrest = wirePostgrestBackend(config, projectContext, pid, undefined, { filesMode: true }, readOnlyDb);
   const fs = new NoAccountWorkspaceFs();
-  const files = wireFileBackend({ fs, settings: workspaceSettings, secrets: new DeviceSecretsStore() });
+  const projectRoot = activeProjectFolder(projectContext);
+  const files = wireFileBackend({ fs, projectRoot, settings: workspaceSettings, secrets: new DeviceSecretsStore() });
   return {
     ...overlayFileRepositories(postgrest, files),
     manageSettings: new ManageSettingsUseCase({ repository: files.settingsRepository, clock: systemClock }),
     // Personal blobs go to the folder; only the share path's uploadShared reaches the server store.
-    rawBlobStore: new FileModeBlobStore(new FileBlobStore(fs), postgrest.rawBlobStore),
+    rawBlobStore: new FileModeBlobStore(new FileBlobStore(fs, projectRoot), postgrest.rawBlobStore),
     // The container's client: tables and rpcs outside the org allowlist are refused, read or write, before any request.
     db: guardOrgDb(postgrest.db),
   };

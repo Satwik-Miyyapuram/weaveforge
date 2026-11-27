@@ -5,6 +5,7 @@
 import { type IWorkspaceFs } from "@weaveforge/core";
 import { readyCore } from "@/lib/rust-core";
 import type { ListFile, ListFilesPort } from "./file-screening-repository";
+import { rootOf, type RootLike } from "@/backend/providers/files/file-entity-store";
 
 async function sha256Hex(text: string): Promise<string> {
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
@@ -14,12 +15,13 @@ async function sha256Hex(text: string): Promise<string> {
 export class WorkspaceListFilesPort implements ListFilesPort {
   constructor(
     private readonly fs: IWorkspaceFs,
-    private readonly projectRoot: string,
+    private readonly projectRoot: RootLike,
   ) {}
 
   async listFiles(): Promise<readonly ListFile[]> {
     const files: ListFile[] = [];
-    const dir = this.projectRoot ? `${this.projectRoot}/reading-lists` : "reading-lists";
+    const root = rootOf(this.projectRoot);
+    const dir = root ? `${root}/reading-lists` : "reading-lists";
     for (const path of await this.listPaths(dir)) {
       const text = await this.fs.readText(path);
       files.push({ path, text, hash: await sha256Hex(text) });
@@ -57,7 +59,7 @@ export class WorkspaceListFilesPort implements ListFilesPort {
    */
   private async paperNotes(): Promise<{ id: string; link: string }[]> {
     const core = readyCore();
-    const dir = core.entityDir("paper", this.projectRoot);
+    const dir = core.entityDir("paper", rootOf(this.projectRoot));
     const notes: { id: string; link: string }[] = [];
     if (!(await this.fs.stat(dir))) return notes;
     for await (const entry of this.fs.walk(dir)) {

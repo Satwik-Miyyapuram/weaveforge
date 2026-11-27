@@ -737,7 +737,6 @@ mod workspace_json_apply;
 mod workspace_mirror_manifest;
 mod workspace_outside_edits;
 mod workspace_preview_read;
-mod workspace_project_rename;
 mod workspace_settle_external;
 mod workspace_stored_pages;
 mod workspace_sync_report;

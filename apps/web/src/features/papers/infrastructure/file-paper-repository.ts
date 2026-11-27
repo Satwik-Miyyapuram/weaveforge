@@ -9,6 +9,7 @@ import type {
 import { ConflictError, isSafeWorkspacePath } from "@weaveforge/core";
 import { typedCore } from "@/lib/rust-core";
 import { moveToTrash } from "@/lib/workspace-trash";
+import { rootOf, type RootLike } from "@/backend/providers/files/file-entity-store";
 
 /** A paper file's `relations` (outgoing, `to` a `[[link]]` or id) and custom `fields`. */
 export interface PaperExtras {
@@ -66,7 +67,7 @@ export class FilePaperRepository implements IPaperRepository {
 
   constructor(
     private readonly fs: IWorkspaceFs,
-    private readonly projectRoot: string,
+    private readonly projectRoot: RootLike,
     options: FilePaperRepositoryOptions = {},
   ) {
     this.writeIds = options.writeIds ?? true;
@@ -249,7 +250,7 @@ export class FilePaperRepository implements IPaperRepository {
   /** `<papers>/<title slug>.paper.md`, or the first free `-n` name. */
   private async newPath(title: string): Promise<string> {
     const core = typedCore();
-    const base = `${core.entityDir("paper", this.projectRoot)}/${core.slugFor(title, "untitled")}`;
+    const base = `${core.entityDir("paper", rootOf(this.projectRoot))}/${core.slugFor(title, "untitled")}`;
     for (let n = 1; n <= NAME_ATTEMPTS; n += 1) {
       const path = n === 1 ? `${base}${PAPER_SUFFIX}` : `${base}-${n}${PAPER_SUFFIX}`;
       if (!(await this.fs.stat(path))) return path;
@@ -291,7 +292,7 @@ export class FilePaperRepository implements IPaperRepository {
    */
   private async scan(): Promise<{ reads: PaperFileRead[]; failures: PaperFileFailure[] }> {
     const core = typedCore();
-    const dir = core.entityDir("paper", this.projectRoot);
+    const dir = core.entityDir("paper", rootOf(this.projectRoot));
     const reads: PaperFileRead[] = [];
     const failures: PaperFileFailure[] = [];
     if (!(await this.fs.stat(dir))) return { reads, failures };

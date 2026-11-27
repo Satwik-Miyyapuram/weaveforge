@@ -63,7 +63,7 @@ test("a stored project that is gone is not selected", async () => {
   const selected: (string | null)[] = [];
   await withDesktopLog(() =>
     loadInitialProject({
-      refresh: async () => [{ id: "p2" } as Project],
+      refresh: async () => [{ id: "p2" } as Project, { id: "p3" } as Project],
       storedId: () => "p1",
       select: (id) => void selected.push(id),
       done: () => {},
@@ -90,7 +90,7 @@ test("a saved project the live list no longer has is closed", async () => {
   const selected: (string | null)[] = [];
   await withDesktopLog(() =>
     loadInitialProject({
-      refresh: async () => [{ id: "p2" } as Project],
+      refresh: async () => [{ id: "p2" } as Project, { id: "p3" } as Project],
       storedId: () => "p1",
       select: (id) => void selected.push(id),
       selected: () => "p1",
@@ -98,4 +98,25 @@ test("a saved project the live list no longer has is closed", async () => {
     }),
   );
   assert.deepEqual(selected, [null]);
+});
+
+test("with the stored project gone and one project left, that one opens", async () => {
+  const selected: (string | null)[] = [];
+  await withDesktopLog(() =>
+    loadInitialProject({
+      refresh: async () => [{ id: "Thesis" } as Project],
+      storedId: () => "8d731734-bdcd-4f08-b648-efd15fdf75da",
+      select: (id) => void selected.push(id),
+      done: () => undefined,
+    }),
+  );
+  assert.deepEqual(selected, ["Thesis"]);
+});
+
+test("with nothing stored and no projects, nothing opens", async () => {
+  const selected: (string | null)[] = [];
+  await withDesktopLog(() =>
+    loadInitialProject({ refresh: async () => [], storedId: () => null, select: (id) => void selected.push(id), done: () => undefined }),
+  );
+  assert.deepEqual(selected, []);
 });

@@ -7,14 +7,12 @@
 use std::sync::Arc;
 
 use serde_json::{Map, Value, json};
-use wf_core::sync::folder_layout::WorkspaceProject;
 
 use super::mcp_call::{Ctx, call_tool, search_answer, search_hits};
 use super::mcp_draft::canonical_ai_tool_name;
 use super::mcp_projects::resolve_projects;
 use super::mcp_read::PROTOCOL_VERSION;
 use super::mcp_tools::{TrackingSetup, tools, tracking_setup, tracking_tool};
-use super::sdk_files;
 use super::verified::{Mode, folder_mode};
 use super::{BoxFuture, McpHome, McpRouter, SemanticRanker};
 use crate::vault::VaultState;
@@ -44,19 +42,15 @@ impl LocalMcp {
         }
     }
 
-    /// The app's projects: the open folder's one project from `workspace.json`, or none
-    /// when no folder is open or the file is missing (TS `projectsFrom`).
-    async fn project_rows(&self) -> Vec<WorkspaceProject> {
+    /// The app's project names: the open folder's top-level folders, none when no folder is open.
+    fn project_names(&self) -> Vec<String> {
         if folder_mode(&self.vault) != Mode::Files {
             return Vec::new();
         }
-        match sdk_files::workspace_project(&self.vault).await {
-            Ok(Some(project)) => vec![WorkspaceProject {
-                id: js_string(&project["id"]),
-                name: js_string(&project["name"]),
-            }],
-            _ => Vec::new(),
-        }
+        resolve_projects(&self.vault.lock())
+            .into_iter()
+            .map(|project| project.name)
+            .collect()
     }
 
     /// Tracking help when the token may log runs and Connect has run (TS `trackingFor`).
@@ -65,12 +59,7 @@ impl LocalMcp {
         if !allowed {
             return None;
         }
-        let projects = self
-            .project_rows()
-            .await
-            .into_iter()
-            .map(|row| row.name)
-            .collect();
+        let projects = self.project_names();
         Some(TrackingSetup {
             api_url: home.api_url.clone(),
             token_file: home.token_file.clone(),
@@ -86,15 +75,14 @@ impl LocalMcp {
 
     /// One tool call. `Err` is the message shown to the agent.
     async fn call(&self, name: &str, args: &Map<String, Value>) -> Result<Value, String> {
-        let rows = self.project_rows().await;
         if canonical_ai_tool_name(name) != "search_workspace" {
             let session = self.vault.lock();
-            let projects = resolve_projects(&session, &rows);
+            let projects = resolve_projects(&session);
             return call_tool(&session, name, args, &projects);
         }
         let (query, hits) = {
             let session = self.vault.lock();
-            let projects = resolve_projects(&session, &rows);
+            let projects = resolve_projects(&session);
             search_hits(&Ctx {
                 session: &session,
                 params: args,
@@ -219,14 +207,6 @@ pub fn listed_tools(with_tracking: bool) -> Vec<Value> {
         listed.push(tracking_tool());
     }
     listed
-}
-
-/// JS `String(value)`: strings unquoted, null as "null".
-fn js_string(value: &Value) -> String {
-    match value {
-        Value::String(s) => s.clone(),
-        other => other.to_string(),
-    }
 }
 
 fn ok(id: &Value, result: &Value) -> Value {
@@ -415,19 +395,21 @@ mod tests {
         assert!(!all.contains(&TRACKING_TOOL_NAME.to_owned()));
     }
 
-    /// Writes a `workspace.json` naming the folder's one project.
+    /// Makes a project folder in the open folder.
     fn with_project(fx: &Fixture, name: &str) {
-        let project = json!({ "id": "proj-1", "name": name }).to_string();
-        fs::write(fx.root.join(".weaveforge").join("workspace.json"), project).expect("workspace");
+        fs::create_dir_all(fx.root.join(name).join("notes")).expect("project folder");
     }
 
     #[test]
-    fn an_open_folder_lists_projects_from_workspace_json() {
+    fn an_open_folder_lists_its_folders_as_projects() {
         let fx = Fixture::new("files-projects");
         with_project(&fx, "Lab");
+        let ignored = json!({ "id": "proj-1", "name": "Stale" }).to_string();
+        fs::write(fx.root.join(".weaveforge").join("workspace.json"), ignored).expect("workspace");
         let mcp = LocalMcp::new(fx.vault.clone(), None, None);
         let answer = call(&mcp, "list_projects", json!({}), false, false);
         assert!(answer.to_string().contains("Lab"), "{answer}");
+        assert!(!answer.to_string().contains("Stale"), "{answer}");
     }
 
     #[test]

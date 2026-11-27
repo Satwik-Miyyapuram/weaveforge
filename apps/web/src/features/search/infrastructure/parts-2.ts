@@ -188,6 +188,28 @@ function withinBudget(source: PdfIndexSource): PdfIndexSource {
   return kept === source.pages.length ? source : { ...source, pages: source.pages.slice(0, kept) };
 }
 
+/** Same title and page texts; the extraction time is ignored. */
+export function samePdfText(stored: PdfIndexSource | undefined, fresh: PdfIndexSource): boolean {
+  if (!stored || stored.title !== fresh.title || stored.pages.length !== fresh.pages.length) return false;
+  return stored.pages.every((page, i) => page.text === fresh.pages[i]?.text);
+}
+
+/** Whether the stored copy already holds this text, so a reopen need not save or reindex it. */
+export async function storedPdfTextMatches(projectId: string | null, source: PdfIndexSource): Promise<boolean> {
+  if (typeof indexedDB === "undefined") return false;
+  try {
+    const db = await openAppDb();
+    const stored = await new Promise<PdfIndexSource | undefined>((resolve, reject) => {
+      const req = db.transaction(PDF_TEXT_STORE, "readonly").objectStore(PDF_TEXT_STORE).get(storeKey(projectId, source.paperId));
+      req.onsuccess = () => resolve(req.result as PdfIndexSource | undefined);
+      req.onerror = () => reject(req.error);
+    });
+    return samePdfText(stored, withinBudget(source));
+  } catch {
+    return false;
+  }
+}
+
 export async function savePdfText(projectId: string | null, source: PdfIndexSource): Promise<void> {
   if (typeof indexedDB === "undefined" || source.pages.length === 0) return;
   try {

@@ -5,6 +5,7 @@ import type {
   SaveAnnotationPinInput,
 } from "@weaveforge/core";
 import { changeJsonRows, readJsonRows } from "@/lib/json-rows-file";
+import { rootOf, type RootLike } from "@/backend/providers/files/file-entity-store";
 
 /**
  * A project's annotation pins as one workspace file (files-first L1):
@@ -15,14 +16,14 @@ import { changeJsonRows, readJsonRows } from "@/lib/json-rows-file";
  * re-applies on a newer file, so a pin added outside the app is kept.
  */
 export class FileAnnotationPinRepository implements IAnnotationPinRepository {
-  private readonly path: string;
-
   constructor(
     private readonly fs: IWorkspaceFs,
-    projectRoot: string,
-  ) {
-    const dir = projectRoot ? `${projectRoot}/.weaveforge` : ".weaveforge";
-    this.path = `${dir}/annotation-pins.json`;
+    private readonly projectRoot: RootLike,
+  ) {}
+
+  private get path(): string {
+    const root = rootOf(this.projectRoot);
+    return `${root ? `${root}/.weaveforge` : ".weaveforge"}/annotation-pins.json`;
   }
 
   async save(input: SaveAnnotationPinInput): Promise<AnnotationPin> {

@@ -1,9 +1,10 @@
 import { getContainer } from "@/bootstrap";
+import { NoActiveProjectError } from "@/backend/providers/files/active-project-folder";
 import type { DesktopBridge } from "@/lib/desktop/desktop-bridge";
 import { logToApp } from "@/lib/error-report/app-log";
 import { notifyEach } from "@/lib/parts";
 import { claimTrashFolder } from "@/lib/workspace-trash";
-import { loadCore, readyCore, typedCore } from "@/lib/rust-core";
+import { readyCore } from "@/lib/rust-core";
 import type { IWorkspaceFs, WorkspaceProject, WorkspaceSnapshot } from "@weaveforge/core";
 import type { ReanchorPlan } from "@weaveforge/wasm";
 
@@ -33,21 +34,12 @@ export async function activeProjectOrNull(): Promise<WorkspaceProject | null> {
   return project ? { id: project.id, name: project.name } : null;
 }
 
-/** Shown when no project is open: a state to describe, not a failure. */
-export const NO_ACTIVE_PROJECT_MESSAGE =
-  "Each project has its own subfolder in the workspace folder. Open a project to write it.";
-
-/** Thrown when no project is open, so callers can tell it from a real failure. */
-export class NoActiveProjectError extends Error {
-  constructor() {
-    super(NO_ACTIVE_PROJECT_MESSAGE);
-    this.name = "NoActiveProjectError";
-  }
-}
-
-export function isNoActiveProject(error: unknown): error is NoActiveProjectError {
-  return error instanceof NoActiveProjectError;
-}
+export {
+  NO_ACTIVE_PROJECT_MESSAGE,
+  NoActiveProjectError,
+  isNoActiveProject,
+  activeProjectFolder,
+} from "@/backend/providers/files/active-project-folder";
 
 export async function activeProject(): Promise<WorkspaceProject> {
   const project = await activeProjectOrNull();
@@ -63,8 +55,7 @@ export async function activeProject(): Promise<WorkspaceProject> {
 
 /** The active project's folder, which is what every path builder wants. */
 export async function activeProjectRoot(): Promise<string> {
-  const core = await loadCore();
-  return core.projectDir(await activeProject());
+  return (await activeProject()).id;
 }
 
 // --- asset-reanchor ---
@@ -150,30 +141,15 @@ export function watchForLoss(bridge: Pick<DesktopBridge, "onVaultWatchLost">): (
 
 // --- remove-project-folder ---
 /**
- * Move a deleted project's folder to the workspace trash.
- *
- * Found by its current name, or by its `--id6` suffix so a folder named before
- * a rename still goes. A suffix that one of `others` (the projects that remain)
- * also has is refused, and so is a folder without the project layout (an entity
- * folder or `.weaveforge`): a short suffix is not proof of ownership. The files
- * go to `.weaveforge/trash/<day>/<folder>`, numbered on a clash, never deleted.
- * Returns the folder moved, or null.
+ * Move a deleted project's folder to the workspace trash. The project is its
+ * folder (the id is the folder name), so nothing else is matched. The files go
+ * to `.weaveforge/trash/<day>/<folder>`, numbered on a clash, never deleted.
+ * Returns the folder moved, or null when there is none.
  */
-export async function removeProjectFolder(
-  fs: IWorkspaceFs,
-  project: WorkspaceProject,
-  others: readonly WorkspaceProject[] = [],
-): Promise<string | null> {
-  const core = await loadCore();
-  const typed = typedCore();
-  const exact = core.projectDir(project);
-  const tail = `--${typed.idSuffix(project.id)}`;
-  const otherTails = others.map((other) => `--${typed.idSuffix(other.id)}`);
-  const names = (entries: readonly { path: string }[]) => entries.map((s) => s.path.split("/").pop() ?? "");
-  const dirNames = names((await fs.list("")).filter((s) => s.kind === "dir"));
-  const match = typed.pickProjectFolder(dirNames, exact, tail, otherTails) ?? null;
-  if (!match) return null;
-  if (!typed.holdsProjectLayout(names(await fs.list(match)))) return null;
+export async function removeProjectFolder(fs: IWorkspaceFs, project: WorkspaceProject): Promise<string | null> {
+  const match = project.id;
+  if (!match || match.startsWith(".") || match.includes("/")) return null;
+  if ((await fs.stat(match))?.kind !== "dir") return null;
   const { target: base, release } = await claimTrashFolder(fs, match, Date.now());
   const { files, dirs } = await treeUnder(fs, match);
   try {
@@ -202,38 +178,6 @@ export async function removeProjectFolder(
     }
   }
   return match;
-}
-
-/**
- * Move a renamed project's files into the folder its new name gives.
- *
- * The old folder is found by its `--id6` suffix (Rust `pickRenamedFolder`); two
- * folders with that suffix have no safe pick, so nothing moves. Each file moves
- * on its own and never onto a file already there: that one stays in the old
- * folder, so a rename cut short is finished by the next one. Emptied folders
- * are removed deepest first. Returns the old folder, or null when none moved.
- */
-export async function moveProjectFolder(fs: IWorkspaceFs, project: WorkspaceProject): Promise<string | null> {
-  const core = await loadCore();
-  const root = core.projectDir(project);
-  const tail = `--${typedCore().idSuffix(project.id)}`;
-  const dirs = (await fs.list("")).filter((entry) => entry.kind === "dir" && entry.path !== root).map((entry) => entry.path);
-  const old = typedCore().pickRenamedFolder(dirs, tail);
-  if (old === undefined) return null;
-  const { files, dirs: folders } = await treeUnder(fs, old);
-  for (const path of files) {
-    const to = core.movedPath(old, root, path);
-    if (await fs.stat(to)) continue;
-    await fs.mkdirp(to.slice(0, to.lastIndexOf("/")));
-    await fs.rename(path, to);
-  }
-  for (const dir of [...folders, old].sort((a, b) => b.length - a.length)) {
-    if ((await fs.list(dir)).length > 0) continue;
-    await fs.remove(dir).catch((error: unknown) => {
-      if (!isKeptFolderError(error)) console.warn(`Could not remove the emptied folder ${dir}`, error);
-    });
-  }
-  return old;
 }
 
 /**
