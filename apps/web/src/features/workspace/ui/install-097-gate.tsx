@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { desktop, type DesktopBridge } from "@/lib/desktop/desktop-bridge";
+import { Button } from "@/components/button";
 import {
   INSTALL_097_NOTICE,
   INSTALL_097_URL,
@@ -176,9 +177,9 @@ export function Install097Gate({
             Error code: <code>{gate.code}</code>
           </p>
           <p>
-            <button type="button" onClick={retry}>
+            <Button onClick={retry}>
               Try again
-            </button>
+            </Button>
           </p>
         </>
       )}
@@ -189,9 +190,9 @@ export function Install097Gate({
       </p>
       {gate.phase !== "unverified" || gate.action !== "web-export" ? (
         <p>
-          <button type="button" onClick={() => void choose()}>
+          <Button onClick={() => void choose()}>
             Choose the folder you exported to
-          </button>
+          </Button>
         </p>
       ) : null}
       {gate.phase === "unverified" && gate.notice && <p role="status">{gate.notice}</p>}
