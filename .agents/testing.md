@@ -15,7 +15,7 @@ failure from one tier in one batch before you move on.
 | 0 | eslint, tsgo typecheck, every `check:boundaries` gate (one by one), `check:docs`, `cargo fmt --check` | no | `npm run preflight` (~70 s, 3 at a time; `WF_PREFLIGHT_JOBS=1` uses less RAM) |
 | 1 | unit tests scoped to the feature | no | `node ./scripts/run-tests.mjs src/features/<name>` in `apps/web`; `cargo test -p <crate> -j1` |
 | 2 | clippy, cargo build, the full suite, `git push` (pre-push hook) | yes | `npm run check:pre-push`, `npm run check:rust -- --local` |
-| 3 | WeaveForge Dev build + Dev matrix (§3–4) | yes | once per release |
+| 3 | WeaveForge Dev refresh + desktop e2e suite (§3–4) | yes | once per batch, after all its code is in |
 
 - The typecheck is tsgo (`@typescript/native-preview`): it is about 5× faster
   than tsc and reports the same errors. Do not add tsc back.
@@ -104,6 +104,45 @@ Copy `target\release\weaveforge-shell.exe` into `<out>`, and
 it registers no URL scheme. For CDP set
 `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS=--remote-debugging-port=9223`; the page
 origin is `https://app.localhost`.
+
+### Refresh only what changed
+
+After the first full build, never rebuild everything. `scripts/dev-refresh.mjs`
+reads which files changed since the last refresh and rebuilds only those parts:
+
+```powershell
+node scripts/dev-refresh.mjs --out <dev folder>            # auto: picks web, shell or both
+node scripts/dev-refresh.mjs --out <dev folder> --dry-run  # shows what it would build
+node scripts/dev-refresh.mjs --out <dev folder> --web      # force one part (or --shell)
+```
+
+- A web-only change is a Next rebuild that reuses its cache
+  (`apps/web/.next-desktop`) and a copy into `<out>\web`: no cargo.
+- A shell change is an incremental release cargo build of the shell only,
+  always with `--config tauri.dev.json`. Close Dev first: the exe is locked
+  while it runs.
+- It stamps `<out>\.dev-refresh.json` with the commit, reloads Dev over CDP
+  when the web part ran, and refuses the installed app's folder.
+
+### Desktop end-to-end suite
+
+`apps/web/e2e-desktop` is a Playwright suite that attaches to the running
+WeaveForge Dev over CDP (port 9223) and drives the real app with its real
+folder. It never launches a browser or the installed app.
+
+```powershell
+cd apps\web; npm run test:e2e:desktop
+```
+
+- Specs: `startup` (projects load; shell-call budget), `notes`, `ink`,
+  `projects`. `dev-app.ts` holds the fixtures and `countShellCalls`.
+- Budgets for one start: `WF_E2E_READ_BUDGET` (800), `WF_E2E_LIST_BUDGET`
+  (150), `WF_E2E_STAT_BUDGET` (300). Before the 0.9.8 read cache one start
+  made 3944 reads.
+- Every bug the person reports from the app gets a spec here that fails
+  before the fix. The web e2e suite (`apps/web/e2e`) never runs the desktop
+  app, so it missed them.
+- Run it once per batch, after `dev-refresh`, not after each change.
 
 ## 4. Drive it over CDP
 

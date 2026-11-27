@@ -61,6 +61,19 @@ page whose code moved after `checked:`.
 Prove every change before reporting it. Read [testing.md](testing.md) before
 running tests, a build or the Dev app; it is not loaded up front.
 
+## Work fast
+
+- Write all of a batch's code first, then test once: a full build takes too
+  much of this machine to run per change. Between changes run only tier 0–1
+  gates on the touched files (`testing.md` §0).
+- Split work into small, exact specs (at most 3 files each, no file in two
+  specs) and hand them to several Haiku `builder` agents in parallel. The
+  lead reviews each diff and commits.
+- Rebuild Dev with `node scripts/dev-refresh.mjs --out <dev folder>`: it
+  builds only the parts that changed (`testing.md` §3).
+- Prove desktop behaviour with `npm run test:e2e:desktop` against Dev, and
+  turn every bug the person reports into a spec there.
+
 ## Spend few tokens
 
 - Find code with the LSP tool (`workspaceSymbol`, `findReferences`,
