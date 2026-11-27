@@ -6,7 +6,6 @@ use std::time::Duration;
 
 use wf_store::root::WORKSPACE_SUBDIR;
 
-use crate::migrate;
 use crate::prefs::{PrefValue, Prefs};
 use crate::vault::{VaultRoot, VaultState};
 use crate::vault_watcher::{ChangeSink, VaultWatcher, WatchSlot};
@@ -123,18 +122,6 @@ pub fn setup_needed(prefs: &Prefs) -> bool {
         && !matches!(prefs.read(ASKED_PREF), Ok(Some(PrefValue::Flag(true))))
 }
 
-/// Marks the first-open question as answered when the reader already has a database from an
-/// earlier run, or the Electron-era data folder holds a named artifact the app migrates. Files
-/// the app writes on any launch (webview, log, preferences) do not count. Call it before the
-/// database opens, since opening it creates the folder. Existing users are never asked.
-pub fn note_earlier_data(prefs: &Prefs, data_dir: &Path, electron_dir: Option<&Path>) {
-    let earlier = migrate::old_pglite_dir(data_dir).is_some()
-        || electron_dir.is_some_and(has_migratable_item);
-    if earlier {
-        mark_asked(prefs);
-    }
-}
-
 /// Writes the answered flag. A failed write is logged; the next start asks again.
 fn mark_asked(prefs: &Prefs) {
     if prefs
@@ -143,11 +130,6 @@ fn mark_asked(prefs: &Prefs) {
     {
         eprintln!("[vault] could not record that the workspace question was answered");
     }
-}
-
-/// Whether `dir` holds an entry the migration would carry over (see `migrate::ITEMS`).
-fn has_migratable_item(dir: &Path) -> bool {
-    migrate::ITEMS.iter().any(|item| dir.join(item).exists())
 }
 
 /// The folder Skip uses: `WeaveForge` inside the reader's Documents folder.

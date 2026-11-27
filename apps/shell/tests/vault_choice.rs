@@ -14,7 +14,7 @@ use weaveforge_shell_lib::prefs::{PrefValue, Prefs};
 use weaveforge_shell_lib::vault::VaultState;
 use weaveforge_shell_lib::vault_choice::{
     NOT_REMEMBERED, ROOT_PREF, adopt_choice_with, default_workspace_folder, forget_choice,
-    missing_remembered, note_earlier_data, refuse_install_dir, restore_remembered,
+    missing_remembered, refuse_install_dir, restore_remembered,
     retry_remembered, setup_needed, watch_root_with,
 };
 use weaveforge_shell_lib::vault_watcher::{ChangeSink, WatchSlot};
@@ -575,99 +575,4 @@ fn skip_uses_weaveforge_in_documents() {
         default_workspace_folder(Path::new("/home/me/Documents")),
         Path::new("/home/me/Documents/WeaveForge")
     );
-}
-
-#[test]
-fn an_existing_install_with_data_is_never_asked() {
-    let tmp = TempDir::new();
-    let prefs = prefs_in(&tmp);
-    let data = tmp.path().join("app-data");
-    fs::create_dir_all(data.join("local-db")).unwrap();
-    fs::write(data.join("local-db").join("PG_VERSION"), "16").unwrap();
-    assert!(setup_needed(&prefs));
-
-    note_earlier_data(&prefs, &data, None);
-
-    assert!(!setup_needed(&prefs));
-}
-
-#[test]
-fn an_older_electron_folder_with_a_named_artifact_counts_as_earlier_data() {
-    let tmp = TempDir::new();
-    let prefs = prefs_in(&tmp);
-    let data = tmp.path().join("app-data"); // not created yet, as on a fresh install
-    let old = tmp.path().join("old-electron");
-    fs::create_dir_all(&old).unwrap();
-    fs::write(old.join("preferences.json"), "{}").unwrap();
-
-    note_earlier_data(&prefs, &data, Some(&old));
-
-    assert!(!setup_needed(&prefs));
-}
-
-#[test]
-fn an_electron_folder_with_only_local_storage_is_still_asked() {
-    // Chromium writes "Local Storage" on any launch, so it is not proof of earlier data.
-    let tmp = TempDir::new();
-    let prefs = prefs_in(&tmp);
-    let data = tmp.path().join("app-data");
-    let old = tmp.path().join("old-electron");
-    fs::create_dir_all(old.join("Local Storage")).unwrap();
-    fs::write(old.join("Local Storage").join("leveldb"), "x").unwrap();
-
-    note_earlier_data(&prefs, &data, Some(&old));
-
-    assert!(setup_needed(&prefs));
-}
-
-#[test]
-fn an_app_data_folder_with_only_webview_or_log_is_still_asked() {
-    let tmp = TempDir::new();
-    let prefs = prefs_in(&tmp);
-    let data = tmp.path().join("app-data");
-    fs::create_dir_all(data.join("EBWebView")).unwrap();
-    fs::write(data.join("weaveforge.log"), "started").unwrap();
-
-    note_earlier_data(&prefs, &data, None);
-
-    assert!(setup_needed(&prefs));
-}
-
-#[test]
-fn an_app_data_folder_with_a_local_db_dir_but_no_cluster_is_still_asked() {
-    let tmp = TempDir::new();
-    let prefs = prefs_in(&tmp);
-    let data = tmp.path().join("app-data");
-    fs::create_dir_all(data.join("local-db")).unwrap(); // no PG_VERSION: not a database
-
-    note_earlier_data(&prefs, &data, None);
-
-    assert!(setup_needed(&prefs));
-}
-
-#[test]
-fn quitting_before_answering_is_asked_again_next_launch() {
-    // First launch wrote its own files (preferences, webview) and quit before the question.
-    let tmp = TempDir::new();
-    let prefs = prefs_in(&tmp);
-    let data = tmp.path().join("app-data");
-    fs::create_dir_all(data.join("EBWebView")).unwrap();
-    fs::write(data.join("preferences.json"), "{}").unwrap();
-
-    note_earlier_data(&prefs, &data, None);
-
-    assert!(setup_needed(&prefs));
-}
-
-#[test]
-fn a_fresh_install_with_no_data_is_still_asked() {
-    let tmp = TempDir::new();
-    let prefs = prefs_in(&tmp);
-    let data = tmp.path().join("app-data");
-    fs::create_dir_all(&data).unwrap(); // created but empty: nothing from an earlier run
-    let old = tmp.path().join("old-electron"); // missing
-
-    note_earlier_data(&prefs, &data, Some(&old));
-
-    assert!(setup_needed(&prefs));
 }

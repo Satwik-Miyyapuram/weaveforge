@@ -46,24 +46,26 @@ fn bindings_are_fresh() {
     );
 }
 
+/// 0.9.8 has no install gate: its legacy commands must not reach the bindings.
 #[test]
-fn a_098_shell_exposes_the_legacy_gate_commands() {
+fn a_098_shell_has_no_legacy_gate_commands() {
     let text = std::fs::read_to_string(
         PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("bridge/bindings.ts"),
     )
     .unwrap();
-    assert!(
-        text.contains("legacyDbPresent:"),
-        "bindings lack legacyDbPresent"
-    );
-    assert!(
-        text.contains("migrationReportVerified:"),
-        "bindings lack migrationReportVerified"
-    );
-    assert!(
-        text.contains("installGateRequired:"),
-        "bindings lack installGateRequired"
-    );
+    for name in [
+        "legacyDbPresent",
+        "migrationReportVerified",
+        "installGateRequired",
+        "legacy_db_present",
+        "migration_report_verified",
+        "install_gate_required",
+    ] {
+        assert!(
+            !text.contains(name),
+            "bindings still expose {name}"
+        );
+    }
     assert!(
         !text.contains("migrate093Run:"),
         "migrate093Run must be gone"

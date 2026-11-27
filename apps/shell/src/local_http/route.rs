@@ -6,7 +6,7 @@ use serde_json::{Value, json};
 use super::sdk::SDK_PREFIX;
 use super::sdk_files;
 use super::token::grant_permissions;
-use super::verified::{GateCheck, Mode, folder_mode, gate_passes};
+use super::verified::{Mode, folder_mode};
 use super::{Expected, LocalApiRequest, LocalApiResponse, McpRouter, Permission};
 use crate::cmd_vault;
 use crate::vault::{EntryKindPayload, VaultState};
@@ -24,9 +24,6 @@ pub struct RouteDeps<'a> {
     pub vault: &'a VaultState,
     /// Answers `/mcp`. `None` answers 404, as an unserved route.
     pub mcp: Option<&'a dyn McpRouter>,
-    /// Whether the "install 0.9.7 first" gate passes; asked per SDK, MCP, vault or search
-    /// request, so finishing the 0.9.7 export opens the API without a restart.
-    pub gate: GateCheck,
 }
 
 /// Answers one request. `expected` is the install's token; `now_ms` and `now_iso` decide expiry.
@@ -51,10 +48,8 @@ pub async fn route_local_request(
     if path.starts_with(SDK_PREFIX) && !allowed(Permission::Experiments) {
         return denied(Permission::Experiments);
     }
-    // The install gate is asked once, and only for a permitted request on a served route.
     if path.starts_with(SDK_PREFIX) {
-        let gate_open = gate_passes(&deps.gate).await;
-        let mode = folder_mode(deps.vault, || gate_open);
+        let mode = folder_mode(deps.vault);
         if let Some(answered) = sdk_files::route(mode, deps.vault, request, &path, search).await {
             return answered;
         }
@@ -73,10 +68,6 @@ pub async fn route_local_request(
         if !allowed(need) {
             return denied(need);
         }
-        // The install gate holding: no file is read or written until the 0.9.7 export is done.
-        if !gate_passes(&deps.gate).await {
-            return LocalApiResponse::json(503, &json!({ "error": sdk_files::UNAVAILABLE }));
-        }
     }
 
     if path == SEARCH_PATH && request.method == "POST" {
@@ -91,7 +82,7 @@ pub async fn route_local_request(
     LocalApiResponse::fail(404, NOT_FOUND)
 }
 
-/// Answers `/mcp`: permission, method, the install gate, then the JSON-RPC message.
+/// Answers `/mcp`: permission, method, the open folder, then the JSON-RPC message.
 async fn mcp_route(
     deps: &RouteDeps<'_>,
     request: &LocalApiRequest,
@@ -103,9 +94,8 @@ async fn mcp_route(
     if request.method != "POST" {
         return LocalApiResponse::fail(405, "MCP is spoken over POST.");
     }
-    // No open folder, or the install gate holding, gets 503, never a guess at its storage.
-    let gate_open = gate_passes(&deps.gate).await;
-    if folder_mode(deps.vault, || gate_open) == Mode::Unavailable {
+    // No open folder gets 503, never a guess at its storage.
+    if folder_mode(deps.vault) == Mode::Unavailable {
         return LocalApiResponse::json(503, &json!({ "error": sdk_files::UNAVAILABLE }));
     }
     let Ok(message) = serde_json::from_str::<Value>(&request.body) else {
@@ -280,7 +270,6 @@ mod tests {
     use sha2::{Digest, Sha256};
 
     use super::*;
-    use crate::local_http::verified::open_gate;
     use crate::local_http::{BoxFuture, TokenRecord};
 
     const TOKEN: &str = "secret";
@@ -383,9 +372,7 @@ mod tests {
         with_project(&fixture);
         let deps = RouteDeps {
             vault: &fixture.vault,
-            mcp: None,
-            gate: open_gate(),
-        };
+            mcp: None,        };
         let answer = block_on(route_local_request(
             &deps,
             &request("GET", "/api/sdk/projects?name=Lab", ""),
@@ -428,9 +415,7 @@ mod tests {
     ) -> LocalApiResponse {
         let deps = RouteDeps {
             vault: &fixture.vault,
-            mcp,
-            gate: open_gate(),
-        };
+            mcp,        };
         block_on(route_local_request(
             &deps, request, expected, NOW_MS, NOW_ISO,
         ))
@@ -453,9 +438,7 @@ mod tests {
         let req = request("POST", "/search/simple/?query=kettle", "");
         let deps = RouteDeps {
             vault: &fixture.vault,
-            mcp: None,
-            gate: open_gate(),
-        };
+            mcp: None,        };
         let held = fixture.vault.clone();
         let (locked, is_locked) = std::sync::mpsc::channel();
         // Another thread holds the vault for 500 ms, as a slow search would.
@@ -779,61 +762,12 @@ mod tests {
     }
 
     #[test]
-    fn the_install_gate_answers_every_served_route_503() {
-        let fixture = Fixture::new("install-gated");
-        with_project(&fixture);
-        let mcp = FakeMcp;
-        let deps = RouteDeps {
-            vault: &fixture.vault,
-            mcp: Some(&mcp as &dyn McpRouter),
-            gate: std::sync::Arc::new(|| false),
-        };
-        let whoami = block_on(route_local_request(
-            &deps,
-            &request("GET", "/api/sdk/whoami", ""),
-            &mut single(),
-            NOW_MS,
-            NOW_ISO,
-        ));
-        assert_eq!(whoami.status, 503);
-        let body = json!({ "jsonrpc": "2.0", "id": 1, "method": "tools/list" }).to_string();
-        let listed = block_on(route_local_request(
-            &deps,
-            &request("POST", "/mcp", &body),
-            &mut single(),
-            NOW_MS,
-            NOW_ISO,
-        ));
-        assert_eq!(listed.status, 503);
-        let reply: Value = serde_json::from_str(&listed.body).expect("json");
-        assert_eq!(reply["error"], json!(sdk_files::UNAVAILABLE));
-        for (method, url) in [
-            ("GET", "/vault/notes/a.note.md"),
-            ("GET", "/vault/"),
-            ("PUT", "/vault/notes/c.note.md"),
-            ("POST", "/search/simple/?query=kettle"),
-        ] {
-            let answer = block_on(route_local_request(
-                &deps,
-                &request(method, url, "x"),
-                &mut single(),
-                NOW_MS,
-                NOW_ISO,
-            ));
-            assert_eq!(answer.status, 503, "{method} {url}");
-        }
-        assert!(!fixture.root.join("notes").join("c.note.md").exists());
-    }
-
-    #[test]
     fn mcp_answers_503_when_no_folder_is_open() {
         let vault = VaultState::new();
         let mcp = FakeMcp;
         let deps = RouteDeps {
             vault: &vault,
-            mcp: Some(&mcp as &dyn McpRouter),
-            gate: open_gate(),
-        };
+            mcp: Some(&mcp as &dyn McpRouter),        };
         let body = json!({ "jsonrpc": "2.0", "id": 1, "method": "tools/list" }).to_string();
         let answer = block_on(route_local_request(
             &deps,
@@ -853,9 +787,7 @@ mod tests {
         with_project(&fixture);
         let deps = RouteDeps {
             vault: &fixture.vault,
-            mcp: None,
-            gate: open_gate(),
-        };
+            mcp: None,        };
         let answer = block_on(route_local_request(
             &deps,
             &request("GET", "/api/sdk/whoami", ""),
@@ -872,9 +804,7 @@ mod tests {
         with_project(&fixture);
         let deps = RouteDeps {
             vault: &fixture.vault,
-            mcp: None,
-            gate: open_gate(),
-        };
+            mcp: None,        };
         let answer = block_on(route_local_request(
             &deps,
             &request("GET", "/api/sdk/experiments", ""),
@@ -894,9 +824,7 @@ mod tests {
         let mcp = FakeMcp;
         let deps = RouteDeps {
             vault: &fixture.vault,
-            mcp: Some(&mcp as &dyn McpRouter),
-            gate: open_gate(),
-        };
+            mcp: Some(&mcp as &dyn McpRouter),        };
         // Whoami is answered locally in files mode (200), everything else is 503.
         let whoami = block_on(route_local_request(
             &deps,
@@ -979,72 +907,6 @@ mod tests {
         let mcp = answer_with(&fixture, body, &mut only);
         assert_eq!(mcp.status, 403);
         assert!(mcp.body.contains("mcp:read"));
-    }
-
-    #[test]
-    fn the_install_gate_is_asked_once_and_only_after_permission() {
-        use std::sync::atomic::{AtomicUsize, Ordering};
-        let fixture = Fixture::new("gate-asked");
-        with_project(&fixture);
-        let asked = std::sync::Arc::new(AtomicUsize::new(0));
-        let counter = std::sync::Arc::clone(&asked);
-        let mcp = FakeMcp;
-        let deps = RouteDeps {
-            vault: &fixture.vault,
-            mcp: Some(&mcp as &dyn McpRouter),
-            gate: std::sync::Arc::new(move || {
-                let _ = counter.fetch_add(1, Ordering::SeqCst);
-                true
-            }),
-        };
-        let body = r#"{"jsonrpc":"2.0","id":1,"method":"tools/list"}"#;
-        for (method, url, text) in [
-            ("GET", "/vault/notes/a.note.md", ""),
-            ("POST", "/search/simple/?query=tea", ""),
-            ("POST", "/mcp", body),
-            ("GET", "/api/sdk/whoami", ""),
-        ] {
-            let mut only = grants(&[Permission::McpSuggest], None);
-            let res = block_on(route_local_request(
-                &deps,
-                &request(method, url, text),
-                &mut only,
-                NOW_MS,
-                NOW_ISO,
-            ));
-            assert_eq!(res.status, 403, "{method} {url}");
-        }
-        assert_eq!(
-            asked.load(Ordering::SeqCst),
-            0,
-            "a refused request never asks the gate"
-        );
-        let read = block_on(route_local_request(
-            &deps,
-            &request("GET", "/vault/notes/a.note.md", ""),
-            &mut single(),
-            NOW_MS,
-            NOW_ISO,
-        ));
-        assert_eq!(read.status, 200);
-        assert_eq!(
-            asked.load(Ordering::SeqCst),
-            1,
-            "a served request asks the gate once"
-        );
-        let unserved = block_on(route_local_request(
-            &deps,
-            &request("GET", "/elsewhere", ""),
-            &mut single(),
-            NOW_MS,
-            NOW_ISO,
-        ));
-        assert_eq!(unserved.status, 404);
-        assert_eq!(
-            asked.load(Ordering::SeqCst),
-            1,
-            "an unserved path never asks the gate"
-        );
     }
 
     #[test]

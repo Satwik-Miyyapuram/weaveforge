@@ -41,7 +41,6 @@ pub mod local_http;
 pub mod mattermost;
 pub mod mcp_bridge;
 pub mod menu;
-pub mod migrate;
 pub mod model_cache;
 pub mod outside_gate;
 pub mod overleaf_links;
@@ -202,16 +201,6 @@ fn start_stores(app: &tauri::AppHandle) {
         .map(|h| h.to_string_lossy().into_owned())
         .unwrap_or_default();
     let prefs = prefs::Prefs::new(data.join("preferences.json"));
-    // Before the app data folder is created: existing users are not asked the first-open question.
-    let electron = paths
-        .config_dir()
-        .ok()
-        .zip(paths.resource_dir().ok())
-        .and_then(|(config, resources)| {
-            let source = launch::app_source(resources);
-            launch::electron_data_dir(&source, &app.package_info().name, &config)
-        });
-    vault_choice::note_earlier_data(&prefs, &data, electron.as_deref());
     let vault = vault::VaultState::new();
     let _ = vault_choice::restore_remembered(&vault, &prefs);
     let secrets = secrets::Secrets::new(native_store(), app.config().identifier.clone());
@@ -386,13 +375,8 @@ fn local_api_deps(app: &tauri::AppHandle) -> Option<(local_http::control::LocalA
         Arc::new(app.clone()),
         Arc::new(move |line: &str| local_api::warn(&log, line)),
     ));
-    let (gate_data, gate_electron) = migrate::gate_dirs(app);
-    let install_gate: local_http::control::GateCheck = Arc::new(move || {
-        migrate::install_gate_passes_at(gate_data.as_deref(), gate_electron.as_deref())
-    });
     let mcp = local_http::mcp::LocalMcp::new(
         vault.clone(),
-        Arc::clone(&install_gate),
         Some(ranker.clone()),
         Some(local_http::McpHome {
             api_url: format!("http://127.0.0.1:{}", local_http::server::LOCAL_API_PORT),
@@ -401,7 +385,6 @@ fn local_api_deps(app: &tauri::AppHandle) -> Option<(local_http::control::LocalA
     );
     let deps = local_http::control::LocalApiDeps {
         vault,
-        install_gate_passes: install_gate,
         prefs: Arc::new(prefs),
         secrets: Arc::new(secrets),
         opener: Arc::new(local_api::TauriOpener(app.clone())),

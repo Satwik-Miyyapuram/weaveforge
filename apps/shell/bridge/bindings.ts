@@ -50,20 +50,6 @@ export const commands = {
 	 *  See [`patch_device_settings`]; also no folder chosen.
 	 */
 	deviceSettingsPatch: (patch: string) => typedError<string, ShellError_Serialize>(__TAURI_INVOKE("device_settings_patch", { patch })),
-	/**  Bridge: whether old local-database data is on this device (`legacyDbPresent`). */
-	legacyDbPresent: () => typedError<boolean, ShellError_Serialize>(__TAURI_INVOKE("legacy_db_present")),
-	/**
-	 *  Bridge: whether the install gate passes for the workspace at `folder` (`migrationReportVerified`):
-	 *  this device's own 0.9.7 report is verified AND its secrets-moved marker names this device. Reads
-	 *  this device's id from app data, never creates it. An unreadable report is a typed error; an
-	 *  unreadable id file passes (`true`), as the install gate fails open.
-	 */
-	migrationReportVerified: (folder: string) => typedError<boolean, ShellError_Serialize>(__TAURI_INVOKE("migration_report_verified", { folder })),
-	/**
-	 *  Bridge: whether the "install 0.9.7 first" gate shows (`installGateRequired`). Never errors; the
-	 *  `Result` keeps the binding shape. See [`install_gate_passes`].
-	 */
-	installGateRequired: () => typedError<boolean, ShellError_Serialize>(__TAURI_INVOKE("install_gate_required")),
 	/**
 	 *  Writes a text file atomically if it still has digest `expected_hash` (`None` = always).
 	 * 
@@ -1268,13 +1254,7 @@ export type Phase =
 /**  The installer is running; the app is about to close and reopen. */
 "installing" | 
 /**  The last check or install failed; `error` says so and a retry is allowed. */
-"failed" | 
-/**
- *  The release is offered but refused until local data is exported and verified. Not a
- *  failure: `error` names the rule. No install starts from here; a new check may offer it
- *  again.
- */
-"held";
+"failed";
 
 /**  The plan widget, as `DesktopPlanWidget` in apps/web/src/lib/desktop/desktop-bridge.ts. */
 export type PlanWidgetStatePayload = {
