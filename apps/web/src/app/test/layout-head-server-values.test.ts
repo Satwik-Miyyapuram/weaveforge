@@ -21,12 +21,12 @@ function resolve(spec: string): string {
 test("layout <head> values come from modules without \"use client\"", () => {
   const layout = readFileSync(join(SRC, "app", "layout.tsx"), "utf8");
   const head = layout.slice(layout.indexOf("<head>"), layout.indexOf("</head>"));
-  const used = [...head.matchAll(/__html:\s*([A-Z_]+)/g)].map((m) => m[1]);
+  const used = [...head.matchAll(/__html:\s*([A-Z_]+)/g)].map((m) => m[1] ?? "");
   assert.ok(used.length >= 2, "expected the boot scripts in <head>");
   for (const name of used) {
-    const imp = [...layout.matchAll(/import \{([^}]*)\} from "([^"]+)"/g)].find((m) => m[1].split(",").some((n) => n.trim() === name));
+    const imp = [...layout.matchAll(/import \{([^}]*)\} from "([^"]+)"/g)].find((m) => (m[1] ?? "").split(",").some((n) => n.trim() === name));
     assert.ok(imp, `${name} is not imported`);
-    const file = resolve(imp[2]);
+    const file = resolve(imp[2] ?? "");
     assert.doesNotMatch(readFileSync(file, "utf8").slice(0, 200), /^\s*["']use client["']/, `${name} comes from client module ${imp[2]}`);
   }
 });
