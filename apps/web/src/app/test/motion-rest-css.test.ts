@@ -12,11 +12,23 @@ function block(name: string): string {
   return motion.slice(i, motion.indexOf("}", motion.indexOf("{", i) + 1));
 }
 
-test("the scroll-driven rise does not fade, so a card at the screen edge rests at opacity 1 (DA-20)", () => {
-  // A view timeline holds its progress while the card sits still; any opacity
-  // in it leaves the bottom card half faded until the user scrolls.
+test("the card rise does not fade, so a card never rests looking disabled (DA-20)", () => {
   assert.doesNotMatch(block("reactive-rise"), /opacity/);
   assert.match(block("reactive-rise"), /translate:/);
+});
+
+test("the card rise ends and lets go of its layer (.agents/ui-layers.md)", () => {
+  // A view timeline never finishes, so every card kept its own composited
+  // layer for as long as it was on screen (19 layers on the dashboard).
+  assert.doesNotMatch(motion, /animation-timeline:\s*view\(/);
+  assert.match(motion, /animation: reactive-rise var\(--rm-slow\) var\(--layout-ease\) backwards;/);
+});
+
+test("dashboard entrances fill backwards, so a finished fade drops its layer (.agents/ui-layers.md)", () => {
+  const dashboard = readFileSync(fileURLToPath(new URL("../styles/dashboard.css", import.meta.url)), "utf8");
+  assert.match(dashboard, /dashboard-card-fade-in [^;]*backwards;/);
+  assert.match(dashboard, /dashboard-content-in [^;]*backwards;/);
+  assert.doesNotMatch(dashboard, /dashboard-(card-fade-in|content-in) [^;]*both;/);
 });
 
 test("the rise only runs when the OS allows motion (DA-20)", () => {

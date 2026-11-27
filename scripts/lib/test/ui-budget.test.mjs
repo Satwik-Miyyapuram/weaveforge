@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { checkUiBudget } from "../ui-budget.mjs";
+import { checkUiBudget, maxLayers } from "../ui-budget.mjs";
 
 const report = (over) => ({
   processes: {
@@ -101,4 +101,11 @@ test("several failures come back in order: layers, tile, gpu, idle", () => {
     "gpu/shared_images 60 MB >= 50 MB",
     "idle private 280 MB >= 220 MB",
   ]);
+});
+
+test("maxLayers gives the reader 6 and every other route 8", () => {
+  assert.equal(maxLayers("/reader"), 6);
+  assert.equal(maxLayers("/reader/"), 6);
+  assert.equal(maxLayers("/workspace"), 8);
+  assert.equal(maxLayers("/"), 8);
 });

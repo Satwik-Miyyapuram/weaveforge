@@ -8,7 +8,8 @@ import { close, on, run, send } from "./cdp.mjs";
 
 let layers = [];
 on((d) => {
-  if (d.method === "LayerTree.layerTreeDidChange" && d.params?.layers) layers = d.params.layers;
+  // Only layers that paint count; see .agents/ui-layers.md.
+  if (d.method === "LayerTree.layerTreeDidChange" && d.params?.layers) layers = d.params.layers.filter((l) => l.drawsContent);
 });
 await send("LayerTree.enable");
 // Force one commit so the layer tree is sent, then give it time to arrive.

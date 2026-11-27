@@ -1,5 +1,6 @@
-/** What the sweep counts as wrong on a page: errors, error text, stray scrollbars, broken images, long tasks, slow opens. */
+/** What the sweep counts as wrong on a page: errors, error text, stray scrollbars, broken images, long tasks, slow opens, too many layers. */
 import type { Page } from "@playwright/test";
+import { maxLayers } from "../../../scripts/lib/ui-budget.mjs";
 
 export type Issue = { where: string; kind: string; detail: string };
 
@@ -88,6 +89,34 @@ export async function waitReady(page: Page, since: number, capMs = 20_000): Prom
 /** A slow-open issue when opening `where` took longer than `overMs`. */
 export function slowOpen(where: string, ms: number, overMs: number): Issue[] {
   return ms > overMs ? [{ where, kind: "slow-open", detail: `ready after ${ms} ms (budget ${overMs} ms)` }] : [];
+}
+
+/** A layer issue when the page composites more layers than .agents/ui-layers.md allows on `path`. */
+export async function overLayers(page: Page, where: string, path: string): Promise<Issue[]> {
+  const cdp = await page.context().newCDPSession(page);
+  let count = 0;
+  cdp.on("LayerTree.layerTreeDidChange", (e) => {
+    // Only layers that paint cost tile memory; the handoff and .agents/ui-layers.md count these.
+    if (e.layers) count = e.layers.filter((l) => l.drawsContent).length;
+  });
+  try {
+    await cdp.send("LayerTree.enable");
+    // Force one commit so the layer tree is sent, then give it time to arrive.
+    await page.evaluate(() => {
+      document.body.style.outline = "1px solid transparent";
+      return new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    });
+    await page.waitForTimeout(1000);
+    await page.evaluate(() => {
+      document.body.style.outline = "";
+    });
+    await cdp.send("LayerTree.disable");
+  } finally {
+    await cdp.detach();
+  }
+  console.log(`${where}: ${count} layers`);
+  const max = maxLayers(path);
+  return count > max ? [{ where, kind: "layers", detail: `${count} composited layers (budget ${max})` }] : [];
 }
 
 /** Scans the current page for overflow, stray scrollbars, error text and broken images. */

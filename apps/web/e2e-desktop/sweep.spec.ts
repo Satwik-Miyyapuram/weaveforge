@@ -2,14 +2,15 @@
 import { mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import type { Page } from "@playwright/test";
 import { expect, test } from "./dev-app";
-import { armLongTasks, formatIssues, scanPage, slowOpen, takeLongTasks, waitReady, watchErrors, type Issue } from "./sweep-checks";
+import { armLongTasks, formatIssues, overLayers, scanPage, slowOpen, takeLongTasks, waitReady, watchErrors, type Issue } from "./sweep-checks";
 
 // What each test covers:
 // - every route: loads with no console/page errors, long tasks, overflow, stray scrollbars, error text, broken images,
 //   and is ready (no loading state) within SLOW_MS; every explorer item too.
 // - every explorer item: expands all tree rows, then opens the first PER_KIND of each kind and checks the page.
 // - every theme: switches data-theme across all themes on /workspace and checks each one.
-// - every tab: clicks each visible rail tab twice (first visit, return visit) and flags slow switches.
+// - every tab: clicks each visible rail tab twice (first visit, return visit), flags slow switches and
+//   tabs over their composited-layer budget (.agents/ui-layers.md).
 // - every window size: resizes via CDP across SIZES on /workspace and checks each one.
 // - every safe control: presses each visible button/tab on /workspace and /dashboard whose name passes DENY.
 // Env knobs: WF_SWEEP_ROUTES (comma list), WF_SWEEP_PER_KIND, WF_SWEEP_MAX_CLICKS, WF_SWEEP_LONG_MS, WF_SWEEP_SLOW_MS, WF_SWEEP_TAB_MS,
@@ -113,6 +114,7 @@ test.describe("sweep", () => {
           const at = new URL(app.url()).pathname;
           if (at !== href) found.push({ where: `tab ${href} (${pass})`, kind: "no-switch", detail: `still on ${at}` });
           found.push(...slowOpen(`tab ${href} (${pass})`, ms, budget), ...(await check(app, errors, `tab ${href} (${pass})`)));
+          if (pass === "return") found.push(...(await overLayers(app, `tab ${href}`, at)));
         }
       }
     } finally {

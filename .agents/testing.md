@@ -137,11 +137,15 @@ cd apps\web; npm run test:e2e:desktop
 - The suite is the tester: `sweep.spec.ts` walks every route, explorer item
   kind, theme, window size and safe control, and reports what is wrong
   (console and page errors, error text, stray scrollbars in thin strips, page
-  overflow, broken images, long tasks). Report: one file per test in
+  overflow, broken images, long tasks, slow opens). The tab test clicks every
+  rail tab twice and flags a switch slower than `WF_SWEEP_TAB_MS` (300 ms)
+  and a tab over its layer budget (`.agents/ui-layers.md`); it logs
+  `tab <href>: <n> layers` for each. Report: one file per test in
   `test-results/desktop-sweep/`. It never presses a control whose name
   writes, sends, syncs or closes (`DENY` in the spec). Knobs:
   `WF_SWEEP_ROUTES`, `WF_SWEEP_PER_KIND`, `WF_SWEEP_MAX_CLICKS`,
-  `WF_SWEEP_LONG_MS`, `WF_SWEEP_CLICKS=0`.
+  `WF_SWEEP_LONG_MS`, `WF_SWEEP_SLOW_MS`, `WF_SWEEP_TAB_MS`,
+  `WF_SWEEP_CLICKS=0`.
 - When the person finds a bug the sweep missed, first teach the sweep the
   class of bug (a new check in `sweep-checks.ts`), not only that one case.
 - Flow specs: `startup` (projects load; shell-call budget), `notes`, `ink`,

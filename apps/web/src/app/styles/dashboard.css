@@ -45,7 +45,7 @@
   transition: none !important;
 }
 .dashboard-grid--enter .dashboard-card {
-  animation: dashboard-card-fade-in var(--dur-base) var(--ease-out) both;
+  animation: dashboard-card-fade-in var(--dur-base) var(--ease-out) backwards;
   animation-delay: calc(var(--card-i, 0) * 12ms);
 }
 .dashboard-card-content--shell {
@@ -53,7 +53,7 @@
   min-height: 1.5rem;
 }
 .dashboard-card-content--ready {
-  animation: dashboard-content-in var(--dur-slow) var(--ease-out) both;
+  animation: dashboard-content-in var(--dur-slow) var(--ease-out) backwards;
 }
 .dashboard-card-skeleton {
   display: flex;

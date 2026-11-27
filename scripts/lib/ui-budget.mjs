@@ -4,11 +4,14 @@ export const UI_BUDGET = { readerLayers: 6, otherLayers: 8, tileMB: 30, gpuMB: 5
 
 const round1 = (n) => Math.round(n * 10) / 10;
 
+/** The composited-layer budget for a route: the reader gets fewer than every other screen. */
+export const maxLayers = (path) => (path.startsWith("/reader") ? UI_BUDGET.readerLayers : UI_BUDGET.otherLayers);
+
 /** Every budget the numbers break, as one line each; [] when all hold. */
 export function checkUiBudget({ path, layerCount, report, idle = false }) {
   const failures = [];
-  const maxLayers = path.startsWith("/reader") ? UI_BUDGET.readerLayers : UI_BUDGET.otherLayers;
-  if (layerCount > maxLayers) failures.push(`layers ${layerCount} > ${maxLayers} on ${path}`);
+  const max = maxLayers(path);
+  if (layerCount > max) failures.push(`layers ${layerCount} > ${max} on ${path}`);
 
   if (!report.allocators) {
     failures.push("no allocator dump (run memory.mjs with --dump)");
