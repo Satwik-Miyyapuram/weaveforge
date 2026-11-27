@@ -40,9 +40,9 @@ test("the shared folder names the other note", () => {
 });
 
 test("deleting one of two notes that share a strokes folder keeps the folder", async () => {
-  const { fs, root, plain, page } = await twoNotesOneFolder();
+  const { fs, plain, page } = await twoNotesOneFolder();
 
-  await trashNoteFiles(fs, root, plain, folderTrash(fs, Date.parse(AT)));
+  await trashNoteFiles(fs, plain, folderTrash(fs, Date.parse(AT)));
 
   const files = fs.toRecord();
   assert.equal(files[plain], undefined, "the note left its place");
@@ -50,10 +50,10 @@ test("deleting one of two notes that share a strokes folder keeps the folder", a
 });
 
 test("deleting the last note of a shared name still trashes the folder", async () => {
-  const { fs, root, plain, legacy, page } = await twoNotesOneFolder();
+  const { fs, plain, legacy, page } = await twoNotesOneFolder();
   await fs.remove(legacy);
 
-  await trashNoteFiles(fs, root, plain, folderTrash(fs, Date.parse(AT)));
+  await trashNoteFiles(fs, plain, folderTrash(fs, Date.parse(AT)));
 
   assert.equal(fs.toRecord()[page], undefined, "the ink page went to the trash");
 });
