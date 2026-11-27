@@ -17,13 +17,8 @@ import {
   isTypingTarget,
   loadWorkspace,
   NoteSaves,
-  EXPLORER_WIDTH_DEFAULT,
-  readExplorerWidth,
-  readHidden,
   readLayout,
   type WorkspaceData,
-  writeExplorerWidth,
-  writeHidden,
   writeLayout,
 } from "../application/parts";
 import { breadcrumbs, creationKindFor, creationTarget, type Draft, draftMakes, duplicatePlan, hasInkView } from "@weaveforge/wasm";
@@ -34,6 +29,7 @@ import { DocumentHost, isCanvasDocument, type DocumentMetrics } from "./document
 import { CanvasDocument } from "./canvas-document";
 import { ExplorerPanel } from "./explorer-panel";
 import { ExplorerResizer } from "./explorer-resizer";
+import { useExplorerLayout } from "./use-explorer-layout";
 import { useFocusMode } from "./use-focus-mode";
 import { CLOSED_TABS_KEPT, closeWouldLoseWork, keepOpen, store } from "./workspace-screen-support";
 import { getInkSaveStatus } from "@/features/ink/application/parts";
@@ -54,7 +50,7 @@ import { PaneView, openTabs } from "./pane-view";
 import { QuickOpenDialog } from "./quick-open-dialog";
 import { StatusBar, saveState, type SegmentKey } from "./status-bar";
 import { FormError } from "@/components/form-error";
-import { DESKTOP_BREAKPOINT_PX, isMacPlatform } from "@/lib/parts";
+import { isMacPlatform } from "@/lib/parts";
 import { ScreenLoader } from "@/components/weaveforge-loader";
 import { IconButton } from "@/components/button";
 
@@ -89,7 +85,8 @@ export function WorkspaceScreen() {
   // The explorer's draft row: what it will make and where. Owned here so the
   // `⌘N` chord and the panel's own buttons start the same thing.
   const [draft, setDraft] = useState<Draft | null>(null);
-  const [explorerHidden, setExplorerHidden] = useState(false);
+  const hasOpenTab = openTabs(layout).length > 0;
+  const { explorerHidden, setExplorerHidden, explorerWidth, setExplorerWidth, keepExplorerWidth, phone, toggleExplorer } = useExplorerLayout(hasOpenTab);
   const { focus, toggleFocus } = useFocusMode();
   const onScreen = useScreenActive();
   useScreenShown("workspace", documents != null);
@@ -99,40 +96,9 @@ export function WorkspaceScreen() {
   // a ref rather than closing over a stale one.
   const activeDocRef = useRef<Document | undefined>(undefined);
   const folderIdsRef = useRef<ReadonlySet<string>>(new Set());
-  useEffect(() => setExplorerHidden(readHidden(store())), []);
-  // The explorer's dragged width, per device like `hidden`.
-  const [explorerWidth, setExplorerWidth] = useState(EXPLORER_WIDTH_DEFAULT);
-  useEffect(() => setExplorerWidth(readExplorerWidth(store())), []);
-  const keepExplorerWidth = useCallback((width: number) => writeExplorerWidth(store(), width), []);
-  // On a phone there is no room for the explorer beside a document: at 375px
-  // the two shared the width, the tree's labels truncated to a letter and the
-  // PDF's own toolbar sat over the page. There the explorer is a drawer over
-  // the document, closed once something is opened from it, and its state is
-  // not written back — a phone closing it must not hide it on the desktop.
-  const [phone, setPhone] = useState(false);
-  useEffect(() => {
-    const query = window.matchMedia(`(max-width: ${DESKTOP_BREAKPOINT_PX - 1}px)`);
-    const sync = () => setPhone(query.matches);
-    sync();
-    query.addEventListener("change", sync);
-    return () => query.removeEventListener("change", sync);
-  }, []);
-  const hasOpenTab = openTabs(layout).length > 0;
   // A note open here can hold typing not yet saved; an outside edit to it waits for review.
   const openNoteIds = openTabs(layout).flatMap((tab) => (hasInkView(tab.kind) ? [tab.id] : [])).join(" ");
   useEffect(() => (openNoteIds ? holdOpenNotes(openNoteIds.split(" ")) : undefined), [openNoteIds]);
-  useEffect(() => {
-    if (phone && hasOpenTab) setExplorerHidden(true);
-    // Only when the width crosses, or the first document arrives: the drawer
-    // stays where the person put it after that.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [phone, hasOpenTab]);
-  const toggleExplorer = useCallback(() => {
-    setExplorerHidden((current) => {
-      if (!phone) writeHidden(store(), !current);
-      return !current;
-    });
-  }, [phone]);
   const createMode = useWikilinkCreateMode();
   // One handle per open document, so the pane's image button reaches the
   // editor in the tab it sits over. The boxes outlive their editors: a handle
@@ -700,7 +666,7 @@ export function WorkspaceScreen() {
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [onScreen, apply, duplicateActive, toggleExplorer, toggleFocus, reopenTab]);
+  }, [onScreen, apply, duplicateActive, setExplorerHidden, toggleExplorer, toggleFocus, reopenTab]);
 
   if (error && !documents) return <FormError>{error}</FormError>;
   if (!documents) return <ScreenLoader status="Loading workspace…" />;
