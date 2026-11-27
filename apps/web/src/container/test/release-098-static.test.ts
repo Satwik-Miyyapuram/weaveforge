@@ -93,7 +93,6 @@ const GATE_FILES = [
   "apps/web/src/features/workspace/application/install-097-guard.ts",
   "apps/web/src/features/workspace/infrastructure/install-097-browser-port.ts",
   "apps/web/src/features/workspace/ui/install-097-gate.tsx",
-  "apps/shell/src/migrate.rs",
 ];
 
 test("the 0.9.7 install gate is gone", () => {
@@ -101,6 +100,7 @@ test("the 0.9.7 install gate is gone", () => {
     "apps/web/src/features/workspace/ui/install-097-gate.tsx",
     "apps/web/src/features/workspace/application/install-097-guard.ts",
     "apps/web/src/features/workspace/infrastructure/install-097-browser-port.ts",
+    "apps/shell/src/migrate.rs",
   ]) {
     assert.ok(!existsSync(join(ROOT, rel)), `${rel} still exists`);
   }
