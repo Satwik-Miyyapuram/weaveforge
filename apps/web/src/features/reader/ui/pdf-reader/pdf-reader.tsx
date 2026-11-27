@@ -13,6 +13,7 @@ import { errorMessage, type ReaderAnnotationType, type FigureTarget } from "@wea
 import type { DocumentSearchMatch, ReaderPageSize, TextSelectionRange, AnchorConfidence } from "@weaveforge/wasm";
 import { readyCore, typedCore } from "@/lib/rust-core";
 import { readStored, writeStored } from "@/lib/safe-storage";
+import { useNarrowWidth } from "./use-narrow-width";
 import type { InkColour, ReaderAnnotation } from "@weaveforge/core";
 // The ink note's own bar, palette and nibs: the reader draws no toolbar of its
 // own. See `use-pen-prefs.ts` for how the two tool vocabularies line up.
@@ -143,7 +144,21 @@ export function PdfReader({
   // The pen bar, once up, is the tool picker: what it holds is what draws. Its
   // choices persist per user (`usePenPrefs`), the PDF toolbar's do not.
   const [penOpen, setPenOpen] = useState(inkRail);
-  const [sideCollapsed, setSideCollapsed] = useState(readSideCollapsed);
+  const [sidePref, setSidePref] = useState(readSideCollapsed);
+  // A narrow reader (a split pane) starts with the side column on its rail: beside the page it left the page
+  // 0-24px wide, and stacked under it in a short pane neither was usable. Opening it there lasts for this
+  // reader only, so the stored choice stays the wide reader's.
+  const narrow = useNarrowWidth(rootRef);
+  const [narrowOpen, setNarrowOpen] = useState(false);
+  const sideCollapsed = narrow ? !narrowOpen : sidePref;
+  const setSideFolded = useCallback(
+    (folded: boolean) => {
+      if (narrow) return setNarrowOpen(!folded);
+      writeSideCollapsed(folded);
+      setSidePref(folded);
+    },
+    [narrow],
+  );
   // The annotate pill is one tab stop; arrows walk its tools (DA-120).
   const roving = useRovingToolbar();
   // The writing page beside each PDF page is a setting, not the pen's: when it
@@ -157,28 +172,16 @@ export function PdfReader({
     writeWritingPage(on);
     setWritingPage(on);
   }, []);
-  const toggleSide = () =>
-    setSideCollapsed((v) => {
-      writeSideCollapsed(!v);
-      return !v;
-    });
+  const toggleSide = () => setSideFolded(!sideCollapsed);
   const selectSideTab = useCallback(
     (tab: "outline" | "references" | "annotations") => {
-      setSideCollapsed((collapsed) => {
-        if (collapsed) {
-          writeSideCollapsed(false);
-          setActiveSideTab(tab);
-          return false;
-        }
-        if (activeSideTab === tab) {
-          writeSideCollapsed(true);
-          return true;
-        }
+      if (sideCollapsed) {
         setActiveSideTab(tab);
-        return false;
-      });
+        setSideFolded(false);
+      } else if (activeSideTab === tab) setSideFolded(true);
+      else setActiveSideTab(tab);
     },
-    [activeSideTab],
+    [activeSideTab, sideCollapsed, setSideFolded],
   );
   useEffect(() => setPenOpen(inkRail), [inkRail]);
   const pen = usePenPrefs();

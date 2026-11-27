@@ -242,6 +242,14 @@
   /* Stacked under the page, the list waits behind its toolbar toggle. */
   .pdf-reader-side:not(.is-list-open) .pdf-reader-sidebar { display: none; }
 }
+/* The same stack when the reader itself is narrow in a wide window (a split
+   pane): the 240px side column left the page 0-24px wide. The list takes a
+   quarter of the pane's height and scrolls inside it; the collapse button stays,
+   so it still folds to the 34px rail. */
+@container (max-width: 600px) {
+  .pdf-reader-body--outline { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 3fr) minmax(0, 1fr); }
+  .pdf-reader-body--outline > * { min-height: 0; }
+}
 @media (min-width: 861px) {
   .pdf-reader-narrow-only, .pdf-reader-chrome .pdf-reader-more.pdf-reader-narrow-only,
   .pdf-reader-chrome .pdf-reader-group .pdf-reader-narrow-only { display: none; }
