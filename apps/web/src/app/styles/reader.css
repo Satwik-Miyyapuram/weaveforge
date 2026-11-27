@@ -276,7 +276,9 @@
   contain: strict;
   position: absolute; inset: 0; overflow: clip; line-height: 1;
   text-align: initial;
-  opacity: 0.25; mix-blend-mode: multiply; pointer-events: auto;
+  /* No blend mode: over the scroller it is a layer per page. On the white
+     paper 25% plain reads the same as 25% multiply. */
+  opacity: 0.25; pointer-events: auto;
   text-size-adjust: none; -webkit-text-size-adjust: none;
   forced-color-adjust: none;
   transform-origin: 0 0;
@@ -311,7 +313,7 @@
 .pdf-reader-textlayer[data-main-rotation="270"] { transform: rotate(270deg) translateX(-100%); }
 /* Dragging across text is the highlight's live preview, so paint the selection
    in the colour the highlight will be rather than the browser's default. The
-   layer already multiplies over the page, so the swatch colour reads true.
+   layer is 25% opaque over white paper, so the swatch colour reads true.
    text-shadow and text-stroke must be none so Chromium does not synthesize
    white ClearType/subpixel shadows behind transparent glyphs.
    !important because theme rules (brutal.css `:root:is(...) ::selection`) are
