@@ -10,6 +10,7 @@ import {
   type WorkspaceCommit,
   type WorkspaceStat,
 } from "@weaveforge/core";
+import { moveOwnWrite, recordOwnWrite } from "@/backend/providers/files/own-writes";
 
 // --- browser-workspace-fs ---
 /**
@@ -322,20 +323,23 @@ export class DesktopWorkspaceFs implements IWorkspaceFs {
 
   // Bytes and text take different channels: a PDF put through the text one
   // would be decoded as UTF-8 on the way and would not be the same file.
+  // Each write is remembered (own-writes) so the folder watcher can tell its echo from an outside edit.
   async writeFile(path: string, data: Uint8Array | string): Promise<void> {
     const at = safeWorkspacePath(path);
     if (typeof data === "string") await this.bridge.writeVaultFile(at, data);
     else await this.bridge.writeVaultBytes(at, data);
+    recordOwnWrite(at, data);
   }
 
   // The compare happens in the shell, next to the disk, so the window an
   // outside edit can slip through is the shell's, not a round trip's.
   async writeTextIf(path: string, text: string, expected: string | null): Promise<boolean> {
     const at = safeWorkspacePath(path);
-    if (this.bridge.writeVaultFileIf) return this.bridge.writeVaultFileIf(at, text, expected);
-    if ((await this.bridge.readVaultFile(at)) !== expected) return false;
-    await this.bridge.writeVaultFile(at, text);
-    return true;
+    const wrote = this.bridge.writeVaultFileIf
+      ? await this.bridge.writeVaultFileIf(at, text, expected)
+      : (await this.bridge.readVaultFile(at)) === expected && (await this.bridge.writeVaultFile(at, text), true);
+    if (wrote) recordOwnWrite(at, text);
+    return wrote;
   }
 
   async remove(path: string): Promise<void> {
@@ -365,7 +369,11 @@ export class DesktopWorkspaceFs implements IWorkspaceFs {
     const [src, dest] = [safeWorkspacePath(from), safeWorkspacePath(to)];
     // One move on disk: no crash window with the file in both places, and no
     // whole-file load into the webview.
-    if (this.bridge.renameVaultFile) return this.bridge.renameVaultFile(src, dest);
+    if (this.bridge.renameVaultFile) {
+      await this.bridge.renameVaultFile(src, dest);
+      moveOwnWrite(src, dest);
+      return;
+    }
     // Bytes, not text: a text round trip mangles anything that is not UTF-8.
     await this.writeFile(to, await this.readFile(from));
     await this.remove(from);

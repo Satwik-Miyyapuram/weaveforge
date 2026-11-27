@@ -62,7 +62,7 @@ test("0.9.8: the no-account conditional write never falls back to a plain overwr
   const body = src("backend/providers/files/no-account-fs.ts").split("get writeTextIf(")[1]?.split("\n  }\n")[0] ?? "";
   assert.ok(body, "writeTextIf is a getter");
   assert.doesNotMatch(body, /writeFile\(/);
-  assert.match(body, /fs\?\.writeTextIf\s*\?/);
+  assert.match(body, /fs\?\.writeTextIf \? fs\.writeTextIf\.bind\(fs\) : undefined/);
 });
 
 test("0.9.8: the no-account filesystem waits for the launch folder restore before an async call", () => {

@@ -32,3 +32,11 @@ export function isOwnWrite(path: string, text: string): boolean {
 export function forgetOwnWrites(): void {
   written.clear();
 }
+
+/** A move carries what was written along with the file; the old path is no longer the app's. */
+export function moveOwnWrite(from: string, to: string): void {
+  const seen = written.get(from);
+  written.delete(from);
+  written.delete(to);
+  if (seen !== undefined) written.set(to, seen);
+}
