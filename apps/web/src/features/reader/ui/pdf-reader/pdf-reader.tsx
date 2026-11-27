@@ -1879,7 +1879,8 @@ export function PdfReader({
                 // came up pages short of its target.
                 style={pageSize && !pageGeometries.current.has(n) ? unpaintedPageSize(pageSize, scale, rotation) : undefined}
               >
-                <canvas />
+                {/* No bitmap until painted: the default is 300x150. */}
+                <canvas width={0} height={0} />
                 {pageSize && (
                   <AnnotationOverlay
                     annotations={pageAnnotations(n)}
