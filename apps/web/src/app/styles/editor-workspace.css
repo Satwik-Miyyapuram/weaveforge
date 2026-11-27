@@ -1764,6 +1764,16 @@
   margin-inline: auto;
   padding: 48px 48px 144px;
 }
+/* A read body renders the whole text at once, so blocks off screen skip
+   layout and paint until they near the view. Headings stay rendered so
+   outline jumps land; touch pointers render all, as the card columns do,
+   so the page does not grow under a fling. */
+@media (pointer: fine) {
+  .document-read-body > :is(p, pre, table, ul, ol, blockquote, figure) {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 4em;
+  }
+}
 
 /* A paper's PDF mode: the reader's paper half filling the pane, with its
    one tool — "Load PDF…" — in the corner rather than in a header row. */
