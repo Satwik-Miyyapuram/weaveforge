@@ -92,8 +92,8 @@ fn stored_repo(prefs: &Prefs) -> Option<(String, String)> {
 }
 
 /// The answer to one `/api/github-file` request: the PDF, or a bare status.
-/// With no query it only says whether a GitHub remote is set: 204 yes, 404 no.
-/// 400 bad path, 404 no GitHub remote or no such file, 502 GitHub failed or sent something else.
+/// With no query it only says whether a GitHub remote is set: 204 yes, 200 no (a 404 logs a console error on every page).
+/// 400 bad path, 404 no GitHub remote (with a query) or no such file, 502 GitHub failed or sent something else.
 pub async fn serve(
     client: &reqwest::Client,
     prefs: &Prefs,
@@ -104,7 +104,7 @@ pub async fn serve(
         return bare(if stored_repo(prefs).is_some() {
             204
         } else {
-            404
+            200
         });
     }
     let Some(path) = query_path(query).filter(|p| is_served_path(p)) else {

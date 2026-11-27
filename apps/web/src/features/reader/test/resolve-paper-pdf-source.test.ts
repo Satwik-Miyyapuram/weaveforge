@@ -86,7 +86,7 @@ test("githubRemotePdfSources points at the shell route when a GitHub remote is s
 });
 
 test("githubRemotePdfSources is empty when the shell has no GitHub remote", async () => {
-  assert.deepEqual(await githubRemotePdfSources({ isDesktop: true, fetchFn: answer(404), now: () => 2e9 }), {});
+  assert.deepEqual(await githubRemotePdfSources({ isDesktop: true, fetchFn: answer(200), now: () => 2e9 }), {});
 });
 
 test("githubRemotePdfSources is empty when the probe throws", async () => {
