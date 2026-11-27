@@ -10,7 +10,9 @@ import {
   DesktopWorkspaceFs,
   type VaultFileBridge,
 } from "../infrastructure/parts";
-import { resetVaultCacheForTests } from "../infrastructure/vault-read-cache";
+import { isCacheable, resetVaultCacheForTests } from "../infrastructure/vault-read-cache";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 
 before(async () => {
   await loadTestCore();
@@ -151,17 +153,53 @@ test("after the watcher is lost, every read reaches the bridge", async () => {
   assert.equal(calls.read, 3);
 });
 
-test("workspace and git metadata are never cached", async () => {
+test("this device's own metadata and git are never cached", async () => {
   const fs = new MemoryWorkspaceFs();
-  await fs.writeFile(".weaveforge/workspace.json", "{}");
+  await fs.writeFile(".weaveforge/settings.pending.json", "{}");
+  await fs.writeFile(".weaveforge/cache/pdf-text/p/a.json", "{}");
   await fs.writeFile(".git/HEAD", "ref");
   const { bridge, calls } = countingBridge(fs);
   const a = new DesktopWorkspaceFs(bridge);
+  for (const path of [".weaveforge/settings.pending.json", ".weaveforge/cache/pdf-text/p/a.json", ".git/HEAD"]) {
+    await a.readText(path);
+    await a.readText(path);
+  }
+  assert.equal(calls.read, 6);
+});
+
+test("synced workspace metadata is cached until the watcher reports it", async () => {
+  const fs = new MemoryWorkspaceFs();
+  await fs.writeFile(".weaveforge/workspace.json", "{}");
+  await fs.writeFile(".weaveforge/ai/a.json", "{}");
+  const { bridge, calls, emit } = countingBridge(fs);
+  const a = new DesktopWorkspaceFs(bridge);
   await a.readText(".weaveforge/workspace.json");
+  await a.stat(".weaveforge/workspace.json");
   await a.readText(".weaveforge/workspace.json");
-  await a.readText(".git/HEAD");
-  await a.readText(".git/HEAD");
-  assert.equal(calls.read, 4);
+  await a.stat(".weaveforge/workspace.json");
+  await a.readText(".weaveforge/ai/a.json");
+  await a.readText(".weaveforge/ai/a.json");
+  assert.deepEqual([calls.read, calls.stat], [2, 1]);
+  await fs.writeFile(".weaveforge/workspace.json", '{"name":"x"}');
+  emit([".weaveforge/workspace.json"]);
+  assert.equal(await a.readText(".weaveforge/workspace.json"), '{"name":"x"}');
+});
+
+test("the cacheable metadata matches what the shell watcher reports (git_policy.rs)", () => {
+  const rust = readFileSync(fileURLToPath(new URL("../../../../../../crates/wf-core/src/sync/git_policy.rs", import.meta.url)), "utf8");
+  const names = (name: string) => {
+    const start = rust.indexOf(`pub const ${name}:`);
+    const body = rust.slice(rust.indexOf("= &[", start), rust.indexOf("];", start));
+    return start < 0 ? [] : [...body.matchAll(/"([^"]+)"/g)].map((m) => m[1]);
+  };
+  const files = names("SYNCED_META_FILES");
+  const dirs = names("SYNCED_META_DIRS");
+  assert.ok(files.length > 0 && dirs.length > 0, "could not read the allowlists from git_policy.rs");
+  for (const file of files) assert.ok(isCacheable(`.weaveforge/${file}`), file);
+  for (const dir of dirs) assert.ok(isCacheable(`.weaveforge/${dir}/x.json`), dir);
+  assert.ok(!isCacheable(".weaveforge/settings.pending.json"));
+  assert.ok(!isCacheable(".weaveforge/cache/pdf-text/p/a.json"));
+  assert.ok(!isCacheable(".weaveforge"));
 });
 
 test("a missing file keeps failing until it is created and the watcher reports it", async () => {

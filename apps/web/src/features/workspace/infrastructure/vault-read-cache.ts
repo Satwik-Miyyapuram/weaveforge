@@ -11,6 +11,11 @@ const lists = new Map<string, Promise<readonly NonNullable<Stat>[]>>();
 let enabled = false; // only while a watcher is attached and not lost
 const watched = new WeakSet<object>();
 
+// The synced `.weaveforge/` entries, which the shell watcher does report
+// (SYNCED_META_FILES and SYNCED_META_DIRS in git_policy.rs; a test keeps them equal).
+const WATCHED_META_FILES = new Set(["workspace.json", "settings.json", "tags.json", "fields.json", "quotation-types.json"]);
+const WATCHED_META_DIRS = new Set(["ai"]);
+
 /**
  * False for paths the shell watcher does not report. The shell watcher ignores these
  * (vault_watcher.rs is_ignored), so nothing would ever tell us they changed.
@@ -18,7 +23,11 @@ const watched = new WeakSet<object>();
 export function isCacheable(path: string): boolean {
   if (path === "") return false;
   if (path === ".git" || path.startsWith(".git/")) return false;
-  if (path === ".weaveforge" || path.startsWith(".weaveforge/")) return false;
+  if (path === ".weaveforge") return false;
+  if (path.startsWith(".weaveforge/")) {
+    const [name = "", ...rest] = path.slice(".weaveforge/".length).split("/");
+    return rest.length === 0 ? WATCHED_META_FILES.has(name) : WATCHED_META_DIRS.has(name) && rest.length > 0;
+  }
   return true;
 }
 
