@@ -32,10 +32,12 @@ test("a rename saves the trimmed name and keeps everything else", async () => {
   assert.deepEqual(saved, [renamed]);
 });
 
-test("a rename carries the project's folder to the new name", async () => {
+test("a rename moves the project's folder to the new name", async () => {
   const fs = new MemoryWorkspaceFs();
   const oldRoot = typedCore().projectDir(PROJECT);
   await fs.writeFile(`${oldRoot}/notes/a.md`, "hello");
+  await fs.writeFile(`${oldRoot}/notes/a.md.ink/p1.inkb`, "ink");
+  await fs.writeFile("other--zzz999/notes/b.md", "keep");
   const { save } = recorder();
 
   const renamed = await renameProject(PROJECT, "Thesis Final", { save, fs });
@@ -43,8 +45,40 @@ test("a rename carries the project's folder to the new name", async () => {
   const newRoot = typedCore().projectDir(renamed);
   assert.notEqual(newRoot, oldRoot);
   assert.equal(await fs.readText(`${newRoot}/notes/a.md`), "hello");
-  // The old folder is copied, never removed: it stays the reader's copy until they check the new one.
-  assert.equal(await fs.readText(`${oldRoot}/notes/a.md`), "hello");
+  assert.equal(await fs.readText(`${newRoot}/notes/a.md.ink/p1.inkb`), "ink");
+  assert.equal(await fs.stat(`${oldRoot}/notes/a.md`), null);
+  assert.equal(await fs.stat(oldRoot), null);
+  assert.equal(await fs.readText("other--zzz999/notes/b.md"), "keep");
+});
+
+test("a rename never overwrites a file already in the new folder; that one stays behind", async () => {
+  const fs = new MemoryWorkspaceFs();
+  const oldRoot = typedCore().projectDir(PROJECT);
+  const newRoot = typedCore().projectDir({ ...PROJECT, name: "Thesis Final" });
+  await fs.writeFile(`${oldRoot}/notes/a.md`, "old");
+  await fs.writeFile(`${oldRoot}/notes/b.md`, "bee");
+  await fs.writeFile(`${newRoot}/notes/a.md`, "new");
+  const { save } = recorder();
+
+  await renameProject(PROJECT, "Thesis Final", { save, fs });
+
+  assert.equal(await fs.readText(`${newRoot}/notes/a.md`), "new");
+  assert.equal(await fs.readText(`${oldRoot}/notes/a.md`), "old");
+  assert.equal(await fs.readText(`${newRoot}/notes/b.md`), "bee");
+});
+
+test("two folders with the project's id tail: nothing moves", async () => {
+  const fs = new MemoryWorkspaceFs();
+  const oldRoot = typedCore().projectDir(PROJECT);
+  const tail = oldRoot.slice(oldRoot.lastIndexOf("--"));
+  await fs.writeFile(`${oldRoot}/notes/a.md`, "one");
+  await fs.writeFile(`twin${tail}/notes/a.md`, "two");
+  const { save } = recorder();
+
+  await renameProject(PROJECT, "Thesis Final", { save, fs });
+
+  assert.equal(await fs.readText(`${oldRoot}/notes/a.md`), "one");
+  assert.equal(await fs.readText(`twin${tail}/notes/a.md`), "two");
 });
 
 test("a project with no folder yet still renames", async () => {

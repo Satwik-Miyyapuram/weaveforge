@@ -205,6 +205,38 @@ export async function removeProjectFolder(
 }
 
 /**
+ * Move a renamed project's files into the folder its new name gives.
+ *
+ * The old folder is found by its `--id6` suffix (Rust `pickRenamedFolder`); two
+ * folders with that suffix have no safe pick, so nothing moves. Each file moves
+ * on its own and never onto a file already there: that one stays in the old
+ * folder, so a rename cut short is finished by the next one. Emptied folders
+ * are removed deepest first. Returns the old folder, or null when none moved.
+ */
+export async function moveProjectFolder(fs: IWorkspaceFs, project: WorkspaceProject): Promise<string | null> {
+  const core = await loadCore();
+  const root = core.projectDir(project);
+  const tail = `--${typedCore().idSuffix(project.id)}`;
+  const dirs = (await fs.list("")).filter((entry) => entry.kind === "dir" && entry.path !== root).map((entry) => entry.path);
+  const old = typedCore().pickRenamedFolder(dirs, tail);
+  if (old === undefined) return null;
+  const { files, dirs: folders } = await treeUnder(fs, old);
+  for (const path of files) {
+    const to = core.movedPath(old, root, path);
+    if (await fs.stat(to)) continue;
+    await fs.mkdirp(to.slice(0, to.lastIndexOf("/")));
+    await fs.rename(path, to);
+  }
+  for (const dir of [...folders, old].sort((a, b) => b.length - a.length)) {
+    if ((await fs.list(dir)).length > 0) continue;
+    await fs.remove(dir).catch((error: unknown) => {
+      if (!isKeptFolderError(error)) console.warn(`Could not remove the emptied folder ${dir}`, error);
+    });
+  }
+  return old;
+}
+
+/**
  * A folder that is not empty (ENOTEMPTY, or InvalidModificationError in the
  * browser's file system) or already gone (ENOENT / NotFound / NotFoundError) is
  * expected here and stays silent; any other failure to remove a folder is logged.
