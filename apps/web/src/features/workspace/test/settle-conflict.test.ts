@@ -7,7 +7,7 @@ import { loadTestCore } from "@/lib/test/load-test-core";
 import {
   mergeBothChanged,
   settleConflict,
-} from "../application/workspace-folder";
+} from "../application/parts-1";
 
 let rs: RustCore;
 before(async () => {

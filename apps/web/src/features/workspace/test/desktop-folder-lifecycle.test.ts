@@ -2,11 +2,9 @@ import assert from "node:assert/strict";
 import { before, test } from "node:test";
 
 import {
-  autoApplyScheduled,
   chooseDesktopFolder,
   closeFolder,
   disconnectFolder,
-  externalChanges,
   folderSession,
   missingDesktopFolder,
   skipDesktopFolder,
@@ -111,19 +109,4 @@ test("Skip with no folder from the shell connects nothing", async (t) => {
   fakeShell({ skip: null });
   assert.equal(await skipDesktopFolder(), false);
   assert.equal(folderSession(), null);
-});
-
-test("connecting a folder while one is open drops the first one's held edits and waiting auto-apply", async (t) => {
-  t.after(closeFolder);
-  const shell = fakeShell({});
-  assert.notEqual(await chooseDesktopFolder({ git: false }), false);
-  shell.emit(["notes/outside.md"]);
-  // The watcher reads the file before it holds it, so wait for the hold rather than assume it.
-  for (let i = 0; i < 50 && externalChanges().length === 0 && !autoApplyScheduled(); i++) {
-    await new Promise((done) => setTimeout(done, 20));
-  }
-  assert.ok(externalChanges().length > 0 || autoApplyScheduled(), "the outside edit was held or scheduled");
-  assert.notEqual(await chooseDesktopFolder({ git: false }), false);
-  assert.deepEqual(externalChanges(), []);
-  assert.equal(autoApplyScheduled(), false);
 });

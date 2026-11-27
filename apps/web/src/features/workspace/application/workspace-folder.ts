@@ -1,5 +1,6 @@
-import { NoOpWorkspaceGit, type IWorkspaceFs, type IWorkspaceGit, type WorkspaceCommit } from "@weaveforge/core";
+import { NoOpWorkspaceGit, safeWorkspacePath, type IWorkspaceFs, type IWorkspaceGit, type WorkspaceCommit } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
+import { isOwnWrite } from "@/backend/providers/files/own-writes";
 import { downloadLibraryPdfsOnce } from "@/features/reader/application/parts-1";
 import { desktop, type DesktopVaultRoot } from "@/lib/desktop/desktop-bridge";
 import { logToApp } from "@/lib/error-report/app-log";
@@ -12,41 +13,9 @@ import {
   IsomorphicWorkspaceGit,
 } from "../infrastructure/parts";
 import { folderLock } from "./folder-lock";
-import {
-  applyFolderImport,
-  clearPendingAssets,
-  type ConflictPicks,
-  type ConflictResolution,
-  type FileHistorySource,
-  gitFileHistory,
-  mergeBothChanged,
-  settleConflict,
-  shellFileHistory,
-} from "./parts-1";
-import {
-  applyOutsideEdits,
-  type Coalescer,
-  createCoalescer,
-  type FolderDiff,
-  followProjectRename,
-  type HeldReason,
-  type HeldReasons,
-  isNoteOpen,
-  jsonEditSince,
-  onNoteClosed,
-  readMirrorBase,
-  renamedFromPaths,
-  renamedPaths,
-  splitOutsideEdits,
-  writeMirrorManifest,
-} from "./parts-3";
-import { activeProject, activeProjectOrNull, isNoActiveProject, watchForLoss } from "./parts";
-import { mirrorWorkspace } from "./parts-2";
-import { recordSessionSeen, sessionGeneration, sessionSeen } from "./folder-session-seen";
-// Type-only: the preview module loads on first use, so it stays out of the first-load
-// bundle of every route that reaches the app container.
-import type { FolderPreview } from "./workspace-folder-preview";
-import type { SyncOutcome } from "./workspace-folder-sync-report";
+import { clearPendingAssets, type FileHistorySource, gitFileHistory, shellFileHistory } from "./parts-1";
+import { type Coalescer, createCoalescer } from "./parts-3";
+import { isNoActiveProject, watchForLoss } from "./parts";
 
 /**
  * The workspace folder as the app uses it.
@@ -269,88 +238,33 @@ export function closeFolder(): void {
   unwatch = null;
   unwatchFolder?.();
   unwatchFolder = null;
-  if (autoApplyTimer) clearTimeout(autoApplyTimer);
-  autoApplyTimer = null;
-  autoApplyFirstAt = null;
-  autoApplyPaths = new Set();
-  clearExternalChanges();
   clearPendingAssets();
 }
 
-export { describeSync, type SyncOutcome } from "./workspace-folder-sync-report";
+/** What one folder sync did: the commit it made, if any, or why it could not. */
+export interface SyncOutcome {
+  commit: WorkspaceCommit | null;
+  commitError?: string;
+}
 
 /**
- * Write the workspace to the folder, then commit if versioning is on.
+ * Commit the folder if versioning is on.
  *
- * Unchanged files are skipped, so a sync with nothing to do writes nothing and
- * produces no commit — which is what keeps the history readable.
+ * The files are the workspace: the app writes them as it saves, so a sync only
+ * records them. A folder with nothing changed produces no commit.
  */
 export function syncToFolder(): Promise<SyncOutcome> {
-  // Under the folder lock, so a git pull or push is never moving the files this writes.
+  // Under the folder lock, so a git pull or push is never moving the files this commits.
   return folderLock.run(runSyncToFolder);
 }
 
 async function runSyncToFolder(): Promise<SyncOutcome> {
-  // Read before the first await: a DB replace at any point during this run makes it stale.
-  const startedAt = sessionGeneration();
   if (!activeFs) throw new Error("No folder is connected.");
-  const fs = activeFs;
-  const container = getContainer();
-  const project = await activeProject();
-  await followProjectRename(fs, project);
-  const core = await loadCore();
-  const projectRoot = core.projectDir(project);
-  const snapshot = await container.workspace.snapshot();
-  // F97-P2-20: a folder switched mid-run must not get this run's writes.
-  const stillOurs = () => {
-    if (activeFs !== fs) throw new Error("The folder was switched during the sync; it stopped.");
-  };
-  stillOurs();
-  // This project's manifest, and only this project's: the paths last synced. Sync never removes.
-  const base = await readMirrorBase(fs, projectRoot);
-  const previousPaths = Object.keys(base);
-  // 0.9.8: no personal table is read from the server; the files are the only store.
-  stillOurs();
-
-  const mirror = await mirrorWorkspace(core, snapshot, fs, {
-    project,
-    seen: sessionSeen(project.id), // rewrite an existing file only if changed this session
-    // The digests, not only the paths: a file whose content has moved on since
-    // the app wrote it is the reader's, and the mirror must not write over it
-    // before the import has had the chance to offer it.
-    base,
-    fetchAsset: async (storagePath) => {
-      const blobs = await container.vault.fetchAssetBlobs([storagePath]);
-      const blob = blobs.get(storagePath);
-      return blob ? new Uint8Array(await blob.arrayBuffer()) : null;
-    },
-  });
-  recordSessionSeen(project.id, mirror.served, startedAt);
-  await writeMirrorManifest(
-    fs,
-    projectRoot,
-    readyCore().nextManifest(previousPaths, mirror),
-    mirror.mirrored,
-    mirror.bases,
-  );
-  stillOurs();
-
-  // Files left as the folder has them, because they changed since the app wrote
-  // them. They belong in the same list the folder watcher feeds — they are
-  // outside changes — so a sync that changed nothing does not read as a clean
-  // one while a reader's edit waits to be applied.
-  if (mirror.heldBack.length > 0) {
-    for (const path of mirror.heldBack) external.add(path);
-    announceExternal();
-  }
-
   let commit: WorkspaceCommit | null = null;
   let commitError: string | undefined;
   const shell = folderSession()?.kind === "desktop" ? desktop() : null;
   if (shell) {
-    // The shell reads the setting itself and answers with a reason when it
-    // declined, so a folder history that is off -- or refused -- costs the
-    // commit and not the mirror run that had already succeeded.
+    // The shell reads the setting itself and answers with a reason when it declined.
     const result = await shell.commitVault().catch((error: unknown) => ({ commit: null, reason: String(error) }));
     commit = result.commit ?? null;
     // History switched off is a choice, not a failure worth a line. The text is
@@ -367,7 +281,7 @@ async function runSyncToFolder(): Promise<SyncOutcome> {
   }
 
   if (commit) notifyEach(commitListeners, "vault-commit");
-  return { mirror, commit, commitError };
+  return { commit, commitError };
 }
 
 const commitListeners = new Set<() => void>();
@@ -383,7 +297,7 @@ export const SYNC_DEBOUNCE_MS = 1_500;
 /**
  * The pacing for `requestSync`, built once and reused for every folder.
  *
- * A mirror failure is logged rather than thrown to the caller: `requestSync`
+ * A sync failure is logged rather than thrown to the caller: `requestSync`
  * is called from save paths, and a folder that cannot be written must not take
  * the save down with it.
  */
@@ -398,7 +312,7 @@ const syncs: Coalescer = createCoalescer({
 
 /**
  * Log a folder sync that failed, for the app log. No open project is not a
- * failure: there is simply nothing to mirror yet, so it is not logged.
+ * failure: there is nothing to commit yet, so it is not logged.
  */
 export function reportSyncError(error: unknown): void {
   if (isNoActiveProject(error)) return;
@@ -410,9 +324,7 @@ export function reportSyncError(error: unknown): void {
  *
  * This is the continuous half: `watchForChanges` subscribes it to
  * `onWorkspaceChange`, which every write announces through the backend, so the
- * folder follows the workspace with no button pressed. The button in Settings is
- * then "write it now" rather than the only way anything reaches the disk. The
- * copy in the panel says that, and used to say the opposite.
+ * folder follows the workspace with no button pressed.
  */
 export function requestSync(): void {
   if (!activeFs) return;
@@ -437,161 +349,12 @@ function watchForChanges(): void {
   watchFolderForChanges();
 }
 
-/**
- * Somebody else's edits to the connected folder, by path.
- *
- * An edit made only in the folder is taken in a moment later with no click (`scheduleAutoApply`). What is
- * left here is what a person has to look at: a file the app also changed, a removal, a file the app has
- * no record of writing, or a note open in an editor.
- */
-let external = new Set<string>();
-/** Why each listed path waits for review. */
-let externalReasons: HeldReasons = {};
-const externalListeners = new Set<(paths: string[]) => void>();
 const takenInListeners = new Set<(count: number) => void>();
-/** Wait after the last outside edit before taking edits in, so a burst of saves is read once. */
-export const AUTO_APPLY_DEBOUNCE_MS = 800;
-/** Longest a waiting edit is put off by later ones, so a folder that never goes quiet is still read. */
-export const AUTO_APPLY_MAX_WAIT_MS = 2000;
-let autoApplyTimer: ReturnType<typeof setTimeout> | null = null;
-/** When the waiting auto-apply was first asked for; null when none waits. */
-let autoApplyFirstAt: number | null = null;
-let autoApplyRun: Promise<unknown> = Promise.resolve();
-/** The paths seen changing since the last auto-apply started; the next one previews only these. */
-let autoApplyPaths = new Set<string>();
 
-/** Whether an auto-apply is waiting for its debounce; tests use it to see a close cancel one. */
-export function autoApplyScheduled(): boolean {
-  return autoApplyTimer !== null;
-}
-
-/** The paths changed outside the app since the last time they were cleared. */
-export function externalChanges(): string[] {
-  return [...external].sort();
-}
-
-/** Forget them, once the reader has looked. */
-export function clearExternalChanges(): void {
-  external = new Set();
-  externalReasons = {};
-  announceExternal();
-}
-
-/**
- * After a preview, keep only what it found changed: the button's count then matches the diff.
- *
- * A preview of `only` some paths settles those; the rest of the list stays as it was.
- */
-export function settleExternalChanges(diff: FolderDiff, only?: ReadonlySet<string>): void {
-  const entries = [
-    ...diff.entries.map((entry) => ({ action: entry.action, path: entry.entity.path })),
-    ...(diff.json?.entries ?? []).map((entry) => ({ action: entry.action, path: entry.path })),
-  ];
-  const reasons = splitOutsideEdits(diff, isNoteOpen).reasons;
-  const settled = readyCore().settleExternal({
-    entries,
-    reasons,
-    only: only ? [...only] : null,
-    external: [...external],
-    externalReasons,
-  });
-  external = new Set(settled.external);
-  externalReasons = settled.externalReasons;
-  announceExternal();
-}
-
-export function onExternalChange(listener: (paths: string[]) => void): () => void {
-  externalListeners.add(listener);
-  return () => externalListeners.delete(listener);
-}
-
-/** Why a listed outside edit waits for review; none for a path the last look did not see. */
-export function externalChangeReason(path: string): HeldReason | undefined {
-  return externalReasons[path];
-}
-
-/** Hear how many outside edits an auto-apply took in, each time it took some. */
+/** Hear how many files changed in the folder from outside the app, each time some did. */
 export function onOutsideEditsTakenIn(listener: (count: number) => void): () => void {
   takenInListeners.add(listener);
   return () => takenInListeners.delete(listener);
-}
-
-function announceExternal(): void {
-  // A listener's problem is its own; the folder still changed.
-  notifyEach(externalListeners, "external-changes", externalChanges());
-}
-
-/**
- * Take the folder's own edits in a moment after they stop, with no click.
- *
- * Only a file the folder alone changed goes in (`splitOutsideEdits`); the rest stays in the list for
- * review. Each run reads only the paths seen changing since the last one started, and a new edit
- * restarts the wait, so a stream of saves is read once it pauses. Runs one at a time; a run whose folder closed or changed meanwhile writes nothing, and a file
- * that moved again after the preview keeps its old base, so the next look sees that edit too.
- */
-function scheduleAutoApply(): void {
-  if (autoApplyTimer) clearTimeout(autoApplyTimer);
-  const timing = readyCore().autoApplyTiming({
-    now: Date.now(),
-    firstAt: autoApplyFirstAt,
-    debounceMs: AUTO_APPLY_DEBOUNCE_MS,
-    maxWaitMs: AUTO_APPLY_MAX_WAIT_MS,
-  });
-  autoApplyFirstAt = timing.firstAt;
-  autoApplyTimer = setTimeout(() => {
-    autoApplyTimer = null;
-    autoApplyFirstAt = null;
-    const fs = activeFs;
-    autoApplyRun = autoApplyRun.then(async () => {
-      // No check on `external` here: a settle from the run before may have cleared a path that changed
-      // while it ran, and this run's fresh preview is what finds it again.
-      if (!fs || activeFs !== fs) return;
-      const only = autoApplyPaths;
-      autoApplyPaths = new Set();
-      if (only.size === 0) return;
-      try {
-        const { applied } = await applyOutsideEdits({
-          preview: () => previewFolderImport(only),
-          isOpen: isNoteOpen,
-          apply: async (diff) => {
-            const result = await applyFolderImport(diff, {}, {
-        fs,
-        expected: seenDigests(diff),
-        stored: diff.stored,
-        renamed: renamedPaths(diff),
-        renamedFrom: renamedFromPaths(diff),
-      });
-            // A note written in the app since the preview was left alone; the next look sees both sides moved.
-            if (result.moved.length > 0) {
-              for (const path of result.moved) autoApplyPaths.add(path);
-              scheduleAutoApply();
-            }
-            return result;
-          },
-          settle: (held) => {
-            if (activeFs === fs) settleExternalChanges(held, only);
-          },
-        });
-        if (applied > 0 && activeFs === fs) notifyEach(takenInListeners, "outside-edits-taken-in", applied);
-      } catch (error) {
-        // The list keeps the paths, so the reader can still review them by hand.
-        logToApp({ level: "warn", source: "workspace-sync", message: "outside edits not taken in", detail: formatError(error) });
-      }
-    });
-  }, timing.delay);
-}
-
-// An edit held only because its note was open goes in once the note closes, not at the next folder event.
-onNoteClosed(() => {
-  const waiting = Object.keys(externalReasons).filter((path) => externalReasons[path] === "open in editor");
-  if (!activeFs || waiting.length === 0) return;
-  for (const path of waiting) autoApplyPaths.add(path);
-  scheduleAutoApply();
-});
-
-/** The digest the preview read for each file, so the apply can tell a file that moved since. */
-function seenDigests(diff: FolderDiff): Record<string, string> {
-  return Object.fromEntries(Object.entries(diff.seen ?? {}).map(([path, seen]) => [path, seen.digest]));
 }
 
 /**
@@ -615,56 +378,50 @@ function watchFolderForChanges(): void {
   };
 }
 
+/** The key DesktopWorkspaceFs records a write under; an unsafe path was never written by the app. */
+function recordedAs(path: string): string {
+  try {
+    return safeWorkspacePath(path);
+  } catch {
+    return path;
+  }
+}
+
 /**
  * What to do about the paths the shell says changed.
  *
- * The app's own machinery is never an edit to report — the database, its
- * backups, the search cache, the mirror's manifest. The three JSON data files
- * are the reader's, so they *are* reported, with one exception that matters: the
- * mirror rewrites them whenever the data changes, and a report that fired on
- * that would be the app reporting itself. The project's manifest holds the
- * digest of what it wrote, so a file still holding that is its own write.
+ * The app's own machinery is never an edit to report (`triageReportedPaths`), and
+ * neither is the app's own write echoing back: a file still holding what the app
+ * last wrote there is skipped. What is left changed outside the app. The files are
+ * the store, so there is nothing to import: it is announced, and committed.
  */
 function reportFolderChanges(paths: readonly string[]): void {
-  const before = external.size;
   let projectId: string | null = null;
   try {
     projectId = getContainer().projects.context.projectId ?? null;
   } catch {
     projectId = null;
   }
-  // Notes too: reconnecting rewrites every file, and a slow write outlives the shell's echo window.
   const { drafts, candidates } = readyCore().triageReportedPaths({ paths, projectId });
-
-  if (external.size !== before) announceExternal();
   if (drafts) for (const listener of [...draftListeners]) listener();
   if (candidates.length === 0) return;
 
   void (async () => {
-    // A mirror run writes its files before its manifest, and a pull puts this
-    // machine's manifests back after its checkout: checked mid-way, files read wrongly.
+    // A pull moves files under the lock; read them once it is done.
     await folderLock.idle();
     const fs = activeFs;
-    const project = await activeProjectOrNull().catch(() => null);
-    const base = fs && project ? await readMirrorBase(fs, (await loadCore()).projectDir(project)) : {};
-    const beforeRead = external.size;
-    let outside = false;
+    if (!fs) return;
+    let outside = 0;
     for (const path of candidates) {
-      if (fs) {
-        const text = await fs.readText(path).catch(() => null);
-        if (text !== null && !jsonEditSince(base, path, text)) continue;
-        // Unreadable and never mirrored: a directory event, not a deleted note.
-        if (text === null && base[path] === undefined) continue;
-      }
-      // Folder closed meanwhile: these belong to a folder no longer shown.
-      if (activeFs !== fs) return;
-      external.add(path);
-      autoApplyPaths.add(path);
-      outside = true;
+      const text = await fs.readText(path).catch(() => null);
+      // Unreadable: a directory event or a removal, nothing to announce.
+      if (text === null || isOwnWrite(recordedAs(path), text)) continue;
+      outside += 1;
     }
-    if (external.size !== beforeRead) announceExternal();
-    // A path already listed can change again; that edit needs taking in too.
-    if (outside) scheduleAutoApply();
+    // Folder closed meanwhile: these belong to a folder no longer shown.
+    if (activeFs !== fs || outside === 0) return;
+    notifyEach(takenInListeners, "outside-edits-taken-in", outside);
+    requestSync();
   })().catch((error: unknown) => {
     console.warn("Could not check folder changes:", error);
   });
@@ -698,8 +455,7 @@ export function folderFileHistory(): FileHistorySource | null {
 /**
  * Write a file back into the folder as it was at `oid`.
  *
- * Only the folder changes; the caller then shows the import preview so the
- * reader takes the old version into the workspace, or leaves it.
+ * The file is the workspace's copy, so the old version is back as soon as it is written.
  */
 export async function restoreFolderFile(oid: string, path: string): Promise<void> {
   const source = folderFileHistory();
@@ -709,19 +465,3 @@ export async function restoreFolderFile(oid: string, path: string): Promise<void
   await activeFs.writeFile(path, text);
 }
 
-/** Read the connected folder and diff it against the workspace. Preview only. */
-export async function previewFolderImport(only?: ReadonlySet<string>): Promise<FolderPreview> {
-  const fs = activeFs;
-  if (!fs) throw new Error("No folder is connected.");
-  const { previewConnectedFolder } = await import("./workspace-folder-preview");
-  return previewConnectedFolder(fs, only);
-}
-
-export {
-  mergeBothChanged,
-  settleConflict,
-  type ConflictPicks,
-  type ConflictResolution,
-};
-
-export { applyFolderImport } from "./parts-1";
