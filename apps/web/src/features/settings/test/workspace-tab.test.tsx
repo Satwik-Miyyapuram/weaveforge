@@ -47,7 +47,18 @@ describe("the Workspace settings tab", () => {
 
     assert.match(html, /<h3 class="settings-group">Workspace<\/h3>/);
     assert.match(html, /<h4 class="settings-group">Folder<\/h4>/);
-    assert.match(html, /<h4 class="settings-group">Bring changes back in<\/h4>/);
+    assert.doesNotMatch(html, /Bring changes back in/);
+  });
+
+  it("has no write-everything, mirror, outside-edits, ZIP or database copy", async () => {
+    const { WorkspaceFolderPanel } = await import("../ui/workspace-folder-panel");
+    const html = renderToStaticMarkup(createElement(WorkspaceFolderPanel));
+
+    assert.doesNotMatch(html, /Write everything now/);
+    assert.doesNotMatch(html, /<dt>Mirror<\/dt>/);
+    assert.doesNotMatch(html, /<dt>Outside edits<\/dt>/);
+    assert.doesNotMatch(html, /Import a ZIP/);
+    assert.doesNotMatch(html, /database/i);
   });
 
   it("does not claim the database is inside the workspace folder", async () => {
@@ -60,31 +71,4 @@ describe("the Workspace settings tab", () => {
     assert.doesNotMatch(html, /database[^<]{0,60}inside that folder/i);
   });
 
-  it("says the database is backed up separately from the folder", async () => {
-    const { WorkspaceFolderPanel } = await import("../ui/workspace-folder-panel");
-    const html = renderToStaticMarkup(createElement(WorkspaceFolderPanel));
-
-    // The honest statement, and the one a reader backing up their work needs.
-    assert.match(html, /backed up separately/i);
-  });
-
-  it("offers the folder chooser and the ZIP import before anything is connected", async () => {
-    const { WorkspaceFolderPanel } = await import("../ui/workspace-folder-panel");
-    const html = renderToStaticMarkup(createElement(WorkspaceFolderPanel));
-
-    // ZIP import must not be gated on a connected folder: it is how somebody
-    // brings a workspace back without one.
-    assert.match(html, /Import a ZIP/);
-    // "Check for changes" is the mirror's other half and needs a folder, so it
-    // is absent here — the assertion is that its absence is deliberate.
-    assert.doesNotMatch(html, /Check for changes/);
-  });
-
-  it("keeps the mirror description consistent with a one-way, automatic mirror", async () => {
-    const { WorkspaceFolderPanel } = await import("../ui/workspace-folder-panel");
-    const html = renderToStaticMarkup(createElement(WorkspaceFolderPanel));
-
-    assert.match(html, /mirrored to the folder as\s+Markdown/i);
-    assert.doesNotMatch(html, /the database follows it/i);
-  });
 });

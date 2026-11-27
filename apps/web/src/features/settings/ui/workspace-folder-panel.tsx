@@ -1,40 +1,24 @@
 "use client";
 
-import { useContext, useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import type { WorkspaceCommit } from "@weaveforge/core";
-import type { ImportDiff } from "@weaveforge/wasm";
 import { formatError } from "@/lib/format-error";
 import { desktop } from "@/lib/desktop/desktop-bridge";
 import {
-  applyReviewedImport,
   chooseDesktopFolder,
   chooseFolder,
   disconnectFolder,
-  externalChangeReason,
   onOutsideEditsTakenIn,
   missingDesktopFolder,
   folderFileHistory,
   folderHistory,
   folderSession,
   restoreFolderFile,
-  previewArchiveImport,
-  clearExternalChanges,
-  writeMarkersFor,
-  type ConflictResolution,
   type FolderSession,
-  externalChanges,
-  onExternalChange,
-  previewFolderImport,
-  settleExternalChanges,
-  settleHeldEdit,
   supportsDirectoryPicker,
-  describeSync,
-  syncToFolder,
   openBrowserStorageFolder,
 } from "@/features/workspace/application/workspace-folder";
 import { FormError } from "@/components/form-error";
-import { ProjectContext } from "@/features/projects";
-import dynamic from "next/dynamic";
 import { Button } from "@/components/button";
 import { remoteSyncAvailable } from "@/features/workspace/application/parts-2";
 import { FolderRemoteSyncPanel } from "./folder-remote-sync-panel";
@@ -42,19 +26,7 @@ import { overleafSyncAvailable } from "@/features/overleaf/application/parts";
 import { OverleafSyncPanel } from "./overleaf-sync-panel";
 import { FolderFileHistory } from "./folder-file-history";
 import { ChangeFolderAction } from "./change-folder-action";
-import { notImportedNote, SkippedFiles } from "./skipped-files";
-import type { SkippedFile } from "@/features/workspace/application/parts-2";
-import {
-  folderWatchLost,
-  isNoActiveProject,
-  NO_ACTIVE_PROJECT_MESSAGE,
-  onFolderWatchLost,
-} from "@/features/workspace/application/parts";
-
-const FolderConflictCard = dynamic(
-  () => import("./folder-conflict-card").then((m) => m.FolderConflictCard),
-  { ssr: false },
-);
+import { folderWatchLost, onFolderWatchLost } from "@/features/workspace/application/parts";
 
 /** One labelled fact in the `.account-info-grid`; a real row element keeps the two columns. */
 function StatusRow({
@@ -108,14 +80,10 @@ function useFolderPath(session: FolderSession | null): string | null {
 export function WorkspaceFolderPanel() {
   const [session, setSession] = useState(folderSession());
   const [git, setGit] = useState(false);
-  // No provider in some renders (tests); no project then.
-  const current = useContext(ProjectContext)?.current ?? null;
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const [history, setHistory] = useState<readonly WorkspaceCommit[]>([]);
-  const [diff, setDiff] = useState<(ImportDiff & { skipped?: SkippedFile[]; refused?: readonly SkippedFile[] }) | null>(null);
-  const archiveInput = useRef<HTMLInputElement | null>(null);
   // Resolved after mount: the server has no shell, and disagreeing would be a hydration mismatch.
   const [hasShell, setHasShell] = useState(false);
   useEffect(() => setHasShell(desktop() !== null), []);
@@ -135,12 +103,6 @@ export function WorkspaceFolderPanel() {
     };
   }, [session]);
 
-  // Outside edits that still need a look: the folder's own edits are taken in by themselves.
-  const [outside, setOutside] = useState<string[]>([]);
-  useEffect(() => {
-    setOutside(externalChanges());
-    return onExternalChange(setOutside);
-  }, []);
   // Edits taken in with no click are still said, so nothing changes unseen.
   useEffect(
     () =>
@@ -216,50 +178,11 @@ export function WorkspaceFolderPanel() {
     >
       <h3 className="settings-group">Workspace</h3>
       <p className="muted jump-to-meta">
-        Your work lives in the app&rsquo;s database and is mirrored to the folder as Markdown
-        you can open in Obsidian, VS Code or Explorer. The database is backed up separately.
+        Your work is the files in this folder, as Markdown you can open in Obsidian, VS Code or Explorer.
       </p>
 
       <dl className="account-info-grid">
         <StatusRow label="Folder">{folderValue}</StatusRow>
-        {session && (
-          <StatusRow label="Mirror">
-            On — each edit is written a moment later
-            {session.git === "isomorphic" || history.length > 0 ? ", with git history" : ""}
-          </StatusRow>
-        )}
-        {session && (
-          <StatusRow label="Outside edits">
-            {outside.length === 0
-              ? "None"
-              : `${outside.length} outside edit${outside.length === 1 ? "" : "s"} to review`}
-            {outside.length > 0 && (
-              <ul className="wiki-lint-list">
-                {outside.slice(0, 10).map((path) => {
-                  const reason = externalChangeReason(path);
-                  return (
-                    <li key={path}>
-                      <code>{path}</code>
-                      {reason && <span className="jump-to-meta"> · held: {reason}</span>}
-                      {reason && SETTLE_INLINE.has(reason) && (
-                        <span className="screen-actions screen-actions--start">
-                          <Button size="sm" disabled={busy !== null} onClick={() => void run("settle", () => settleHeldEdit(path, "mine"))}>
-                            {reason === "removed" ? "Put back" : "Keep mine"}
-                          </Button>
-                          {reason !== "removed" && (
-                            <Button size="sm" disabled={busy !== null} onClick={() => void run("settle", () => settleHeldEdit(path, "theirs"))}>
-                              Take theirs
-                            </Button>
-                          )}
-                        </span>
-                      )}
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-          </StatusRow>
-        )}
       </dl>
 
       {error && <FormError>{error}</FormError>}
@@ -341,29 +264,7 @@ export function WorkspaceFolderPanel() {
         </>
       ) : (
         <>
-          <p className="muted jump-to-meta">
-            {current
-              ? "The mirror runs by itself. Write now before opening the folder in another editor."
-              : "One folder for your account; each project writes its own subfolder. Open a project to write it."}
-          </p>
           <div className="screen-actions screen-actions--start">
-            <Button
-              disabled={busy !== null || !current}
-              onClick={() =>
-                void run("sync", async () => {
-                  try {
-                    setStatus(describeSync(await syncToFolder()));
-                  } catch (err) {
-                    // No open project is a state to describe, not a failed sync.
-                    if (!isNoActiveProject(err)) throw err;
-                    setStatus(NO_ACTIVE_PROJECT_MESSAGE);
-                  }
-                  setHistory(await folderHistory());
-                })
-              }
-            >
-              {busy === "sync" ? "Writing…" : "Write everything now"}
-            </Button>
             <Button
               variant="ghost"
              
@@ -373,7 +274,6 @@ export function WorkspaceFolderPanel() {
                   const warnings = await disconnectFolder();
                   setSession(null);
                   setHistory([]);
-                  setDiff(null);
                   showWarnings(warnings);
                 })
               }
@@ -389,7 +289,6 @@ export function WorkspaceFolderPanel() {
                 setMissing(null);
                 setSession(folderSession());
                 setHistory([]);
-                setDiff(null);
                 showWarnings(warnings);
               }}
             />
@@ -408,11 +307,7 @@ export function WorkspaceFolderPanel() {
             <FolderFileHistory
               source={fileHistory}
               restore={restoreFolderFile}
-              onRestored={() =>
-                void run("preview", async () => {
-                  setDiff(await previewFolderImport());
-                })
-              }
+              onRestored={() => void folderHistory().then(setHistory, () => undefined)}
             />
           )}
           {hasShell && session.kind === "desktop" && remoteSyncAvailable() && (
@@ -424,166 +319,6 @@ export function WorkspaceFolderPanel() {
         </>
       )}
 
-      <h4 className="settings-group">Bring changes back in</h4>
-      <p className="muted jump-to-meta">
-        Import notes edited outside the app, from the folder or a ZIP. You see the diff before
-        anything is written.
-      </p>
-      {/* A real button drives the hidden input: the raw "Choose File" control is off-brand. */}
-      <input
-        ref={archiveInput}
-        type="file"
-        accept=".zip,application/zip"
-        hidden
-        onChange={(e) => {
-          const file = e.target.files?.[0];
-          e.target.value = "";
-          if (!file) return;
-          void run("zip", async () => {
-            setDiff(await previewArchiveImport(new Uint8Array(await file.arrayBuffer())));
-          });
-        }}
-      />
-      <div className="screen-actions screen-actions--start">
-        {session && (
-          <Button variant={outside.length > 0 ? "primary" : "secondary"}
-            disabled={busy !== null}
-            onClick={() =>
-              void run("preview", async () => {
-                const found = await previewFolderImport();
-                setDiff(found);
-                settleExternalChanges(found);
-              })
-            }
-          >
-            {busy === "preview"
-              ? "Reading…"
-              : outside.length > 0
-                ? `Review ${outside.length} outside edit${outside.length === 1 ? "" : "s"}`
-                : "Check for changes"}
-          </Button>
-        )}
-        <Button
-          disabled={busy !== null}
-          onClick={() => archiveInput.current?.click()}
-        >
-          {busy === "zip" ? "Reading…" : "Import a ZIP…"}
-        </Button>
-      </div>
-      {diff && <ImportPreview diff={diff} onApplied={(msg) => { setStatus(msg); setDiff(null); clearExternalChanges(); }} />}
-
     </section>
-  );
-}
-
-/**
- * Held edits a row can settle in one click. A removed file can only be put back: the import never deletes
- * a note. Copies, lost ids and moves need the full review.
- */
-const SETTLE_INLINE: ReadonlySet<string> = new Set(["edited on both sides", "no record of the app's write", "removed"]);
-
-type PreviewProps = {
-  diff: ImportDiff & { skipped?: SkippedFile[]; refused?: readonly SkippedFile[] };
-  onApplied: (message: string) => void;
-};
-
-/** A number per diff object, so each new diff gets a fresh review. */
-const diffIds = new WeakMap<object, number>();
-let nextDiffId = 0;
-function diffKey(diff: object): number {
-  let id = diffIds.get(diff);
-  if (id === undefined) {
-    id = ++nextDiffId;
-    diffIds.set(diff, id);
-  }
-  return id;
-}
-
-/**
- * The review of one diff. A re-check, restore or ZIP import brings a new diff,
- * and the choices made against the old one (here and in each conflict card)
- * must not carry over to it, so each diff mounts its own review (P2-234).
- */
-export function ImportPreview(props: PreviewProps) {
-  return <ImportReview key={diffKey(props.diff)} {...props} />;
-}
-
-function ImportReview({ diff, onApplied }: PreviewProps) {
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  /**
-   * How each conflicted file is to be settled, by path.
-   *
-   * Empty means "keep the workspace's copy" for all of them, which is why a
-   * conflict left alone is never written: the default has to be the choice
-   * that discards nothing the user can still see.
-   */
-  const [resolutions, setResolutions] = useState<Record<string, ConflictResolution>>({});
-  const conflicts = diff.entries.filter((entry) => entry.action === "conflict");
-  const settled = conflicts.filter((entry) => {
-    const res = resolutions[entry.entity.path];
-    return res !== undefined && res !== "keep" && res !== "markers";
-  }).length;
-  const writable = diff.counts.created + diff.counts.updated + diff.counts.removed + settled;
-
-  return (
-    <div className="field">
-      <p className="muted">
-        {diff.counts.created} new · {diff.counts.updated} changed · {diff.counts.removed} removed ·{" "}
-        {diff.counts.unchanged} unchanged · {diff.counts.conflict} conflict
-        {diff.counts.conflict === 1 ? "" : "s"}
-      </p>
-      <SkippedFiles skipped={[...(diff.skipped ?? []), ...(diff.refused ?? [])]} />
-
-      {conflicts.length > 0 && (
-        <ul className="wiki-lint-list">
-          {conflicts.slice(0, 10).map((entry) => {
-            const path = entry.entity.path;
-            return (
-              <FolderConflictCard
-                key={path}
-                entry={entry}
-                chosen={resolutions[path] ?? "keep"}
-                onChoose={(resolution) =>
-                  setResolutions((current) => ({ ...current, [path]: resolution }))
-                }
-                onWriteMarkers={() => writeMarkersFor(entry)}
-              />
-            );
-          })}
-        </ul>
-      )}
-
-      {error && <FormError>{error}</FormError>}
-
-      <div className="screen-actions screen-actions--start">
-        <Button
-          variant="primary"
-         
-          disabled={busy || writable === 0}
-          title={!busy && writable === 0 ? "No changes to import" : undefined}
-          onClick={() => {
-            setBusy(true);
-            setError(null);
-            void applyReviewedImport(diff, resolutions)
-              .then((result) =>
-                onApplied(
-                  `Imported ${result.created} new and ${result.updated} changed note(s).${notImportedNote(result.refused ?? [])}`,
-                ),
-              )
-              .catch((err) => setError(formatError(err)))
-              .finally(() => setBusy(false));
-          }}
-        >
-          {busy ? "Importing…" : `Import ${writable} change${writable === 1 ? "" : "s"}`}
-        </Button>
-      </div>
-      <p className="muted jump-to-meta">
-        Only notes are imported. Papers and experiments carry structured fields a markdown body
-        cannot round-trip, and a half-imported paper is worse than an unimported one. Edits made
-        on both sides are merged field by field where they do not collide; where they do, nothing
-        is written over until you say which copy wins.
-      </p>
-    </div>
   );
 }
