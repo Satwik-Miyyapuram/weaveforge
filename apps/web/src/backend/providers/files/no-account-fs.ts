@@ -1,5 +1,6 @@
 import type { IWorkspaceFs, WorkspaceStat } from "@weaveforge/core";
 import { activeWorkspaceFs, folderRestored } from "@/features/workspace/application/workspace-folder";
+import { recordOwnWrite } from "./own-writes";
 
 const NO_FOLDER = "Open a folder to keep working without an account.";
 
@@ -32,7 +33,7 @@ export class NoAccountWorkspaceFs implements IWorkspaceFs {
     return (await restoredFolder()).readText(path);
   }
   async writeFile(path: string, data: Uint8Array | string): Promise<void> {
-    return (await restoredFolder()).writeFile(path, data);
+    return (await restoredFolder()).writeFile(path, data).then(() => recordOwnWrite(path, data));
   }
   /**
    * The open folder's own conditional write, or none when that folder has none (or no folder
@@ -41,7 +42,13 @@ export class NoAccountWorkspaceFs implements IWorkspaceFs {
    */
   get writeTextIf(): IWorkspaceFs["writeTextIf"] {
     const fs = activeWorkspaceFs();
-    return fs?.writeTextIf ? fs.writeTextIf.bind(fs) : undefined;
+    return fs?.writeTextIf
+      ? async (path: string, text: string, expected: string | null) => {
+          const wrote = await fs.writeTextIf!(path, text, expected);
+          if (wrote) recordOwnWrite(path, text);
+          return wrote;
+        }
+      : undefined;
   }
   async remove(path: string, options?: { recursive?: boolean }): Promise<void> {
     return (await restoredFolder()).remove(path, options);
