@@ -73,7 +73,11 @@ const buildDir = process.env.BUNDLE_BUILD_DIR ?? path.join(root, "apps/web/.next
 // shell-only routes measured 425-427 KB on CI against 422. The folder import,
 // restore and table modules moved behind dynamic imports in the same change, so
 // what remains is the sync engine the container starts with. No dependency arrived.
-const ROUTE_BUDGET_KB = 417;
+// The 0.9.8 memory branch (dead sync removed, theme cache, narrow reader, memory
+// meter, boot and explorer changes across ~490 commits) put the shell-only routes
+// at 431-434 KB locally: measured plus 2. No static dependency arrived; the one new
+// package (@embedpdf/pdfium) loads behind a dynamic import.
+const ROUTE_BUDGET_KB = 424;
 
 /*
  * **The rebase for Next 16** (React 19) changed both the measure and the numbers,
@@ -135,22 +139,26 @@ const ROUTE_ALLOWANCES_KB = {
   // canvas id map in the folder mirror. The dashboard sits closest to its limit, so
   // it is the one route that crossed: measured 446 KB plus 2. No dependency arrived.
   // The 0.9.2 shared-row sync in the shell (see the default): +7 KB on every route.
-  "/dashboard": 443,
+  // The 0.9.8 memory branch (see the default): measured 459 KB plus 2.
+  "/dashboard": 449,
   // Lists screen carries reading lists, membership management, and EntityCardMenu:
   // The 0.9.2 shared-row sync in the shell (see the default).
-  "/lists": 432,
+  // The 0.9.8 memory branch (see the default): measured 446 KB plus 2.
+  "/lists": 436,
   // The 0.9.1 integration (old-database import, theme-aware logo) put the log
   // on 436 KB on CI: measured plus 2.
   // The 0.9.2 shared-row sync in the shell (see the default).
   "/log": 431,
-  "/plan": 429,
+  // The 0.9.8 memory branch (see the default): measured 442 KB plus 2.
+  "/plan": 432,
   // The pitch page itself did not change; it sits on the shell, and the 0.9
   // shell (Rust port wasm loading, release-notice banner) put it at 423 KB on
   // CI, 1 KB over the default. Measured plus 2 KB. No dependency arrived.
   // The 0.9.1 shell (see /dashboard) put it at 426 KB on CI: plus 2 again.
   // The 0.9.1 integration (see /log) put it at 429 KB on CI: plus 2 again.
   // The 0.9.2 shared-row sync in the shell (see the default) put it at 434 KB on CI.
-  "/pitch": 424,
+  // The 0.9.8 memory branch (see the default) put it at 440 KB: plus 2.
+  "/pitch": 430,
 };
 
 /** The allowance for a route, longest matching prefix first, plus the environment's. */
