@@ -109,6 +109,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   if (!user) return <CoreGate><main className="app-shell"><LoginScreen /></main></CoreGate>;
   return (
     <CoreGate>
+    {/* Before the startup reads: in files mode the privacy accept and the
+        project list live in the workspace folder, so it must be connected
+        first. Once per session, above the project-scoped shell. See the
+        component for why this is not in the Settings panel. */}
+    <WorkspaceFolderRestore />
     <StartupProvider userId={user.id}>
         <PrivacyDisclaimerGate>
           <ProfileProvider key={user.id}>
@@ -116,11 +121,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 renders straight through after auth. */}
             <ThemeSyncProvider>
               <OrgSetupGate>
-                {/* Above the project-scoped shell, so it runs once: the folder
-                    mirror is per session, and reconnecting it per project would
-                    re-ask on every switch. See the component for why this is
-                    not in the Settings panel. */}
-                <WorkspaceFolderRestore />
                 <WorkspaceSetupDialog />
                 <GitAutoSync />
                 <FolderChangeNote />

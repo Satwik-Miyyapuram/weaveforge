@@ -12,6 +12,7 @@ import {
 import type { Member, OrgMembershipView, UserSettings } from "@weaveforge/core";
 import type { AppContainer } from "@/bootstrap";
 import { continueStandalone, fetchMemberships } from "@/features/org/infrastructure/parts";
+import { folderRestored } from "@/features/workspace/application/workspace-folder";
 import { readyCore, typedCore } from "@/lib/rust-core";
 import { readStoredJson, writeStoredJson } from "@/lib/safe-storage";
 import { logToApp } from "@/lib/error-report/app-log";
@@ -146,6 +147,10 @@ async function loadStartupBundleUncached(
   // unhandled rejection — which in dev raises the Next error overlay over the
   // whole app for a failure that is deliberately not fatal.
   const provisionedPromise = light.selfProvisioner.ensureProvisioned().catch(() => undefined);
+
+  // Files mode keeps the settings and the project list in the workspace folder,
+  // so take up the remembered one first. At once in a browser; capped on desktop.
+  await folderRestored();
 
   let settingsError: string | null = null;
   const settingsPromise = light.settings.getMetadata().catch((err: unknown) => {
