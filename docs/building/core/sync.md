@@ -1,5 +1,7 @@
 # Sync core module
 
+> **Historical:** describes the database sync engine retired in 0.9.8 (the web `offline-sync` feature was removed in `4a7e678b3`). Workspace files are the source of truth now; see `docs/building/core/README.md`.
+
 The `sync` module holds the rules that keep a workspace consistent across
 devices and folders: which side wins a conflict, what changed since the last
 agreed state, how a remote snapshot becomes a delta, which git push result to

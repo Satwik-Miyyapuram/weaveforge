@@ -1,5 +1,7 @@
 # Sync: git, outbox and wire helpers
 
+> **Historical:** describes the database sync engine retired in 0.9.8 (the web `offline-sync` feature was removed in `4a7e678b3`). Workspace files are the source of truth now; see `docs/building/core/README.md`.
+
 These modules hold the pure parts of git sync, the Mattermost messages, the outbox and the PostgREST wire. They live in `crates/wf-core/src/sync/`; wasm exports in `crates/wf-wasm/src/`; TS keeps the I/O (git spawn, SQL, HTTP).
 
 | Module | Rust fn | wasm export | TS caller |

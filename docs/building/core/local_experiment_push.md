@@ -1,5 +1,7 @@
 # local_experiment_push
 
+> **Historical:** describes the database sync engine retired in 0.9.8 (the web `offline-sync` feature was removed in `4a7e678b3`). Workspace files are the source of truth now; see `docs/building/core/README.md`.
+
 Rust home: `crates/wf-core/src/sync/local_experiment_push.rs`. wasm: `crates/wf-wasm/src/sync_local_experiment_push.rs`.
 TS caller: `apps/web/src/backend/providers/local/parts-1.ts` (`LocalExperimentPush`).
 

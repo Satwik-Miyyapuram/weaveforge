@@ -1,5 +1,7 @@
 # postgrest_transport
 
+> **Historical:** describes the database sync engine retired in 0.9.8 (the web `offline-sync` feature was removed in `4a7e678b3`). Workspace files are the source of truth now; see `docs/building/core/README.md`.
+
 Rust home: `crates/wf-core/src/sync/postgrest_transport.rs`. wasm: `crates/wf-wasm/src/sync_postgrest_transport.rs`.
 TS caller: `apps/web/src/features/offline-sync/infra/postgrest-transport.ts` (`PostgrestTransport`).
 

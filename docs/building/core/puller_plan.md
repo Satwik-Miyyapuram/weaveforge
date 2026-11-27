@@ -1,5 +1,7 @@
 # Puller plan core module
 
+> **Historical:** describes the database sync engine retired in 0.9.8 (the web `offline-sync` feature was removed in `4a7e678b3`). Workspace files are the source of truth now; see `docs/building/core/README.md`.
+
 `puller_plan.rs` holds the pure decisions of the offline-sync `Puller`
 (`apps/web/src/features/offline-sync/domain/parts-2.ts`). The Puller still does
 the reads, writes, transport calls and timers. It passes facts in and runs the
