@@ -313,6 +313,23 @@ fn remove_refusing_a_non_empty_folder_reports_a_real_error_not_not_found() {
 }
 
 #[test]
+fn remove_deletes_an_empty_read_only_folder() {
+    // Windows refuses to remove a read-only folder (os error 5); synced folders often carry the flag.
+    let dir = TempDir::new();
+    let v = vault_in(&dir);
+
+    v.mkdirp("old/logbook").unwrap();
+    for rel in ["old", "old/logbook"] {
+        let mut perms = fs::metadata(dir.path().join(rel)).unwrap().permissions();
+        perms.set_readonly(true);
+        fs::set_permissions(dir.path().join(rel), perms).unwrap();
+    }
+    v.remove("old/logbook", false).unwrap();
+    v.remove("old", false).unwrap();
+    assert!(!dir.path().join("old").exists());
+}
+
+#[test]
 fn remove_of_a_file_without_recursive_still_deletes_it() {
     let dir = TempDir::new();
     let v = vault_in(&dir);

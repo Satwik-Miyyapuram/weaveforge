@@ -200,7 +200,17 @@ impl Vault {
             fs::remove_dir_all(&target)
         } else {
             // Without `recursive` only an empty folder goes; a non-empty one is refused, never emptied.
-            fs::remove_dir(&target)
+            fs::remove_dir(&target).or_else(|err| {
+                // Windows refuses a read-only folder; the flag means nothing to Explorer on a folder.
+                if err.kind() != io::ErrorKind::PermissionDenied || !meta.permissions().readonly() {
+                    return Err(err);
+                }
+                let mut perms = meta.permissions();
+                #[allow(clippy::permissions_set_readonly_false)]
+                perms.set_readonly(false);
+                fs::set_permissions(&target, perms)?;
+                fs::remove_dir(&target)
+            })
         };
         outcome.map_err(|source| io_err("remove", rel, source))
     }
