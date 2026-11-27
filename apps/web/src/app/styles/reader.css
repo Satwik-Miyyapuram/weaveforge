@@ -74,6 +74,13 @@
 .pdf-reader-scroll {
   /* The create popover is placed in its content. */
   position: relative;
+  /* Paint containment. Safe here: the scroller already clips, and nothing
+     inside it is position: fixed (the reference popover, focus mode and the
+     measure shell all sit outside it). Lets the compositor stop treating the
+     paper as overlapping the chrome. Dev, reader with 11 pages: 17 -> 13
+     layers, tiles 61 -> 54.5 MB, GPU 92 -> 78 MB. Not on .paper-pdf-pane:
+     there it would trap the fixed reference popover and focus mode. */
+  contain: paint;
   /* dvh, not vh: on mobile the browser's collapsing address bar makes vh taller
      than the visible area, pushing the last of the page under the chrome. */
   overflow: auto; max-height: calc(100dvh - 260px); display: flex; flex-direction: column;
