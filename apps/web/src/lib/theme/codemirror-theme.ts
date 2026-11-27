@@ -60,23 +60,35 @@ const siteChrome: Settings = {
   fontFamily: "var(--font-mono)",
 };
 
-/** Build a CodeMirror theme extension matching the current website theme. */
-export function createCodeMirrorThemeForSite(mode?: ThemeMode): Extension {
-  const resolvedMode =
-    mode ?? (typeof document !== "undefined" && document.documentElement.dataset.mode === "dark"
-      ? "dark"
-      : "light");
-  return createTheme({
-    theme: resolvedMode,
-    settings: siteChrome,
-    styles: markdownSyntaxOverlay,
-  });
+function currentMode(): ThemeMode {
+  return typeof document !== "undefined" && document.documentElement.dataset.mode === "dark" ? "dark" : "light";
 }
 
+// The chrome reads CSS variables, so only the mode changes the extension: one per mode, shared by every editor.
+// A fresh one per editor per switch injected new style modules and forced a full style recalc each time.
+const themeByMode = new Map<ThemeMode, Extension>();
+
+/** Build a CodeMirror theme extension matching the current website theme. */
+export function createCodeMirrorThemeForSite(mode?: ThemeMode): Extension {
+  const resolvedMode = mode ?? currentMode();
+  let ext = themeByMode.get(resolvedMode);
+  if (!ext) {
+    ext = createTheme({ theme: resolvedMode, settings: siteChrome, styles: markdownSyntaxOverlay });
+    themeByMode.set(resolvedMode, ext);
+  }
+  return ext;
+}
+
+/** Calls `onChange` when light/dark flips; a palette change alone is carried by the CSS variables. */
 export function watchSiteTheme(onChange: () => void): () => void {
   if (typeof document === "undefined") return () => undefined;
-  const root = document.documentElement;
-  const obs = new MutationObserver(onChange);
-  obs.observe(root, { attributes: true, attributeFilter: ["data-mode", "data-theme"] });
+  let last = currentMode();
+  const obs = new MutationObserver(() => {
+    const mode = currentMode();
+    if (mode === last) return;
+    last = mode;
+    onChange();
+  });
+  obs.observe(document.documentElement, { attributes: true, attributeFilter: ["data-mode"] });
   return () => obs.disconnect();
 }
