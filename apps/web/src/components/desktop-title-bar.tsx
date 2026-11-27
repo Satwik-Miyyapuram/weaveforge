@@ -17,13 +17,6 @@ import { runEditCommand } from "@/lib/desktop/menu-edit";
 import { showToast } from "@/lib/toast/index";
 
 /**
- * Set on `<html>` before the first paint by the layout's boot script, so the
- * page is laid out under the bar from the start rather than jumping down once
- * this component mounts. `--titlebar-h` in base.css reads it.
- */
-export const TITLE_BAR_BOOT_SCRIPT = `try{var w=window.weaveforge;if(w&&w.platform!=="darwin"&&typeof w.menuModel==="function")document.documentElement.setAttribute("data-titlebar","")}catch(e){}`;
-
-/**
  * The shell's menu shortcuts (Ctrl+,) ask the page through this; see `routeTo`.
  * Same string as `PAGE_COMMAND_EVENT` in apps/shell/src/menu.rs, checked
  * by the shell menu tests.
