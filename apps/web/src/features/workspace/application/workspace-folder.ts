@@ -13,7 +13,7 @@ import {
   IsomorphicWorkspaceGit,
 } from "../infrastructure/parts";
 import { folderLock } from "./folder-lock";
-import { clearPendingAssets, type FileHistorySource, gitFileHistory, shellFileHistory } from "./parts-1";
+import { type FileHistorySource, gitFileHistory, shellFileHistory } from "./parts-1";
 import { type Coalescer, createCoalescer } from "./parts-3";
 import { isNoActiveProject, watchForLoss } from "./parts";
 
@@ -30,8 +30,8 @@ let activeFs: IWorkspaceFs | null = null;
 let activeGit: IWorkspaceGit = new NoOpWorkspaceGit();
 
 /**
- * The open folder's filesystem, for a feature that keeps files beside the
- * mirror rather than in it — the ink sidecar is the one so far. `null` while
+ * The open folder's filesystem, for a feature that reads or writes the folder's
+ * files directly — notes, ink, the trash. `null` while
  * no folder is open, and the caller is expected to have somewhere else to go.
  */
 export function activeWorkspaceFs(): IWorkspaceFs | null {
@@ -127,9 +127,7 @@ function adoptBrowserFolder(fs: BrowserWorkspaceFs, git: boolean): void {
   activeFs = fs;
   activeGit = git ? new IsomorphicWorkspaceGit(fs) : new NoOpWorkspaceGit();
   watchForChanges();
-  // Connecting a folder starts the mirror rather than waiting for the next
-  // write: the workspace is usually not empty, and an empty folder after
-  // connecting reads as a failed connection. See `requestSync`'s own comment.
+  // Connecting a folder runs a sync straight away rather than waiting for the next write.
   requestSync();
   announceConnected();
 }
@@ -214,7 +212,7 @@ export async function missingDesktopFolder(): Promise<string | null> {
 }
 
 /**
- * Disconnect the folder: stop mirroring here, and on the desktop also stop the
+ * Disconnect the folder: stop syncing here, and on the desktop also stop the
  * shell watching and remembering it. The files on disk stay. Answers the
  * shell's warnings.
  */
@@ -238,7 +236,6 @@ export function closeFolder(): void {
   unwatch = null;
   unwatchFolder?.();
   unwatchFolder = null;
-  clearPendingAssets();
 }
 
 /** What one folder sync did: the commit it made, if any, or why it could not. */

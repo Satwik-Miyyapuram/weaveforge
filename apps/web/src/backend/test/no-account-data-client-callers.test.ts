@@ -12,14 +12,10 @@ const src = (rel: string) => readFileSync(fileURLToPath(new URL(`../../${rel}`, 
 
 const NO_ACCOUNT_IMPORT = /import \{ isLocalMode \} from "@\/backend\/providers\/files\/no-account-mode";/;
 
-test("workspace folder sync and import never read or restore account tables on the server (0.9.8)", () => {
-  // Files are the only personal store: the mirror writes no .weaveforge/tables files read from
-  // the server, and Apply restores no rows into it, signed in or not.
+test("workspace folder sync never reads account tables on the server (0.9.8)", () => {
+  // Files are the only personal store: the folder sync reads no account tables from the server.
   const ws = src("features/workspace/application/workspace-folder.ts");
   assert.doesNotMatch(ws, /getDataClient|restTableReader|restTableStore|exportSyncTablesStable|syncTableFolderFiles|liveImportSeams/);
-  assert.match(ws, /return applyFolderImport\(diff, picks\);/);
-  // F97-P2-20: the folder-switch check still runs after the base read, right before the mirror writes.
-  assert.match(ws, /await readMirrorBase\(fs, projectRoot\);[\s\S]*?stillOurs\(\);\s*const mirror = await mirrorWorkspace\(/);
 });
 
 test("zotero collection listing returns no collections in no-account mode, before getDataClient", () => {

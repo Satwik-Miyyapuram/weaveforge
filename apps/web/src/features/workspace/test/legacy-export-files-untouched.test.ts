@@ -53,14 +53,6 @@ test("no production file imports sync-tables or passes extra mirror files", () =
   assert.deepEqual(extra, [], "the mirror has no option for extra files, and no caller passes one");
 });
 
-test("the mirrorWorkspace body itself calls no remove or rename (helpers: see the line scan below)", () => {
-  const mirror = files.find((f) => f.rel === "features/workspace/application/parts-2.ts")!.text;
-  const start = mirror.indexOf("const serialized = await keepClaimedCanvasIds(");
-  assert.ok(start > 0, "mirrorWorkspace body found");
-  const body = mirror.slice(start, mirror.indexOf("\n}\n", start));
-  assert.doesNotMatch(body, /\.remove\(|\.rename\(|unlink/);
-});
-
 test("no production line that removes, renames or trashes names the meta folder or a 0.9.7 export file", () => {
   const write = /\.(remove|rename|trash|unlink|rmdir|rm)\w*\(/;
   const legacy = /META_DIR|\.weaveforge|restore-pending|migration-0\.9\.7|weaveforge\/tables/;

@@ -10,8 +10,6 @@ import {
   DesktopWorkspaceFs,
   type VaultFileBridge,
 } from "../infrastructure/parts";
-import { followProjectRename } from "../application/parts-3";
-import { typedCore } from "@/lib/rust-core";
 
 before(async () => {
   await loadTestCore();
@@ -178,22 +176,4 @@ test("a stat the desktop cannot answer is an error, not a missing file (29-04)",
     },
   });
   await assert.rejects(() => fs.stat("notes"), (error) => error === failure);
-});
-
-test("a failed stat does not let a rename follow-up delete the project's folder (29-04)", async () => {
-  const memory = new MemoryWorkspaceFs();
-  const project = { id: "8d731734-bdcd-4f08-b648-efd15fdf75da", name: "MSc Thesis" };
-  const root = typedCore().projectDir(project);
-  await memory.writeFile(`${root}/notes/a.md`, "keep me");
-  const fs = new DesktopWorkspaceFs({
-    ...bridgeOver(memory),
-    async statVaultFile() {
-      throw new Error("No workspace folder is open.");
-    },
-  });
-
-  // Read as "absent", the root would match its own id suffix and be moved onto
-  // itself and then removed.
-  await assert.rejects(() => followProjectRename(fs, project));
-  assert.equal(await memory.readText(`${root}/notes/a.md`), "keep me");
 });

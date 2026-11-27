@@ -5,7 +5,6 @@ import { MemoryWorkspaceFs } from "@core-test/memory-workspace-fs";
 import type { RustCore } from "@/lib/rust-core";
 import { loadTestCore } from "@/lib/test/load-test-core";
 
-import { moveInkStrokes } from "../application/parts-1";
 import { folderTrash, trashNoteFiles } from "../application/trash-note-files";
 
 // `x/foo.md` and a legacy `x/foo.ink.md` both keep their strokes in `x/foo.ink`.
@@ -30,7 +29,7 @@ async function twoNotesOneFolder() {
   await fs.writeFile(plain, "Plain.");
   await fs.writeFile(legacy, "Legacy.");
   await fs.writeFile(page, PAGE);
-  return { fs, root, plain, legacy, page };
+  return { fs, plain, legacy, page };
 }
 
 test("the shared folder names the other note", () => {
@@ -56,14 +55,4 @@ test("deleting the last note of a shared name still trashes the folder", async (
   await trashNoteFiles(fs, plain, folderTrash(fs, Date.parse(AT)));
 
   assert.equal(fs.toRecord()[page], undefined, "the ink page went to the trash");
-});
-
-test("renaming one of two notes that share a strokes folder moves no page", async () => {
-  const { fs, root, plain, page } = await twoNotesOneFolder();
-  const to = `${root}/notes/bar.md`;
-
-  await moveInkStrokes(fs, plain, to);
-
-  assert.ok(fs.toRecord()[page], "the page stays for the other note");
-  assert.equal(await fs.stat(core.inkStrokesDir(to)), null, "nothing copied to the new name");
 });

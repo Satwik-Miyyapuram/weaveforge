@@ -6,257 +6,8 @@ import {
   type DesktopVaultSync,
   type DesktopVaultSyncAction,
 } from "@/lib/desktop/desktop-bridge";
-import { loadCore, readyCore, type RustCore, typedCore } from "@/lib/rust-core";
+import { loadCore, readyCore, typedCore } from "@/lib/rust-core";
 import { folderLock } from "./folder-lock";
-import { moveInkStrokes } from "./parts-1";
-import { keepMirrorBases, readPulledDeletes, writePulledDeletes, writeTextAtomic } from "./parts-3";
-import { activeWorkspaceFs } from "./workspace-folder";
-import {
-  type IWorkspaceFs,
-  type MirrorResult,
-  type WorkspaceProject,
-  type WorkspaceSnapshot,
-  type WorkspaceStat,
-} from "@weaveforge/core";
-
-// --- folder-mirror ---
-/** A mirror run's result, plus the record of path -> DB digest that the next run in this session compares against. */
-export type WebMirrorResult = MirrorResult & { readonly served: Readonly<Record<string, string>> };
-
-/**
- * Keeping the folder in step with the database, with the decisions made in Rust.
- *
- * The mirror is one-way and best-effort: the database is the source of truth and the
- * folder a projection of it. WASM cannot await the folder's file system, so this reads
- * the text the plan needs, lets Rust `planMirror` decide what to write, hold and remove,
- * and then applies that plan here, assets included (fetching them is async too).
- */
-/** The folder that holds `path`, or "" for a root-level file such as README.md. */
-function parentDir(path: string): string {
-  return path.split("/").slice(0, -1).join("/");
-}
-
-function parseIdMap(text: string): Record<string, string> | null {
-  try {
-    const value: unknown = JSON.parse(text);
-    return value !== null && typeof value === "object" ? (value as Record<string, string>) : null;
-  } catch {
-    return null;
-  }
-}
-
-/**
- * The Rust mirror writes the canvas id map from canonical paths only, so a canvas claimed at
- * a non-canonical path (`My Plan (v2).canvas`) would lose its id, and its next edit would
- * re-import as a new page. Keep each claim whose file is still in the folder and whose page still exists.
- */
-async function keepClaimedCanvasIds(
-  fs: IWorkspaceFs,
-  core: RustCore,
-  snapshot: WorkspaceSnapshot,
-  project: WorkspaceProject,
-  serialized: ReturnType<RustCore["serializeWorkspace"]>,
-): Promise<ReturnType<RustCore["serializeWorkspace"]>> {
-  const mapPath = Object.keys(serialized.files).find((path) => path.endsWith("/canvas-ids.json"));
-  if (mapPath === undefined) return serialized;
-  const claimed = parseIdMap(await fs.readText(mapPath).catch(() => "") ?? "");
-  if (claimed === null) return serialized;
-  const fresh = parseIdMap(serialized.files[mapPath] ?? "") ?? {};
-  const live = new Set(snapshot.vaultPages.filter((page) => page.kind === "canvas").map((page) => page.id));
-  const root = core.projectDir(project);
-  const mapped = new Set(Object.values(fresh));
-  const kept: Record<string, string> = {};
-  for (const [rel, id] of Object.entries(claimed)) {
-    // One path per page id: once the mirror maps the page itself, a stale claimed file must not import over it.
-    if (Object.hasOwn(fresh, rel) || mapped.has(id) || !live.has(id)) continue;
-    if (!(await fs.stat(`${root}/${rel}`).catch(() => null))) continue;
-    kept[rel] = id;
-  }
-  if (Object.keys(kept).length === 0) return serialized;
-  const merged = Object.fromEntries(
-    Object.entries({ ...fresh, ...kept }).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)),
-  );
-  return {
-    ...serialized,
-    files: { ...serialized.files, [mapPath]: `${JSON.stringify(merged, null, 2)}\n` },
-  };
-}
-
-/**
- * A note this session wrote whose title changed: the old file still holds the app's bytes,
- * so it is renamed to the new path (never removed) and its strokes folder moves with it.
- * Anything the reader touched, or a new path already on disk, is left as it is.
- */
-async function followRenamedNotes(
-  core: RustCore,
-  fs: IWorkspaceFs,
-  files: Readonly<Record<string, string>>,
-  seen: Readonly<Record<string, string>> | undefined,
-  base: Readonly<Record<string, string>> | undefined,
-) {
-  const retry: Record<string, { to: string; digest: string; written: string }> = {};
-  if (!seen || !base) return { seen, base, retry };
-  const idOf = (text: string) => {
-    try {
-      const id = core.readFrontmatter(text).frontmatter["weaveforge-id"];
-      return typeof id === "string" && id ? id : null;
-    } catch {
-      return null;
-    }
-  };
-  const newPathOf = new Map<string, string>();
-  for (const [path, text] of Object.entries(files)) {
-    if (!path.endsWith(".md") || Object.hasOwn(seen, path)) continue;
-    const id = idOf(text);
-    if (id) newPathOf.set(id, path);
-  }
-  const nextSeen: Record<string, string> = { ...seen };
-  const nextBase: Record<string, string> = { ...base };
-  for (const [old, digest] of Object.entries(seen)) {
-    const written = base[old];
-    if (!old.endsWith(".md") || Object.hasOwn(files, old) || written === undefined) continue;
-    const text = await fs.readText(old).catch(() => null);
-    if (text === null || core.digestText(text) !== written) continue;
-    const id = idOf(text);
-    const to = id ? newPathOf.get(id) : undefined;
-    // A case-only rename is left for 0.9.6: on a case-insensitive disk both names are one file.
-    if (!to || to.toLowerCase() === old.toLowerCase() || (await fs.stat(to).catch(() => null))) continue;
-    try {
-      await moveInkStrokes(fs, old, to);
-      await fs.rename(old, to);
-    } catch {
-      // The old file stays and the new path is not written, so no twin; the next run tries again.
-      retry[old] = { to, digest, written };
-      continue;
-    }
-    nextSeen[to] = digest;
-    nextBase[to] = written;
-  }
-  return { seen: nextSeen, base: nextBase, retry };
-}
-
-/**
- * Write a snapshot to the folder. Sync never removes a file. An existing file is rewritten
- * only when its item changed in the app during this session (`seen` is the record of what
- * this session last mirrored); unchanged files are kept byte-for-byte, and a file the
- * reader edited since the last run is held back.
- */
-export async function mirrorWorkspace(
-  core: RustCore,
-  snapshot: WorkspaceSnapshot,
-  fs: IWorkspaceFs,
-  options: {
-    /** The project this snapshot belongs to; every path is inside its folder. */
-    project: WorkspaceProject;
-    /**
-     * path -> digest of the DB content as this session last mirrored it. Absent on the first
-     * run after start, after a DB replace, and after an import: nothing existing is rewritten then.
-     */
-    seen?: Readonly<Record<string, string>>;
-    /** The digest of each path the last run wrote, from the project's manifest. */
-    base?: Readonly<Record<string, string>>;
-    /** Fetch a blob for an asset the folder references. */
-    fetchAsset?(storagePath: string): Promise<Uint8Array | null>;
-  },
-): Promise<WebMirrorResult> {
-  const serialized = await keepClaimedCanvasIds(
-    fs,
-    core,
-    snapshot,
-    options.project,
-    core.serializeWorkspace(snapshot, options.project),
-  );
-  const { base } = options;
-  // A mirrored file a pull removed stays out until the reader settles it in the review.
-  const pulledDeletes = await readPulledDeletes(fs);
-  const held: string[] = [];
-  for (const path of pulledDeletes) {
-    if (!Object.hasOwn(serialized.files, path) || (await fs.stat(path).catch(() => null))) continue;
-    held.push(path);
-  }
-  const unheld = Object.fromEntries(Object.entries(serialized.files).filter(([path]) => !held.includes(path)));
-  const { assets } = serialized;
-  // A note renamed in the app: its file and strokes follow the new name, so no same-id twin is left.
-  const { seen, base: renamedBase, retry } = await followRenamedNotes(core, fs, unheld, options.seen, base);
-  const waiting = new Set(Object.values(retry).map(({ to }) => to));
-  const files = Object.fromEntries(Object.entries(unheld).filter(([path]) => !waiting.has(path)));
-
-  // The plan reads every file it may write, and nothing else. There are no removals to read for.
-  // No prototype, so a path can never collide with an inherited key.
-  const disk: Record<string, string> = Object.create(null);
-  for (const path of Object.keys(files)) {
-    const text = await fs.readText(path).catch(() => null);
-    if (text !== null) disk[path] = text;
-  }
-
-  const plan = core.planMirror({ ...serialized, files }, seen, renamedBase, disk);
-
-  const written: string[] = [];
-  const changedSincePlan: string[] = [];
-  for (const path of plan.written) {
-    // The plan read the folder before this write. A file that changed since then (a reader,
-    // a pull, another app) is not overwritten; the next run decides from what is on disk now.
-    const now = await fs.readText(path).catch(() => null);
-    if (now !== (disk[path] ?? null)) {
-      changedSincePlan.push(path);
-      continue;
-    }
-    const dir = parentDir(path);
-    if (dir) await fs.mkdirp(dir);
-    // The canvas id map is read on every import; a torn write would hold every canvas.
-    if (path.endsWith("/canvas-ids.json")) await writeTextAtomic(fs, path, files[path] ?? "");
-    else await fs.writeFile(path, files[path] ?? "");
-    written.push(path);
-  }
-
-  let unchanged = plan.unchanged;
-  if (options.fetchAsset) {
-    for (const asset of assets) {
-      // Assets are immutable once written: the storage path holds a uuid, so an existing
-      // path is the same file and re-fetching it would be a download for nothing.
-      if (await fs.stat(asset.folderPath).catch(() => null)) {
-        unchanged += 1;
-        continue;
-      }
-      const bytes = await options.fetchAsset(asset.storagePath);
-      if (!bytes) continue;
-      const dir = parentDir(asset.folderPath);
-      if (dir) await fs.mkdirp(dir);
-      await fs.writeFile(asset.folderPath, bytes);
-      written.push(asset.folderPath);
-    }
-  }
-
-  // This project's entries not held this run were settled: put back, or deleted in the app.
-  const root = core.projectDir(options.project);
-  const stillPulled = [...pulledDeletes].filter((path) => held.includes(path) || !path.startsWith(`${root}/`));
-  await writePulledDeletes(fs, new Set(stillPulled));
-
-  // A held path keeps its base, so the folder watcher reads it as removed and the review offers it.
-  const mirrored: Record<string, string> = Object.fromEntries(plan.mirrored);
-  for (const path of held) mirrored[path] = base?.[path] ?? "";
-  // A file that changed since the plan was not written: it keeps its last base, so the next run compares it again.
-  for (const path of changedSincePlan) {
-    if (base?.[path] === undefined) delete mirrored[path];
-    else mirrored[path] = base[path];
-  }
-  // A rename that failed keeps its old path in both records, so the next run sees it and tries again.
-  const served: Record<string, string> = Object.fromEntries(plan.served);
-  for (const [old, { digest, written: last }] of Object.entries(retry)) {
-    served[old] = digest;
-    mirrored[old] = last;
-  }
-  return {
-    written,
-    removed: plan.removed,
-    unchanged,
-    heldBack: [...plan.heldBack, ...held],
-    mirrored,
-    bases: Object.fromEntries(plan.bases),
-    // The record the next run in this session compares against: every path and its DB digest.
-    served,
-  };
-}
 
 // --- import-limits ---
 /**
@@ -396,97 +147,8 @@ export function stripArchiveRoot(entries: readonly ArchiveEntry[]): ArchiveEntry
   return entries.map((entry, index) => ({ ...entry, path: paths[index]! }));
 }
 
-// --- folder-preview-read ---
-/** What a folder preview reads: notes, the project's data files and the shared assets. */
-export interface PreviewFolderRead {
-  files: Record<string, string>;
-  jsonFiles: Record<string, string>;
-  assets: Map<string, Uint8Array>;
-  /** Assets left out for their size. */
-  skipped: SkippedFile[];
-}
-
-/** The files a preview looks at, without descending into folders it would ignore. */
-async function* previewEntries(
-  core: RustCore,
-  fs: IWorkspaceFs,
-  projectRoot: string,
-  hasProjectDir: boolean,
-): AsyncIterable<WorkspaceStat> {
-  for (const top of await fs.list("")) {
-    if (top.kind === "file") {
-      if (!hasProjectDir) yield top;
-    } else if (core.readsFolder(top.path, projectRoot, hasProjectDir)) {
-      yield* fs.walk(top.path);
-    }
-  }
-}
-
-/**
- * Read the connected folder for an import preview.
- *
- * A project folder reads its own notes and data files; a legacy flat folder
- * (no project folder yet) reads its top level. Both read the shared assets.
- * An asset over the file cap is skipped on its listed size, before its bytes
- * are read, and the assets together may not pass the total cap.
- *
- * With `only`, a note or data file is read only when listed there, and an
- * asset only when listed or named in a note that was read: an auto-apply
- * looks at what changed, not the whole folder.
- */
-export async function readPreviewFolder(
-  fs: IWorkspaceFs,
-  projectRoot: string,
-  hasProjectDir: boolean,
-  only?: ReadonlySet<string>,
-): Promise<PreviewFolderRead> {
-  const core = await loadCore();
-  const listed: WorkspaceStat[] = [];
-  for await (const entry of previewEntries(core, fs, projectRoot, hasProjectDir)) listed.push(entry);
-
-  // The rules (what to read, which assets a note names, the caps) are Rust's; this reads what it says.
-  const onlyPaths = only ? [...only] : undefined;
-  const reads = core.planPreviewReads(
-    listed.map((entry) => ({ path: entry.path, size: entry.size })),
-    projectRoot,
-    hasProjectDir,
-    onlyPaths,
-  );
-  const files: Record<string, string> = {};
-  for (const path of reads.notes) files[path] = await fs.readText(path);
-  const jsonFiles: Record<string, string> = {};
-  for (const path of reads.json) jsonFiles[path] = await fs.readText(path);
-
-  const picks = core.planAssetReads(reads.assets, onlyPaths, only ? Object.values(files) : [], IMPORT_LIMITS);
-  const assets = new Map<string, Uint8Array>();
-  const skipped: SkippedFile[] = [];
-  let assetBytes = 0;
-  for (const pick of picks) {
-    if (pick.action === "too-big") {
-      skipped.push({ path: pick.path, reason: SKIP_TOO_BIG });
-      continue;
-    }
-    const bytes = await fs.readFile(pick.path);
-    let admit;
-    try {
-      admit = core.admitAssetBytes(assetBytes, bytes.byteLength, IMPORT_LIMITS);
-    } catch (error) {
-      throw asImportLimitError(error);
-    }
-    assetBytes = admit.total;
-    if (!admit.keep) {
-      skipped.push({ path: pick.path, reason: SKIP_TOO_BIG });
-      continue;
-    }
-    assets.set(pick.path, bytes);
-  }
-
-  return { files, jsonFiles, assets, skipped };
-}
-
 // --- folder-remote-sync ---
 // checkGitRemoteUrl stays TS: it wraps the browser's URL parser, which WASM would duplicate.
-
 
 /**
  * Pushing and pulling the workspace folder to a git remote (Settings → Workspace folder).
@@ -567,16 +229,6 @@ export function onGithubReauth(listener: () => void): () => void {
 /** Actions that can move the folder's tree: a pull and each conflict choice. */
 const MOVES_TREE: ReadonlySet<DesktopVaultSyncAction> = new Set(["pull", "keep-mine", "take-remote", "keep-both"]);
 
-/** Whether a reply says the tree moved, so this machine's manifests go back in. */
-const treeMoved = (reply: DesktopVaultSync) => reply.pull?.kind === "fast-forward" || reply.pull?.kind === "merged";
-
-/** One action, for a caller already holding the folder lock. */
-function remoteAction(bridge: Required<Pick<DesktopBridge, "vaultSync">>, action: DesktopVaultSyncAction) {
-  const fs = MOVES_TREE.has(action) ? activeWorkspaceFs() : null;
-  if (!fs) return bridge.vaultSync(action);
-  return keepMirrorBases(fs, () => bridge.vaultSync(action), treeMoved);
-}
-
 /**
  * Runs one remote step. When it fails, re-reads the settings: if the shell
  * marked the GitHub token as refused, every `onGithubReauth` listener hears
@@ -597,15 +249,15 @@ async function reportingReauth<T>(
 
 /**
  * Run one action on the remote. Those that touch the folder (a pull, a push,
- * a conflict choice) wait for the folder lock, so a mirror run is never
- * writing the files git is moving. Reading the settings or the status does not.
+ * a conflict choice) wait for the folder lock, so two of them never move the
+ * folder at once. Reading the settings or the status does not.
  */
 export async function folderRemoteSync(action: DesktopVaultSyncAction): Promise<DesktopVaultSync> {
   const bridge = shell();
   if (!bridge) throw new Error(NO_SHELL);
   return reportingReauth(bridge, () =>
     MOVES_TREE.has(action) || action === "push"
-      ? folderLock.run(() => remoteAction(bridge, action))
+      ? folderLock.run(() => bridge.vaultSync(action))
       : bridge.vaultSync(action),
   );
 }
@@ -674,16 +326,16 @@ export async function cancelGithubConnect(): Promise<void> {
 /**
  * After a rejected push: pull, then push again, in one go. Stops after the
  * pull when it hits a conflict, so nothing is pushed until that is settled.
- * Holds the folder lock across both, so no mirror run lands between them.
+ * Holds the folder lock across both, so two of them never move the folder at once.
  */
 export async function pullThenPush(): Promise<{ pulled: DesktopVaultSync; pushed: DesktopVaultSync | null }> {
   const bridge = shell();
   if (!bridge) throw new Error(NO_SHELL);
   return reportingReauth(bridge, () =>
     folderLock.run(async () => {
-      const pulled = await remoteAction(bridge, "pull");
+      const pulled = await bridge.vaultSync("pull");
       if (pulled.pull?.kind === "conflict") return { pulled, pushed: null };
-      return { pulled, pushed: await remoteAction(bridge, "push") };
+      return { pulled, pushed: await bridge.vaultSync("push") };
     }),
   );
 }
