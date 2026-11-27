@@ -9,6 +9,7 @@ import { idle } from "./pdf-page-window";
 import { useContainerSize } from "./container-resize";
 import { canvasSize } from "./canvas-size";
 import { holdPageProxy } from "./page-proxy";
+import { loadPdfium, openPdfiumDocument, paintPdfiumPage, readPdfEngine, type PdfiumDocument } from "./pdfium-raster";
 
 import { getContainer } from "@/bootstrap";
 import { readyCore } from "@/lib/rust-core";
@@ -154,6 +155,8 @@ export function usePdfRendering({
   const evicted = useRef(new Map<number, number>());
   const pageProxies = useRef(new Map<number, Awaited<ReturnType<PdfDocument["getPage"]>>>());
   const scratchCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  // Resolves to the PDFium copy of `pdf` under `wf:pdfEngine=pdfium`, else null (pdf.js paints).
+  const pdfiumReady = useRef<Promise<PdfiumDocument | null>>(Promise.resolve(null));
   const scratchQueue = useRef<Promise<void>>(Promise.resolve());
   const renderGeneration = useRef(0);
 
@@ -497,6 +500,21 @@ useEffect(() => {
   clearHighlights();
 }, [scale, rotation, clearHighlights, cancelRenderTasks]);
 
+useEffect(() => {
+  if (!pdf || readPdfEngine() !== "pdfium") return;
+  const ready = Promise.all([loadPdfium(), pdf.getData()])
+    .then(([m, bytes]) => openPdfiumDocument(m, bytes))
+    .catch((err: unknown) => {
+      console.warn("[pdfium] falling back to pdf.js", err);
+      return null;
+    });
+  pdfiumReady.current = ready;
+  return () => {
+    pdfiumReady.current = Promise.resolve(null);
+    void ready.then((doc) => doc?.close());
+  };
+}, [pdf]);
+
   const evictPage = useCallback((pageNumber: number) => {
     const task = renderTasks.current.get(pageNumber);
     if (task) {
@@ -565,6 +583,10 @@ useEffect(() => {
           if (!host) return;
           const pdfPage = await holdPageProxy(pageProxies.current, pageNumber, () => pdf.getPage(pageNumber), isStale);
           if (!pdfPage) return;
+          const pdfium = await pdfiumReady.current;
+          if (isStale()) return;
+          // pdf.js `rotation` replaces the page's /Rotate; PDFium adds to it.
+          const pdfiumDegrees = rotation - pdfPage.rotate;
           const viewport = pdfPage.getViewport({ scale, rotation });
           const canvas = host.querySelector("canvas");
           if (!(canvas instanceof HTMLCanvasElement)) return;
@@ -585,13 +607,17 @@ useEffect(() => {
             pageBox.style.height = `${size.cssHeight}px`;
             ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
             const renderStart = perfStart();
-            const renderTask = pdfPage.render({ canvasContext: ctx, viewport });
-            renderTasks.current.set(pageNumber, renderTask);
-            try {
-              await renderTask.promise;
-            } finally {
-              if (renderTasks.current.get(pageNumber) === renderTask) {
-                renderTasks.current.delete(pageNumber);
+            if (pdfium) {
+              paintPdfiumPage(pdfium, ctx, pageNumber - 1, size.pixelWidth, size.pixelHeight, pdfiumDegrees);
+            } else {
+              const renderTask = pdfPage.render({ canvasContext: ctx, viewport });
+              renderTasks.current.set(pageNumber, renderTask);
+              try {
+                await renderTask.promise;
+              } finally {
+                if (renderTasks.current.get(pageNumber) === renderTask) {
+                  renderTasks.current.delete(pageNumber);
+                }
               }
             }
             if (isStale()) return;
@@ -617,13 +643,17 @@ useEffect(() => {
               if (!scratchCtx) return;
               scratchCtx.setTransform(ratio, 0, 0, ratio, 0, 0);
               const renderStart = perfStart();
-              const renderTask = pdfPage.render({ canvasContext: scratchCtx, viewport });
-              renderTasks.current.set(pageNumber, renderTask);
-              try {
-                await renderTask.promise;
-              } finally {
-                if (renderTasks.current.get(pageNumber) === renderTask) {
-                  renderTasks.current.delete(pageNumber);
+              if (pdfium) {
+                paintPdfiumPage(pdfium, scratchCtx, pageNumber - 1, size.pixelWidth, size.pixelHeight, pdfiumDegrees);
+              } else {
+                const renderTask = pdfPage.render({ canvasContext: scratchCtx, viewport });
+                renderTasks.current.set(pageNumber, renderTask);
+                try {
+                  await renderTask.promise;
+                } finally {
+                  if (renderTasks.current.get(pageNumber) === renderTask) {
+                    renderTasks.current.delete(pageNumber);
+                  }
                 }
               }
               if (isStale()) return;
