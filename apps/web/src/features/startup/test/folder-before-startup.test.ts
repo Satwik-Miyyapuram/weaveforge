@@ -42,3 +42,11 @@ test("startup loads the settings file before reading it", () => {
   assert.ok(load > -1, "startup must await workspaceSettings.load()");
   assert.ok(wait < load && load < settings, "folder, then settings load, then the settings read");
 });
+
+test("the project list waits for the folder", () => {
+  const src = read("apps/web/src/features/projects/ui/project-provider.tsx");
+  const wait = src.indexOf("await folderRestored()");
+  const list = src.indexOf("listProjects()");
+  assert.ok(wait > -1, "the project list must await folderRestored()");
+  assert.ok(wait < list, "await folderRestored() must come before listProjects()");
+});

@@ -14,6 +14,7 @@ import type { AppContainer } from "@/bootstrap";
 import { setContainerForTests } from "@/bootstrap";
 import { renderHook } from "@/lib/test/react-harness";
 import { ProjectProvider, useProject } from "../ui/project-provider";
+import { markFolderRestored } from "@/features/workspace/application/workspace-folder";
 
 const P1 = { id: "p1", name: "Thesis" };
 
@@ -46,6 +47,8 @@ function fakeContainer(watched: (string | null)[]) {
 /** The project ids a child's effects saw, in order. */
 async function effectsSeen(items: Record<string, string>) {
   const restore = withDesktop(items);
+  // On desktop the launch restore settles the folder wait; the live list waits for it.
+  markFolderRestored();
   const watched: (string | null)[] = [];
   const container = fakeContainer(watched);
   setContainerForTests(container);

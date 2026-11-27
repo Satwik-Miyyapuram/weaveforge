@@ -11,6 +11,7 @@ import {
 } from "react";
 import type { Project } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
+import { folderRestored } from "@/features/workspace/application/workspace-folder";
 import { readDeviceSnapshot, writeDeviceSnapshot } from "@/lib/cache/parts";
 import { clearAllScreenCaches } from "@/lib/cache/parts-2";
 import { logToApp } from "@/lib/error-report/app-log";
@@ -120,6 +121,9 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const refresh = useCallback(async () => {
+    // Files mode lists the projects from the workspace folder, so wait for the
+    // remembered one. At once in a browser; capped on desktop.
+    await folderRestored();
     const list = await getContainer().projects.listProjects();
     setProjects(list);
     writeDeviceSnapshot(SNAPSHOT, list);
