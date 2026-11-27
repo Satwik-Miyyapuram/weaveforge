@@ -83,7 +83,7 @@ Source: `crates/wf-core/src/overleaf/`
 | --- | --- | --- | --- |
 | `export_package` | `build_export_package` | `buildOverleafExportFiles` | `apps/web/src/features/overleaf/application/parts.ts` |
 | `path_guard` | `unsafe_checkout_path_error`, `is_text_source_file`, `file_count_error`, `text_size_error` | `assertSafeCheckoutPath`, `isOverleafTextSource`, `assertOverleafFileCount`, `assertOverleafTextSize` | — |
-| `report_statements` | `create_report_statement`, `patch_report_statement` | `planOverleafReportCreate`, `planOverleafReportPatch` | `apps/web/src/features/overleaf/infrastructure/local-overleaf-gateway.ts` |
+| `report_statements` | `create_report_statement`, `patch_report_statement` | `planOverleafReportCreate`, `planOverleafReportPatch` | — |
 
 Rules:
 
