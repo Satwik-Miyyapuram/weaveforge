@@ -52,8 +52,19 @@ export function hasBadDate(milestone: Milestone): boolean {
   return milestone.targetDate !== undefined && !readyCore().isIsoDay(milestone.targetDate);
 }
 
-function asList<T>(value: unknown): T[] {
-  return Array.isArray(value) ? (value as T[]) : [];
+/** List items that are objects. The frontmatter writer stores an object item as JSON text, so text items are parsed; anything else is dropped. */
+function asObjects<T>(value: unknown): T[] {
+  const items: unknown[] = Array.isArray(value) ? value : [];
+  return items.flatMap((item) => {
+    if (typeof item === "string") {
+      try {
+        item = JSON.parse(item);
+      } catch {
+        return [];
+      }
+    }
+    return item !== null && typeof item === "object" && !Array.isArray(item) ? [item as T] : [];
+  });
 }
 
 function parse(path: string, text: string): Found | null {
@@ -68,8 +79,8 @@ function parse(path: string, text: string): Found | null {
     id,
     title: field("title") ?? id,
     status: status && STATUSES.includes(status) ? status : "planned",
-    dependencies: asList(frontmatter.dependencies),
-    compute: asList(frontmatter.compute),
+    dependencies: asObjects(frontmatter.dependencies),
+    compute: asObjects(frontmatter.compute),
     createdAt: field("created-at") ?? "",
   };
   if (description) milestone.description = description;

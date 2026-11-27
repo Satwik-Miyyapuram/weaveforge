@@ -44,6 +44,28 @@ test("a saved milestone reads back unchanged", async () => {
   assert.deepEqual(await repo.list(), [saved]);
 });
 
+test("dependencies and compute needs read back as objects, not JSON text", async () => {
+  const { repo } = setup();
+  const saved = milestone({
+    dependencies: [
+      { kind: "paper", label: "On-Policy Distillation: \"quotes\", commas", refId: "edd3050c" },
+      { kind: "external", label: "Cluster account" },
+    ],
+    compute: [{ resource: "A100", count: 4, hours: 200 }],
+  });
+  await repo.save(saved);
+  assert.deepEqual(await repo.getById("ms-1"), saved);
+});
+
+test("a list item that is not a JSON object is dropped, not passed on as text", async () => {
+  const { fs, repo } = setup();
+  await repo.save(milestone());
+  const [path] = await files(fs);
+  const text = (await fs.readText(path ?? "")) ?? "";
+  await fs.writeFile(path ?? "", text.replace("---\n", '---\ndependencies: [not json, "{\\"kind\\":\\"external\\",\\"label\\":\\"Ok\\"}"]\n'));
+  assert.deepEqual((await repo.getById("ms-1"))?.dependencies, [{ kind: "external", label: "Ok" }]);
+});
+
 test("milestone_change_publishes_feed: every save and delete publishes the whole feed", async () => {
   const { repo, published } = setup();
   await repo.save(milestone());
