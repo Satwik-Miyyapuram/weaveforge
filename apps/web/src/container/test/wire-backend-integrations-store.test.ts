@@ -9,7 +9,7 @@ import { after, before, test } from "node:test";
 import { MemoryWorkspaceFs } from "@core-test/memory-workspace-fs";
 import type { BackendConfig } from "@/backend/parts";
 import { FileIntegrationsStore } from "@/backend/providers/files/file-settings-repos";
-import { setLocalMode } from "@/features/auth/infrastructure/no-account-mode";
+import { setLocalMode } from "@/backend/providers/files/no-account-mode";
 import type { VaultFileBridge } from "@/features/workspace/infrastructure/parts";
 import { loadTestCore } from "@/lib/test/load-test-core";
 import { wireBrowserFiles } from "../browser-file-backend";
