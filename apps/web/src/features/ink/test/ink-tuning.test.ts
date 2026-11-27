@@ -24,7 +24,7 @@ test("nothing stored gives the defaults", () => {
 test("the shipped defaults keep today's behaviour, with the wet layer raised", () => {
   assert.equal(DEFAULT_INK_TUNING.wetLayerAboveSvg, true);
   assert.equal(DEFAULT_INK_TUNING.presenterTimeoutMs, 500);
-  assert.equal(DEFAULT_INK_TUNING.delegateNavigatorInk, true);
+  assert.equal(DEFAULT_INK_TUNING.delegateNavigatorInk, false);
   assert.equal(DEFAULT_INK_TUNING.prediction, true);
   assert.equal(DEFAULT_INK_TUNING.holdToShapeMs, 0);
 });

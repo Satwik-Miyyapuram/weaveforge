@@ -29,7 +29,10 @@ export interface InkTuning {
   wetLayerAboveSvg: boolean;
   /** How long a stroke waits for the OS ink presenter before drawing itself. */
   presenterTimeoutMs: number;
-  /** Ask for `navigator.ink` at all. */
+  /**
+   * Ask for `navigator.ink` at all. Off by default: with a real pen in the
+   * desktop WebView the presenter path left the stroke unseen until lift (B3).
+   */
   delegateNavigatorInk: boolean;
   /** Wet-layer device pixel ratio; 0 means the device's. */
   wetDpr: number;
@@ -57,7 +60,7 @@ export interface InkTuning {
 export const DEFAULT_INK_TUNING: Readonly<InkTuning> = Object.freeze({
   wetLayerAboveSvg: true,
   presenterTimeoutMs: 500,
-  delegateNavigatorInk: true,
+  delegateNavigatorInk: false,
   wetDpr: 0,
   thinning: 0.6,
   smoothing: 0.5,
