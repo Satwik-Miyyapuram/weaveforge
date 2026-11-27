@@ -1423,6 +1423,13 @@
   list-style: none;
 }
 
+/* An empty query lists every document. Rows off the end of the scroller skip
+   layout and paint; `auto` remembers each row's measured height. */
+.quick-open-group-rows > li {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 30px;
+}
+
 /* The characters the scorer matched. `matched` has been computed since the
    palette shipped and was never rendered; this is what makes a fuzzy match
    legible rather than mystifying. */

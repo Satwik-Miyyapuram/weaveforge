@@ -37,6 +37,7 @@ export function QuickOpenDialog({
   const results = useMemo(() => quickOpenResults(documents, query), [documents, query]);
   // The arrows walk the rows as painted (grouped), not in score order.
   const painted = useMemo(() => paintedOrder(results), [results]);
+  const paintedIndex = useMemo(() => new Map(painted.map((hit, i) => [hit.node.key, i])), [painted]);
   const active = Math.min(cursor, Math.max(results.length - 1, 0));
 
   return (
@@ -85,7 +86,7 @@ export function QuickOpenDialog({
                 {group.results.map((result) => {
                   // Matched by key: the wasm grouping hands back copies, so
                   // object identity would never find the row.
-                  const index = painted.findIndex((hit) => hit.node.key === result.node.key);
+                  const index = paintedIndex.get(result.node.key) ?? -1;
                   return (
                     <li key={result.node.key} role="presentation">
                       <OptionButton selected={index === active}
