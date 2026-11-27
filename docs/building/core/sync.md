@@ -11,11 +11,6 @@ results in.
 
 ## What lives in Rust
 
-- `conflict_route.rs`: picks the route for an outbox operation that the server
-  refused as stale, from the server's answer.
-- `conflict_settle.rs`: decides how an open conflict settles when the server's
-  row arrives.
-- `conflict_resolve.rs`: the row or action that a reader's choice produces.
 - `folder_merge.rs`: settles a file that both sides changed, and counts the
   import preview.
 - `folder_mirror.rs`: the mirror manifest. `jsonEditSince` tells whether a JSON
@@ -27,7 +22,6 @@ results in.
   TypeScript folder names in `packages/core/src/workspace/parts-1.ts` stay
   in `packages/core`: that package has no wasm dependency, and the names are read
   when the workspace is loaded.
-- `preview_folder.rs`: `readsFolder` decides which top-level folders a folder import preview reads (git, the project's own folder, the shared assets, and the legacy flat-folder rule).
 - `snapshot_delta.rs`: `planDelta` compares a remote snapshot with the held
   state, and `applyDelta` applies the plan.
 - `change_origin.rs`: `digestText`, the hash used to detect changes.
@@ -57,15 +51,6 @@ results in.
 - `pglite_sql.rs`: SQL-text helpers for the PGlite test harness. No shipped app runs PGlite from 0.9.8.
 - `workspace_snapshot.rs`: the snapshot types and counts that the serializer
   reads.
-- `sync_phase.rs`: `initialPhase`, `afterCycle`, `afterFailure` and `isCaughtUp`
-  decide the sync-loop phase (idle, offline, error) after each cycle. The timers
-  and the store stay in `apps/web/src/features/offline-sync/ui/sync-loop.tsx`.
-- `conflict_attention.rs`: `countOpen` counts the conflicts that need a person,
-  and `keepAllPicks` builds the picks for "keep all mine or theirs".
-- `adoption_plan.rs`: `planRenames` picks which local project collides with a
-  name the account already holds, and the name it takes. The `update` statements
-  stay in `apps/web/src/features/offline-sync/domain/parts-1.ts`. The caller
-  passes local projects in `order by name`, which the plan relies on.
 - `send_verdict.rs` (Rust only, no wasm export): `classify_send` turns a PostgREST status, error code and row
   count into one verdict (awaiting parent, conflict, offline, RLS refused, refused,
   guard missed, accepted). `is_link_insert` marks link-table inserts, and
@@ -148,8 +133,6 @@ These modules sit beside the ones above. Each rule is pure. TS keeps the I/O.
 
 | Module | Rust fn | wasm export | TS caller |
 | --- | --- | --- | --- |
-| `conflict_deletion` | `deletion_for` | `deletionFor` | `apps/web/src/features/offline-sync/ui/use-sync-issues.ts` |
-| `device_session` | `may_drive_device`, `session_action` | `mayDriveDevice`, `sessionAction` | `apps/web/src/features/offline-sync/ui/sync-loop.tsx` |
 | `frontmatter` | `read_frontmatter`, `write_frontmatter`, `frontmatter_string`, `frontmatter_list` | `readFrontmatter`, `writeFrontmatter`, `frontmatterString` | `apps/web/src/features/workspace/application/parts-1.ts` (`readFrontmatter`, `writeFrontmatter` only) |
 | `import_action` | `ImportAction`, `ConflictKind`, `ActionCounts::add` | native only | — |
 | `instant` | `parse_instant`, `format_instant` | native only | — |
@@ -168,8 +151,6 @@ These modules sit beside the ones above. Each rule is pure. TS keeps the I/O.
 
 Rules:
 
-- `conflict_deletion`: "Mine" (local) keeps a remote delete and drops a local delete. "Cloud" (remote) is the opposite.
-- `device_session`: an empty user id counts as signed out. `session_action` returns `idle`, `adopt`, `drive` or `foreign`.
 - `frontmatter`: the fence is `---`, with an optional BOM. Numbers match `^-?\d+(\.\d+)?$`. `write_frontmatter` skips null and empty-list fields.
 - `import_action`: `ImportAction` has five variants. `ConflictKind` has three, in kebab-case. `ActionCounts::add` uses `saturating_add`.
 - `instant`: a time with no offset is read as UTC.

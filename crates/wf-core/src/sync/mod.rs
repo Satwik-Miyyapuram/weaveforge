@@ -3,16 +3,9 @@
 //! TypeScript it replaces in `packages/core/src/{shared,workspace}`; the table
 //! tests in `tests/sync_*.rs` keep the cases that TypeScript printed.
 
-pub mod adoption_plan;
 pub mod blob_links;
 pub mod change_origin;
-pub mod conflict_attention;
-pub mod conflict_deletion;
-pub mod conflict_resolve;
-pub mod conflict_route;
-pub mod conflict_settle;
 pub mod deserialize;
-pub mod device_session;
 pub mod entity_file;
 pub mod folder_layout;
 pub mod folder_merge;
@@ -39,21 +32,16 @@ pub mod memory_fs;
 pub mod merge;
 pub mod merge_vault_page;
 pub mod migrated_notice;
-pub mod outbox_sides;
 pub mod panel_labels;
 pub mod pglite_sql;
-pub mod preview_folder;
 pub mod project_pick;
-pub mod puller_plan;
 pub mod pump_route;
 pub mod repo_web_url;
 pub mod send_verdict;
 pub mod serialize;
 pub mod snapshot_delta;
-pub mod sql_ident;
 pub mod stamp_workspace_id;
 pub mod sync_dot;
-pub mod sync_phase;
 pub mod text_diff;
 pub mod text_merge;
 pub mod workspace_fs;

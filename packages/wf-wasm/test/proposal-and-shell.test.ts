@@ -10,7 +10,6 @@ import {
 } from "../src/index.js";
 import { railGroupText } from "../src/index.js";
 import { semanticStatusText } from "../src/index.js";
-import { conflictRoute } from "../src/index.js";
 
 const pkgDir = new URL("../pkg/", import.meta.url);
 initSync({ module: readFileSync(new URL("wf_wasm_bg.wasm", pkgDir)) });
@@ -99,35 +98,5 @@ test("semanticStatusText words the downloading and ready states", () => {
       fallback: true,
     }),
     "On — 3 passages searchable by meaning (MiniLM). New and edited items are added as you work. The app's own encoder did not load, so the browser's is used.",
-  );
-});
-
-test("conflictRoute picks the pump step for a refused op", () => {
-  assert.deepEqual(
-    conflictRoute({
-      op: "update",
-      serverVersion: 4,
-      serverRow: "absent",
-      deletedElsewhere: false,
-      hasStore: true,
-    }),
-    {
-      action: "reinsert",
-      reason: "The server never got this row; sending it whole.",
-    },
-  );
-  assert.deepEqual(
-    conflictRoute({
-      op: "insert",
-      serverVersion: 4,
-      serverRow: "absent",
-      deletedElsewhere: null,
-      hasStore: true,
-    }),
-    {
-      action: "fail",
-      reason: "The server refused this new row; it is kept and retried.",
-      rebaseTo: null,
-    },
   );
 });
