@@ -3,7 +3,7 @@ import { test } from "node:test";
 
 import type { EditorHandle } from "@/components/editor-handle";
 
-import { handBackRenamedBody } from "../ui/rename-hand-back";
+import { handBackRenamedBody } from "../application/rename-hand-back";
 
 /** A dirty editor: `text` is what the user sees, unsaved typing included. */
 function fakeEditor(text: string): { handle: EditorHandle; replaced: string[] } {

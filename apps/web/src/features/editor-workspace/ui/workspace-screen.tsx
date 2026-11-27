@@ -49,7 +49,7 @@ import { holdOpenNotes } from "@/features/workspace/application/parts-3";
 import type { RenamedVaultPage } from "@/features/vault/application/rename-updates-links";
 import { toastLinkRewriteFailed } from "@/features/vault/application/rename-link-toast";
 import { useInkSaveStatus } from "./use-ink-save-status";
-import { handBackRenamedBody } from "./rename-hand-back";
+import { handBackRenamedBody } from "../application/rename-hand-back";
 import { PaneView, openTabs } from "./pane-view";
 import { QuickOpenDialog } from "./quick-open-dialog";
 import { StatusBar, saveState, type SegmentKey } from "./status-bar";
