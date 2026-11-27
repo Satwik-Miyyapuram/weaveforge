@@ -20,6 +20,12 @@ import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 import { GENERATED_DOCS } from "../generated-docs.mjs";
 
+// Git hooks export GIT_DIR (and in a linked worktree more), which would point
+// every git call below at the real repository instead of the scratch one.
+for (const key of Object.keys(process.env)) {
+  if (key.startsWith("GIT_")) delete process.env[key];
+}
+
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
 const ATLAS = "docs/atlas.html";
 
