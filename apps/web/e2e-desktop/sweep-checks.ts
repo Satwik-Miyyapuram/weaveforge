@@ -1,4 +1,4 @@
-/** What the sweep counts as wrong on a page: errors, error text, stray scrollbars, broken images, long tasks. */
+/** What the sweep counts as wrong on a page: errors, error text, stray scrollbars, broken images, long tasks, slow opens. */
 import type { Page } from "@playwright/test";
 
 export type Issue = { where: string; kind: string; detail: string };
@@ -60,6 +60,34 @@ export async function takeLongTasks(page: Page, where: string, overMs: number): 
   if (!over.length) return [];
   const longest = Math.max(...over);
   return [{ where, kind: "long-task", detail: `${over.length} tasks over ${overMs} ms, longest ${longest} ms` }];
+}
+
+/**
+ * Waits until the page shows no loading state (a "Loading…" line, aria-busy, a skeleton, spinner or loading class)
+ * for 300 ms, and returns how long that took from `since`. Gives up at `capMs`.
+ */
+export async function waitReady(page: Page, since: number, capMs = 20_000): Promise<number> {
+  let quietFrom = 0;
+  for (;;) {
+    const busy = await page
+      .evaluate(() => {
+        const marker = document.querySelector('[aria-busy="true"], [class*="skeleton"], [class*="loading"], [class*="spinner"]');
+        if (marker && (marker as HTMLElement).offsetParent !== null) return true;
+        return /^\s*Loading\b[^\n]{0,40}$/m.test(document.body.innerText);
+      })
+      .catch(() => true);
+    const now = Date.now();
+    if (busy) quietFrom = 0;
+    else if (!quietFrom) quietFrom = now;
+    else if (now - quietFrom >= 300) return quietFrom - since;
+    if (now - since >= capMs) return now - since;
+    await page.waitForTimeout(50);
+  }
+}
+
+/** A slow-open issue when opening `where` took longer than `overMs`. */
+export function slowOpen(where: string, ms: number, overMs: number): Issue[] {
+  return ms > overMs ? [{ where, kind: "slow-open", detail: `ready after ${ms} ms (budget ${overMs} ms)` }] : [];
 }
 
 /** Scans the current page for overflow, stray scrollbars, error text and broken images. */

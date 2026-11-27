@@ -2,15 +2,16 @@
 import { mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import type { Page } from "@playwright/test";
 import { expect, test } from "./dev-app";
-import { armLongTasks, formatIssues, scanPage, takeLongTasks, watchErrors, type Issue } from "./sweep-checks";
+import { armLongTasks, formatIssues, scanPage, slowOpen, takeLongTasks, waitReady, watchErrors, type Issue } from "./sweep-checks";
 
 // What each test covers:
-// - every route: loads with no console/page errors, long tasks, overflow, stray scrollbars, error text, broken images.
+// - every route: loads with no console/page errors, long tasks, overflow, stray scrollbars, error text, broken images,
+//   and is ready (no loading state) within SLOW_MS; every explorer item too.
 // - every explorer item: expands all tree rows, then opens the first PER_KIND of each kind and checks the page.
 // - every theme: switches data-theme across all themes on /workspace and checks each one.
 // - every window size: resizes via CDP across SIZES on /workspace and checks each one.
 // - every safe control: presses each visible button/tab on /workspace and /dashboard whose name passes DENY.
-// Env knobs: WF_SWEEP_ROUTES (comma list), WF_SWEEP_PER_KIND, WF_SWEEP_MAX_CLICKS, WF_SWEEP_LONG_MS,
+// Env knobs: WF_SWEEP_ROUTES (comma list), WF_SWEEP_PER_KIND, WF_SWEEP_MAX_CLICKS, WF_SWEEP_LONG_MS, WF_SWEEP_SLOW_MS,
 // WF_SWEEP_CLICKS=0 (turns off the safe-control test).
 // DENY keeps the sweep off anything that writes, sends, closes or leaves. Theme, size and URL are restored after each test.
 
@@ -21,6 +22,7 @@ const SIZES = [[1400, 900], [1024, 768], [800, 900], [390, 844]] as const;
 const PER_KIND = Number(process.env.WF_SWEEP_PER_KIND ?? 3);
 const MAX_CLICKS = Number(process.env.WF_SWEEP_MAX_CLICKS ?? 80);
 const LONG_MS = Number(process.env.WF_SWEEP_LONG_MS ?? 500);
+const SLOW_MS = Number(process.env.WF_SWEEP_SLOW_MS ?? 1_000);
 const SETTLE_MS = 2_500;
 // Names of controls the sweep never presses: anything that writes, sends, closes or leaves.
 const DENY = /delete|remove|discard|reset|clear|sign ?out|log ?out|push|pull|publish|send|share|revoke|install|update|restart|quit|exit|close|minimi|maximi|merge|commit|sync|import|export|upload|download|rename|move|archive|trash|\bnew\b|create|add|duplicate|copy|paste|cut|undo|redo|save|print|folder|connect|link|accept|decline|submit|apply|confirm|erase|sign ?in|log ?in|restore|revert|drop|leave|invite|join|approve|reject|\brun\b|start|stop|generate|reload|refresh|retry|fetch|\bpin\b|unpin|\btag\b|\bstar|favou?rite|\bmark\b|split/i;
@@ -34,11 +36,14 @@ async function check(app: Page, errors: ReturnType<typeof watchErrors>, where: s
   return issues;
 }
 
-/** Opens a route in Dev and waits for it to settle. */
-async function goto(app: Page, route: string) {
+/** Opens a route in Dev, waits for it to settle and returns how long it took to be ready. */
+async function goto(app: Page, route: string): Promise<number> {
+  const t0 = Date.now();
   await app.goto(ORIGIN + route.replace(/\/?$/, "/"), { waitUntil: "load" });
   await armLongTasks(app);
+  const ms = await waitReady(app, t0);
   await app.waitForTimeout(SETTLE_MS);
+  return ms;
 }
 
 test.describe("sweep", () => {
@@ -70,8 +75,9 @@ test.describe("sweep", () => {
     const found: Issue[] = [];
     try {
       for (const r of ROUTES) {
-        await goto(app, r);
-        found.push(...(await check(app, errors, "route " + r)));
+        const ms = await goto(app, r);
+        console.log(`route ${r}: ready ${ms} ms`);
+        found.push(...slowOpen("route " + r, ms, SLOW_MS), ...(await check(app, errors, "route " + r)));
       }
     } finally {
       await app.goto(start, { waitUntil: "load" });
@@ -84,6 +90,9 @@ test.describe("sweep", () => {
     const errors = watchErrors(app);
     const found: Issue[] = [];
     await goto(app, "/workspace");
+    // The explorer's hidden state persists, so a run after a hidden session would see no rows.
+    const show = app.getByRole("button", { name: "Show explorer" });
+    if (await show.isVisible()) await show.click();
 
     for (let pass = 0; pass < 10; pass++) {
       const closed = app.locator('.explorer-body [role=treeitem][aria-expanded="false"]');
@@ -131,7 +140,13 @@ test.describe("sweep", () => {
             await body.evaluate((el, t) => (el.scrollTop = t), top);
             await app.waitForTimeout(100);
           }
+          const t0 = Date.now();
           await row.click({ timeout: 5_000 });
+          const ms = await waitReady(app, t0);
+          console.log(`item ${key}: ready ${ms} ms`);
+          const slow = slowOpen("item " + key, ms, SLOW_MS);
+          ALL.push(...slow);
+          found.push(...slow);
         } catch (err) {
           const issue: Issue = { where: "item " + key, kind: "click-failed", detail: String(err).replace(/\x1b\[[0-9;]*m/g, "").slice(0, 600) };
           ALL.push(issue);
