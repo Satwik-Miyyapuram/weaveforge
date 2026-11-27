@@ -26,6 +26,7 @@ import {
   listItems,
   noteSteps,
   plainText,
+  rawHtml,
   readMinutes,
   relatedStems,
   sections,
@@ -38,6 +39,7 @@ import {
 const SRC = path.join(ROOT, "docs/using");
 const OUT = path.join(ROOT, "docs/.site");
 const DEMO = demoUrl(process.env, process.argv.slice(2));
+marked.use({ renderer: { html: ({ text }) => rawHtml(text) } });
 // page -> { route, do, tasks: { <how-to id>: { route, do } } }: where its demo opens.
 const VIEWS = JSON.parse(fs.readFileSync(path.join(ROOT, "scripts/user-docs/views.json"), "utf8"));
 const [VIEW_W, VIEW_H] = [1280, 800];
@@ -126,10 +128,12 @@ ${css.map((file) => `<link rel="stylesheet" href="app/${file}">`).join("\n")}
 <body class="docs${home ? " docs-home" : ""}" data-page="${stem}">
 <header class="docs-wrap docs-top">
 <button class="docs-menu" aria-label="All topics" aria-expanded="false" data-docs-menu><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
-<a class="docs-brand" href="index.html">WeaveForge <i class="docs-hand">help notebook</i></a>
-<nav class="docs-topnav"><a href="getting-started.html">Start here</a><a href="index.html#stages">I want to…</a></nav>
+<a class="docs-brand" href="https://www.weaveforge.org/"><span class="docs-logo"><svg width="22" height="22" viewBox="120 105 272 324" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M230 125H194a54 54 0 0 0-54 54v176a54 54 0 0 0 54 54h124a54 54 0 0 0 54-54v-90" stroke-width="28"/><path d="M264 125v90l92-76M264 215l108 14" stroke-width="16"/><circle cx="264" cy="125" r="25" fill="currentColor" stroke="none"/><circle cx="264" cy="215" r="25" fill="currentColor" stroke="none"/><circle cx="372" cy="229" r="25" fill="currentColor" stroke="none"/><circle cx="356" cy="139" r="27" fill="var(--accent)" stroke-width="14"/></svg></span>WeaveForge</a>
+<nav class="docs-topnav"><a href="https://www.weaveforge.org/">Home</a><a href="index.html"${home ? ' aria-current="page"' : ""}>Docs</a><a href="getting-started.html"${stem === "getting-started" ? ' aria-current="page"' : ""}>Start here</a><a href="index.html#stages">I want to…</a></nav>
 <button class="docs-search docs-sketchy" data-docs-search>Look something up <kbd>Ctrl K</kbd></button>
 <select class="wf-select docs-theme" data-docs-theme aria-label="Theme">${picker}</select>
+<a class="docs-repo" href="https://github.com/Satwik-Miyyapuram/weaveforge" aria-label="WeaveForge on GitHub" title="GitHub"><svg width="20" height="20" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg></a>
+<a class="docs-cta" href="https://app.weaveforge.org">Open the app</a>
 </header>
 <div class="docs-backdrop" data-docs-backdrop hidden></div>
 <nav class="docs-tree docs-sheet" aria-label="All topics">
