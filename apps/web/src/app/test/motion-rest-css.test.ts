@@ -28,7 +28,7 @@ test("dashboard entrances fill backwards, so a finished fade drops its layer (.a
   const dashboard = readFileSync(fileURLToPath(new URL("../styles/dashboard.css", import.meta.url)), "utf8");
   assert.match(dashboard, /dashboard-card-fade-in [^;]*backwards;/);
   assert.match(dashboard, /dashboard-content-in [^;]*backwards;/);
-  assert.doesNotMatch(dashboard, /dashboard-(card-fade-in|content-in) [^;]*both;/);
+  assert.doesNotMatch(dashboard, /dashboard-(card-fade-in|content-in) [^;]*\bboth;/);
 });
 
 test("the rise only runs when the OS allows motion (DA-20)", () => {
