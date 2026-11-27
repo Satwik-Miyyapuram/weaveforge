@@ -155,3 +155,13 @@ export function demoUrl(env, argv) {
   }
   return value;
 }
+
+/**
+ * marked's html renderer: docs pages write placeholders like `<title>` in prose,
+ * which a browser would read as tags (an open <title> swallows the rest of the
+ * page), so raw HTML shows as text. Comments (the generated-block markers) stay.
+ */
+export function rawHtml(text) {
+  if (/^\s*<!--[\s\S]*-->\s*$/.test(text)) return text;
+  return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}

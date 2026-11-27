@@ -100,11 +100,20 @@ body.docs a { color: var(--accent); }
 
 /* Header */
 .docs-top {
+  position: sticky;
+  top: 12px;
+  z-index: 40;
+  margin-top: 12px;
   display: flex;
   align-items: center;
-  gap: 18px;
-  padding-block: 16px;
+  gap: 12px;
+  min-height: 64px;
+  padding: 8px 12px 8px 16px;
   flex-wrap: wrap;
+  background: var(--surface);
+  border: var(--bw, 1px) solid var(--border);
+  border-radius: var(--r-card);
+  box-shadow: var(--shadow);
 }
 .docs-menu {
   display: grid;
@@ -118,12 +127,37 @@ body.docs a { color: var(--accent); }
   cursor: pointer;
 }
 .docs-menu svg { width: 22px; height: 22px; }
-.docs-brand { font: 700 20px var(--docs-serif); text-decoration: none; }
+.docs-brand { display: inline-flex; align-items: center; gap: 12px; font: 800 19px var(--font); text-decoration: none; }
 body.docs .docs-brand { color: var(--text); }
-.docs-brand i { font-size: 16px; font-weight: 400; }
-.docs-topnav { display: flex; gap: 18px; font-family: var(--font); font-size: 14px; }
-body.docs .docs-topnav a { color: var(--muted); text-decoration: none; }
+.docs-logo,
+.docs-repo {
+  display: inline-grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  background: var(--surface2);
+  border: var(--bw, 1px) solid var(--border);
+  border-radius: var(--r-sm);
+  box-shadow: var(--sh-sm, none);
+}
+body.docs .docs-repo { color: var(--text); background: var(--surface); }
+.docs-repo:hover { filter: brightness(0.96); }
+.docs-topnav { display: flex; gap: 2px; font-family: var(--font); font-size: 15px; }
+body.docs .docs-topnav a { padding: 8px 12px; border-radius: var(--r-sm); color: var(--muted); font-weight: 600; text-decoration: none; }
 body.docs .docs-topnav a:hover { color: var(--text); }
+body.docs .docs-topnav a[aria-current="page"] { background: var(--accent-soft); color: var(--text); font-weight: 800; }
+body.docs .docs-cta {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 0 16px;
+  border-radius: var(--r-sm);
+  background: var(--accent);
+  color: var(--accent-fg);
+  font: 700 15px var(--font);
+  text-decoration: none;
+}
+.docs-cta:hover { filter: brightness(0.95); }
 .docs-search {
   margin-left: auto;
   display: flex;
@@ -426,6 +460,7 @@ body.docs .docs-foot a { color: var(--muted); }
   .docs-search kbd { display: none; }
   .docs-search { margin-left: 0; flex: 1; }
   .docs-theme { max-width: 120px; }
+  .docs-cta, .docs-repo { display: none; }
   .docs-tilt-l, .docs-tilt-r { transform: none; }
 }
 @media (prefers-reduced-motion: reduce) {

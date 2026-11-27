@@ -7,6 +7,7 @@ import {
   listItems,
   noteSteps,
   plainText,
+  rawHtml,
   readMinutes,
   relatedStems,
   sections,
@@ -122,4 +123,13 @@ test("noteSteps adds a step count note after each how-to heading", () => {
   const out = noteSteps(body);
   assert.match(out, /<h3 id="a">A<\/h3><span class="docs-hand docs-aside-note">2 steps<\/span>/);
   assert.match(out, /<h3 id="b">B<\/h3>\n<p>no steps/);
+});
+
+test("rawHtml shows a placeholder tag as text", () => {
+  assert.equal(rawHtml("<title>"), "&lt;title&gt;");
+  assert.equal(rawHtml('<a href="x">&'), '&lt;a href="x"&gt;&amp;');
+});
+
+test("rawHtml keeps html comments", () => {
+  assert.equal(rawHtml("<!-- generated:themes -->\n"), "<!-- generated:themes -->\n");
 });
