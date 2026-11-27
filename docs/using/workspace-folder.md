@@ -53,24 +53,25 @@ same note.
 
 ## Which direction things flow
 
-Writing out is automatic. Reading back is not.
+Both ways, with no click. The files in the folder are the store; the app reads
+them directly, so there is nothing to import. The server holds only what you
+share and your lab's organisation data.
 
-The mirror follows your workspace: save something in the app, and the folder
-catches up a moment later. The files in the folder are the source of truth. The
-server holds only what you share and your lab's organisation data.
+Save something in the app and the file is written at once. Edit a file in the
+folder with another editor and, on desktop, WeaveForge sees the change, reloads
+it, and says so with a short note: "Folder changed: 2 files reloaded." The
+app's own writes are not reported back to you.
 
-Pulling folder edits back in is an explicit action, and it shows you a diff
-first before anything is applied.
-
-On desktop, WeaveForge watches the folder and tells you when something out there
-changed. It reports; it does not apply.
+If the folder is connected to a GitHub repository, each change is committed and
+pushed about ten seconds after the edits stop, and the app pulls every five minutes.
 
 ## When both sides changed
 
-When the same file was changed in the folder and in the app, the pull stops and
-the conflict is listed in Settings → Workspace under **Needs you**, naming the
-fields that collided. Nothing is written over until you choose. For each file you
-can keep this app's copy, take the folder's, or keep both.
+A pull that finds the same file changed on this machine and on the remote stops
+and pushes nothing. Settings → Workspace says how many files collided. For each
+pull you can keep this machine's copy, take the remote's, or keep both (the
+remote's copy is saved beside yours as "name (remote)"). Push never overwrites
+the remote.
 
 ## Canvases
 
