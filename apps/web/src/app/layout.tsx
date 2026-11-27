@@ -8,6 +8,7 @@ import { BootSnapshot } from "./boot-snapshot";
 import { THEME_BOOT_SCRIPT } from "@/lib/theme/theme";
 import { ThemeColorMeta } from "./theme-color-meta";
 import { WindowScrollbar } from "@/components/window-scrollbar";
+import { MemoryMeter } from "@/components/memory-meter";
 import { DesktopTitleBar, TITLE_BAR_BOOT_SCRIPT } from "@/components/desktop-title-bar";
 import { DesktopWindowIcon } from "@/features/desktop-window-icon";
 import { PlanWidgetTheme } from "@/components/plan-widget-theme";
@@ -85,6 +86,7 @@ export default function RootLayout({
         <ServiceWorkerRegister />
         <ClientRuntimeRecovery />
         <WindowScrollbar />
+        <MemoryMeter />
         <DesktopTitleBar />
         <DesktopWindowIcon />
         <PlanWidgetTheme />
