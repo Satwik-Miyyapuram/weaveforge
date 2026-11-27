@@ -146,3 +146,28 @@ test("every source failing still rejects, so the screen shows its error as befor
   );
   await assert.rejects(useCase(reader(all)).execute(), /network down/);
 });
+
+test("no shares (signed out or nothing shared): no directory or item reads, empty screen", async () => {
+  const calls: string[] = [];
+  const data = await new LoadSharedWithMeScreenUseCase({
+    sharing: { listSharedWithMe: async () => [] } as never,
+    members: {
+      listDirectory: async () => {
+        calls.push("directory");
+        return [];
+      },
+    } as never,
+    sharedReader: {
+      async read(kind) {
+        calls.push(`read:${kind}`);
+        return [];
+      },
+    },
+    papers: noRows,
+    experiments: noRows,
+    vaultPages: noRows,
+    readingLists: noRows,
+  }).execute();
+  assert.deepEqual(data, { items: [], members: [], unavailable: [] });
+  assert.deepEqual(calls, []);
+});

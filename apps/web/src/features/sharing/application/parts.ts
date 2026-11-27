@@ -132,10 +132,11 @@ export class LoadSharedWithMeScreenUseCase {
   ) {}
 
   async execute(): Promise<LoadSharedWithMeScreenData> {
-    const [shares, members] = await Promise.all([
-      this.deps.sharing.listSharedWithMe(),
-      this.deps.members.listDirectory(),
-    ]);
+    // The directory only names owners of shared items. With no shares (also the
+    // signed-out case, where `profiles` answers 401) there is nothing to read.
+    const shares = await this.deps.sharing.listSharedWithMe();
+    if (shares.length === 0) return { items: [], members: [], unavailable: [] };
+    const members = await this.deps.members.listDirectory();
 
     // One read per type, settled apart, so one failing type does not hide the others.
     const types = readyCore().shareableTypes();
