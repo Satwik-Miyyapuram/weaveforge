@@ -1,5 +1,5 @@
 import type { IWorkspaceFs, WorkspaceStat } from "@weaveforge/core";
-import { activeWorkspaceFs } from "@/features/workspace/application/workspace-folder";
+import { activeWorkspaceFs, folderRestored } from "@/features/workspace/application/workspace-folder";
 
 const NO_FOLDER = "Open a folder to keep working without an account.";
 
@@ -7,6 +7,12 @@ function openFolder(): IWorkspaceFs {
   const fs = activeWorkspaceFs();
   if (!fs) throw new Error(NO_FOLDER);
   return fs;
+}
+
+/** The open folder once the launch restore has answered, so a read in the first moments of a session finds it. */
+async function restoredFolder(): Promise<IWorkspaceFs> {
+  await folderRestored();
+  return openFolder();
 }
 
 /**
@@ -20,13 +26,13 @@ export class NoAccountWorkspaceFs implements IWorkspaceFs {
     return openFolder();
   }
   async readFile(path: string): Promise<Uint8Array> {
-    return openFolder().readFile(path);
+    return (await restoredFolder()).readFile(path);
   }
   async readText(path: string): Promise<string> {
-    return openFolder().readText(path);
+    return (await restoredFolder()).readText(path);
   }
   async writeFile(path: string, data: Uint8Array | string): Promise<void> {
-    return openFolder().writeFile(path, data);
+    return (await restoredFolder()).writeFile(path, data);
   }
   /**
    * The open folder's own conditional write, or none when that folder has none (or no folder
@@ -38,21 +44,21 @@ export class NoAccountWorkspaceFs implements IWorkspaceFs {
     return fs?.writeTextIf ? fs.writeTextIf.bind(fs) : undefined;
   }
   async remove(path: string, options?: { recursive?: boolean }): Promise<void> {
-    return openFolder().remove(path, options);
+    return (await restoredFolder()).remove(path, options);
   }
   async mkdirp(path: string): Promise<void> {
-    return openFolder().mkdirp(path);
+    return (await restoredFolder()).mkdirp(path);
   }
   async list(dir: string): Promise<readonly WorkspaceStat[]> {
-    return openFolder().list(dir);
+    return (await restoredFolder()).list(dir);
   }
   async *walk(dir: string): AsyncIterable<WorkspaceStat> {
-    yield* openFolder().walk(dir);
+    yield* (await restoredFolder()).walk(dir);
   }
   async stat(path: string): Promise<WorkspaceStat | null> {
-    return openFolder().stat(path);
+    return (await restoredFolder()).stat(path);
   }
   async rename(from: string, to: string): Promise<void> {
-    return openFolder().rename(from, to);
+    return (await restoredFolder()).rename(from, to);
   }
 }

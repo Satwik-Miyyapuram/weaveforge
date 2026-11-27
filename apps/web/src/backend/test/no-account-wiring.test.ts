@@ -64,3 +64,18 @@ test("0.9.8: the no-account conditional write never falls back to a plain overwr
   assert.doesNotMatch(body, /writeFile\(/);
   assert.match(body, /fs\?\.writeTextIf \? fs\.writeTextIf\.bind\(fs\) : undefined/);
 });
+
+test("0.9.8: the no-account filesystem waits for the launch folder restore before an async call", () => {
+  const fs = src("backend/providers/files/no-account-fs.ts");
+  assert.match(fs, /async function restoredFolder\(\): Promise<IWorkspaceFs> \{\n  await folderRestored\(\);\n  return openFolder\(\);\n\}/);
+  const methods = ["readFile", "readText", "writeFile", "remove", "mkdirp", "list", "stat", "rename"];
+  for (const m of methods) {
+    assert.match(fs, new RegExp(`async ${m}\\([^)]*\\)[^{]*\\{\\n    return \\(await restoredFolder\\(\\)\\)\\.${m}\\(`), `${m} waits`);
+  }
+  assert.match(fs, /yield\* \(await restoredFolder\(\)\)\.walk\(dir\)/, "walk waits");
+});
+
+test("0.9.8: with no folder and nothing to wait for, a no-account read still refuses", async () => {
+  const { NoAccountWorkspaceFs } = await import("../providers/files/no-account-fs");
+  await assert.rejects(new NoAccountWorkspaceFs().readText("a.md"), /Open a folder to keep working without an account\./);
+});
