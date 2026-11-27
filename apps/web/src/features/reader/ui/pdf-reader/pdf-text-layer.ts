@@ -39,6 +39,29 @@ export function createPdfTextLayer(
   return new lib.TextLayer({ container, textContentSource: content, viewport });
 }
 
+/** Marks `container` as holding a finished layer laid out for `rotation`. */
+export function markTextLayerBuilt(container: HTMLElement, rotation: number): void {
+  container.dataset.builtRotation = String(rotation);
+}
+
+/** Forgets the mark, before a rebuild or an evict empties the layer. */
+export function clearTextLayerBuilt(container: HTMLElement): void {
+  delete container.dataset.builtRotation;
+}
+
+/**
+ * Rescales a finished layer to `scale` when only the zoom changed; false when
+ * it must be rebuilt. pdf.js 4.x places and sizes every word by
+ * `--scale-factor`, so the layer follows the new value. A rebuild measures
+ * every glyph again (about 150-200 ms a page), which is what made a pane
+ * resize lag with several readers open.
+ */
+export function rescaleTextLayer(container: HTMLElement, rotation: number, scale: number): boolean {
+  if (container.dataset.builtRotation !== String(rotation)) return false;
+  container.style.setProperty("--scale-factor", String(scale));
+  return true;
+}
+
 interface Box { left: number; top: number; right: number; bottom: number }
 
 function intersects(a: Box, b: Box): boolean {

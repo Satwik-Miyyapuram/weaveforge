@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { errorMessage, type OutlineTextItem, type PdfLink } from "@weaveforge/core";
 import type { DocumentPageText, ReaderContainerSize, ReaderPageSize, PageTextItem, PageTextGeometry } from "@weaveforge/wasm";
 import type { TextLayer } from "pdfjs-dist";
-import { createPdfTextLayer, measurePdfLinks } from "./pdf-text-layer";
+import { clearTextLayerBuilt, createPdfTextLayer, markTextLayerBuilt, measurePdfLinks, rescaleTextLayer } from "./pdf-text-layer";
 import { idle } from "./pdf-page-window";
 import { useContainerSize } from "./container-resize";
 import { canvasSize } from "./canvas-size";
@@ -556,6 +556,7 @@ useEffect(() => {
         canvas.height = 0;
       }
       const textLayer = host.querySelector<HTMLElement>(".pdf-reader-textlayer");
+      if (textLayer) clearTextLayerBuilt(textLayer);
       textLayer?.replaceChildren();
     }
   }, []);
@@ -690,6 +691,17 @@ useEffect(() => {
             textLayer.className = "pdf-reader-textlayer";
             host.appendChild(textLayer);
           }
+          // A zoom moves the finished layer instead of measuring every glyph again.
+          const geometry = pageGeometries.current.get(pageNumber);
+          if (
+            textLayers.current.has(pageNumber) &&
+            geometry?.contentHash === (contentHash || undefined) &&
+            rescaleTextLayer(textLayer, rotation, viewport.scale)
+          ) {
+            renderedPages.current.add(pageNumber);
+            return;
+          }
+          clearTextLayerBuilt(textLayer);
           textLayers.current.get(pageNumber)?.cancel();
           textLayers.current.delete(pageNumber);
           textLayer.replaceChildren();
@@ -732,6 +744,7 @@ useEffect(() => {
           }
           // Selection and citation decoration key on the item index.
           layer.textDivs.forEach((div, index) => div.setAttribute("data-item-index", String(index)));
+          markTextLayerBuilt(textLayer, rotation);
           perfEnd("pdf:text-layer", textStart, pageNumber);
           const base = pdfPage.getViewport({ scale: 1, rotation: 0 });
           pageGeometries.current.set(pageNumber, {
