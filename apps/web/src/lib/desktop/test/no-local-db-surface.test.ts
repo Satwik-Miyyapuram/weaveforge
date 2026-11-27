@@ -24,6 +24,12 @@ const BANNED = [
   "localDbFailure",
   "LOST_DB",
   "lostDb",
+  "Install097Gate",
+  "install-097-gate",
+  "installGateRequired",
+  "legacyDbPresent",
+  "migrationReportVerified",
+  "install-097",
 ];
 
 function productionFiles(dir: string): string[] {
@@ -51,10 +57,8 @@ test("production web code has no local-DB state reads or lost-DB guard", () => {
 // Only files that name the old database to describe the 0.9.7 move may say it.
 const OLD_DB_WORDS = /local database|own database|PGlite/i;
 const NAMES_THE_OLD_DB = new Set([
-  "features/workspace/ui/install-097-gate.tsx",
   "features/report/ui/use-linked-reports.ts",
   "backend/providers/files/file-settings-repos.ts",
-  "lib/desktop/desktop-bridge.ts",
 ]);
 
 test("production web code does not describe a local database it no longer has", () => {

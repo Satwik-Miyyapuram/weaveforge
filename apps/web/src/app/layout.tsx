@@ -2,7 +2,6 @@ import type { Metadata, Viewport } from "next";
 import { FONT_VARIABLES } from "./fonts";
 import "./globals.css";
 import { AuthProvider } from "@/features/auth/ui/auth-provider";
-import { Install097Gate } from "@/features/workspace/ui/install-097-gate";
 import { AppShell } from "./app-shell";
 import { BootSnapshot } from "./boot-snapshot";
 import { THEME_BOOT_SCRIPT } from "@/lib/theme/theme";
@@ -90,12 +89,10 @@ export default function RootLayout({
         <DesktopTitleBar />
         <DesktopWindowIcon />
         <PlanWidgetTheme />
-        <Install097Gate>
-          <AuthProvider>
-            <BootSnapshot />
-            <AppShell>{children}</AppShell>
-          </AuthProvider>
-        </Install097Gate>
+        <AuthProvider>
+          <BootSnapshot />
+          <AppShell>{children}</AppShell>
+        </AuthProvider>
       </body>
     </html>
   );

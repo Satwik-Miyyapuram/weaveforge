@@ -96,10 +96,13 @@ const GATE_FILES = [
   "apps/shell/src/migrate.rs",
 ];
 
-test("the install gate never reads the profiles table", () => {
-  for (const rel of GATE_FILES) {
-    assert.ok(existsSync(join(ROOT, rel)), `${rel} is missing; update this list`);
-    assert.doesNotMatch(stripComments(read(rel)), /\bprofiles\b/, `${rel} reads profiles`);
+test("the 0.9.7 install gate is gone", () => {
+  for (const rel of [
+    "apps/web/src/features/workspace/ui/install-097-gate.tsx",
+    "apps/web/src/features/workspace/application/install-097-guard.ts",
+    "apps/web/src/features/workspace/infrastructure/install-097-browser-port.ts",
+  ]) {
+    assert.ok(!existsSync(join(ROOT, rel)), `${rel} still exists`);
   }
 });
 

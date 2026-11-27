@@ -132,18 +132,6 @@ export interface DesktopBridge {
   clearSecret(name: DesktopSecretName): Promise<void>;
 
   /**
-   * Whether old (pre-0.9.7) native-Postgres or PGlite data is on this computer. Read-only. Absent on
-   * a desktop shell that predates the call is unknown, and the install gate opens on unknown (fail open).
-   */
-  legacyDbPresent?(): Promise<boolean>;
-  /**
-   * Whether `folder` holds a verified 0.9.7 migration report (`.weaveforge/migration-0.9.7/report.json`).
-   * Read-only; rejects when the report is unreadable. Absent on shells that predate the call; the
-   * install gate reads that as unknown and opens (fail open).
-   */
-  migrationReportVerified?(folder: string): Promise<boolean>;
-
-  /**
    * Attachment bytes as files in the app's data folder, one per `(bucket, path)`.
    * The shell names each file by a hash of the pair; the page never names a disk path.
    * Optional, and no page code calls them since 0.9.8.
@@ -382,11 +370,6 @@ export interface DesktopBridge {
    */
   inkHapticsAvailable(): Promise<boolean>;
   inkHaptics(message: DesktopInkHaptics): void;
-
-  /**
-   * Whether the "install 0.9.7 first" gate shows. Rejects when the device id is unreadable.
-   */
-  installGateRequired?(): Promise<boolean>;
 
   /**
    * Focus mode (`F11`) at the window's level: on, the menu bar and the
