@@ -122,7 +122,9 @@ const ROUTE_ALLOWANCES_KB = {
   // Plus the local API token panel, Connect panel for local AI clients (0.8.11), and DatePicker.
   // The shared row and tab buttons, connection state and settings find from the
   // design sweep (#527): +4 KB. No dependency arrived.
-  "/settings": 488,
+  // The 0.9.8 UI-layer lane plus the no-account member/comment stand-ins and the
+  // request-log abort filter in the shared container: measured 501 KB plus 2.
+  "/settings": 491,
   // graph and experiments share the top navigation with live sync status indicators;
   // experiments added the image viewer, result editor and token create form, and
   // graph shares the chunk that carries them: +3 KB each.
