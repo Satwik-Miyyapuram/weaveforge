@@ -21,9 +21,10 @@ import {
   type WorkspaceData,
   writeLayout,
 } from "../application/parts";
-import { breadcrumbs, creationKindFor, creationTarget, type Draft, draftMakes, duplicatePlan, hasInkView } from "@weaveforge/wasm";
+import { creationKindFor, creationTarget, type Draft, draftMakes, duplicatePlan, hasInkView } from "@weaveforge/wasm";
 import { hasLazyBody, isCreatableKind, isDocumentKind, kindOwner, openingTab, openModeFor, segmentsFor } from "@weaveforge/wasm";
 import type { PaneLayout, PaneSplit, TabRef, WorkspaceTreeNode } from "@weaveforge/wasm";
+import { crumbCache } from "./crumb-cache";
 import type { ExplorerSection } from "../application/parts";
 import { DocumentHost, isCanvasDocument, type DocumentMetrics } from "./document-host";
 import { CanvasDocument } from "./canvas-document";
@@ -65,20 +66,6 @@ import { IconButton } from "@/components/button";
  * this screen only decides which of them a tab points at and how a save gets
  * home.
  */
-/** Breadcrumbs kept per document for one pair of trees: each call copies both trees into wasm, and panes ask on every render. */
-function crumbCache(tree: WorkspaceTreeNode[], listsTree: WorkspaceTreeNode[]) {
-  const cache = new Map<string, ReturnType<typeof breadcrumbs>>();
-  return (tab: TabRef) => {
-    const key = `${tab.kind}\0${tab.id}`;
-    let crumbs = cache.get(key);
-    if (!crumbs) {
-      crumbs = breadcrumbs({ kind: tab.kind, id: tab.id }, tree, listsTree);
-      cache.set(key, crumbs);
-    }
-    return crumbs;
-  };
-}
-
 export function WorkspaceScreen() {
   const projectId = useProject().current?.id ?? null;
   const [documents, setDocuments] = useState<Document[] | null>(null);
