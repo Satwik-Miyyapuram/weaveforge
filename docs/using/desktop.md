@@ -261,7 +261,8 @@ What this covers:
 - Integration keys are kept in this computer's keychain, one entry per key.
   They never go into a file in the folder or to the server.
 - Sharing, supervision and anything else that needs a second person are
-  account features and stay unavailable.
+  account features and stay unavailable. Comments and the lab and team lists
+  are among them: they show empty, and adding a comment says to sign in.
 
 ## Opening on your last screen
 
