@@ -1,3 +1,4 @@
+import { isLocalMode } from "@/backend/providers/files/no-account-mode";
 import { projectUserCtx, rustRepository } from "@/backend/providers/postgrest/rust-repository";
 import { authHeaders as bearerHeaders } from "@/lib/auth-headers";
 import { singleFlight } from "@/lib/cache/parts";
@@ -199,8 +200,10 @@ export async function fetchOwnedOrgs() {
  *
  * Shared between concurrent callers: the startup bundle and `ProfileProvider`
  * both want it during boot, and the answer is the same row set either way.
+ * Null in files mode: that copy has no lab server to ask, which is not "no labs".
  */
-export function fetchMemberships(): Promise<OrgMembershipView[]> {
+export function fetchMemberships(): Promise<OrgMembershipView[] | null> {
+  if (isLocalMode()) return Promise.resolve(null);
   return singleFlight("org:memberships", fetchMembershipsUncached);
 }
 

@@ -103,3 +103,15 @@ test("a lone refresh is the latest", () => {
   gate();
   assert.equal(isLatest(), false);
 });
+
+test("files mode has no lab server: no memberships, no warning, no standalone sync", async () => {
+  let bundle: Awaited<ReturnType<typeof loadProfileBundle>> | undefined;
+  const src = sources({ fetchMemberships: async () => null });
+  const logs = await withLogs(async () => {
+    bundle = await loadProfileBundle(src);
+  });
+  assert.equal(bundle!.profile, me);
+  assert.equal(bundle!.memberships, null);
+  assert.deepEqual(logs, []);
+  assert.deepEqual(src.calls, []);
+});

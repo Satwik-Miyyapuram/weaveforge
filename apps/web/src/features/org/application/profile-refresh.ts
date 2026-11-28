@@ -11,7 +11,8 @@ export interface ProfileSources {
     loadTeam(): Promise<Member[]>;
     loadLab(): Promise<Member[]>;
   };
-  fetchMemberships(): Promise<OrgMembershipView[]>;
+  /** Null when this copy has no lab server (files mode): nothing to read, nothing to sync. */
+  fetchMemberships(): Promise<OrgMembershipView[] | null>;
   continueStandalone(): Promise<unknown>;
   invalidateCaches(): void;
 }
