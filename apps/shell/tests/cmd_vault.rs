@@ -8,8 +8,8 @@ use base64::Engine as _;
 use base64::engine::general_purpose::STANDARD;
 use common::TempDir;
 use weaveforge_shell_lib::cmd_vault::{
-    BAD_BYTES, NOT_CREATED, ReadEntry, create_skip_folder, list, read, read_bytes, read_many, remove,
-    root, stat, write, write_bytes,
+    BAD_BYTES, NOT_CREATED, ReadEntry, create_skip_folder, list, read, read_bytes, read_many,
+    remove, root, stat, write, write_bytes,
 };
 use weaveforge_shell_lib::vault::{EntryKindPayload, NO_ROOT, RootKind, VaultState};
 
@@ -110,10 +110,15 @@ async fn text_round_trip() {
 async fn read_many_matches_read_per_file() {
     let dir = TempDir::new();
     let state = state_at(dir.path());
-    write(&state, "notes/a.md".to_owned(), "a
-".to_owned())
-        .await
-        .unwrap();
+    write(
+        &state,
+        "notes/a.md".to_owned(),
+        "a
+"
+        .to_owned(),
+    )
+    .await
+    .unwrap();
     let paths = vec![
         "notes/a.md".to_owned(),
         "missing.md".to_owned(),
@@ -133,9 +138,20 @@ async fn read_many_matches_read_per_file() {
         });
     }
     assert_eq!(got, want);
-    assert_eq!(got[0].text.as_deref(), Some("a
-"));
-    assert_eq!(got[1], ReadEntry { text: None, error: None });
+    assert_eq!(
+        got[0].text.as_deref(),
+        Some(
+            "a
+"
+        )
+    );
+    assert_eq!(
+        got[1],
+        ReadEntry {
+            text: None,
+            error: None
+        }
+    );
     assert!(got[2].error.is_some());
     assert_eq!(read_many(&state, Vec::new()).await, Ok(Vec::new()));
 }
