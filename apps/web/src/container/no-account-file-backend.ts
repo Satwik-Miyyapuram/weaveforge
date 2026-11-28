@@ -12,6 +12,7 @@ import { readOnlyDb } from "./read-only-repositories";
 import { guardOrgDb } from "./org-db-guard";
 import { FileBlobStore } from "@/backend/providers/files/file-blob-store";
 import { FileModeBlobStore } from "./file-mode-blob-store";
+import { NoAccountCommentRepository, NoAccountMemberRepository } from "@/backend/providers/files/no-account-server-repos";
 
 /**
  * No-account mode (0.9.8): the personal repositories are file repositories over
@@ -32,6 +33,9 @@ export function wireNoAccountBackend(
     manageSettings: new ManageSettingsUseCase({ repository: files.settingsRepository, clock: systemClock }),
     // Personal blobs go to the folder; only the share path's uploadShared reaches the server store.
     rawBlobStore: new FileModeBlobStore(new FileBlobStore(fs, projectRoot), postgrest.rawBlobStore),
+    // No session, so the server answers these with 401: answer locally instead.
+    memberRepository: new NoAccountMemberRepository(),
+    commentRepository: new NoAccountCommentRepository(),
     // The container's client: tables and rpcs outside the org allowlist are refused, read or write, before any request.
     db: guardOrgDb(postgrest.db),
   };
