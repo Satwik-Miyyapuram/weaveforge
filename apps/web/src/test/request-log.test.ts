@@ -216,3 +216,42 @@ test("a body that cannot be cloned does not cost the report", async () => {
     resetLogCaptureForTest();
   }
 });
+
+test("an aborted request is the caller's choice, not a failure: not reported", async () => {
+  const reports: Report[] = [];
+  const abort = new DOMException("The operation was aborted.", "AbortError");
+  const restore = stubWindow((async () => Promise.reject(abort)) as typeof fetch, reports);
+  try {
+    installRequestLog();
+    await assert.rejects(browserFetch("https://ipc.localhost/vault_read"), (error: unknown) => error === abort);
+    await new Promise((resolve) => setTimeout(resolve, SETTLE_MS));
+    assert.equal(reports.length, 0);
+  } finally {
+    restore();
+    resetLogCaptureForTest();
+  }
+});
+
+test("a request cut off by leaving the page is not reported; after a return from the back cache it is", async () => {
+  const reports: Report[] = [];
+  const boom = new TypeError("Failed to fetch");
+  const restore = stubWindow((async () => Promise.reject(boom)) as typeof fetch, reports);
+  const listeners: Record<string, () => void> = {};
+  (globalThis as unknown as { window: { addEventListener: unknown } }).window.addEventListener = (type: string, fn: () => void) => {
+    listeners[type] = fn;
+  };
+  try {
+    installRequestLog();
+    listeners.pagehide!();
+    await assert.rejects(browserFetch("https://ipc.localhost/vault_list"));
+    await new Promise((resolve) => setTimeout(resolve, SETTLE_MS));
+    assert.equal(reports.length, 0, "a reload or navigation kills in-flight requests");
+    listeners.pageshow!();
+    await assert.rejects(browserFetch("https://ipc.localhost/vault_list"));
+    await new Promise((resolve) => setTimeout(resolve, SETTLE_MS));
+    assert.equal(reports.length, 1);
+  } finally {
+    restore();
+    resetLogCaptureForTest();
+  }
+});

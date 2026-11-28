@@ -100,6 +100,12 @@ export function installRequestLog(): void {
   // boolean — a bundle loaded twice still installs once.
   if ((current as { __weaveforgeLogged?: boolean }).__weaveforgeLogged) return;
 
+  // A reload or navigation kills every request in flight with "Failed to fetch";
+  // that is the page going away, not a failure. pageshow undoes it on a return from the back cache.
+  let leaving = false;
+  window.addEventListener?.("pagehide", () => (leaving = true));
+  window.addEventListener?.("pageshow", () => (leaving = false));
+
   const wrapped: typeof fetch = async (input, init) => {
     const url = urlOf(input as RequestInfo | URL);
     const method = methodOf(input as RequestInfo | URL, init);
@@ -107,7 +113,9 @@ export function installRequestLog(): void {
     try {
       response = await current(input, init);
     } catch (error) {
-      if (!isNoise(url)) reportFailedRequest({ method, url, error });
+      // An abort is the caller's own choice.
+      const aborted = (error as { name?: string } | null)?.name === "AbortError";
+      if (!isNoise(url) && !aborted && !leaving) reportFailedRequest({ method, url, error });
       throw error;
     }
     if (response.ok || isNoise(url)) return response;
