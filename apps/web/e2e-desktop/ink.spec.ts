@@ -16,24 +16,22 @@
  *   written by ink/infrastructure/parts.ts:435-468). NOT `<name>.inkb` beside `<name>.md`.
  */
 import type { Page } from "@playwright/test";
-import { expect, test } from "./dev-app";
+import { deleteOpenNote, expect, findNoteFile, nameNewNote, openInProject, test } from "./dev-app";
 
 const NOTE_PREFIX = "e2e-ink-";
 
 /** Creates an Untitled note, names it, and selects the pen. Returns the ink canvas. */
 async function openInkNote(app: Page, name: string) {
   await app.getByRole("button", { name: "New note" }).first().click();
-  // The new note's title is focused: typing replaces "Untitled".
-  await app.keyboard.type(name);
+  await nameNewNote(app, name);
+  // A new note opens in Text mode; the pen lives on the Ink mode's bar.
+  await app.getByRole("button", { name: "Ink", exact: true }).click();
   await app.getByRole("button", { name: "Pen (P)" }).first().click();
   const canvas = app.locator(".ink-canvas").first();
   await expect(canvas).toBeVisible({ timeout: 20_000 });
+  // The sheet is aria-busy until the note's ink has loaded; it takes no ink before.
+  await expect(canvas).not.toHaveAttribute("aria-busy", "true", { timeout: 10_000 });
   return canvas;
-}
-
-/** Deletes the open note with its editor's "Delete note" button (undo toast only, no confirm). */
-async function deleteOpenNote(app: Page) {
-  await app.getByRole("button", { name: "Delete note" }).first().click();
 }
 
 /** Pointer down at the canvas's left third, drag 200 px in `steps` moves. Leaves the button down. */
@@ -48,6 +46,9 @@ async function dragDown(app: Page, canvas: ReturnType<Page["locator"]>, steps: n
 }
 
 test.describe("ink", () => {
+  // The vault notes screen: its New note opens the note with the title focused.
+  test.beforeEach(({ app }) => openInProject(app, "/notes"));
+
   test("wet ink shows while the pen is still down", async ({ app }) => {
     const name = `${NOTE_PREFIX}${Date.now()}`;
     try {
@@ -60,7 +61,7 @@ test.describe("ink", () => {
 
       expect(Buffer.compare(before, during)).not.toBe(0);
     } finally {
-      await deleteOpenNote(app);
+      await deleteOpenNote(app, name);
     }
   });
 
@@ -100,7 +101,7 @@ test.describe("ink", () => {
       expect(sorted.length).toBeGreaterThan(0);
       expect(p95).toBeLessThan(budget);
     } finally {
-      await deleteOpenNote(app);
+      await deleteOpenNote(app, name);
     }
   });
 
@@ -113,19 +114,24 @@ test.describe("ink", () => {
       await app.waitForTimeout(3_000);
 
       // Layout per core/src/ink/parts-2.ts:230-237: `<name>.ink/` holds `<ulid>.inkb` pages.
-      const root = await app.evaluate(() => (window as any).weaveforge.listVaultFiles(""));
-      const inkDir = (root as { path: string; kind: string }[]).find(
-        (e) => e.kind === "dir" && e.path.split("/").pop()?.startsWith(name) && e.path.endsWith(".ink"),
-      );
-      expect(inkDir, `no ${name}.ink folder beside the note`).toBeTruthy();
+      // The ink folder takes the note file's name (untitled--<id6>), not its title.
+      const note = await findNoteFile(app, name);
+      expect(note, `note ${name} not found in the vault`).toBeTruthy();
+      const inkDir = await app.evaluate(async (path: string) => {
+        const dir = path.slice(0, Math.max(0, path.lastIndexOf("/")));
+        const id = (path.split("/").pop() ?? "").split(".")[0];
+        const list = (await (window as any).weaveforge.listVaultFiles(dir)) as { path: string; kind: string }[];
+        return list.find((e) => e.kind === "dir" && (e.path.split("/").pop() ?? "").startsWith(`${id}.`) && e.path.endsWith(".ink"))?.path ?? null;
+      }, note as string);
+      expect(inkDir, `no .ink folder beside ${note}`).toBeTruthy();
 
       const pages = await app.evaluate(
         (dir: string) => (window as any).weaveforge.listVaultFiles(dir),
-        inkDir!.path,
+        inkDir!,
       );
       expect((pages as { path: string }[]).some((e) => e.path.endsWith(".inkb"))).toBe(true);
     } finally {
-      await deleteOpenNote(app);
+      await deleteOpenNote(app, name);
     }
   });
 });

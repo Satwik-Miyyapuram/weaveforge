@@ -6,6 +6,7 @@ import { typedCore } from "@/lib/rust-core";
 import { loadTestCore } from "@/lib/test/load-test-core";
 import { wireFileBackend } from "../wire-file-backend";
 import { MemorySettings } from "./memory-settings";
+import { getScreenCache, screenCacheKey, setScreenCache } from "@/lib/cache/parts-2";
 
 before(loadTestCore);
 
@@ -83,4 +84,19 @@ test("a citation alert track works over files, with zero queryLocalDb and zero f
   assert.equal((await repos.citationAlertTrackRepository.getByPaperId("a"))?.id, track.id);
   assert.equal(localDbCalls, 0, "queryLocalDb never called");
   assert.equal(fetchCalls, 0, "no personal-table PostgREST call");
+});
+
+// E2E: New note then a rename reopened the card grid. The vault screen's reload painted its
+// cached list from before the new file, and skipped the load while that list was "fresh".
+test("a note written through the file backend clears the cached screens", async () => {
+  const { repos } = await setup();
+  const key = screenCacheKey(null, "vault");
+  setScreenCache(key, { flat: [] }, Date.now());
+  await repos.rawVaultPageRepository.add({ title: "New one", body: "" });
+  assert.equal(getScreenCache(key), undefined, "the vault list from before the note is gone");
+
+  setScreenCache(key, { flat: [] }, Date.now());
+  const [page] = await repos.rawVaultPageRepository.list();
+  await repos.rawVaultPageRepository.update(page!.id, { title: "Renamed" });
+  assert.equal(getScreenCache(key), undefined, "a rename clears it too");
 });

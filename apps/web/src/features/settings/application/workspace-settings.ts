@@ -10,9 +10,14 @@ import { showToast } from "@/lib/toast";
 import { WorkspaceSettingsFile } from "./workspace-settings-file";
 
 let folder: () => IWorkspaceFs | null = () => null;
+let restored: () => Promise<void> = () => Promise.resolve();
+let markBound!: () => void;
+// The sync component loads after the first toolbars, so an early edit waits for it too.
+const bound = new Promise<void>((resolve) => (markBound = resolve));
 
 export const workspaceSettings = new WorkspaceSettingsFile({
   fs: () => folder(),
+  restored: () => bound.then(() => restored()),
   warn: (message) => {
     logToApp({ level: "warn", source: "workspace", message });
     showToast(message);
@@ -20,6 +25,8 @@ export const workspaceSettings = new WorkspaceSettingsFile({
 });
 
 /** The sync component points the instance at the open folder. */
-export function bindWorkspaceSettingsFolder(get: () => IWorkspaceFs | null): void {
+export function bindWorkspaceSettingsFolder(get: () => IWorkspaceFs | null, whenRestored: () => Promise<void>): void {
   folder = get;
+  restored = whenRestored;
+  markBound();
 }

@@ -244,6 +244,8 @@ export type {
   CitationSignals,
 } from "./bindings.js";
 export { init, initSync };
+/** Where the browser fetches the .wasm from: the file the glue would fetch itself. */
+export const wasmUrl = (): URL => new URL("../pkg/wf_wasm_bg.wasm", import.meta.url);
 export * from "./feature-wrappers.js";
 // Plain Rust exports: no TS wrapper, callers get the wasm-bindgen function itself.
 export { sessionClaims } from "../pkg/wf_wasm.js";

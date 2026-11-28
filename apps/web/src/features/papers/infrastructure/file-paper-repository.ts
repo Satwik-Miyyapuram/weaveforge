@@ -64,6 +64,8 @@ const PAPER_SUFFIX = ".paper.md";
  */
 export class FilePaperRepository implements IPaperRepository {
   private readonly writeIds: boolean;
+  /** Each file's last parse, by path: a scan reads every file but parses only the ones whose text changed. */
+  private parsed = new Map<string, { text: string; row: Record<string, unknown>; pinned?: boolean }>();
 
   constructor(
     private readonly fs: IWorkspaceFs,
@@ -150,7 +152,13 @@ export class FilePaperRepository implements IPaperRepository {
   /** The ids of the papers whose frontmatter says `pinned: true`. */
   async listPinnedIds(): Promise<string[]> {
     const core = typedCore();
-    return (await this.readAll()).filter((read) => core.paperPinnedFromFile(read.text)).map((read) => read.paper.id);
+    return (await this.readAll())
+      .filter((read) => {
+        const kept = this.parsed.get(read.path);
+        if (kept?.text !== read.text) return core.paperPinnedFromFile(read.text);
+        return (kept.pinned ??= core.paperPinnedFromFile(read.text));
+      })
+      .map((read) => read.paper.id);
   }
 
   /** Sets or clears paper `id`'s `pinned` flag; false when no file holds the paper. */
@@ -296,15 +304,26 @@ export class FilePaperRepository implements IPaperRepository {
     const reads: PaperFileRead[] = [];
     const failures: PaperFileFailure[] = [];
     if (!(await this.fs.stat(dir))) return { reads, failures };
-    for await (const entry of this.fs.walk(dir)) {
-      if (!entry.path.endsWith(PAPER_SUFFIX)) continue;
+    const paths: string[] = [];
+    for await (const entry of this.fs.walk(dir)) if (entry.path.endsWith(PAPER_SUFFIX)) paths.push(entry.path);
+    // Read together, not one after another: one IPC round trip each held the workspace load.
+    const texts = await Promise.allSettled(paths.map((path) => this.fs.readText(path)));
+    const parsed = new Map<string, { text: string; row: Record<string, unknown>; pinned?: boolean }>();
+    texts.forEach((read, i) => {
+      const path = paths[i]!;
       try {
-        const text = await this.fs.readText(entry.path);
-        reads.push({ path: entry.path, text, paper: fromRow(core.paperRowFromFile(text), entry.path) });
+        if (read.status === "rejected") throw read.reason;
+        const text = read.value;
+        const kept = this.parsed.get(path);
+        const entry = kept?.text === text ? kept : { text, row: core.paperRowFromFile(text) };
+        parsed.set(path, entry);
+        reads.push({ path, text, paper: fromRow(entry.row, path) });
       } catch (error) {
-        failures.push({ path: entry.path, error: error instanceof Error ? error.message : String(error) });
+        failures.push({ path, error: error instanceof Error ? error.message : String(error) });
       }
-    }
+    });
+    // Only the files this walk saw: a deleted or unreadable file drops out.
+    this.parsed = parsed;
     return { reads, failures };
   }
 }

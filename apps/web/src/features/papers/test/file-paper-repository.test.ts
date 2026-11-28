@@ -237,6 +237,22 @@ test("one unreadable file in a folder of 3: list keeps the other 2, failures() r
   assert.match(failures[0]!.error, /EACCES/);
 });
 
+test("0.9.8: list reads the paper files together, not one after another (workspace load)", async () => {
+  const { fs, repo } = setup();
+  for (const [id, title] of [["p-1", "One"], ["p-2", "Two"], ["p-3", "Three"]]) await repo.save(paper({ id, title }));
+  const readText = fs.readText.bind(fs);
+  let open = 0;
+  let most = 0;
+  fs.readText = async (path: string) => {
+    most = Math.max(most, ++open);
+    await new Promise((resolve) => setImmediate(resolve));
+    open -= 1;
+    return readText(path);
+  };
+  assert.deepEqual((await repo.list()).map((p) => p.id).sort(), ["p-1", "p-2", "p-3"]);
+  assert.equal(most, 3);
+});
+
 test("a CRLF file stays CRLF after setTags", async () => {
   const { fs, repo } = setup();
   await repo.save(paper());
@@ -517,4 +533,23 @@ test("files() lists each paper's id with its file, in one scan", async () => {
   const files = (await repo.files()).sort((a, b) => a.paperId.localeCompare(b.paperId));
   assert.deepEqual(files, expected);
   assert.equal(reads, 2);
+});
+test("0.9.8: a later scan parses only the files whose text changed, and still sees an outside edit", async () => {
+  const { fs, repo } = setup();
+  await repo.save(paper({ id: "p-1", title: "One" }));
+  await repo.save(paper({ id: "p-2", title: "Two" }));
+  const byId = async () => new Map((await repo.list()).map((p) => [p.id, p]));
+  const first = await byId();
+  const again = await byId();
+  // The parsed row is kept per file text: an unchanged file hands back the same parse.
+  assert.equal(again.get("p-1")!.authors, first.get("p-1")!.authors, "p-1 not parsed again");
+  assert.equal(again.get("p-2")!.authors, first.get("p-2")!.authors, "p-2 not parsed again");
+  assert.notEqual(again.get("p-1"), first.get("p-1"), "each call still gets its own Paper object");
+  const path = (await repo.files()).find((f) => f.paperId === "p-2")!.path;
+  await fs.writeFile(path, (await fs.readText(path)).replace("Two", "Two edited"));
+  const edited = await byId();
+  assert.equal(edited.get("p-2")!.title, "Two edited", "an outside edit is picked up");
+  assert.notEqual(edited.get("p-2")!.authors, first.get("p-2")!.authors, "the edited file is parsed again");
+  assert.equal(edited.get("p-1")!.authors, first.get("p-1")!.authors);
+  assert.deepEqual(await repo.listPinnedIds(), []);
 });

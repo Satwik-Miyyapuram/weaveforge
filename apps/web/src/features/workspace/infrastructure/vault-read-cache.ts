@@ -105,6 +105,8 @@ export function forgetVaultPaths(paths: readonly string[]): void {
     // A removed or renamed folder takes its files' cached reads with it.
     for (const key of [...texts.keys()]) if (key.startsWith(`${path}/`)) forgetText(key);
     for (const key of [...stats.keys()]) if (key.startsWith(`${path}/`)) stats.delete(key);
+    // A write creates its parent folders: a cached "missing" stat of one would hide the file.
+    for (let i = path.lastIndexOf("/"); i > 0; i = path.lastIndexOf("/", i - 1)) stats.delete(path.slice(0, i));
   }
   // Any change can add or drop an entry in some listing; lists are cheap to refetch.
   lists.clear();

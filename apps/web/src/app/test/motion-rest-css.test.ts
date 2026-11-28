@@ -31,6 +31,13 @@ test("dashboard entrances fill backwards, so a finished fade drops its layer (.a
   assert.doesNotMatch(dashboard, /dashboard-(card-fade-in|content-in) [^;]*\bboth;/);
 });
 
+test("list and graph entrances fill backwards, so the graph drops its layer (.agents/ui-layers.md)", () => {
+  // `both` kept the finished fade in effect: the graph stayed composited and its bar and the nav overlapped it (9 layers).
+  const base = readFileSync(fileURLToPath(new URL("../styles/base.css", import.meta.url)), "utf8");
+  assert.match(base, /animation: content-in [^;]*backwards;/);
+  assert.doesNotMatch(base, /animation: content-in [^;]*\bboth;/);
+});
+
 test("the rise only runs when the OS allows motion (DA-20)", () => {
   const i = motion.indexOf("@keyframes reactive-rise {");
   const media = motion.lastIndexOf("@media", i);

@@ -271,6 +271,8 @@ export interface FolderInkNotesOptions {
 export class FolderInkNotes implements InkNoteLocator {
   private readonly paths = new Map<string, string>();
   private readonly reported = new Set<string>();
+  /** Ids with an old `.ink/<id>/` folder at the last full scan; null before the first. */
+  private legacyIds: ReadonlySet<string> | null = null;
 
   constructor(
     private readonly fs: () => IWorkspaceFs | null,
@@ -289,8 +291,49 @@ export class FolderInkNotes implements InkNoteLocator {
     const cached = this.paths.get(noteId);
     if (cached && (await idOfNote(fs, cached)) === noteId) return cached;
     this.paths.delete(noteId);
+    const named = await this.byFileName(fs, noteId);
+    if (named) {
+      this.paths.set(noteId, named);
+      return named;
+    }
     await this.scan(fs);
     return this.paths.get(noteId) ?? null;
+  }
+
+  /**
+   * A note is found by the id's first six characters, which its file name
+   * carries (`untitled--a83ae3.note.md`): only those files are read. Anything
+   * unclear -- no such file, two of them, an ink folder it shares, an old
+   * `.ink/<id>/` to copy -- is left to the full scan.
+   */
+  private async byFileName(fs: IWorkspaceFs, noteId: string): Promise<string | null> {
+    if (noteId.length < 6) return null;
+    // Before the first scan one stat answers what the listing of `.ink/` would.
+    const legacy = this.legacyIds ? this.legacyIds.has(noteId) : (await fs.stat(`${LEGACY_INK_DIR}/${noteId}`)) !== null;
+    if (legacy) return null;
+    const tag = `--${noteId.slice(0, 6)}`;
+    const hits: string[] = [];
+    await walkNotes(fs, "", async (entry, kind) => {
+      if (kind === "note" && baseName(entry.path).includes(tag) && (await idOfNote(fs, entry.path)) === noteId) hits.push(entry.path);
+    });
+    if (hits.length !== 1) return null;
+    const path = hits[0]!;
+    let dir: string;
+    try {
+      dir = typedCore().inkStrokesDir(path);
+    } catch {
+      return null;
+    }
+    const parent = path.slice(0, Math.max(0, path.lastIndexOf("/")));
+    for (const entry of await fs.list(parent)) {
+      if (entry.kind !== "file" || entry.path === path || !entry.path.endsWith(".md")) continue;
+      try {
+        if (typedCore().inkStrokesDir(entry.path) === dir) return null;
+      } catch {
+        // No usable folder: it shares nothing.
+      }
+    }
+    return path;
   }
 
   private async scan(fs: IWorkspaceFs): Promise<void> {
@@ -319,14 +362,21 @@ export class FolderInkNotes implements InkNoteLocator {
     this.closeSharedFolders(notes);
     this.paths.clear();
     for (const [id, path] of notes) this.paths.set(id, path);
+    const legacyIds = new Set<string>();
+    if (await fs.stat(LEGACY_INK_DIR)) {
+      for (const entry of await fs.list(LEGACY_INK_DIR)) if (entry.kind === "dir") legacyIds.add(baseName(entry.path));
+    }
+    this.legacyIds = legacyIds;
     for (const [id, path] of notes) {
+      // Only a note with an old folder has anything to copy; one listing beats a stat per note.
+      if (!legacyIds.has(id)) continue;
       try {
         await this.migrate(fs, id, path);
       } catch (err) {
         this.report("error", `ink: could not copy ${typedCore().legacyInkDir(id)} beside ${path}`, String(err));
       }
     }
-    await this.reportStrays(fs, claims, unpaired);
+    await this.reportStrays(fs, claims, unpaired, legacyIds);
   }
 
   /**
@@ -409,16 +459,17 @@ export class FolderInkNotes implements InkNoteLocator {
     fs: IWorkspaceFs,
     claims: ReadonlyMap<string, readonly string[]>,
     unpaired: readonly string[],
+    legacyIds: ReadonlySet<string>,
   ): Promise<void> {
     for (const dir of unpaired) {
       const files = (await fs.list(dir)).filter((entry) => entry.kind === "file").map((entry) => entry.path);
       if (readyCore().inkChunkIdsInListing(files).length === 0) continue;
       this.report("warn", `ink: ${dir} holds strokes but there is no note beside it; it was left as it is`);
     }
-    if (!(await fs.stat(LEGACY_INK_DIR))) return;
-    for (const entry of await fs.list(LEGACY_INK_DIR)) {
-      if (entry.kind !== "dir" || claims.has(baseName(entry.path))) continue;
-      this.report("warn", `ink: ${entry.path} holds strokes but no note has id ${baseName(entry.path)}; it was left as it is`);
+    for (const id of legacyIds) {
+      if (claims.has(id)) continue;
+      const dir = `${LEGACY_INK_DIR}/${id}`;
+      this.report("warn", `ink: ${dir} holds strokes but no note has id ${id}; it was left as it is`);
     }
   }
 

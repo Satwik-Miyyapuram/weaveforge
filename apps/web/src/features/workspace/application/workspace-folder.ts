@@ -2,6 +2,7 @@ import { NoOpWorkspaceGit, safeWorkspacePath, type IWorkspaceFs, type IWorkspace
 import { getContainer } from "@/bootstrap";
 import { isOwnWrite } from "@/backend/providers/files/own-writes";
 import { downloadLibraryPdfsOnce } from "@/features/reader/application/parts-1";
+import { clearAllScreenCaches } from "@/lib/cache/parts-2";
 import { desktop, type DesktopVaultRoot } from "@/lib/desktop/desktop-bridge";
 import { logToApp } from "@/lib/error-report/app-log";
 import { formatError } from "@/lib/format-error";
@@ -420,6 +421,8 @@ function reportFolderChanges(paths: readonly string[]): void {
     }
     // Folder closed meanwhile: these belong to a folder no longer shown.
     if (activeFs !== fs || outside === 0) return;
+    // A screen cached before the edit would repaint without it on its next open.
+    clearAllScreenCaches();
     notifyEach(takenInListeners, "outside-edits-taken-in", outside);
     requestSync();
   })().catch((error: unknown) => {

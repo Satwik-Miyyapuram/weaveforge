@@ -3,7 +3,7 @@
  * the app starts without the 0.9.7 upgrade gate, and Settings shows the Workspace folder.
  */
 import type { Page } from "@playwright/test";
-import { expect, test } from "./dev-app";
+import { currentProject, expect, nameNewNote, openProject, openProjectsScreen, openRoute, test } from "./dev-app";
 
 // Selector sources (apps/web/src):
 // - "New project" button: features/projects/ui/projects-screen.tsx:83
@@ -57,7 +57,8 @@ async function createProject(app: Page, name: string): Promise<void> {
   await app.getByRole("button", { name: "New project", exact: true }).first().click();
   await app.getByLabel("Name", { exact: true }).fill(name);
   await app.getByRole("button", { name: "Create project", exact: true }).click();
-  await expect(app.getByRole("button", { name, exact: true })).toBeVisible({ timeout: 20_000 });
+  // Creating opens the new project.
+  await expect(app.getByRole("button", { name: `Project: ${name}` })).toBeVisible({ timeout: 20_000 });
 }
 
 async function deleteProject(app: Page, name: string): Promise<void> {
@@ -71,14 +72,26 @@ async function deleteProject(app: Page, name: string): Promise<void> {
 }
 
 test.describe("projects", () => {
+  // These tests leave the open project; put the one Dev was on back for the specs after them.
+  let startProject: string | null = null;
+  test.beforeEach(async ({ app }) => {
+    await openRoute(app, "/dashboard");
+    startProject ??= await currentProject(app);
+  });
+  test.afterEach(async ({ app }) => {
+    if (startProject && (await currentProject(app)) !== startProject) await openProject(app, startProject);
+  });
+
   test("renaming a project moves its folder without a toast", async ({ app }) => {
     const base = `e2e-proj-${Date.now()}`;
     const renamed = `${base}-renamed`;
     try {
+      await openProjectsScreen(app);
       await createProject(app, base);
       const before = (await rootEntries(app)).filter((p) => p.includes(base) && !p.includes("renamed"));
       expect(before.length, "exactly one folder for the new project").toBe(1);
 
+      await openProjectsScreen(app);
       await startToastLog(app);
       await app.getByRole("button", { name: `More actions for ${base}`, exact: true }).click();
       await app.getByText("Rename", { exact: true }).click();
@@ -95,6 +108,7 @@ test.describe("projects", () => {
       expect(after.some((p) => p.includes(base) && !p.includes("renamed")), "old folder is gone").toBe(false);
       expect(after.some((p) => p.includes(renamed)), "new folder exists").toBe(true);
     } finally {
+      await openProjectsScreen(app);
       await deleteProject(app, renamed);
       await deleteProject(app, base);
     }
@@ -104,20 +118,25 @@ test.describe("projects", () => {
     const proj = `e2e-proj-del-${Date.now()}`;
     const note = `e2e-note-${Date.now()}`;
     try {
+      await openProjectsScreen(app);
       await createProject(app, proj);
-      await app.getByRole("button", { name: proj, exact: true }).click();
+      await openRoute(app, "/notes");
 
       await app.getByRole("button", { name: "New note", exact: true }).first().click();
       // The new note opens with its title focused to type over (vault-screen.tsx:222).
-      await app.keyboard.press("Control+A");
-      await app.keyboard.type(note);
+      await nameNewNote(app, note);
+      // The open note shows its name only in the title box; the list row has the actions.
+      await expect(app.getByRole("textbox", { name: "Note title" })).toHaveValue(note, { timeout: 20_000 });
+      await openRoute(app, "/notes");
       await expect(app.getByText(note, { exact: true })).toHaveCount(1, { timeout: 20_000 });
 
       await app.getByRole("button", { name: `More actions for ${note}`, exact: true }).click();
       await app.getByText("Delete note", { exact: true }).click();
 
-      // Deferred delete commits when its toast closes; auto-sync and the watcher run in this wait.
-      await app.waitForTimeout(8_000);
+      // Deferred delete commits when its toast closes (TOAST_MS, toast_store.rs); a reload before then undoes it.
+      await expect(app.locator(".toast-message").filter({ hasText: note })).toHaveCount(0, { timeout: 20_000 });
+      // Auto-sync and the watcher run in this wait.
+      await app.waitForTimeout(2_000);
       await app.reload();
       await app.waitForLoadState("load");
       await app.waitForTimeout(5_000);
@@ -125,6 +144,7 @@ test.describe("projects", () => {
       await expect(app.getByText(note, { exact: true }), "deleted note is not shown").toHaveCount(0);
       expect(await app.getByText(note, { exact: true }).count(), "no duplicate of the note").toBeLessThanOrEqual(1);
     } finally {
+      await openProjectsScreen(app);
       await deleteProject(app, proj);
     }
   });
@@ -140,6 +160,7 @@ test.describe("projects", () => {
     await app.getByRole("button", { name: /^Account/ }).click();
     await app.getByText("Settings", { exact: true }).click();
     // The Workspace tab is only rendered once its settings group is open.
+    await app.getByRole("button", { name: /^Editor and writing/ }).click();
     await app.locator("#settings-tab-workspace").click();
 
     const panel = app.locator("#settings-workspace");

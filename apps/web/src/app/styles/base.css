@@ -287,10 +287,12 @@ body {
 /* Content loads async (after the page frame), and the list container is always
    mounted — so animate the *items*, which mount when data arrives. Runs once
    per mount, so status edits (same key → no remount) don't replay it; adding a
-   row animates just that row. A small per-row delay gives a gentle stagger. */
+   row animates just that row. A small per-row delay gives a gentle stagger.
+   `backwards`, not `both`: a fill kept after the end keeps the element on its
+   own compositor layer for good (and the graph's bar and nav overlap it). */
 .log-item, .exp-item, .section-node, .list-item,
 .commit-item, .graph-wrap, .progress-card, .empty {
-  animation: content-in var(--dur-slow) var(--ease-out) both;
+  animation: content-in var(--dur-slow) var(--ease-out) backwards;
 }
 .log-item:nth-child(n+2),
 .exp-item:nth-child(n+2),

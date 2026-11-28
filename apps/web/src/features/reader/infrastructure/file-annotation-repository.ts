@@ -152,19 +152,19 @@ export class FileReaderAnnotationRepository
   /** Every paper's annotations, each with its paper id and page; a sidecar that does not parse is skipped. */
   async listForProject(): Promise<WorkspaceAnnotation[]> {
     const out: WorkspaceAnnotation[] = [];
-    for (const { paperId, path } of await this.paperFiles()) {
-      let rows: Row[];
-      const sidecar = typedCore().annotationsFilePath(path);
-      try {
-        rows = (await this.read(sidecar)).rows;
-      } catch (error) {
-        warnOnce("reader", `Skipped ${sidecar}: it could not be read.`, error);
-        continue;
+    const files = await this.paperFiles();
+    // Every sidecar at once, not one stat and read after another.
+    const reads = await Promise.allSettled(files.map(({ path }) => this.read(typedCore().annotationsFilePath(path))));
+    reads.forEach((read, i) => {
+      const { paperId, path } = files[i]!;
+      if (read.status === "rejected") {
+        warnOnce("reader", `Skipped ${typedCore().annotationsFilePath(path)}: it could not be read.`, read.reason);
+        return;
       }
-      for (const row of rows as unknown as ReaderAnnotation[]) {
+      for (const row of read.value.rows as unknown as ReaderAnnotation[]) {
         out.push({ ...row, paperId, pageIndex: pageOf(row) });
       }
-    }
+    });
     return out;
   }
 

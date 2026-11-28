@@ -563,3 +563,42 @@ test("deleting a note with a same-id twin removes both, so the note does not com
   assert.equal(await repo.getById("n-1"), null);
   assert.deepEqual((await files(fs)).filter((p) => p.startsWith("thesis/notes/")), []);
 });
+
+test("deleting a note moves its ink folder to the trash too, so no strokes are left without a note", async () => {
+  const { fs, repo } = setup();
+  const path = "thesis/notes/methods--q.note.md";
+  await fs.writeFile(path, "---\nweaveforge-id: n-1\nweaveforge-type: vault_page\ntitle: Methods\n---\n");
+  await fs.writeFile("thesis/notes/methods--q.note.ink/01A.inkb", "page");
+  await fs.writeFile("thesis/notes/other--r.note.ink/01B.inkb", "kept");
+  await repo.delete("n-1");
+  assert.deepEqual((await files(fs)).filter((p) => p.startsWith("thesis/")), ["thesis/notes/other--r.note.ink/01B.inkb"]);
+  assert.equal(await fs.stat("thesis/notes/methods--q.note.ink"), null, "the emptied ink folder is gone");
+  const trash: string[] = [];
+  for await (const entry of fs.walk(".weaveforge/trash")) trash.push(entry.path);
+  assert.equal(trash.filter((p) => p.endsWith("/01A.inkb")).length, 1, trash.join(", "));
+});
+
+test("deleting a note with no ink folder trashes only the note", async () => {
+  const { fs, repo } = setup();
+  await repo.save(page());
+  await repo.delete("n-1");
+  const trash: string[] = [];
+  for await (const entry of fs.walk(".weaveforge/trash")) trash.push(entry.path);
+  assert.equal(trash.length, 1, trash.join(", "));
+});
+
+test("0.9.8: list reads the note files together and keeps them sorted by path (workspace load)", async () => {
+  const { fs, repo } = setup();
+  for (const [id, title] of [["c", "Gamma"], ["a", "Alpha"], ["b", "Beta"]]) await repo.save(page({ id, title }));
+  const readText = fs.readText.bind(fs);
+  let open = 0;
+  let most = 0;
+  fs.readText = async (path: string) => {
+    most = Math.max(most, ++open);
+    await new Promise((resolve) => setImmediate(resolve));
+    open -= 1;
+    return readText(path);
+  };
+  assert.deepEqual((await repo.list()).map((p) => p.title), ["Alpha", "Beta", "Gamma"]);
+  assert.equal(most, 3);
+});

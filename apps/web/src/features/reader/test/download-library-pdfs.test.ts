@@ -19,7 +19,9 @@ import assert from "node:assert/strict";
 import { activeWorkspaceFs } from "@/features/workspace/application/workspace-folder";
 import {
   downloadLibraryPdfs,
+  downloadLibraryPdfsOnce,
   downloadPaperPdf,
+  heldPdfs,
   serialPdfQueue,
 } from "../application/parts-1";
 
@@ -83,4 +85,35 @@ test("a failed queued download does not stop the next one (P2-178)", async () =>
   }, 0);
   await Promise.all([enqueue("bad"), enqueue("good")]);
   assert.deepEqual(seen, ["bad", "good"]);
+});
+test("0.9.8: the held-PDF checks run together, and a failed one is null", async () => {
+  let inFlight = 0;
+  let maxInFlight = 0;
+  const held = await heldPdfs(["a", "b", "bad"], async (id) => {
+    inFlight += 1;
+    maxInFlight = Math.max(maxInFlight, inFlight);
+    await new Promise((r) => setTimeout(r, 5));
+    inFlight -= 1;
+    if (id === "bad") throw new Error("stat failed");
+    return id === "a";
+  });
+  assert.deepEqual(held, [true, false, null]);
+  assert.equal(maxInFlight, 3, "one stat after another held the workspace load");
+});
+
+test("0.9.8: the background walk waits before it starts, and starts once", async () => {
+  let release!: () => void;
+  const wait = () => new Promise<void>((resolve) => (release = resolve));
+  let walks = 0;
+  const walk = async () => {
+    walks += 1;
+    return { done: 0, total: 0, fetched: 0, skipped: 0 };
+  };
+  downloadLibraryPdfsOnce(wait, walk);
+  downloadLibraryPdfsOnce(wait, walk);
+  await Promise.resolve();
+  assert.equal(walks, 0, "the walk must not compete with the workspace load");
+  release();
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.equal(walks, 1);
 });

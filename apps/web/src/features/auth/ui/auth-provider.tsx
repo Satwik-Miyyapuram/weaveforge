@@ -58,6 +58,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     let active = true;
     let unsubscribe: (() => void) | undefined;
+    // Leaving the page cancels its fetches (the core's .wasm too): that is no failed start.
+    let leaving = false;
+    const onLeave = () => {
+      leaving = true;
+    };
+    const onShow = () => {
+      leaving = false;
+    };
+    window.addEventListener("pagehide", onLeave);
+    window.addEventListener("pageshow", onShow);
 
     // nextAuthStep runs in the Rust core, so auth starts once the core is loaded.
     void Promise.all([import("@/light-bootstrap"), loadCore()]).then(([{ getLightContainer }]) => {
@@ -124,6 +134,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }).catch((error: unknown) => {
       // A chunk that fails to load would otherwise leave the app on its
       // loading screen for good; show the signed-out state instead.
+      if (leaving) return;
       console.error("[weaveforge] auth could not start:", error);
       logToApp({ level: "error", source: "auth", message: "auth could not start", detail: String(error) });
       if (active) setLoading(false);
@@ -132,6 +143,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => {
       active = false;
       unsubscribe?.();
+      window.removeEventListener("pagehide", onLeave);
+      window.removeEventListener("pageshow", onShow);
     };
   }, []);
 

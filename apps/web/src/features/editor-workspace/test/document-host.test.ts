@@ -80,3 +80,9 @@ test("Ink opens on the text just typed, not the last saved body (E35)", () => {
   // Nothing typed yet: the saved body.
   assert.equal(surfaceBody("saved", null), "saved");
 });
+
+test("0.9.8: an Overleaf tab renders from its id alone, before its row loads", () => {
+  // A restored Overleaf tab no longer waits on the Overleaf project list: the
+  // workspace hands it an empty body and the renderer needs only the tab id.
+  for (const mode of ["edit", "read", "ink"] as const) assert.equal(rendererFor("overleaf", mode, ""), "overleaf");
+});

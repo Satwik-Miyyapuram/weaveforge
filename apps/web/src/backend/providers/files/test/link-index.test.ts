@@ -208,3 +208,17 @@ test("(P3) an unreadable file is logged once, and again only when the set of unr
     assert.equal(warned.filter((w) => String(w[0]).includes("old/x.paper.md")).length, 1, "the old one is not logged again");
   });
 });
+test("0.9.8: a snapshot reads every file together, papers and notes at once (workspace load)", async () => {
+  const { fs, index } = await setup();
+  const readText = fs.readText.bind(fs);
+  let open = 0;
+  let most = 0;
+  fs.readText = async (path: string) => {
+    most = Math.max(most, ++open);
+    await new Promise((resolve) => setImmediate(resolve));
+    open -= 1;
+    return readText(path);
+  };
+  assert.deepEqual(await index.resolve("[[ünïque.note]]"), { vaultPageId: "n3" });
+  assert.equal(most, 4, "the paper and the three notes are read at once");
+});

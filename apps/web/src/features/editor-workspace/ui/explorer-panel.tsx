@@ -48,6 +48,9 @@ import { Button, CloseButton, IconButton } from "@/components/button";
 /** The MIME type explorer rows drag as. */
 const EXPLORER_DRAG_TYPE = "application/x-weaveforge-node";
 
+/** The row without its subtree: the wasm checks read only the row, and passing children deserialised the whole subtree on every row render. */
+const rowOnly = (node: WorkspaceTreeNode): WorkspaceTreeNode => ({ ...node, children: [] });
+
 const NEW_HERE: { kind: CreateKind; label: string; icon: React.ReactNode }[] = [
   { kind: "note", label: "New note here", icon: <NavIcon name="notes" /> },
   { kind: "canvas", label: "New page here", icon: <NavIcon name="canvas" /> },
@@ -193,7 +196,7 @@ export function ExplorerPanel({
   // opened so the box is on screen. A count, so each press starts it once.
   useEffect(() => {
     const node = renameRequest && activeKey ? nodeByKey.get(activeKey) : undefined;
-    if (!node || !onRename || !canRename(node)) return;
+    if (!node || !onRename || !canRename(rowOnly(node))) return;
     const path: string[] = [];
     const find = (n: WorkspaceTreeNode): boolean =>
       n.key === node.key || (n.children.some(find) && (path.push(n.key), true));
@@ -332,6 +335,19 @@ export function ExplorerPanel({
     else focusOncePainted(key);
   }, [focusOncePainted]);
 
+  // A note opened elsewhere (or just made) scrolls its row into view, once:
+  // a new note's row can arrive a render after the note opens.
+  const reveal = useRef<string | null>(null);
+  useEffect(() => {
+    reveal.current = activeKey ?? null;
+  }, [activeKey]);
+  useEffect(() => {
+    const row = reveal.current ? findRow(listRef.current, reveal.current) : null;
+    if (!row) return;
+    reveal.current = null;
+    row.scrollIntoView?.({ block: "nearest" });
+  });
+
   // One flat list across every open section is what makes an arrow key mean
   // "the next row" rather than "the next row in this section".
   const flat = useMemo<PaintedRow[]>(
@@ -397,7 +413,7 @@ export function ExplorerPanel({
       activate(node);
       return;
     }
-    if (event.key === "F2" && canRename(node)) {
+    if (event.key === "F2" && canRename(rowOnly(node))) {
       event.preventDefault();
       setProblem(null);
       setRenaming(node.key);
@@ -409,9 +425,10 @@ export function ExplorerPanel({
     : (flat[0]?.node.key ?? null);
 
   // Rows that stay painted out of view: unmounting them would drop the tree's
-  // focus, or the text of a rename or a draft being typed.
+  // focus, or the text of a rename or a draft being typed. The open note's row
+  // stays painted so it can be scrolled to (a new note lands below the fold).
   const pinnedKeys = new Set(
-    [focused, renaming, draft ? draftParentKey : null, problem?.key].filter(
+    [focused, renaming, draft ? draftParentKey : null, problem?.key, activeKey].filter(
       (key): key is string => Boolean(key),
     ),
   );
@@ -522,9 +539,11 @@ export function ExplorerPanel({
                     const lists = node.id ? listNames?.get(`${node.kind}:${node.id}`) : undefined;
                     const git = gitStatus?.get(node.key);
                     const tint = kindIconClass(node.kind, rowOpen);
-                    const offered = onDraft ? creatableUnder(node) : [];
+                    const alone = rowOnly(node);
+                    const renamable = canRename(alone);
+                    const offered = onDraft ? creatableUnder(alone) : [];
                     const rowProblem = problem?.key === node.key ? problem.message : null;
-                    const draggable = Boolean(onMove) && canRename(node);
+                    const draggable = Boolean(onMove) && renamable;
                     const title = [
                       node.path,
                       lists && lists.length > 0
@@ -649,7 +668,7 @@ export function ExplorerPanel({
                           {/* Hover actions, VS Code's way: they sit on the
                               row they act on, so "new in here" needs no
                               question about where. */}
-                          {(offered.length > 0 || (onRename && canRename(node))) && renaming !== node.key ? (
+                          {(offered.length > 0 || (onRename && renamable)) && renaming !== node.key ? (
                             <span className="explorer-row-actions">
                               {NEW_HERE.filter((item) => offered.includes(item.kind)).map((item) => (
                                 <IconButton
@@ -664,7 +683,7 @@ export function ExplorerPanel({
                                   {item.icon}
                                 </IconButton>
                               ))}
-                              {onRename && canRename(node) ? (
+                              {onRename && renamable ? (
                                 <IconButton
                                   size="sm"
                                   label="Rename"

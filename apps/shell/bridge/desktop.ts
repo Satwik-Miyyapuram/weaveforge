@@ -78,6 +78,7 @@ export interface DesktopCommands {
   workspaceSetup(): Promise<Result<DesktopWorkspaceSetup>>;
   workspaceSkip(): Promise<Result<VaultChoice>>;
   vaultRead(path: string): Promise<Result<string | null>>;
+  vaultReadMany(paths: string[]): Promise<Result<{ text: string | null; error: string | null }[]>>;
   vaultWrite(path: string, contents: string): Promise<Result<null>>;
   vaultWriteIf(path: string, contents: string, expected: string | null): Promise<Result<boolean>>;
   vaultReadBytes(path: string): Promise<Result<string | null>>; // base64
@@ -351,6 +352,37 @@ export type DesktopShim = Pick<
   planWidgetData: () => Promise<unknown>;
 };
 
+/**
+ * `readVaultFile` that sends the reads started in one turn as one `vaultReadMany`: loading a folder of
+ * 200 notes is then one round trip, not 200 (each one a task on the page's main thread).
+ */
+function batchedRead(cmds: DesktopCommands): (path: string) => Promise<string | null> {
+  type Waiter = { path: string; resolve: (text: string | null) => void; reject: (e: unknown) => void };
+  let queued: Waiter[] = [];
+  const flush = async () => {
+    const batch = queued;
+    queued = [];
+    try {
+      if (batch.length === 1) {
+        batch[0]!.resolve(unwrap(await cmds.vaultRead(batch[0]!.path)));
+        return;
+      }
+      const entries = unwrap(await cmds.vaultReadMany(batch.map((w) => w.path)));
+      batch.forEach((w, i) => {
+        const entry = entries[i];
+        if (entry?.error) w.reject(new Error(entry.error));
+        else w.resolve(entry?.text ?? null);
+      });
+    } catch (e) {
+      for (const w of batch) w.reject(e);
+    }
+  };
+  return (path) =>
+    new Promise((resolve, reject) => {
+      if (queued.push({ path, resolve, reject }) === 1) queueMicrotask(() => void flush());
+    });
+}
+
 /** Wraps the generated commands as the desktop members of `DesktopBridge`. */
 export function desktopShim(
   cmds: DesktopCommands,
@@ -551,7 +583,7 @@ export function desktopShim(
     forgetVaultRoot: async () => unwrap(await cmds.vaultForget()).warnings,
     workspaceSetup: async () => unwrap(await cmds.workspaceSetup()),
     skipWorkspaceFolder: async () => choiceRoot(unwrap(await cmds.workspaceSkip())),
-    readVaultFile: async (path) => unwrap(await cmds.vaultRead(path)),
+    readVaultFile: batchedRead(cmds),
     writeVaultFile: async (path, contents) => {
       unwrap(await cmds.vaultWrite(path, contents));
     },

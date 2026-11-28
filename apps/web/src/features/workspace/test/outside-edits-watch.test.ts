@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { before, test } from "node:test";
 
 import { forgetOwnWrites, recordOwnWrite } from "@/backend/providers/files/own-writes";
+import { getScreenCache, screenCacheKey, setScreenCache } from "@/lib/cache/parts-2";
 import { loadTestCore } from "@/lib/test/load-test-core";
 import { chooseDesktopFolder, closeFolder, onOutsideEditsTakenIn } from "../application/workspace-folder";
 
@@ -54,6 +55,15 @@ test("an outside edit is announced once", async (t) => {
   shell.changed(["notes/outside.md"]);
   await waitFor(heard, 50);
   assert.deepEqual(heard, [1]);
+});
+
+test("an outside edit clears the cached screens, so the next open lists it", async (t) => {
+  const { shell, heard } = await connect(t, { "notes/outside.md": "edited" });
+  const key = screenCacheKey(null, "vault");
+  setScreenCache(key, { flat: [] }, Date.now());
+  shell.changed(["notes/outside.md"]);
+  await waitFor(heard, 50);
+  assert.equal(getScreenCache(key), undefined);
 });
 
 test("the app's own write echoing back is not an outside edit", async (t) => {

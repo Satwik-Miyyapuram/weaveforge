@@ -677,6 +677,7 @@ export function InkHost({
           paper={page.paper}
           tool={tool}
           cursorMode={cursorMode || !canInk}
+          loading={!canInk}
           ink={{ hex: readyCore().paletteHex(palette, colour), diameterPx: nib * scale }}
           project={project}
           penHandlers={penHandlers}

@@ -93,6 +93,46 @@ test("with no workspace folder open, edits stay in memory, warn once, and close(
   assert.equal(warnings.filter((m) => m.startsWith("no workspace folder is open")).length, 1, "warns exactly once while no folder is open");
 });
 
+test("an edit made while the launch restore is still opening the folder does not warn", async () => {
+  const warnings: string[] = [];
+  const files = new Map<string, string>();
+  const fs = memoryFs(files, { on: false });
+  let folder: IWorkspaceFs | null = null;
+  let restore!: () => void;
+  const restored = new Promise<void>((resolve) => (restore = resolve));
+  let scheduled = 0;
+  const file = new WorkspaceSettingsFile({
+    fs: () => folder,
+    restored: () => restored,
+    warn: (m: string) => warnings.push(m),
+    schedule: () => ++scheduled,
+    cancel: () => {},
+  });
+  file.set(["ui", "zoom"], 2);
+  await new Promise((r) => setTimeout(r, 0));
+  assert.deepEqual(warnings, [], "no warning before the restore has answered");
+  folder = fs as unknown as IWorkspaceFs;
+  restore();
+  await new Promise((r) => setTimeout(r, 0));
+  assert.deepEqual(warnings, [], "the folder came back, so nothing to warn about");
+  assert.ok(scheduled > 0, "the waiting edit is scheduled for writing");
+});
+
+test("an edit with no folder after the launch restore warns once", async () => {
+  const warnings: string[] = [];
+  const file = new WorkspaceSettingsFile({
+    fs: () => null,
+    restored: () => Promise.resolve(),
+    warn: (m: string) => warnings.push(m),
+    schedule: () => 0,
+    cancel: () => {},
+  });
+  file.set(["ui", "zoom"], 2);
+  file.set(["ui", "zoom"], 3);
+  await new Promise((r) => setTimeout(r, 0));
+  assert.equal(warnings.filter((m) => m.startsWith("no workspace folder is open")).length, 1);
+});
+
 test("closing with no folder open names the unsaved keys", async () => {
   const warnings: string[] = [];
   const file = new WorkspaceSettingsFile({

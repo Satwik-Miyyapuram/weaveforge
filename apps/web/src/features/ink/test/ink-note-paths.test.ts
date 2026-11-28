@@ -414,3 +414,82 @@ test("a .note.ink folder whose note is gone is still reported as a stray and kep
   assert.match(strays, /thesis--2a3407\/notes\/gone\.note\.ink/);
   assert.notEqual(await fs.stat(`thesis--2a3407/notes/gone.note.ink/${page}.inkb`), null);
 });
+/** Counts fs calls by method and path. */
+function counting(fs: MemoryWorkspaceFs) {
+  const calls: { op: string; path: string }[] = [];
+  const counted = new Proxy(fs, {
+    get(target, key, receiver) {
+      const value = Reflect.get(target, key, receiver);
+      if (typeof value !== "function" || !["stat", "list", "readText"].includes(String(key))) return value;
+      return (...args: unknown[]) => {
+        calls.push({ op: String(key), path: String(args[0]) });
+        return value.apply(target, args);
+      };
+    },
+  });
+  return { counted, calls };
+}
+
+const manyNotes = (n: number) =>
+  Object.fromEntries(
+    Array.from({ length: n }, (_, i) => {
+      const id = `${String(i).padStart(6, "0")}00-0000-4000-8000-000000000000`;
+      return [`p/notes/n${i}--${id.slice(0, 6)}.note.md`, noteText(id)];
+    }),
+  );
+
+test("a scan looks in the old .ink/ folder once, not once per note", async () => {
+  const a = typedCore().newInkChunkId();
+  const fs = await folderWith({ ...manyNotes(40), [NOTE_PATH]: noteText(ID, [a]), [`${LEGACY}/${a}.inkb`]: bytes(1) });
+  const { counted, calls } = counting(fs);
+  const notes = new FolderInkNotes(() => counted, { report: () => {} });
+  assert.equal(await notes.pathOf(ID), NOTE_PATH);
+  const legacy = calls.filter((c) => c.op === "stat" && (c.path.startsWith(".ink/") || c.path.startsWith(".weaveforge/ink-migrated/")));
+  assert.ok(legacy.length <= 3, `stats of old ink folders: ${legacy.length}`);
+  assert.notEqual(await fs.stat(`${STROKES}/${a}.inkb`), null, "the one old folder is still copied");
+});
+
+test("a new note is found by the id in its file name, without reading every note again", async () => {
+  const fs = await folderWith(manyNotes(40));
+  const { counted, calls } = counting(fs);
+  const notes = new FolderInkNotes(() => counted, { report: () => {} });
+  await notes.pathOf("00000001-0000-4000-8000-000000000000");
+  const id = "a83ae3f8-f7c7-4a73-b881-0df3eeb694fc";
+  const path = "p/notes/untitled--a83ae3.note.md";
+  await fs.writeFile(path, noteText(id));
+  calls.length = 0;
+  assert.equal(await notes.pathOf(id), path);
+  const reads = calls.filter((c) => c.op === "readText");
+  assert.ok(reads.length <= 2, `notes read: ${reads.length}`);
+});
+
+test("a new note whose id is in two file names falls back to the full scan and opens neither", async () => {
+  const id = "a83ae3f8-f7c7-4a73-b881-0df3eeb694fc";
+  const fs = await folderWith({
+    ...manyNotes(3),
+    "p/notes/untitled--a83ae3.note.md": noteText(id),
+    "p/notes/untitled--a83ae3 copy.note.md": noteText(id),
+  });
+  const { notes, reports } = stores(fs);
+  assert.equal(await notes.pathOf(id), null);
+  assert.ok(reports.some((r) => r.level === "error" && r.message.includes(id)));
+});
+
+test("a note named by its id whose ink folder another note shares gets no strokes", async () => {
+  const id = "a83ae3f8-f7c7-4a73-b881-0df3eeb694fc";
+  const fs = await folderWith({
+    "p/notes/x--a83ae3.md": noteText(id),
+    "p/notes/x--a83ae3.ink.md": noteText("9b1c7a52-0d4e-4f1a-8c6b-3e2f1a0b9c8d"),
+  });
+  const { notes } = stores(fs);
+  assert.equal(await notes.pathOf(id), null);
+});
+
+test("the first note opened after start is found by its file name, without reading every note", async () => {
+  const fs = await folderWith(manyNotes(40));
+  const { counted, calls } = counting(fs);
+  const notes = new FolderInkNotes(() => counted, { report: () => {} });
+  assert.equal(await notes.pathOf("00000100-0000-4000-8000-000000000000"), "p/notes/n1--000001.note.md");
+  const reads = calls.filter((c) => c.op === "readText");
+  assert.ok(reads.length <= 2, `notes read: ${reads.length}`);
+});

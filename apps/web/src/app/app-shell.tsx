@@ -42,12 +42,16 @@ import { CoreGate } from "./core-gate";
 import { KeepAliveProvider } from "./keep-alive";
 import { DetailHeaderExtrasContext } from "@/components/detail-header-extras";
 
-/* Both paint nothing and only matter once a folder is connected; the folder
-   code they carry is loaded after the page rather than with every one. */
-const WorkspaceFolderRestore = dynamic(
-  () => import("@/features/workspace/ui/workspace-folder-restore").then((m) => m.WorkspaceFolderRestore),
-  { ssr: false },
-);
+/* The folder code is loaded after the page rather than with every one. Not
+   `dynamic()`: a lazy component's effect waits for React's Suspense reveal
+   (about 300 ms), and every startup read waits for the folder. */
+function WorkspaceFolderRestore() {
+  useEffect(() => {
+    void import("@/features/workspace/ui/workspace-folder-restore").then((m) => m.restoreRememberedFolder());
+  }, []);
+  return null;
+}
+/* Paints nothing and only matters once a folder is connected. */
 const FolderChangeNote = dynamic(
   () => import("@/features/workspace/ui/folder-change-note").then((m) => m.FolderChangeNote),
   { ssr: false },

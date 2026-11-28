@@ -51,7 +51,7 @@ function memoryFs(files: Map<string, string>) {
 }
 
 async function open(files: Map<string, string>) {
-  bindWorkspaceSettingsFolder(() => memoryFs(files) as unknown as IWorkspaceFs);
+  bindWorkspaceSettingsFolder(() => memoryFs(files) as unknown as IWorkspaceFs, async () => {});
   await workspaceSettings.load();
   resetToolColoursCacheForTests();
 }

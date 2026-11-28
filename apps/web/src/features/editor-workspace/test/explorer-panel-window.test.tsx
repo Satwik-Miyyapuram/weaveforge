@@ -29,11 +29,12 @@ function files(n: number): WorkspaceTreeNode[] {
   }));
 }
 
-function render(n: number): string {
+function render(n: number, activeKey?: string): string {
   return renderToStaticMarkup(
     createElement(ExplorerPanel, {
       sections: [{ id: "files", title: "Files", tree: files(n) }],
       onOpen: () => {},
+      activeKey,
     }),
   );
 }
@@ -45,6 +46,13 @@ test("2,000 files paint a first screenful, not 2,000 rows", () => {
   assert.equal(treeitems(html), EXPLORER_FIRST_PAINT_ROWS);
   assert.ok(html.includes(`height:${(2_000 - EXPLORER_FIRST_PAINT_ROWS) * EXPLORER_ROW_PX}px`));
   assert.ok(html.includes(">2000<"), "the section count still counts every file");
+});
+
+test("the open note's row is painted even when it sits below the first screenful", () => {
+  // A note just made lands at the end of a long folder; its row must exist to be shown.
+  const html = render(2_000, "vault_page:1999");
+  assert.equal(treeitems(html), EXPLORER_FIRST_PAINT_ROWS + 1);
+  assert.match(html, /data-row-key="vault_page:1999"/);
 });
 
 test("a small vault paints every row and no gap", () => {

@@ -94,3 +94,11 @@ test("without cursor mode the same pen inks", () => {
   assert.equal(calls.down, 1);
   assert.equal(calls.up, 1);
 });
+
+test("while the note's ink loads the sheet says it is busy and shows a wait cursor", () => {
+  const { canvas } = mount({ cursorMode: true, loading: true });
+  assert.equal(canvas.props["aria-busy"], true);
+  assert.equal(canvas.props.style.cursor, "progress");
+  const ready = mount({ cursorMode: true });
+  assert.equal(ready.canvas.props["aria-busy"], undefined);
+});

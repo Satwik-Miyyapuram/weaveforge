@@ -134,6 +134,14 @@ folder. It never launches a browser or the installed app.
 cd apps\web; npm run test:e2e:desktop
 ```
 
+- To run a subset, keep the config: `npx playwright test -c
+  playwright.desktop.config.ts ink notes`. That config runs one worker; with
+  `-c e2e-desktop` Playwright runs specs in parallel on the one Dev page and
+  they break each other's navigation.
+- Specs set up their own state: each opens a project first (`openInProject`
+  in `dev-app.ts`; it picks the first project not named `e2e-*`), and the
+  projects spec reopens the project it started in. A run can start from any
+  screen, the projects screen included.
 - The suite is the tester: `sweep.spec.ts` walks every route, explorer item
   kind, theme, window size and safe control, and reports what is wrong
   (console and page errors, error text, stray scrollbars in thin strips, page

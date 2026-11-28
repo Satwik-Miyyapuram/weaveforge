@@ -7,7 +7,7 @@ use tauri::Manager as _;
 
 use crate::commands::ShellError;
 use crate::prefs::Prefs;
-use crate::vault::{VaultEntry, VaultRoot, VaultSession, VaultState};
+use crate::vault::{NO_ROOT, VaultEntry, VaultRoot, VaultSession, VaultState};
 use crate::vault_choice::{
     Choice, adopt_choice, default_workspace_folder, forget_choice, missing_remembered,
     retry_remembered, setup_needed,
@@ -82,6 +82,38 @@ pub async fn root(state: &VaultState) -> Option<VaultRoot> {
 /// No folder chosen, a refused path, or a file over the size cap.
 pub async fn read(state: &VaultState, path: String) -> Result<Option<String>, String> {
     blocking_read(state, move |session| session.read_text(&path)).await
+}
+
+/// One file's result in `read_many`: its text, nothing when missing, or why it could not be read.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, specta::Type)]
+pub struct ReadEntry {
+    /// The text; `None` when the file is missing or could not be read.
+    pub text: Option<String>,
+    /// Why this one file could not be read (a refused path, over the size cap).
+    pub error: Option<String>,
+}
+
+/// Texts of many files in one call, in order, so loading a folder costs one round trip instead of one per file.
+///
+/// # Errors
+/// No folder chosen; a bad single file is reported in its own entry.
+pub async fn read_many(state: &VaultState, paths: Vec<String>) -> Result<Vec<ReadEntry>, String> {
+    blocking_read(state, move |session| {
+        if session.root().is_none() {
+            return Err(NO_ROOT.to_owned());
+        }
+        Ok(paths
+            .iter()
+            .map(|path| match session.read_text(path) {
+                Ok(text) => ReadEntry { text, error: None },
+                Err(error) => ReadEntry {
+                    text: None,
+                    error: Some(error),
+                },
+            })
+            .collect())
+    })
+    .await
 }
 
 /// Writes text to a file in the chosen folder, creating its folders.
@@ -460,6 +492,21 @@ pub async fn vault_read(
     path: String,
 ) -> Result<Option<String>, ShellError> {
     read(state.inner(), path).await.map_err(ShellError::from)
+}
+
+/// Reads many text files in the chosen folder in one call.
+///
+/// # Errors
+/// No folder chosen.
+#[tauri::command]
+#[specta::specta]
+pub async fn vault_read_many(
+    state: tauri::State<'_, VaultState>,
+    paths: Vec<String>,
+) -> Result<Vec<ReadEntry>, ShellError> {
+    read_many(state.inner(), paths)
+        .await
+        .map_err(ShellError::from)
 }
 
 /// Writes a text file in the chosen folder.

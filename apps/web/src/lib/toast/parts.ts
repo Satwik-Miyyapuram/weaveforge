@@ -107,6 +107,8 @@ export class ToastStore {
   private timers = new Map<number, unknown>();
   /** Nesting depth of dispatch. Closures are pruned only when the outermost dispatch ends. */
   private depth = 0;
+  /** Commits whose promise has not settled yet. */
+  private inFlight = 0;
 
   constructor(private readonly clock: ToastClock = systemClock) {}
 
@@ -157,6 +159,11 @@ export class ToastStore {
 
   snapshot(): readonly Toast[] {
     return this.view;
+  }
+
+  /** True while a delete's commit is still on its way; the app close waits for it. */
+  committing(): boolean {
+    return this.inFlight > 0;
   }
 
   hiddenKeys(): ReadonlySet<string> {
@@ -225,10 +232,14 @@ export class ToastStore {
       return;
     }
     if (!result || typeof (result as Promise<unknown>).then !== "function") return;
+    this.inFlight++;
     this.dispatch({ type: "committing", id, keys });
     void (result as Promise<unknown>)
       .catch(fail)
-      .finally(() => this.dispatch({ type: "committed", id }));
+      .finally(() => {
+        this.inFlight--;
+        this.dispatch({ type: "committed", id });
+      });
   }
 
   /** Drop the closures of toasts that have closed. */

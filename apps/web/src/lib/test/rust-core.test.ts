@@ -29,6 +29,50 @@ test("a failed load is not cached; the next call retries", () => {
   assert.deepEqual(JSON.parse(out.trim().split("\n").at(-1) ?? ""), { failed: true, info: { version } });
 });
 
+// 0.9.8: instantiateStreaming finishes on the main thread (v8.wasm.compileConsumeDone)
+// and stalled about one cold load in eight for 2-5 s. The app fetches the whole
+// file and instantiates the bytes instead.
+const fetchScript = `
+const { readFileSync } = await import("node:fs");
+const bytes = readFileSync("../../packages/wf-wasm/pkg/wf_wasm_bg.wasm");
+const fetched = [];
+let streamed = 0;
+globalThis.fetch = async (url) => { fetched.push(String(url)); return new Response(bytes, { headers: { "content-type": "application/wasm" } }); };
+WebAssembly.instantiateStreaming = async () => { streamed++; throw new Error("streamed"); };
+WebAssembly.compileStreaming = async () => { streamed++; throw new Error("streamed"); };
+const { loadCore } = await import("./src/lib/rust-core.ts");
+const core = await loadCore();
+console.log(JSON.stringify({ streamed, fetched: fetched.map((u) => u.split("/").pop()), info: core.coreInfo() }));
+`;
+
+test("with no bytes given, loadCore fetches the .wasm whole and never streams it", () => {
+  const out = execFileSync(process.execPath, ["--import", "tsx", "--input-type=module", "-e", fetchScript], {
+    cwd: fileURLToPath(new URL("../../../", import.meta.url)),
+    encoding: "utf8",
+  });
+  assert.deepEqual(JSON.parse(out.trim().split("\n").at(-1) ?? ""), {
+    streamed: 0,
+    fetched: ["wf_wasm_bg.wasm"],
+    info: { version },
+  });
+});
+
+const failScript = `
+globalThis.fetch = async () => new Response("nope", { status: 404, statusText: "Not Found" });
+const { loadCore } = await import("./src/lib/rust-core.ts");
+try { await loadCore(); console.log(JSON.stringify({ error: null })); }
+catch (e) { console.log(JSON.stringify({ error: String(e.message) })); }
+`;
+
+test("a failed .wasm fetch rejects with its status", () => {
+  const out = execFileSync(process.execPath, ["--import", "tsx", "--input-type=module", "-e", failScript], {
+    cwd: fileURLToPath(new URL("../../../", import.meta.url)),
+    encoding: "utf8",
+  });
+  const { error } = JSON.parse(out.trim().split("\n").at(-1) ?? "") as { error: string | null };
+  assert.match(error ?? "", /404 Not Found/);
+});
+
 test("loadCore resolves to the initialised core module", async () => {
   assert.ok(version);
   const core = await loadCore(wasm);

@@ -106,20 +106,25 @@ export class FileEntityStore<T extends { id: string }> {
     const held: HeldFile[] = [];
     if (!(await this.fs.stat(dir))) return { found: [], held };
     const found: FoundEntity<T>[] = [];
-    for await (const entry of this.fs.walk(dir)) {
-      if (entry.kind !== "file" || !entry.path.endsWith(".md")) continue;
+    const paths: string[] = [];
+    for await (const entry of this.fs.walk(dir)) if (entry.kind === "file" && entry.path.endsWith(".md")) paths.push(entry.path);
+    // Read together, not one after another: one IPC round trip each held the workspace load.
+    const texts = await Promise.allSettled(paths.map((path) => this.fs.readText(path)));
+    texts.forEach((read, i) => {
+      const path = paths[i]!;
       let row: Record<string, unknown> | null;
       let text = "";
       try {
-        text = await this.fs.readText(entry.path);
+        if (read.status === "rejected") throw read.reason;
+        text = read.value;
         row = core.entityRowFromFile(this.kind, text);
       } catch (error) {
-        console.warn(`Skipped ${entry.path}: could not read it.`, error);
-        held.push({ path: entry.path, id: core.entityIdFromText(text) ?? null });
-        continue;
+        console.warn(`Skipped ${path}: could not read it.`, error);
+        held.push({ path, id: core.entityIdFromText(text) ?? null });
+        return;
       }
-      if (row) found.push({ path: entry.path, text, row: row as T });
-    }
+      if (row) found.push({ path, text, row: row as T });
+    });
     return { found: found.sort((a, b) => a.path.localeCompare(b.path)), held };
   }
 

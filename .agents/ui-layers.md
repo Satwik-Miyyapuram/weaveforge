@@ -12,7 +12,7 @@ Each composited layer costs GPU tiles. WebView2 runs a memory-tight app, so keep
 | GPU `gpu/shared_images` | < 50 MB |
 | Dev idle private bytes (WebView2 + shell, no Postgres) | < 220 MB |
 
-Check with Dev running: `node scripts/perf/budget.mjs` (add `--idle` after the app has been idle). It exits 1 and prints one `OVER` line per broken budget. The numbers live in `scripts/lib/ui-budget.mjs`. The desktop sweep's tab test checks the layer budget on every rail tab (`.agents/testing.md`). Layers that draw nothing (`drawsContent: false`) cost no tiles and are not counted.
+Check with Dev running: `node scripts/perf/budget.mjs` (add `--idle` after the app has been idle). It exits 1 and prints one `OVER` line per broken budget. The numbers live in `scripts/lib/ui-budget.mjs`. The desktop sweep's tab test checks the layer budget on every rail tab (`.agents/testing.md`). Layers that draw nothing (`drawsContent: false`) cost no tiles and are not counted. The sweep also leaves out layers a scroller owns (a list's scroll contents, sticky heads inside it), since they grow with the data; `budget.mjs` counts every drawing layer.
 
 ## Rules
 

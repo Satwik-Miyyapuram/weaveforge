@@ -22,6 +22,7 @@ import { logToApp } from "@/lib/error-report/app-log";
 import type { Peer } from "../domain/presence.js";
 import { readyCore, typedCore } from "@/lib/rust-core";
 import { PresenceAvatars } from "./presence-avatars";
+import { hideUntilSeeded } from "./seed-gate";
 
 const SAVE_MS = 1500;
 
@@ -164,6 +165,7 @@ export function CollaborativeMarkdownEditor({
     // Cleanup of the previous run has already flushed; this run starts unready
     // again until its own bootstrap + seed completes.
     saver.begin();
+    const reveal = hideUntilSeeded(host);
 
     const doc = new Y.Doc();
     docRef.current = doc;
@@ -202,6 +204,7 @@ export function CollaborativeMarkdownEditor({
         const { saved, dirty } = reconcileWithBody(doc, initialBody, (text) => readyCore().digestText(text));
         saver.seeded(saved);
         if (dirty) saver.schedule(yText.toString());
+        reveal();
         host.dispatchEvent(new Event("input", { bubbles: true }));
       },
       onError: (stage, detail) => setTransportError(`${stage}: ${detail}`),

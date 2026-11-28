@@ -33,7 +33,7 @@ import {
   type VaultPageTreeNode,
 } from "@weaveforge/core";
 import { readyCore } from "@/lib/rust-core";
-import { moveToTrash } from "@/lib/workspace-trash";
+import { moveFolderToTrash, moveToTrash } from "@/lib/workspace-trash";
 import { rootOf, type RootLike } from "@/backend/providers/files/file-entity-store";
 
 const TYPE = "vault_page";
@@ -119,11 +119,14 @@ export class FileNoteRepository implements IVaultPageRepository, IVaultPageManag
   private async readAll(): Promise<Found[]> {
     if (!(await this.fs.stat(this.dir))) return [];
     const found: Found[] = [];
-    for await (const entry of this.fs.walk(this.dir)) {
-      if (!entry.path.endsWith(SUFFIX)) continue;
-      const parsed = parse(entry.path, await this.fs.readText(entry.path));
+    const paths: string[] = [];
+    for await (const entry of this.fs.walk(this.dir)) if (entry.path.endsWith(SUFFIX)) paths.push(entry.path);
+    // Read together, not one after another: one IPC round trip each held the workspace load.
+    const texts = await Promise.all(paths.map((path) => this.fs.readText(path)));
+    texts.forEach((text, i) => {
+      const parsed = parse(paths[i]!, text);
       if (parsed) found.push(parsed);
-    }
+    });
     found.sort((a, b) => a.path.localeCompare(b.path));
     // Two files can carry one id (a copied file, an old mirror's twin): the first one is the note, as `find` reads it.
     const ids = new Set<string>();
@@ -361,10 +364,27 @@ export class FileNoteRepository implements IVaultPageRepository, IVaultPageManag
   async delete(id: string): Promise<void> {
     // To the trash, like a paper: a note is the user's file and a delete must be undoable.
     // Every file carrying the id goes: a twin left behind would bring the note back.
-    for (const found of (await this.readAll()).filter((f) => f.page.id === id)) {
+    const all = await this.readAll();
+    for (const found of all.filter((f) => f.page.id === id)) {
       await moveToTrash(this.fs, found.path, Date.now());
+      await this.trashInkFolder(all, found);
     }
     this.loaded.delete(id);
+  }
+
+  /** The note's strokes folder (`foo.note.ink/` by `foo.note.md`) follows it to the trash, unless another note shares it. */
+  private async trashInkFolder(all: readonly Found[], note: Found): Promise<void> {
+    const dirOf = (path: string) => {
+      try {
+        return readyCore().inkStrokesDir(path);
+      } catch {
+        return null;
+      }
+    };
+    const dir = dirOf(note.path);
+    if (!dir || all.some((f) => f.page.id !== note.page.id && dirOf(f.path) === dir)) return;
+    if ((await this.fs.stat(dir))?.kind !== "dir") return;
+    await moveFolderToTrash(this.fs, dir, Date.now());
   }
 
   private async write(path: string, text: string, expected: string | null): Promise<void> {

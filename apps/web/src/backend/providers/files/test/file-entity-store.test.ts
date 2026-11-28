@@ -336,6 +336,24 @@ test("unreadable, empty, foreign and newer files are skipped, not fatal", async 
   assert.equal(warned.length, 1, "only the newer file is reported");
 });
 
+test("0.9.8: a scan reads the files together and still lists them sorted by path", async () => {
+  const { fs, store } = setup();
+  for (const n of [3, 1, 2]) await store.save(row({ id: `0123456789abcde${n}`, name: `Run ${n}` }));
+  const readText = fs.readText.bind(fs);
+  let open = 0;
+  let most = 0;
+  fs.readText = async (path: string) => {
+    most = Math.max(most, ++open);
+    await new Promise((resolve) => setImmediate(resolve));
+    open -= 1;
+    return readText(path);
+  };
+  const found = await store.readAll();
+  assert.deepEqual(found.map((f) => f.row.name), ["Run 1", "Run 2", "Run 3"]);
+  assert.deepEqual(found.map((f) => f.path), [...found.map((f) => f.path)].sort());
+  assert.equal(most, 3);
+});
+
 test("an empty or missing folder lists nothing", async () => {
   const { store } = setup();
   assert.deepEqual(await store.all(), []);

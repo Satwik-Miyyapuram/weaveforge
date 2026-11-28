@@ -73,6 +73,7 @@ export function InkPage({
   ensurePage,
   penActive,
   cursorMode = false,
+  loading = false,
 }: InkPageProps) {
   /** The last erase position, so a sweep is one segment per move and not a point. */
   const lastErase = useRef<{ x: number; y: number } | null>(null);
@@ -538,7 +539,7 @@ export function InkPage({
 
   // One table for both surfaces that carry ink (`ink-page-pointer.ts`), so the
   // eraser and the ink dot are the same on a sheet and a paper.
-  const cursor = cursorMode ? "default" : inkToolCursor(tool, ink);
+  const cursor = loading ? "progress" : cursorMode ? "default" : inkToolCursor(tool, ink);
 
   // The overlay is drawn in page units and scaled by the viewBox, so the lasso
   // and the selection box need no projection of their own.
@@ -588,6 +589,7 @@ export function InkPage({
         <canvas
           ref={canvasRef}
           className="ink-canvas"
+          aria-busy={loading || undefined}
           style={{
             width: `${viewWidth}px`,
             height: `${viewHeight}px`,

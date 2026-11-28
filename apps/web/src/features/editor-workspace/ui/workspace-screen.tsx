@@ -65,6 +65,20 @@ import { IconButton } from "@/components/button";
  * this screen only decides which of them a tab points at and how a save gets
  * home.
  */
+/** Breadcrumbs kept per document for one pair of trees: each call copies both trees into wasm, and panes ask on every render. */
+function crumbCache(tree: WorkspaceTreeNode[], listsTree: WorkspaceTreeNode[]) {
+  const cache = new Map<string, ReturnType<typeof breadcrumbs>>();
+  return (tab: TabRef) => {
+    const key = `${tab.kind}\0${tab.id}`;
+    let crumbs = cache.get(key);
+    if (!crumbs) {
+      crumbs = breadcrumbs({ kind: tab.kind, id: tab.id }, tree, listsTree);
+      cache.set(key, crumbs);
+    }
+    return crumbs;
+  };
+}
+
 export function WorkspaceScreen() {
   const projectId = useProject().current?.id ?? null;
   const [documents, setDocuments] = useState<Document[] | null>(null);
@@ -512,7 +526,8 @@ export function WorkspaceScreen() {
       const key = readyCore().tabKey(tab);
       const doc = byKey.get(key);
       if (!doc && overleafPending && tab.kind === "overleaf") {
-        return <ScreenLoader status="Loading Overleaf…" showTips={false} compact />;
+        // The tab opens from its id alone; its sidebar row comes with the Overleaf rows.
+        return <DocumentHost tab={tab} mode={readyCore().tabMode(tab)} body="" onSave={(body, meta) => save(tab, body, meta)} onError={setError} inlinePreview={false} />;
       }
       if (!doc) return <p className="muted">This document is no longer in the workspace.</p>;
       if (!doc.hydrated) {
@@ -587,13 +602,14 @@ export function WorkspaceScreen() {
 
   // Breadcrumbs are per pane, because a split shows two documents and each
   // one has its own path.
+  const crumbsOf = useMemo(() => crumbCache(tree, listsTree), [tree, listsTree]);
   const crumbsFor = useCallback(
     (tab: TabRef) => {
       // The preview shows another document, so it shows that one's path.
       const shown = readyCore().isPreviewTab(tab) ? previewOf : tab;
-      return shown ? breadcrumbs({ kind: shown.kind, id: shown.id }, tree, listsTree) : [];
+      return shown ? crumbsOf(shown) : [];
     },
-    [tree, listsTree, previewOf],
+    [crumbsOf, previewOf],
   );
   // A canvas is a note kept as `.canvas`, so its suffix is the file's, not the note kind's.
   const suffixFor = useCallback(

@@ -346,6 +346,23 @@ async function appLogs(work: () => Promise<void>): Promise<{ message: string }[]
   return logs;
 }
 
+test("0.9.8: listForProject reads the sidecars together and keeps the paper order", async () => {
+  const { fs, repo } = setupWithFiles();
+  await repo.create("p-2", draft({ id: "b1" }));
+  await repo.create("p-1", draft({ id: "a1" }));
+  const readText = fs.readText.bind(fs);
+  let open = 0;
+  let most = 0;
+  fs.readText = async (path: string) => {
+    most = Math.max(most, ++open);
+    await new Promise((resolve) => setImmediate(resolve));
+    open -= 1;
+    return readText(path);
+  };
+  assert.deepEqual((await repo.listForProject()).map((a) => a.id), ["a1", "b1"]);
+  assert.equal(most, 2);
+});
+
 test("listForProject with no paper files lists nothing", async () => {
   const { repo } = setup();
   await repo.create("p-1", draft({ id: "a1" }));

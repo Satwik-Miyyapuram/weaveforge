@@ -170,6 +170,18 @@ test("flush commits every pending delete (app quit)", () => {
   assert.equal(store.snapshot().length, 0);
 });
 
+test("a delete still on its way says so, so the app close waits for it", async () => {
+  const { store } = setup();
+  let done!: () => void;
+  store.deferDelete({ keys: ["a"], message: "a", commit: () => new Promise<void>((r) => (done = r)) });
+  assert.equal(store.committing(), false, "nothing is on its way before the toast closes");
+  store.flush();
+  assert.equal(store.committing(), true);
+  done();
+  await new Promise((r) => setTimeout(r, 0));
+  assert.equal(store.committing(), false);
+});
+
 test("a commit that throws still closes the toast and shows what failed", () => {
   const { store } = setup();
   const id = store.deferDelete({

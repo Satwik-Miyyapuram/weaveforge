@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { activeWorkspaceFs, onFolderConnected } from "@/features/workspace/application/workspace-folder";
+import { activeWorkspaceFs, folderRestored, onFolderConnected } from "@/features/workspace/application/workspace-folder";
 import { bindWorkspaceSettingsFolder, workspaceSettings } from "@/features/settings/application/workspace-settings";
 import { SETTINGS_PATH } from "@/features/settings/application/workspace-settings-file";
 import { holdCloseWhile } from "@/lib/desktop/close-flush";
@@ -14,7 +14,7 @@ import { desktop } from "@/lib/desktop/desktop-bridge";
  */
 export function WorkspaceSettingsSync() {
   useEffect(() => {
-    bindWorkspaceSettingsFolder(activeWorkspaceFs);
+    bindWorkspaceSettingsFolder(activeWorkspaceFs, folderRestored);
     const load = () => void workspaceSettings.load();
     if (activeWorkspaceFs()) load();
     const stopFolder = onFolderConnected(load);

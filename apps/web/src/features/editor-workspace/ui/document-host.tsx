@@ -5,8 +5,9 @@
  *
  * `CollabBodyHost` — the shipped CodeMirror source editor with its Yjs binding —
  * is untouched and stays the renderer for every text kind. It is wrapped here,
- * never replaced, so the collaborative stack, its save policy and its lazy
- * loading boundary are exactly what they were.
+ * never replaced, so the collaborative stack and its save policy are exactly
+ * what they were. It is imported without its lazy boundary: this whole screen
+ * is already loaded on demand.
  *
  * Read mode is each kind's own renderer — `VaultMarkdown` for a note, the
  * paper and report screens' for theirs — reused rather than rewritten, which
@@ -26,7 +27,9 @@ import type { EditorView } from "@codemirror/view";
 import { getContainer } from "@/bootstrap";
 import type { EditorHandleRef } from "@/components/editor-handle";
 import type { ImagePasteConfig } from "@/components/markdown/markdown-image-paste";
-import { CollabBodyHost, type SaveBody } from "@/features/collab";
+import type { SaveBody } from "@/features/collab";
+// The workspace screen is already lazy: no second loading step for the editor.
+import { CollabBodyHost } from "@/features/collab/eager";
 // The features' public APIs, not their `ui/` folders: a feature may reach a
 // sibling only through its index (CONTRIBUTING.md § SOLID). A paper's
 // `paperimg:` and a section's `reportimg:` resolve here because the resolvers

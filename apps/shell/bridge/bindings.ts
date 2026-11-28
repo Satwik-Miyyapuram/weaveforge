@@ -204,6 +204,13 @@ export const commands = {
 	 */
 	vaultRead: (path: string) => typedError<string | null, ShellError_Serialize>(__TAURI_INVOKE("vault_read", { path })),
 	/**
+	 *  Reads many text files in the chosen folder in one call.
+	 * 
+	 *  # Errors
+	 *  No folder chosen.
+	 */
+	vaultReadMany: (paths: string[]) => typedError<ReadEntry_Serialize[], ShellError_Serialize>(__TAURI_INVOKE("vault_read_many", { paths })),
+	/**
 	 *  Writes a text file in the chosen folder.
 	 * 
 	 *  # Errors
@@ -1270,6 +1277,25 @@ export type PullNowReply = {
 	pulled: boolean,
 	/**  The paths the pull wrote, sorted. */
 	paths: string[],
+};
+
+/**  One file's result in `read_many`: its text, nothing when missing, or why it could not be read. */
+export type ReadEntry = ReadEntry_Serialize | ReadEntry_Deserialize;
+
+/**  One file's result in `read_many`: its text, nothing when missing, or why it could not be read. */
+export type ReadEntry_Deserialize = {
+	/**  The text; `None` when the file is missing or could not be read. */
+	text?: string | null,
+	/**  Why this one file could not be read (a refused path, over the size cap). */
+	error?: string | null,
+};
+
+/**  One file's result in `read_many`: its text, nothing when missing, or why it could not be read. */
+export type ReadEntry_Serialize = {
+	/**  The text; `None` when the file is missing or could not be read. */
+	text: string | null,
+	/**  Why this one file could not be read (a refused path, over the size cap). */
+	error: string | null,
 };
 
 /**  How many `vault-changed` batches a rescan sent. */

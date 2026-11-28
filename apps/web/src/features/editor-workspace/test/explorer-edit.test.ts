@@ -74,6 +74,23 @@ test("rename: notes and sections, never roots or papers", () => {
   assert.equal(core().rootOf(bare({ key: "x", kind: "vault_page", isMember: true })), null);
 });
 
+test("0.9.8: rename and create checks read the row, not its children (the explorer passes the row alone)", () => {
+  const all: WorkspaceTreeNode[] = [];
+  const walk = (nodes: readonly WorkspaceTreeNode[]) => {
+    for (const node of nodes) {
+      all.push(node);
+      walk(node.children);
+    }
+  };
+  walk(tree());
+  assert.ok(all.some((n) => n.children.length > 0), "the fixture has rows with children");
+  for (const node of all) {
+    const alone = { ...node, children: [] };
+    assert.equal(core().canRename(alone), core().canRename(node), node.key);
+    assert.deepEqual(core().creatableUnder(alone), core().creatableUnder(node), node.key);
+  }
+});
+
 test("creation target: the active note's folder, else the Notes root; a paper never", () => {
   const folders = new Set(["n1"]);
   assert.deepEqual(core().creationTarget("note", { kind: "vault_page", id: "n2", parentId: "n1" }, folders), {

@@ -6,6 +6,7 @@
  */
 import type { IWorkspaceFs } from "@weaveforge/core";
 import { ConflictError } from "@weaveforge/core";
+import { logToApp } from "@/lib/error-report/app-log";
 import { typedCore } from "@/lib/rust-core";
 
 const NAME_ATTEMPTS = 1000;
@@ -84,4 +85,74 @@ export async function claimTrashFolder(
     return { target, release };
   }
   throw new ConflictError(`${folder}: no free name in the trash; not removed.`);
+}
+
+/**
+ * Moves every file under `folder` to the trash (`.weaveforge/trash/<day>/<folder>`, numbered on a
+ * clash, never deleted), then removes the emptied folders.
+ */
+export async function moveFolderToTrash(open: IWorkspaceFs, folder: string, now: number): Promise<void> {
+  const fs = pinned(open);
+  const { target: base, release } = await claimTrashFolder(fs, folder, now);
+  const { files, dirs } = await treeUnder(fs, folder);
+  try {
+    for (const path of files) {
+      const target = base + path.slice(folder.length);
+      await fs.mkdirp(target.slice(0, target.lastIndexOf("/")));
+      await fs.rename(path, target);
+    }
+  } finally {
+    await release();
+  }
+  // Remove the emptied folders deepest first, without recursion. The desktop's
+  // remove refuses a folder that still holds something (a file written after the
+  // walk), so that folder is left in place and the refusal is logged.
+  for (const dir of [...dirs, folder].sort((a, b) => b.length - a.length)) {
+    try {
+      await fs.remove(dir);
+    } catch (error) {
+      if (isKeptFolderError(error)) continue;
+      logToApp({
+        level: "warn",
+        source: "workspace",
+        message: `Could not remove the emptied folder ${dir} after moving its files to the trash`,
+        detail: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+}
+
+/**
+ * A folder that is not empty (ENOTEMPTY, or InvalidModificationError in the
+ * browser's file system) or already gone (ENOENT / NotFound / NotFoundError) is
+ * expected here and stays silent; any other failure to remove a folder is logged.
+ */
+function isKeptFolderError(error: unknown): boolean {
+  const { code, name } = (error ?? {}) as { code?: unknown; name?: unknown };
+  if (code === "ENOTEMPTY" || code === "ENOENT" || code === "NotFound") return true;
+  if (name === "InvalidModificationError" || name === "NotFoundError") return true;
+  const message = error instanceof Error ? error.message : String(error);
+  return /\b(ENOTEMPTY|ENOENT|NotFound)\b/.test(message);
+}
+
+/**
+ * Every file and folder under `dir`, from `list` alone. `walk` reports files only,
+ * so a folder with nothing in it would never be seen and never removed.
+ */
+async function treeUnder(fs: IWorkspaceFs, dir: string): Promise<{ files: string[]; dirs: string[] }> {
+  const files: string[] = [];
+  const dirs: string[] = [];
+  const pending = [dir];
+  while (pending.length > 0) {
+    const current = pending.pop()!;
+    for (const entry of await fs.list(current)) {
+      if (entry.kind === "dir") {
+        dirs.push(entry.path);
+        pending.push(entry.path);
+      } else {
+        files.push(entry.path);
+      }
+    }
+  }
+  return { files, dirs };
 }

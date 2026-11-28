@@ -4,6 +4,7 @@ import { useEffect, useSyncExternalStore } from "react";
 
 import { Button, CloseButton } from "./button";
 import { typedCore } from "@/lib/rust-core";
+import { holdCloseWhile } from "@/lib/desktop/close-flush";
 import { toasts, type Toast, type ToastStore } from "@/lib/toast/parts";
 
 /** Ctrl+Z / Cmd+Z, not in a text field (which has its own undo). */
@@ -59,7 +60,10 @@ export function ToastHost() {
     document.addEventListener("visibilitychange", onVisibility);
     window.addEventListener("keydown", onKey);
     window.addEventListener("pagehide", onQuit);
+    // The desktop close waits until those deletes have landed.
+    const stopHold = holdCloseWhile(() => toasts.committing());
     return () => {
+      stopHold();
       document.removeEventListener("visibilitychange", onVisibility);
       window.removeEventListener("keydown", onKey);
       window.removeEventListener("pagehide", onQuit);

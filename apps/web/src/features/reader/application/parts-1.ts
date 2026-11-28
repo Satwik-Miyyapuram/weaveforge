@@ -351,6 +351,18 @@ export const pause = (ms: number, signal?: AbortSignal) =>
     signal?.addEventListener("abort", onAbort, { once: true });
   });
 
+/**
+ * Which papers the store already holds, asked for all at once: one IPC round
+ * trip after another held the workspace load. A failed check is `null`.
+ */
+export async function heldPdfs(
+  ids: readonly string[],
+  has: (id: string) => Promise<boolean>,
+): Promise<(boolean | null)[]> {
+  const checks = await Promise.allSettled(ids.map((id) => has(id)));
+  return checks.map((c) => (c.status === "fulfilled" ? c.value : null));
+}
+
 export async function downloadLibraryPdfs(
   options: DownloadOptions = {},
 ): Promise<DownloadProgress> {
@@ -373,10 +385,11 @@ export async function downloadLibraryPdfs(
   const papers = snapshot.papers;
   progress.total = papers.length;
   const pauseMs = options.pauseMs ?? DOWNLOAD_PAUSE_MS;
-  for (const paper of papers) {
+  const held = await heldPdfs(papers.map((p) => p.id), (id) => cache.has(id));
+  for (const [i, paper] of papers.entries()) {
     if (options.signal?.aborted) break;
     try {
-      if (await cache.has(paper.id)) {
+      if (held[i] !== false) {
         progress.skipped += 1;
         continue;
       }
@@ -408,14 +421,23 @@ export async function downloadLibraryPdfs(
 let started = false;
 
 /**
+ * How long the walk waits after the folder is adopted: it reads every paper and
+ * checks every PDF, which held the first workspace open past its budget.
+ */
+export const DOWNLOAD_START_DELAY_MS = 10_000;
+
+/**
  * The download once per session, in the background, after a desktop folder
  * is adopted. Idempotent: a second adoption in the same session — a folder
  * chosen over the remembered one — does not start a second walk.
  */
-export function downloadLibraryPdfsOnce(): void {
+export function downloadLibraryPdfsOnce(
+  wait: () => Promise<void> = () => pause(DOWNLOAD_START_DELAY_MS),
+  walk: () => Promise<DownloadProgress> = downloadLibraryPdfs,
+): void {
   if (started) return;
   started = true;
-  void downloadLibraryPdfs().catch(() => {
+  void wait().then(walk).catch(() => {
     // Best-effort: the reader fetches on open regardless.
   });
 }

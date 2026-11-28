@@ -109,8 +109,8 @@ export class LinkIndex {
 
   /** Scans the folders once; use it for several lookups in one call. */
   async snapshot(): Promise<Links> {
-    const paper = await this.scan("paper", ".paper.md");
-    const vault = await this.scan("vault_page", ".note.md");
+    // Both folders at once: scanning papers first held the notes walk behind every paper read.
+    const [paper, vault] = await Promise.all([this.scan("paper", ".paper.md"), this.scan("vault_page", ".note.md")]);
     const unreadable = [...paper.unreadable, ...vault.unreadable];
     // Lookups keep the files they could read; each unreadable one is logged, never dropped silently.
     // Logged once while it stays unreadable for the same reason, so repeated lookups do not repeat it.
@@ -142,16 +142,19 @@ export class LinkIndex {
     const out: Entry[] = [];
     const unreadable: Unreadable[] = [];
     if (!(await this.fs.stat(dir))) return { entries: out, unreadable };
-    for await (const entry of this.fs.walk(dir)) {
-      if (entry.kind !== "file" || !entry.path.endsWith(suffix)) continue;
+    const files: { path: string }[] = [];
+    for await (const entry of this.fs.walk(dir)) if (entry.kind === "file" && entry.path.endsWith(suffix)) files.push(entry);
+    // Read together, not one after another: one IPC round trip each held the workspace load.
+    const reads = await Promise.allSettled(files.map((entry) => this.fs.readText(entry.path)));
+    for (const [i, entry] of files.entries()) {
+      const read = reads[i]!;
       let id: string | undefined;
-      let text: string;
-      try {
-        text = await this.fs.readText(entry.path);
-      } catch (error) {
+      if (read.status === "rejected") {
+        const error: unknown = read.reason;
         unreadable.push({ path: entry.path, reason: error instanceof Error ? error.message : String(error) });
         continue;
       }
+      const text = read.value;
       try {
         if (kind === "paper") {
           const raw: unknown = core.paperRowFromFile(text).id;

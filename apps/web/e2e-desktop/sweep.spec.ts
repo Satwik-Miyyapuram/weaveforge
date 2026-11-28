@@ -1,7 +1,7 @@
 /** The sweep: walks every route, explorer item, theme, window size and safe control of the running Dev app and reports anything wrong. */
 import { mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import type { Page } from "@playwright/test";
-import { expect, test } from "./dev-app";
+import { expect, openInProject, test } from "./dev-app";
 import { armLongTasks, formatIssues, overLayers, scanPage, slowOpen, takeLongTasks, waitReady, watchErrors, type Issue } from "./sweep-checks";
 
 // What each test covers:
@@ -52,6 +52,9 @@ async function goto(app: Page, route: string): Promise<number> {
 test.describe("sweep", () => {
   // Not serial: one failing test must not stop the rest of the sweep (workers: 1 keeps the order).
   test.describe.configure({ mode: "default" });
+
+  // With no project open every route shows the projects screen, and the sweep would check nothing.
+  test.beforeEach(({ app }) => openInProject(app, "/dashboard"));
 
   // A failed test restarts the worker, which empties ALL, so each test writes its own file.
   test.afterEach(({}, info) => {

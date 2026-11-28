@@ -1,10 +1,7 @@
-"use client";
-
-import { useEffect, useRef } from "react";
-
-import { chooseDesktopFolder, folderSession, markFolderRestored } from "../application/workspace-folder";
+import { activeWorkspaceFs, chooseDesktopFolder, folderRestored, folderSession, markFolderRestored } from "../application/workspace-folder";
 import { desktop } from "@/lib/desktop/desktop-bridge";
 import { logToApp } from "@/lib/error-report/app-log";
+import { bindWorkspaceSettingsFolder } from "@/features/settings/application/workspace-settings";
 
 /**
  * Take up the remembered workspace folder at startup, once.
@@ -28,32 +25,35 @@ import { logToApp } from "@/lib/error-report/app-log";
  * something to interrupt the first paint over: both leave the session exactly as
  * it was, and the Workspace tab is where a reader goes to connect one.
  */
-export function WorkspaceFolderRestore() {
-  const asked = useRef(false);
+let asked = false;
 
-  useEffect(() => {
-    if (asked.current) return;
-    asked.current = true;
-    // A browser has no shell and no remembered folder.
-    if (!desktop()) return;
-    // Already connected: a folder picked earlier in this session wins, because
-    // reconnecting over it would silently swap where the next write lands.
-    if (folderSession()) return markFolderRestored();
-    void chooseDesktopFolder({ git: false, reuse: true })
-      .catch((err: unknown) => {
-        // A path that has gone — an unplugged drive, a dead network share —
-        // leaves `activeFs` as it was. Nothing on screen: the reader never
-        // asked. The log keeps it for a report.
-        logToApp({
-          level: "warn",
-          source: "workspace",
-          message: "The remembered folder could not be reconnected",
-          detail: err instanceof Error ? err.message : String(err),
-        });
-      })
-      // Whatever the answer, the readers held for it can go ahead.
-      .finally(markFolderRestored);
-  }, []);
-
-  return null;
+/**
+ * Called from the shell's first effect, not mounted as a `dynamic()` component: a
+ * lazy component's effect waits for React's Suspense reveal (about 300 ms), and
+ * every startup read waits for the folder. The settings file reader is bound
+ * first, since startup loads it right after the folder.
+ */
+export function restoreRememberedFolder(): void {
+  if (asked) return;
+  asked = true;
+  bindWorkspaceSettingsFolder(activeWorkspaceFs, folderRestored);
+  // A browser has no shell and no remembered folder.
+  if (!desktop()) return;
+  // Already connected: a folder picked earlier in this session wins, because
+  // reconnecting over it would silently swap where the next write lands.
+  if (folderSession()) return markFolderRestored();
+  void chooseDesktopFolder({ git: false, reuse: true })
+    .catch((err: unknown) => {
+      // A path that has gone — an unplugged drive, a dead network share —
+      // leaves `activeFs` as it was. Nothing on screen: the reader never
+      // asked. The log keeps it for a report.
+      logToApp({
+        level: "warn",
+        source: "workspace",
+        message: "The remembered folder could not be reconnected",
+        detail: err instanceof Error ? err.message : String(err),
+      });
+    })
+    // Whatever the answer, the readers held for it can go ahead.
+    .finally(markFolderRestored);
 }

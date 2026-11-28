@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useState, type ReactNode } from "react";
+import { Fragment, useRef, useState, type ReactNode } from "react";
 
 import { NavIcon } from "@/app/nav-icon";
 import { Select } from "@/components/select";
@@ -190,6 +190,12 @@ function PaneLeafView({
 }: TreeProps & { leaf: PaneLeaf }) {
   const focused = layout.focusedPaneId === leaf.id;
   const showing = readyCore().activeTab(leaf);
+  // A tab mounts its document the first time it is shown and stays mounted
+  // after; a restored tab never shown has no state to keep, so it waits.
+  const seen = useRef(new Set<string>());
+  const keys = new Set(leaf.tabs.map((tab) => readyCore().tabKey(tab)));
+  if (showing) seen.current.add(readyCore().tabKey(showing));
+  for (const key of seen.current) if (!keys.has(key)) seen.current.delete(key);
   const crumbs = showing ? (crumbsFor?.(showing) ?? []) : [];
   const runs = readyCore().groupRuns(leaf);
 
@@ -318,14 +324,17 @@ function PaneLeafView({
             <EmptyState />
           ) : (
             leaf.tabs.map((tab) => {
-              const shown = showing !== undefined && readyCore().tabKey(tab) === readyCore().tabKey(showing);
+              const key = readyCore().tabKey(tab);
+              const shown = showing !== undefined && key === readyCore().tabKey(showing);
               // Hidden rather than unmounted: an editor that unmounts loses its
               // scroll position, its undo history and its live binding.
               return (
-                <div key={readyCore().tabKey(tab)} className="pane-document" hidden={!shown}>
-                  <ToolbarSlotContext.Provider value={focus ? undefined : focused && shown ? slot : null}>
-                    <PaneFocusedContext.Provider value={focused && shown}>{renderDocument(tab)}</PaneFocusedContext.Provider>
-                  </ToolbarSlotContext.Provider>
+                <div key={key} className="pane-document" hidden={!shown}>
+                  {seen.current.has(key) ? (
+                    <ToolbarSlotContext.Provider value={focus ? undefined : focused && shown ? slot : null}>
+                      <PaneFocusedContext.Provider value={focused && shown}>{renderDocument(tab)}</PaneFocusedContext.Provider>
+                    </ToolbarSlotContext.Provider>
+                  ) : null}
                 </div>
               );
             })

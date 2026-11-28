@@ -118,6 +118,34 @@ test("a write through one instance is seen by another on the same bridge", async
   assert.equal(await instanceB.readText("notes/a.md"), "new");
 });
 
+test("a write that creates a folder drops the folder's cached missing stat", async () => {
+  const { bridge } = countingBridge(new MemoryWorkspaceFs());
+  const a = new DesktopWorkspaceFs(bridge);
+  assert.equal(await a.stat("p/notes"), null);
+  assert.equal(await a.stat("p"), null);
+  await a.writeFile("p/notes/a.md", "one");
+  assert.equal((await a.stat("p/notes"))?.kind, "dir");
+  assert.equal((await a.stat("p"))?.kind, "dir");
+});
+
+test("a checked write that creates a folder drops the folder's cached missing stat", async () => {
+  const { bridge } = countingBridge(new MemoryWorkspaceFs());
+  const a = new DesktopWorkspaceFs(bridge);
+  assert.equal(await a.stat("p/notes"), null);
+  assert.equal(await a.writeTextIf!("p/notes/a.md", "one", null), true);
+  assert.equal((await a.stat("p/notes"))?.kind, "dir");
+});
+
+test("an outside file in a new folder shows once the watcher reports the file", async () => {
+  const fs = new MemoryWorkspaceFs();
+  const { bridge, emit } = countingBridge(fs);
+  const a = new DesktopWorkspaceFs(bridge);
+  assert.equal(await a.stat("notes"), null);
+  await fs.writeFile("notes/a.md", "outside");
+  emit(["notes/a.md"]);
+  assert.equal((await a.stat("notes"))?.kind, "dir");
+});
+
 test("an outside edit is hidden until the watcher reports it", async () => {
   const fs = new MemoryWorkspaceFs();
   await fs.writeFile("notes/a.md", "old");

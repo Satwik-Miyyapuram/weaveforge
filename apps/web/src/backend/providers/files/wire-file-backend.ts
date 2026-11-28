@@ -29,6 +29,7 @@ import {
 } from "./file-settings-repos";
 import { FilePaperTagRepository, FileTagRepository, type SettingsSection } from "./file-tag-repo";
 import type { ProjectRoot } from "./file-entity-store";
+import { clearScreensOnWrite } from "./clear-screens-on-write";
 
 /**
  * Everything the file backend builds for one folder, keyed as the
@@ -82,7 +83,8 @@ export interface FileBackendParts {
  * active project's folder (`parts.projectRoot`).
  */
 export function wireFileBackend(parts: FileBackendParts): FileRepositories {
-  const { fs, settings, secrets } = parts;
+  const { settings, secrets } = parts;
+  const fs = clearScreensOnWrite(parts.fs);
   const root: ProjectRoot = parts.projectRoot ?? (() => "");
   const papers = new FilePaperRepository(fs, root);
   const paperFields = new FilePaperFieldRepository(papers, settings, fs, root);

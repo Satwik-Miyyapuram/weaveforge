@@ -1,5 +1,5 @@
 /** Notes in the running Dev app: typing survives autosave with no reload or conflict copy, and a deleted note stays deleted. */
-import { expect, test } from "./dev-app";
+import { expect, findNoteFile, openInProject, test } from "./dev-app";
 
 // Selectors, all found in apps/web/src (no test ids exist for these):
 // - "New note" button: components/button.tsx:63 sets aria-label from the IconButton label; used at features/editor-workspace/ui/explorer-panel.tsx:429.
@@ -18,7 +18,13 @@ function visibleEditor(app: import("@playwright/test").Page) {
 
 /** Creates a note in the explorer through the "New note" button and the name box. */
 async function createNote(app: import("@playwright/test").Page, name: string) {
-  await app.getByRole("button", { name: "New note", exact: true }).click();
+  // A collapsed explorer hides its New note button.
+  const show = app.getByRole("button", { name: "Show explorer", exact: true });
+  const create = app.getByRole("button", { name: "New note", exact: true });
+  // Wait for the workspace to render one of them, or a check before it renders misses the collapse.
+  await show.or(create).first().waitFor({ timeout: 30_000 });
+  if (await show.isVisible()) await show.click();
+  await create.click();
   const input = app.locator("input.explorer-inline-title");
   await input.fill(name);
   await input.press("Enter");
@@ -26,6 +32,9 @@ async function createNote(app: import("@playwright/test").Page, name: string) {
 }
 
 test.describe("notes", () => {
+  // The editor workspace: its explorer holds the New note button and the name box.
+  test.beforeEach(({ app }) => openInProject(app, "/workspace"));
+
   test("typing with autosave keeps the text, focus, and no reload or conflict copy", async ({ app }) => {
     const name = `e2e-typing-${Date.now()}`;
     await createNote(app, name);
@@ -70,22 +79,18 @@ test.describe("notes", () => {
     expect(toasts.filter((t) => TOAST_BAD.test(t))).toEqual([]);
 
     // The note's folder holds no conflict copy next to it.
-    const folder = await app.evaluate(async (stem) => {
-      const bridge = (window as any).weaveforge;
-      const root = await bridge.listVaultFiles("");
-      const hit = root.find((e: { path: string; kind: string }) => e.kind === "file" && e.path.includes(stem));
-      if (!hit) return null;
-      const i = hit.path.lastIndexOf("/");
-      return i < 0 ? "" : hit.path.slice(0, i);
-    }, name);
-    expect(folder, "note file not found in the vault root listing").not.toBeNull();
+    const hit = await findNoteFile(app, name);
+    const folder = hit === null ? null : hit.slice(0, Math.max(0, hit.lastIndexOf("/")));
+    expect(folder, "note file not found in the vault").not.toBeNull();
     const siblings = await app.evaluate(async (dir) => {
       const list = await (window as any).weaveforge.listVaultFiles(dir);
       return list.map((e: { path: string }) => e.path);
     }, folder as string);
     expect(siblings.filter((p: string) => /conflict/i.test(p))).toEqual([]);
 
-    // The note stays in the Dev workspace; its name carries the run time.
+    // Trash the note so runs do not pile notes into the Dev workspace (each one slows its first open).
+    await app.evaluate((path) => (window as any).weaveforge.trashVaultFile(path), hit as string);
+    await expect.poll(() => findNoteFile(app, name), { timeout: 10_000 }).toBeNull();
   });
 
   // The explorer has no delete action; the note editor's "Delete note"

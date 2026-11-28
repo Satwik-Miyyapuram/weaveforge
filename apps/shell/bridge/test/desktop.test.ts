@@ -112,6 +112,43 @@ test("an error result rejects with the command's exact message", async () => {
   }
 });
 
+test("reads started together go to the shell as one call, each answered on its own", async () => {
+  const { cmds, calls } = fakeCommands({
+    vaultReadMany: {
+      status: "ok",
+      data: [
+        { text: "a", error: null },
+        { text: null, error: null },
+        { text: null, error: "Unsafe workspace path: ../c.md" },
+      ],
+    },
+  });
+  const shim = desktopShim(cmds, fakeEvents().events);
+  const got = await Promise.allSettled(["a.md", "b.md", "../c.md"].map((p) => shim.readVaultFile(p)));
+  assert.deepEqual(calls, [{ cmd: "vaultReadMany", args: [["a.md", "b.md", "../c.md"]] }]);
+  assert.deepEqual(got.slice(0, 2), [
+    { status: "fulfilled", value: "a" },
+    { status: "fulfilled", value: null },
+  ]);
+  assert.equal(got[2]?.status, "rejected");
+  assert.equal((got[2] as PromiseRejectedResult).reason.message, "Unsafe workspace path: ../c.md");
+});
+
+test("a lone read keeps the single-file call; a failed batch rejects every read in it", async () => {
+  const { cmds, calls } = fakeCommands({
+    vaultRead: { status: "ok", data: "x" },
+    vaultReadMany: error("No workspace folder is chosen yet."),
+  });
+  const shim = desktopShim(cmds, fakeEvents().events);
+  assert.equal(await shim.readVaultFile("a.md"), "x");
+  const got = await Promise.allSettled([shim.readVaultFile("a.md"), shim.readVaultFile("b.md")]);
+  assert.deepEqual(calls.map((c) => c.cmd), ["vaultRead", "vaultReadMany"]);
+  for (const r of got) {
+    assert.equal(r.status, "rejected");
+    assert.equal((r as PromiseRejectedResult).reason.message, "No workspace folder is chosen yet.");
+  }
+});
+
 test("an error result with a code rejects with that code on the Error", async () => {
   const { cmds } = fakeCommands({
     embedTexts: { status: "error", error: { message: "gone", code: "NOT_LOADED" } },

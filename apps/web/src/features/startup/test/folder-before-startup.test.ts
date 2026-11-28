@@ -50,3 +50,14 @@ test("the project list waits for the folder", () => {
   assert.ok(wait > -1, "the project list must await folderRestored()");
   assert.ok(wait < list, "await folderRestored() must come before listProjects()");
 });
+
+test("0.9.8: the restore starts from a plain effect, not a lazy component", () => {
+  // A `dynamic()` component's effect waits for React's Suspense reveal (~300 ms) and the startup reads wait for the folder.
+  const shell = read("apps/web/src/app/app-shell.tsx");
+  assert.doesNotMatch(shell, /const WorkspaceFolderRestore = dynamic\(/);
+  assert.match(shell, /function WorkspaceFolderRestore\(\)[\s\S]*?useEffect\([\s\S]*?restoreRememberedFolder\(\)/);
+  const restore = read("apps/web/src/features/workspace/ui/workspace-folder-restore.tsx");
+  const bind = restore.indexOf("bindWorkspaceSettingsFolder(activeWorkspaceFs, folderRestored)");
+  const connect = restore.indexOf("chooseDesktopFolder(");
+  assert.ok(bind > -1 && bind < connect, "the settings reader is bound before the folder connects");
+});

@@ -29,12 +29,21 @@ export const MARKER_THEIRS = ">>>>>>> the folder";
 let loaded: Promise<RustCore> | null = null;
 let ready: RustCore | null = null;
 
+/**
+ * The .wasm bytes, fetched whole. Not `instantiateStreaming`: it finishes on the
+ * main thread (v8.wasm.compileConsumeDone) and froze about one cold load in
+ * eight for 2-5 s (0.9.8); `instantiate` on the bytes compiles lazily instead.
+ */
+async function fetchWasm(url: URL): Promise<ArrayBuffer> {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`failed to fetch Wasm: ${res.status} ${res.statusText} fetching '${res.url || url.href}'`);
+  return res.arrayBuffer();
+}
+
 export function loadCore(source?: BufferSource): Promise<RustCore> {
   loaded ??= import("@weaveforge/wasm")
     .then(async (core) => {
-      await core.init(
-        source === undefined ? undefined : { module_or_path: source },
-      );
+      await core.init({ module_or_path: source ?? (await fetchWasm(core.wasmUrl())) });
       ready = core;
       // Generated float fields read `number | null` (specta); the core contract keeps `number`.
       setRustCore(core as never);

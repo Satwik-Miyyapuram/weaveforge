@@ -74,6 +74,8 @@ export function renderSettings(doc: SettingsDoc): string {
 export interface SettingsDeps {
   fs: () => IWorkspaceFs | null;
   warn: (message: string) => void;
+  /** Settles once the launch-time folder restore has answered; until then no folder is not news. */
+  restored?: () => Promise<void>;
   delayMs?: number;
   schedule?: (fn: () => void, ms: number) => unknown;
   cancel?: (handle: unknown) => void;
@@ -268,15 +270,26 @@ export class WorkspaceSettingsFile {
   private scheduleWrite(): void {
     if (this.stateValue === "locked") return;
     if (!this.deps.fs()) {
-      if (!this.warnedNoFolder) {
-        this.warnedNoFolder = true;
-        this.deps.warn("no workspace folder is open; settings edits wait in memory for the next workspace you open.");
-      }
-      this.remindNoFolder();
+      const restored = this.deps.restored?.();
+      if (restored) void restored.then(() => this.warnNoFolder());
+      else this.warnNoFolder();
       return;
     }
     this.clearTimer();
     this.timer = this.schedule(() => void this.flush(), this.delayMs);
+  }
+
+  private warnNoFolder(): void {
+    // The restore may have brought the folder back while the edit waited.
+    if (this.deps.fs()) {
+      if (this.dirty()) this.scheduleWrite();
+      return;
+    }
+    if (!this.warnedNoFolder) {
+      this.warnedNoFolder = true;
+      this.deps.warn("no workspace folder is open; settings edits wait in memory for the next workspace you open.");
+    }
+    this.remindNoFolder();
   }
 
   private async readDisk(fs: IWorkspaceFs): Promise<string | null> {
