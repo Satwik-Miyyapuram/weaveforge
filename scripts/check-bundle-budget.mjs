@@ -77,7 +77,10 @@ const buildDir = process.env.BUNDLE_BUILD_DIR ?? path.join(root, "apps/web/.next
 // meter, boot and explorer changes across ~490 commits) put the shell-only routes
 // at 431-434 KB locally: measured plus 2. No static dependency arrived; the one new
 // package (@embedpdf/pdfium) loads behind a dynamic import.
-const ROUTE_BUDGET_KB = 424;
+// The 0.9.8 UI-layer lane (batched vault reads, lazy panes, note ink folders to
+// the trash, the collab seed gate) put /reset-password at 437 KB locally: measured
+// plus 2. Every route grew by the same 1-2 KB; no dependency arrived.
+const ROUTE_BUDGET_KB = 427;
 
 /*
  * **The rebase for Next 16** (React 19) changed both the measure and the numbers,
@@ -141,17 +144,21 @@ const ROUTE_ALLOWANCES_KB = {
   // it is the one route that crossed: measured 446 KB plus 2. No dependency arrived.
   // The 0.9.2 shared-row sync in the shell (see the default): +7 KB on every route.
   // The 0.9.8 memory branch (see the default): measured 459 KB plus 2.
-  "/dashboard": 449,
+  // The 0.9.8 UI-layer lane (see the default): measured 462 KB plus 2.
+  "/dashboard": 452,
   // Lists screen carries reading lists, membership management, and EntityCardMenu:
   // The 0.9.2 shared-row sync in the shell (see the default).
   // The 0.9.8 memory branch (see the default): measured 446 KB plus 2.
-  "/lists": 436,
+  // The 0.9.8 UI-layer lane (see the default): measured 450 KB plus 2.
+  "/lists": 440,
   // The 0.9.1 integration (old-database import, theme-aware logo) put the log
   // on 436 KB on CI: measured plus 2.
   // The 0.9.2 shared-row sync in the shell (see the default).
-  "/log": 431,
+  // The 0.9.8 UI-layer lane (see the default): measured 445 KB plus 2.
+  "/log": 435,
   // The 0.9.8 memory branch (see the default): measured 442 KB plus 2.
-  "/plan": 432,
+  // The 0.9.8 UI-layer lane (see the default): measured 445 KB plus 2.
+  "/plan": 435,
   // The pitch page itself did not change; it sits on the shell, and the 0.9
   // shell (Rust port wasm loading, release-notice banner) put it at 423 KB on
   // CI, 1 KB over the default. Measured plus 2 KB. No dependency arrived.
